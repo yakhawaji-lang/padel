@@ -50,6 +50,10 @@ export const loadClubs = () => {
           club.settings.closingTime = '23:00'
           storeMigration = true
         }
+        if (!Array.isArray(club.offers)) {
+          club.offers = []
+          storeMigration = true
+        }
       })
       if (storeMigration) saveClubs(clubs)
       return clubs
