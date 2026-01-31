@@ -7,10 +7,11 @@ import MainAdminHeader from './components/MainAdminHeader'
 import AllClubsDashboard from './pages/AllClubsDashboard'
 import AllClubsManagement from './pages/AllClubsManagement'
 import { loadClubs, saveClubs } from '../storage/adminStorage'
+import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 
 function MainAdminPanel() {
   const [clubs, setClubs] = useState([])
-  const [language, setLanguage] = useState('en')
+  const [language, setLanguage] = useState(() => getAppLanguage())
   const [isLoading, setIsLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -26,7 +27,7 @@ function MainAdminPanel() {
       setClubs(savedClubs || [])
       
       // Load saved language preference
-      const savedLanguage = localStorage.getItem('main_admin_language')
+      const savedLanguage = getAppLanguage()
       if (savedLanguage) {
         setLanguage(savedLanguage)
       }
@@ -57,10 +58,8 @@ function MainAdminPanel() {
   // Save language preference when it changes
   useEffect(() => {
     if (language) {
-      localStorage.setItem('main_admin_language', language)
+      setAppLanguage(language)
     }
-    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr'
-    document.documentElement.lang = language
   }, [language])
 
   const handleClubCreate = (clubData) => {

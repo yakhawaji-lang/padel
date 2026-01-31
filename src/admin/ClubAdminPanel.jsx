@@ -4,6 +4,7 @@ import './ClubAdminPanel.css'
 import './admin-rtl.css'
 import ClubAdminSidebar from './components/ClubAdminSidebar'
 import ClubAdminHeader from './components/ClubAdminHeader'
+import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import ClubDashboard from './pages/ClubDashboard'
 import ClubMembersManagement from './pages/ClubMembersManagement'
 import ClubOffersManagement from './pages/ClubOffersManagement'
@@ -29,10 +30,11 @@ function ClubAdminPanel() {
       const foundClub = getClubById(clubId)
       if (foundClub) {
         setClub(foundClub)
-        // Load language from localStorage (user preference) or club default
-        const savedLanguage = localStorage.getItem(`club_${clubId}_language`)
+        // Load language: prefer app-wide, then club-specific, then club default
+        const appLang = getAppLanguage()
+        const clubLang = localStorage.getItem(`club_${clubId}_language`)
         const clubDefaultLanguage = foundClub.settings?.defaultLanguage || 'en'
-        setLanguage(savedLanguage || clubDefaultLanguage)
+        setLanguage(appLang || clubLang || clubDefaultLanguage)
       } else {
         // Club not found, redirect to main admin
         navigate('/admin/all-clubs')
@@ -45,11 +47,12 @@ function ClubAdminPanel() {
   
   // Save language preference when it changes
   useEffect(() => {
-    if (clubId && language) {
-      localStorage.setItem(`club_${clubId}_language`, language)
+    if (language) {
+      setAppLanguage(language)
+      if (clubId) {
+        localStorage.setItem(`club_${clubId}_language`, language)
+      }
     }
-    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr'
-    document.documentElement.lang = language
   }, [clubId, language])
 
   const handleClubUpdate = (updates) => {

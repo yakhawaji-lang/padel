@@ -16,13 +16,14 @@ import {
   deleteMatchesByDateAndType
 } from './storage'
 import { loadClubs, getClubById, saveClubs } from './storage/adminStorage'
+import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import playtomicApi from './services/playtomicApi'
 
 function App({ currentUser }) {
   const { clubId } = useParams()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('king') // 'king', 'social', 'members', 'oldTournaments', 'bookings', or 'accounting'
-  const [language, setLanguage] = useState('en')
+  const [language, setLanguage] = useState(() => getAppLanguage())
   const [currentClub, setCurrentClub] = useState(null) // Current club data loaded from URL
   const [isLoadingClub, setIsLoadingClub] = useState(true) // Loading state for club data
   
@@ -238,8 +239,8 @@ function App({ currentUser }) {
         
         const savedMembers = loadFromLocalStorage.members()
         const savedActiveTab = loadFromLocalStorage.activeTab()
-        // Load language from club-specific localStorage or club default
-        const savedLanguage = localStorage.getItem(`club_${clubId}_language`) || club?.settings?.defaultLanguage || loadFromLocalStorage.language() || 'en'
+        // Load language: app-wide first, then club-specific, then club default
+        const savedLanguage = getAppLanguage() || localStorage.getItem(`club_${clubId}_language`) || club?.settings?.defaultLanguage || loadFromLocalStorage.language() || 'en'
         const savedContentTab = loadFromLocalStorage.contentTab()
         const savedMemberTab = loadFromLocalStorage.memberTab()
         
@@ -287,11 +288,10 @@ function App({ currentUser }) {
     }
   }, [clubId, navigate])
 
-  // Update document direction for RTL
+  // Update document direction and persist language
   useEffect(() => {
-    document.documentElement.dir = isRTL ? 'rtl' : 'ltr'
-    document.documentElement.lang = language
-  }, [language, isRTL])
+    setAppLanguage(language)
+  }, [language])
 
   // Load dates with tournaments when oldTournamentTab changes
   useEffect(() => {

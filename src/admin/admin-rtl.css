@@ -42,15 +42,17 @@
   border-right: 3px solid #2196f3;
 }
 
-/* Header RTL */
+/* Header RTL - بدون row-reverse: header-left (قائمة+عنوان) يمين، header-right (لغة) يسار */
 .main-admin-panel.rtl .main-admin-header-content,
 .club-admin-panel.rtl .club-admin-header-content {
-  flex-direction: row-reverse;
+  flex-direction: row;
 }
 
+/* زر القائمة والعنوان على اليمين - ترتيب طبيعي [قائمة][عنوان] */
 .main-admin-panel.rtl .main-admin-header-left,
 .club-admin-panel.rtl .club-admin-header-left {
-  flex-direction: row-reverse;
+  flex-direction: row;
+  justify-content: flex-start;
 }
 
 .main-admin-panel.rtl .main-admin-page-title,

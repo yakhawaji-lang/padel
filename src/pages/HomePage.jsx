@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { loadClubs } from '../storage/adminStorage'
+import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './HomePage.css'
 
 const getClubTournamentStats = (club) => {
@@ -45,7 +46,7 @@ const HomePage = () => {
   const navigate = useNavigate()
   const [clubs, setClubs] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
-  const [language, setLanguage] = useState(localStorage.getItem('home_language') || 'en')
+  const [language, setLanguage] = useState(getAppLanguage())
   const [navOpen, setNavOpen] = useState(false)
 
   useEffect(() => {
@@ -56,9 +57,7 @@ const HomePage = () => {
   }, [])
 
   useEffect(() => {
-    localStorage.setItem('home_language', language)
-    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr'
-    document.documentElement.lang = language
+    setAppLanguage(language)
   }, [language])
 
   const filteredClubs = useMemo(() => {
@@ -297,7 +296,7 @@ const HomePage = () => {
             <span className="nav-sep"></span>
             <a href="/register" className="nav-register">{c.nav.register}</a>
             <a href="/login" className="nav-login">{c.nav.login}</a>
-            <button type="button" className="nav-lang" onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}>
+            <button type="button" className="nav-lang" onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')} aria-label={language === 'en' ? 'العربية' : 'English'}>
               {language === 'en' ? 'العربية' : 'English'}
             </button>
             <button type="button" className="nav-admin" onClick={handleAdminLogin}>

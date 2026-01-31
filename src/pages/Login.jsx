@@ -2,11 +2,12 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './Login.css'
 import { loadClubs, saveClubs } from '../storage/adminStorage'
+import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import { setCurrentPlatformUser } from '../storage/platformAuth'
 
 const Login = () => {
   const navigate = useNavigate()
-  const [language, setLanguage] = useState(localStorage.getItem('login_language') || 'en')
+  const [language, setLanguage] = useState(getAppLanguage())
   const [mode, setMode] = useState('login') // 'login' or 'signup' or 'createClub'
   const [formData, setFormData] = useState({
     name: '',
@@ -23,9 +24,7 @@ const Login = () => {
   }, [])
 
   React.useEffect(() => {
-    localStorage.setItem('login_language', language)
-    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr'
-    document.documentElement.lang = language
+    setAppLanguage(language)
   }, [language])
 
   const handleMemberLogin = (e) => {

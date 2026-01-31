@@ -178,6 +178,19 @@
     margin-left: 0;
   }
 
+  /* RTL: الشريط من اليمين */
+  .app.rtl .sidebar {
+    left: auto;
+    right: 0;
+    transform: translateX(100%);
+    padding-left: 0;
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .app.rtl.sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+
   .sidebar {
     position: fixed;
     left: 0;
@@ -1026,7 +1039,7 @@
 }
 
 .app.rtl .header-content {
-  flex-direction: row-reverse;
+  flex-direction: row;
 }
 
 .app.rtl .sidebar {

@@ -1,20 +1,19 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { getCurrentPlatformUser, setCurrentPlatformUser } from '../storage/platformAuth'
+import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './Register.css'
 
 const Register = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const joinClubId = searchParams.get('join')
-  const [language, setLanguage] = useState(localStorage.getItem('register_lang') || 'en')
+  const [language, setLanguage] = useState(getAppLanguage())
   const [formData, setFormData] = useState({ name: '', email: '', password: '' })
   const [error, setError] = useState('')
 
   useEffect(() => {
-    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr'
-    document.documentElement.lang = language
-    localStorage.setItem('register_lang', language)
+    setAppLanguage(language)
   }, [language])
 
   useEffect(() => {

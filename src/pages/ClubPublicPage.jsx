@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { loadClubs, getClubById, saveClubs } from '../storage/adminStorage'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
+import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './ClubPublicPage.css'
 
 const getClubBookings = (clubId) => {
@@ -90,15 +91,13 @@ const ClubPublicPage = () => {
   const { clubId } = useParams()
   const navigate = useNavigate()
   const [club, setClub] = useState(null)
-  const [language, setLanguage] = useState(localStorage.getItem('club_page_lang') || 'en')
+  const [language, setLanguage] = useState(getAppLanguage())
   const [joinStatus, setJoinStatus] = useState(null)
   const [platformUser, setPlatformUser] = useState(null)
   const [courtGridDate, setCourtGridDate] = useState(() => new Date().toISOString().split('T')[0])
 
   useEffect(() => {
-    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr'
-    document.documentElement.lang = language
-    localStorage.setItem('club_page_lang', language)
+    setAppLanguage(language)
   }, [language])
 
   useEffect(() => {

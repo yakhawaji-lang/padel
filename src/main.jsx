@@ -3,7 +3,11 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { loadClubsAsync, applyRemoteClubs } from './storage/adminStorage.js'
 import { subscribeToClubs } from './storage/supabaseSync.js'
+import { applyAppLanguage } from './storage/languageStorage.js'
 import './index.css'
+
+// تطبيق اللغة المحفوظة عند بدء التطبيق
+applyAppLanguage()
 
 /* Code-splitting: load route components on demand */
 const HomePage = lazy(() => import('./pages/HomePage'))

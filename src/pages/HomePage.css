@@ -835,15 +835,16 @@
 }
 
 [dir="rtl"] .features-list {
-  padding: 0 24px 0 0;
+  padding: 0 0 0 24px;
 }
 
 [dir="rtl"] .header-inner {
-  flex-direction: row-reverse;
+  flex-direction: row;
 }
 
 [dir="rtl"] .site-nav {
-  flex-direction: row-reverse;
+  flex-direction: row;
+  flex-wrap: wrap;
 }
 
 [dir="rtl"] .club-card,
