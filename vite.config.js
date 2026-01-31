@@ -6,6 +6,20 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-router': ['react-router-dom']
+        },
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash][extname]'
+      }
+    },
+    chunkSizeWarningLimit: 600
   }
 })
 

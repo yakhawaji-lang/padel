@@ -1,40 +1,46 @@
-import React from 'react'
+import React, { lazy, Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import App from './App'
-import MainAdminPanel from './admin/MainAdminPanel'
-import ClubAdminPanel from './admin/ClubAdminPanel'
-import Login from './pages/Login'
-import HomePage from './pages/HomePage'
-import ClubPublicPage from './pages/ClubPublicPage'
-import Register from './pages/Register'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
+
+/* Code-splitting: load route components on demand */
+const HomePage = lazy(() => import('./pages/HomePage'))
+const Login = lazy(() => import('./pages/Login'))
+const Register = lazy(() => import('./pages/Register'))
+const ClubPublicPage = lazy(() => import('./pages/ClubPublicPage'))
+const App = lazy(() => import('./App'))
+const MainAdminPanel = lazy(() => import('./admin/MainAdminPanel'))
+const ClubAdminPanel = lazy(() => import('./admin/ClubAdminPanel'))
+
+function LoadingFallback() {
+  return (
+    <div style={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      minHeight: '100vh',
+      fontSize: '18px',
+      color: '#64748b'
+    }}>
+      Loading...
+    </div>
+  )
+}
 
 function Root() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Home Page - Display all clubs */}
-        <Route path="/" element={<HomePage />} />
-        
-        {/* Main Admin Panel - Manage all clubs */}
-        <Route path="/admin/*" element={<MainAdminPanel />} />
-        
-        {/* Club Admin Panel - Manage specific club */}
-        <Route path="/admin/club/:clubId/*" element={<ClubAdminPanel />} />
-        
-        {/* Platform registration */}
-        <Route path="/register" element={<Register />} />
-        
-        {/* Login/Signup Page */}
-        <Route path="/login" element={<Login />} />
-        
-        {/* Club public commercial page */}
-        <Route path="/clubs/:clubId" element={<ClubPublicPage />} />
-        
-        {/* Club Page - Main application for a specific club */}
-        <Route path="/club/:clubId/*" element={<App />} />
-      </Routes>
+      <Suspense fallback={<LoadingFallback />}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/admin/*" element={<MainAdminPanel />} />
+          <Route path="/admin/club/:clubId/*" element={<ClubAdminPanel />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/clubs/:clubId" element={<ClubPublicPage />} />
+          <Route path="/club/:clubId/*" element={<App />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }
