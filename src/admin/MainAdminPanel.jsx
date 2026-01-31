@@ -11,6 +11,7 @@ function MainAdminPanel() {
   const [clubs, setClubs] = useState([])
   const [language, setLanguage] = useState('en')
   const [isLoading, setIsLoading] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     const loadData = () => {
@@ -108,16 +109,24 @@ function MainAdminPanel() {
   }
 
   return (
-    <div className="main-admin-panel">
+    <div className={`main-admin-panel ${sidebarOpen ? 'sidebar-open' : ''}`}>
+      <div
+        className="main-admin-sidebar-backdrop"
+        aria-hidden={!sidebarOpen}
+        onClick={() => setSidebarOpen(false)}
+      />
       <MainAdminSidebar 
         clubs={clubs}
         language={language}
         onLanguageChange={setLanguage}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
-      <div className="main-admin-content">
+      <div className="main-admin-content" onClick={() => setSidebarOpen(false)}>
         <MainAdminHeader 
           language={language}
           onLanguageChange={setLanguage}
+          onMenuToggle={() => setSidebarOpen(true)}
         />
         <Routes>
           <Route path="/" element={<Navigate to="all-clubs" replace />} />

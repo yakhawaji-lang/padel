@@ -1,11 +1,21 @@
 import React from 'react'
 import './ClubAdminHeader.css'
 
-const ClubAdminHeader = ({ club, language, onLanguageChange }) => {
+const ClubAdminHeader = ({ club, language, onLanguageChange, onMenuToggle }) => {
   return (
     <header className="club-admin-header">
       <div className="club-admin-header-content">
         <div className="club-admin-header-left">
+          {onMenuToggle && (
+            <button
+              type="button"
+              className="club-admin-menu-toggle"
+              onClick={onMenuToggle}
+              aria-label={language === 'en' ? 'Open menu' : 'فتح القائمة'}
+            >
+              <span /><span /><span />
+            </button>
+          )}
           <h1 className="club-admin-page-title">
             {club.logo && <img src={club.logo} alt="" className="club-logo" />}
             {language === 'en' ? club.name : club.nameAr || club.name}

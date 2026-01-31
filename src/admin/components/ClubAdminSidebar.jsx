@@ -1,10 +1,13 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import './ClubAdminSidebar.css'
 
-const ClubAdminSidebar = ({ club, language, onLanguageChange }) => {
+const ClubAdminSidebar = ({ club, language, onLanguageChange, open, onClose }) => {
   const location = useLocation()
   const { clubId } = useParams()
+  useEffect(() => {
+    if (open && typeof onClose === 'function') onClose()
+  }, [location.pathname])
 
   const isActive = (path) => {
     const currentPath = location.pathname
@@ -26,7 +29,7 @@ const ClubAdminSidebar = ({ club, language, onLanguageChange }) => {
   }
 
   return (
-    <aside className="club-admin-sidebar">
+    <aside className={`club-admin-sidebar ${open ? 'open' : ''}`} aria-hidden={!open}>
       <div className="club-admin-sidebar-header">
         <div className="club-info">
           <h2 className="club-admin-logo">
@@ -44,6 +47,7 @@ const ClubAdminSidebar = ({ club, language, onLanguageChange }) => {
         >
           {language === 'en' ? 'العربية' : 'English'}
         </button>
+        </div>
       </div>
 
       <nav className="club-admin-nav">

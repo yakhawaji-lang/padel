@@ -1,16 +1,19 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import './MainAdminSidebar.css'
 
-const MainAdminSidebar = ({ clubs, language, onLanguageChange }) => {
+const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) => {
   const location = useLocation()
+  useEffect(() => {
+    if (open && typeof onClose === 'function') onClose()
+  }, [location.pathname])
 
   const isActive = (path) => {
     return location.pathname === path || location.pathname.startsWith(path + '/')
   }
 
   return (
-    <aside className="main-admin-sidebar">
+    <aside className={`main-admin-sidebar ${open ? 'open' : ''}`} aria-hidden={!open}>
       <div className="main-admin-sidebar-header">
         <h2 className="main-admin-logo">
           {language === 'en' ? 'Main Admin Panel' : 'لوحة التحكم الرئيسية'}
@@ -22,6 +25,7 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange }) => {
         >
           {language === 'en' ? 'العربية' : 'English'}
         </button>
+        </div>
       </div>
 
       <nav className="main-admin-nav">

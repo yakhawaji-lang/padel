@@ -70,17 +70,25 @@ function ClubAdminPanel() {
   }
 
   return (
-    <div className="club-admin-panel">
+    <div className={`club-admin-panel ${sidebarOpen ? 'sidebar-open' : ''}`}>
+      <div
+        className="club-admin-sidebar-backdrop"
+        aria-hidden={!sidebarOpen}
+        onClick={() => setSidebarOpen(false)}
+      />
       <ClubAdminSidebar 
         club={club}
         language={language}
         onLanguageChange={setLanguage}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
-      <div className="club-admin-content">
+      <div className="club-admin-content" onClick={() => setSidebarOpen(false)}>
         <ClubAdminHeader 
           club={club}
           language={language}
           onLanguageChange={setLanguage}
+          onMenuToggle={() => setSidebarOpen(true)}
         />
         <Routes>
           <Route path="/" element={<Navigate to="dashboard" replace />} />
