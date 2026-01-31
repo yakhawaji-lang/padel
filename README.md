@@ -64,3 +64,11 @@ The built files will be in the `dist` folder. You can deploy this folder to any 
 
 لجعل بيانات النوادي والحجوزات تظهر على **جميع الأجهزة** (كمبيوتر، جوال، وغيرها)، ربط التطبيق بـ Supabase. اتبع الخطوات في [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) لإنشاء الجدول وإضافة `VITE_SUPABASE_URL` و`VITE_SUPABASE_ANON_KEY` محلياً وعلى Vercel.
 
+## رفع المشروع مع البيانات إلى GitHub
+
+1. تصدير البيانات من Supabase إلى ملف في المشروع:  
+   `npm run export-data`  
+   (يتطلّب `.env.local` مع مفاتيح Supabase؛ يُنشأ `data/seed-clubs.json`).
+2. رفع الكود والملف:  
+   `git add .` ثم `git commit -m "Project with data backup"` ثم `git push origin main`.
+
