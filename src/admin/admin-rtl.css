@@ -6,14 +6,10 @@
   margin-right: 280px;
 }
 
+/* سطح المكتب RTL: الشريط ظاهر على اليمين بدون transform */
 .main-admin-panel.rtl .main-admin-sidebar {
   left: auto;
   right: 0;
-  transform: translateX(100%);
-}
-
-.main-admin-panel.rtl.sidebar-open .main-admin-sidebar.open {
-  transform: translateX(0);
 }
 
 .main-admin-panel.rtl .main-admin-nav-item.active {
@@ -27,14 +23,10 @@
   margin-right: 250px;
 }
 
+/* سطح المكتب RTL: الشريط ظاهر على اليمين */
 .club-admin-panel.rtl .club-admin-sidebar {
   left: auto;
   right: 0;
-  transform: translateX(100%);
-}
-
-.club-admin-panel.rtl .club-admin-sidebar.open {
-  transform: translateX(0);
 }
 
 .club-admin-panel.rtl .club-admin-nav-item.active {
@@ -91,7 +83,7 @@
   flex-direction: row-reverse;
 }
 
-/* RTL على الجوال - الشريط من اليمين */
+/* RTL على الجوال والتابلت - الشريط drawer من اليمين */
 @media (max-width: 1024px) {
   .main-admin-panel.rtl .main-admin-content {
     margin-right: 0;
@@ -101,7 +93,7 @@
     transform: translateX(100%);
   }
 
-  .main-admin-panel.rtl.sidebar-open .main-admin-sidebar.open {
+  .main-admin-panel.rtl.sidebar-open .main-admin-sidebar {
     transform: translateX(0);
   }
 
@@ -113,7 +105,7 @@
     transform: translateX(100%);
   }
 
-  .club-admin-panel.rtl .club-admin-sidebar.open {
+  .club-admin-panel.rtl.sidebar-open .club-admin-sidebar {
     transform: translateX(0);
   }
 }
