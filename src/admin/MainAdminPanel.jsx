@@ -33,13 +33,23 @@ function MainAdminPanel() {
     }
     loadData()
     
+    // Update UI when another device adds/edits data (real-time sync)
+    const onClubsSynced = () => {
+      const updatedClubs = loadClubs()
+      setClubs(updatedClubs || [])
+    }
+    window.addEventListener('clubs-synced', onClubsSynced)
+    
     // Sync members periodically (every 5 seconds) to catch new members
     const syncInterval = setInterval(() => {
       const updatedClubs = loadClubs()
       setClubs(updatedClubs || [])
     }, 5000)
     
-    return () => clearInterval(syncInterval)
+    return () => {
+      window.removeEventListener('clubs-synced', onClubsSynced)
+      clearInterval(syncInterval)
+    }
   }, [])
   
   // Save language preference when it changes

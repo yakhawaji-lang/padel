@@ -1,14 +1,54 @@
 // Admin Storage - Multi-club management
 
+import { getRemoteClubs, setRemoteClubs, subscribeToClubs } from './supabaseSync.js'
+
 const ADMIN_STORAGE_KEYS = {
   CLUBS: 'admin_clubs',
   SETTINGS: 'admin_settings',
   CURRENT_CLUB: 'admin_current_club_id'
 }
 
+let _clubsCache = null
+
+/**
+ * Load clubs from Supabase into localStorage so the next loadClubs() uses them.
+ * Call once at app bootstrap.
+ */
+export async function loadClubsAsync() {
+  try {
+    const remote = await getRemoteClubs()
+    if (remote !== null && Array.isArray(remote)) {
+      localStorage.setItem(ADMIN_STORAGE_KEYS.CLUBS, JSON.stringify(remote))
+    }
+  } catch (e) {
+    console.warn('loadClubsAsync failed:', e)
+  }
+}
+
+/**
+ * Apply clubs received from another device (real-time sync). Updates cache and localStorage
+ * and dispatches 'clubs-synced' so the UI refreshes without reload.
+ */
+export function applyRemoteClubs(clubs) {
+  if (!Array.isArray(clubs)) return
+  try {
+    localStorage.setItem(ADMIN_STORAGE_KEYS.CLUBS, JSON.stringify(clubs))
+    _clubsCache = clubs
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('clubs-synced'))
+    }
+  } catch (e) {
+    console.warn('applyRemoteClubs failed:', e)
+  }
+}
+
 // Clubs Management
 export const loadClubs = () => {
   try {
+    if (_clubsCache != null) {
+      syncMembersToClubs(_clubsCache)
+      return _clubsCache
+    }
     const data = localStorage.getItem(ADMIN_STORAGE_KEYS.CLUBS)
     if (data) {
       const clubs = JSON.parse(data)
@@ -17,11 +57,13 @@ export const loadClubs = () => {
         const halaPadel = createExampleHalaPadel()
         if (clubs.length === 0) {
           saveClubs([halaPadel])
+          _clubsCache = [halaPadel]
           return [halaPadel]
         } else {
           // Add Hala Padel at the beginning if it doesn't exist
           clubs.unshift(halaPadel)
           saveClubs(clubs)
+          _clubsCache = clubs
           return clubs
         }
       }
@@ -56,11 +98,13 @@ export const loadClubs = () => {
         }
       })
       if (storeMigration) saveClubs(clubs)
+      _clubsCache = clubs
       return clubs
     }
     // Initialize with Hala Padel as example club
     const halaPadel = createExampleHalaPadel()
     saveClubs([halaPadel])
+    _clubsCache = [halaPadel]
     return [halaPadel]
   } catch (error) {
     console.error('Error loading clubs:', error)
@@ -68,6 +112,7 @@ export const loadClubs = () => {
     try {
       const halaPadel = createExampleHalaPadel()
       saveClubs([halaPadel])
+      _clubsCache = [halaPadel]
       return [halaPadel]
     } catch (e) {
       return []
@@ -360,6 +405,8 @@ export const createExampleClub = () => {
 export const saveClubs = (clubs) => {
   try {
     localStorage.setItem(ADMIN_STORAGE_KEYS.CLUBS, JSON.stringify(clubs))
+    _clubsCache = clubs
+    setRemoteClubs(clubs)
   } catch (error) {
     console.error('Error saving clubs:', error)
   }

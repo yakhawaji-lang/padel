@@ -1,6 +1,8 @@
 import React, { lazy, Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { loadClubsAsync, applyRemoteClubs } from './storage/adminStorage.js'
+import { subscribeToClubs } from './storage/supabaseSync.js'
 import './index.css'
 
 /* Code-splitting: load route components on demand */
@@ -45,10 +47,24 @@ function Root() {
   )
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <Root />
-  </React.StrictMode>,
-)
+function mountApp() {
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    <React.StrictMode>
+      <Root />
+    </React.StrictMode>,
+  )
+}
+
+loadClubsAsync()
+  .then(() => {
+    mountApp()
+    // When another device adds/edits data, update locally and notify UI
+    subscribeToClubs((clubs) => applyRemoteClubs(clubs))
+  })
+  .catch((e) => {
+    console.warn('Bootstrap loadClubsAsync failed:', e)
+    mountApp()
+    subscribeToClubs((clubs) => applyRemoteClubs(clubs))
+  })
 
 

@@ -49,7 +49,10 @@ const HomePage = () => {
   const [navOpen, setNavOpen] = useState(false)
 
   useEffect(() => {
-    setClubs(loadClubs())
+    const load = () => setClubs(loadClubs())
+    load()
+    window.addEventListener('clubs-synced', load)
+    return () => window.removeEventListener('clubs-synced', load)
   }, [])
 
   useEffect(() => {

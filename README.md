@@ -60,3 +60,7 @@ npm run build
 
 The built files will be in the `dist` folder. You can deploy this folder to any web server or run it on another laptop.
 
+## مزامنة البيانات بين الأجهزة (Vercel وجميع الأجهزة)
+
+لجعل بيانات النوادي والحجوزات تظهر على **جميع الأجهزة** (كمبيوتر، جوال، وغيرها)، ربط التطبيق بـ Supabase. اتبع الخطوات في [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) لإنشاء الجدول وإضافة `VITE_SUPABASE_URL` و`VITE_SUPABASE_ANON_KEY` محلياً وعلى Vercel.
+
