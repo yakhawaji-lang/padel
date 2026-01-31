@@ -18,6 +18,7 @@ function ClubAdminPanel() {
   const [clubs, setClubs] = useState([])
   const [language, setLanguage] = useState('en')
   const [isLoading, setIsLoading] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     const loadData = () => {

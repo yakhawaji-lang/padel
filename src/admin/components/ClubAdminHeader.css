@@ -16,6 +16,35 @@
 
 .club-admin-header-left {
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.club-admin-menu-toggle {
+  display: none;
+  flex-shrink: 0;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 44px;
+  height: 44px;
+  padding: 10px;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  border: none;
+}
+
+.club-admin-menu-toggle span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: #333;
+  border-radius: 1px;
 }
 
 .club-admin-page-title {
@@ -26,6 +55,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .club-admin-header .club-logo {
@@ -60,4 +90,22 @@
 
 .header-language-toggle:hover {
   background: #e9e9e9;
+}
+
+@media (max-width: 768px) {
+  .club-admin-menu-toggle {
+    display: flex;
+  }
+
+  .club-admin-header {
+    padding: 12px 16px;
+  }
+
+  .club-admin-page-title {
+    font-size: 1rem;
+  }
+
+  .club-address {
+    font-size: 11px;
+  }
 }

@@ -1,0 +1,8 @@
+ارفع التغييرات إلى GitHub — نفّذ في Terminal أو PowerShell من مجلد المشروع:
+
+cd c:\padel\padel
+git add .
+git commit -m "Responsive layout for all browsers and devices"
+git push origin main
+
+إذا طُلب منك تسجيل الدخول إلى GitHub، أدخل بياناتك أو استخدم Personal Access Token.

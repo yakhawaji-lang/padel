@@ -39,6 +39,12 @@
   min-height: 0;
 }
 
+@media (max-width: 768px) {
+  .main-admin-page {
+    padding: 16px 12px;
+  }
+}
+
 .main-admin-sidebar-backdrop[aria-hidden="true"] {
   pointer-events: none;
 }

@@ -1,10 +1,34 @@
-/* Common styles for admin pages */
+/* Common styles for admin pages — responsive across browsers and devices */
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 25px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-title {
+    font-size: 1.25rem;
+  }
+}
+
+/* Tables: horizontal scroll on small screens */
+.admin-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -4px;
+}
+
+.admin-table-wrap table {
+  min-width: 600px;
 }
 
 .page-title {

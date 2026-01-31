@@ -25,7 +25,6 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
         >
           {language === 'en' ? 'العربية' : 'English'}
         </button>
-        </div>
       </div>
 
       <nav className="main-admin-nav">

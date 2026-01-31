@@ -41,13 +41,20 @@ const ClubAdminSidebar = ({ club, language, onLanguageChange, open, onClose }) =
           </p>
         </div>
         <button
+          type="button"
+          className="club-admin-sidebar-close"
+          onClick={onClose}
+          aria-label="Close menu"
+        >
+          ✕
+        </button>
+        <button
           className="language-toggle"
           onClick={() => onLanguageChange(language === 'en' ? 'ar' : 'en')}
           title={language === 'en' ? 'العربية' : 'English'}
         >
           {language === 'en' ? 'العربية' : 'English'}
         </button>
-        </div>
       </div>
 
       <nav className="club-admin-nav">
