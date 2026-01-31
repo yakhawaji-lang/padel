@@ -39,7 +39,7 @@
 
 .overview-section {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
   gap: 20px;
 }
 
@@ -120,9 +120,25 @@
   max-width: 500px;
 }
 
-@media (max-width: 768px) {
+/* Responsive - تابلت وجوال */
+@media (max-width: 1024px) {
   .overview-section {
     grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .stats-grid {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .tabs {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .overview-section {
     gap: 14px;
   }
 

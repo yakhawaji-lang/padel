@@ -264,3 +264,50 @@
   color: #999;
   font-style: italic;
 }
+
+/* Responsive - تابلت وجوال */
+@media (max-width: 1024px) {
+  .settings-section {
+    padding: 20px;
+  }
+
+  .logo-input-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .logo-url-input {
+    min-width: 100%;
+  }
+
+  .courts-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .courts-table-content {
+    min-width: 500px;
+  }
+}
+
+@media (max-width: 768px) {
+  .settings-section {
+    padding: 16px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions button {
+    width: 100%;
+  }
+
+  .court-actions {
+    flex-direction: column;
+  }
+}

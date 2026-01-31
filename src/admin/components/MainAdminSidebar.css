@@ -4,20 +4,56 @@
   top: 0;
   width: 280px;
   height: 100vh;
+  height: 100dvh;
   background-color: #1a1a2e;
   color: white;
   display: flex;
   flex-direction: column;
-  z-index: 100;
+  z-index: 1000;
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .main-admin-sidebar-header {
   padding: 20px;
+  padding-right: 52px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  position: relative;
+}
+
+.main-admin-sidebar-close {
+  display: none;
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  font-size: 20px;
+  line-height: 1;
+  border-radius: 8px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.main-admin-sidebar-close:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.main-admin-sidebar-close:active {
+  transform: translateY(-50%) scale(0.96);
 }
 
 .main-admin-logo {
@@ -25,6 +61,8 @@
   font-size: 18px;
   font-weight: 600;
   color: #fff;
+  flex: 1;
+  min-width: 0;
 }
 
 .language-toggle {
@@ -162,12 +200,14 @@
   color: white;
 }
 
-@media (max-width: 768px) {
+/* تابلت وجوال - الشريط كـ drawer قابل للسحب */
+@media (max-width: 1024px) {
   .main-admin-sidebar {
-    width: min(280px, 85vw);
+    width: min(280px, 88vw);
+    max-width: 320px;
     transform: translateX(-100%);
     transition: transform 0.25s ease;
-    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
   }
 
   .main-admin-sidebar.open {
@@ -176,5 +216,20 @@
 
   .main-admin-sidebar-close {
     display: flex;
+  }
+
+  .main-admin-nav-item,
+  .club-quick-item {
+    padding: 14px 20px;
+    min-height: 48px;
+  }
+
+  .club-admin-link {
+    padding: 10px 12px;
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 }

@@ -2,7 +2,9 @@ import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './AllClubsDashboard.css'
 
-const AllClubsDashboard = ({ clubs, onUpdateClub }) => {
+const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
+
+const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub }) => {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('name') // 'name', 'members', 'tournaments', 'revenue'
@@ -95,15 +97,16 @@ const AllClubsDashboard = ({ clubs, onUpdateClub }) => {
     <div className="main-admin-page">
       <div className="all-clubs-dashboard">
         <div className="dashboard-header">
-          <div>
-            <h2 className="page-title">All Clubs Dashboard</h2>
-            <p className="page-subtitle">Overview and statistics for all clubs in the system</p>
+          <div className="dashboard-header-text">
+            <h2 className="page-title">{t('All Clubs Dashboard', 'لوحة جميع الأندية', language)}</h2>
+            <p className="page-subtitle">{t('Overview and statistics for all clubs in the system', 'نظرة عامة وإحصائيات لجميع الأندية في النظام', language)}</p>
           </div>
           <button 
-            className="btn-primary"
+            type="button"
+            className="btn-primary dashboard-add-btn"
             onClick={() => navigate('/admin/manage-clubs')}
           >
-            + Add New Club
+            + {t('Add New Club', 'إضافة نادٍ جديد', language)}
           </button>
         </div>
         
@@ -185,30 +188,34 @@ const AllClubsDashboard = ({ clubs, onUpdateClub }) => {
           <div className="search-box">
             <input
               type="text"
-              placeholder="Search clubs by name, address, or ID..."
+              placeholder={t('Search clubs by name, address, or ID...', 'البحث بالأندية بالاسم أو العنوان أو المعرّف...', language)}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="search-input"
+              aria-label={t('Search clubs', 'البحث في الأندية', language)}
             />
-            <span className="search-icon">🔍</span>
+            <span className="search-icon" aria-hidden>🔍</span>
           </div>
           <div className="sort-controls">
-            <label>Sort by:</label>
+            <label className="sort-label">{t('Sort by:', 'ترتيب حسب:', language)}</label>
             <select 
               value={sortBy} 
               onChange={(e) => handleSort(e.target.value)}
               className="sort-select"
+              aria-label={t('Sort by', 'ترتيب حسب', language)}
             >
-              <option value="name">Name</option>
-              <option value="members">Members</option>
-              <option value="tournaments">Tournaments</option>
-              <option value="revenue">Revenue</option>
-              <option value="created">Created Date</option>
+              <option value="name">{t('Name', 'الاسم', language)}</option>
+              <option value="members">{t('Members', 'الأعضاء', language)}</option>
+              <option value="tournaments">{t('Tournaments', 'البطولات', language)}</option>
+              <option value="revenue">{t('Revenue', 'الإيرادات', language)}</option>
+              <option value="created">{t('Created Date', 'تاريخ الإنشاء', language)}</option>
             </select>
             <button 
+              type="button"
               className="sort-order-btn"
               onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-              title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+              title={sortOrder === 'asc' ? (language === 'ar' ? 'تصاعدي' : 'Ascending') : (language === 'ar' ? 'تنازلي' : 'Descending')}
+              aria-label={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
             >
               {sortOrder === 'asc' ? '↑' : '↓'}
             </button>
@@ -219,31 +226,33 @@ const AllClubsDashboard = ({ clubs, onUpdateClub }) => {
         <div className="clubs-overview-section">
           <div className="section-header">
             <h3>
-              All Clubs ({filteredAndSortedClubs.length})
-              {searchQuery && <span className="search-results"> - Search results</span>}
+              {t('All Clubs', 'جميع الأندية', language)} ({filteredAndSortedClubs.length})
+              {searchQuery && <span className="search-results"> – {t('Search results', 'نتائج البحث', language)}</span>}
             </h3>
           </div>
           
           {clubs.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">🏢</div>
-              <p>No clubs found. Create your first club!</p>
+              <div className="empty-icon" aria-hidden>🏢</div>
+              <p>{t('No clubs found. Create your first club!', 'لا توجد أندية. أنشئ ناديك الأول!', language)}</p>
               <button 
+                type="button"
                 className="btn-primary"
                 onClick={() => navigate('/admin/manage-clubs')}
               >
-                + Create First Club
+                + {t('Create First Club', 'إنشاء أول نادٍ', language)}
               </button>
             </div>
           ) : filteredAndSortedClubs.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">🔍</div>
-              <p>No clubs match your search criteria.</p>
+              <div className="empty-icon" aria-hidden>🔍</div>
+              <p>{t('No clubs match your search criteria.', 'لا توجد أندية تطابق معايير البحث.', language)}</p>
               <button 
+                type="button"
                 className="btn-secondary"
                 onClick={() => setSearchQuery('')}
               >
-                Clear Search
+                {t('Clear Search', 'مسح البحث', language)}
               </button>
             </div>
           ) : (
@@ -330,25 +339,28 @@ const AllClubsDashboard = ({ clubs, onUpdateClub }) => {
 
                     <div className="club-card-actions">
                       <button 
+                        type="button"
                         className="btn-primary btn-small btn-full"
                         onClick={() => navigate(`/club/${club.id}`)}
-                        title="Open Club Main Page"
+                        title={t('Open Club Main Page', 'فتح الصفحة الرئيسية للنادي', language)}
                       >
-                        🏠 Club Page
+                        🏠 {t('Club Page', 'صفحة النادي', language)}
                       </button>
                       <button 
+                        type="button"
                         className="btn-secondary btn-small btn-full"
                         onClick={() => navigate(`/admin/club/${club.id}`)}
-                        title="Open Club Admin Panel"
+                        title={t('Open Club Admin Panel', 'فتح لوحة تحكم النادي', language)}
                       >
-                        ⚙️ Admin Panel
+                        ⚙️ {t('Admin Panel', 'لوحة التحكم', language)}
                       </button>
                       <button 
+                        type="button"
                         className="btn-secondary btn-small btn-full"
                         onClick={() => navigate(`/admin/manage-clubs`)}
-                        title="Edit Club Details"
+                        title={t('Edit Club Details', 'تعديل تفاصيل النادي', language)}
                       >
-                        ✏️ Edit
+                        ✏️ {t('Edit', 'تعديل', language)}
                       </button>
                     </div>
                   </div>

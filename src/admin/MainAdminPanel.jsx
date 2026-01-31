@@ -135,6 +135,7 @@ function MainAdminPanel() {
             element={
               <AllClubsDashboard 
                 clubs={clubs}
+                language={language}
                 onUpdateClub={handleClubUpdate}
               />
             } 

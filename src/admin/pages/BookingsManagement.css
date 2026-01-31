@@ -43,3 +43,33 @@
   font-size: 12px;
   margin-right: 5px;
 }
+
+/* Responsive - تابلت وجوال */
+.bookings-management {
+  overflow-x: auto;
+}
+
+.bookings-table {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bookings-table table {
+  min-width: 600px;
+}
+
+@media (max-width: 768px) {
+  .bookings-table th,
+  .bookings-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .bookings-table th,
+  .bookings-table td {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+}

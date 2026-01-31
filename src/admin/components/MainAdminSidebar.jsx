@@ -13,11 +13,19 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
   }
 
   return (
-    <aside className={`main-admin-sidebar ${open ? 'open' : ''}`} aria-hidden={!open}>
+    <aside className={`main-admin-sidebar ${open ? 'open' : ''}`} aria-hidden={!open} role="navigation">
       <div className="main-admin-sidebar-header">
         <h2 className="main-admin-logo">
           {language === 'en' ? 'Main Admin Panel' : 'لوحة التحكم الرئيسية'}
         </h2>
+        <button
+          type="button"
+          className="main-admin-sidebar-close"
+          onClick={onClose}
+          aria-label={language === 'en' ? 'Close menu' : 'إغلاق القائمة'}
+        >
+          ✕
+        </button>
         <button
           className="language-toggle"
           onClick={() => onLanguageChange(language === 'en' ? 'ar' : 'en')}

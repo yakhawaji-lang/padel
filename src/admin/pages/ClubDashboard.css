@@ -439,10 +439,31 @@
   font-weight: 500;
 }
 
-/* Responsive */
+/* Responsive - تابلت وجوال */
 @media (max-width: 1024px) {
   .dashboard-content-grid {
     grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .dashboard-section {
+    padding: 20px;
+  }
+
+  .stats-grid {
+    gap: 16px;
+  }
+
+  .stat-card {
+    padding: 20px;
+  }
+
+  .stat-icon {
+    font-size: 40px;
+  }
+
+  .stat-value {
+    font-size: 28px;
   }
 }
 
@@ -452,24 +473,44 @@
     gap: 12px;
   }
 
+  .page-title {
+    font-size: 1.5rem;
+  }
+
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
 
   .quick-actions-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
   }
 
   .stat-card,
-  .quick-action-card {
-    padding: 14px;
+  .dashboard-section {
+    padding: 16px;
+  }
+
+  .stat-icon {
+    font-size: 36px;
+  }
+
+  .stat-value {
+    font-size: 24px;
   }
 }
 
 @media (max-width: 480px) {
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .quick-actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-card {
+    padding: 14px;
   }
 }

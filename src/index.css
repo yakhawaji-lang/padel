@@ -36,7 +36,7 @@ body {
   overflow-x: hidden;
 }
 
-/* Responsive base: prevent horizontal scroll on small screens */
+/* Responsive base: منع التمرير الأفقي على الشاشات الصغيرة */
 img, video, iframe, table {
   max-width: 100%;
   height: auto;
@@ -60,4 +60,3 @@ table {
 @supports not (min-height: 100dvh) {
   body, #root { min-height: 100vh; }
 }
-

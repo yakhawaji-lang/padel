@@ -149,12 +149,14 @@
   background: rgba(76, 175, 80, 0.3);
 }
 
-@media (max-width: 768px) {
+/* تابلت وجوال - الشريط كـ drawer قابل للسحب */
+@media (max-width: 1024px) {
   .club-admin-sidebar {
-    width: min(250px, 85vw);
+    width: min(280px, 85vw);
+    max-width: 320px;
     transform: translateX(-100%);
     transition: transform 0.25s ease;
-    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.2);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
   }
 
   .club-admin-sidebar.open {
