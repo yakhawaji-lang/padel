@@ -6,6 +6,7 @@ import { setCurrentPlatformUser } from '../storage/platformAuth'
 
 const Login = () => {
   const navigate = useNavigate()
+  const [language, setLanguage] = useState(localStorage.getItem('login_language') || 'en')
   const [mode, setMode] = useState('login') // 'login' or 'signup' or 'createClub'
   const [formData, setFormData] = useState({
     name: '',
@@ -20,6 +21,12 @@ const Login = () => {
     const loadedClubs = loadClubs()
     setClubs(loadedClubs)
   }, [])
+
+  React.useEffect(() => {
+    localStorage.setItem('login_language', language)
+    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr'
+    document.documentElement.lang = language
+  }, [language])
 
   const handleMemberLogin = (e) => {
     e.preventDefault()
@@ -158,11 +165,20 @@ const Login = () => {
   }
 
   return (
-    <div className="login-page">
+    <div className={`login-page ${language === 'ar' ? 'rtl' : ''}`}>
       <div className="login-container">
         <div className="login-header">
-          <h1>Padel Tournament System</h1>
-          <p>نظام إدارة بطولات البادل</p>
+          <div className="login-lang-wrap">
+            <button
+              type="button"
+              className="login-lang-btn"
+              onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
+            >
+              {language === 'en' ? 'العربية' : 'English'}
+            </button>
+          </div>
+          <h1>{language === 'en' ? 'Padel Tournament System' : 'نظام بطولات البادل'}</h1>
+          <p>{language === 'en' ? 'Login & Registration' : 'تسجيل الدخول والتسجيل'}</p>
         </div>
 
         <div className="login-tabs">

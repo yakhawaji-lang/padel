@@ -60,3 +60,13 @@ table {
 @supports not (min-height: 100dvh) {
   body, #root { min-height: 100vh; }
 }
+
+/* RTL - دعم الواجهة العربية */
+html[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="rtl"] body {
+  text-align: right;
+}

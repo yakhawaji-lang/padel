@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom'
 import './ClubAdminPanel.css'
+import './admin-rtl.css'
 import ClubAdminSidebar from './components/ClubAdminSidebar'
 import ClubAdminHeader from './components/ClubAdminHeader'
 import ClubDashboard from './pages/ClubDashboard'
@@ -47,6 +48,8 @@ function ClubAdminPanel() {
     if (clubId && language) {
       localStorage.setItem(`club_${clubId}_language`, language)
     }
+    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr'
+    document.documentElement.lang = language
   }, [clubId, language])
 
   const handleClubUpdate = (updates) => {
@@ -71,7 +74,7 @@ function ClubAdminPanel() {
   }
 
   return (
-    <div className={`club-admin-panel ${sidebarOpen ? 'sidebar-open' : ''}`}>
+    <div className={`club-admin-panel ${sidebarOpen ? 'sidebar-open' : ''} ${language === 'ar' ? 'rtl' : ''}`}>
       <div
         className="club-admin-sidebar-backdrop"
         aria-hidden={!sidebarOpen}

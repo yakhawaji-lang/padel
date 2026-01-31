@@ -4,7 +4,7 @@ import './AllClubsManagement.css'
 import './common.css'
 import { syncMembersToClubsManually, loadClubs } from '../../storage/adminStorage'
 
-const AllClubsManagement = ({ clubs, onCreateClub, onUpdateClub, onDeleteClub }) => {
+const AllClubsManagement = ({ clubs, language = 'en', onCreateClub, onUpdateClub, onDeleteClub }) => {
   const navigate = useNavigate()
   const [showCreateModal, setShowCreateModal] = useState(false)
   
@@ -125,9 +125,9 @@ const AllClubsManagement = ({ clubs, onCreateClub, onUpdateClub, onDeleteClub })
       <div className="all-clubs-management">
         <div className="page-header">
           <div>
-            <h2 className="page-title">Manage All Clubs</h2>
+            <h2 className="page-title">{language === 'ar' ? 'إدارة جميع الأندية' : 'Manage All Clubs'}</h2>
             <p style={{ margin: '5px 0 0 0', fontSize: '13px', color: '#666' }}>
-              Sync members from localStorage to update member counts
+              {language === 'ar' ? 'مزامنة الأعضاء لتحديث العدد' : 'Sync members from localStorage to update member counts'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
@@ -140,7 +140,7 @@ const AllClubsManagement = ({ clubs, onCreateClub, onUpdateClub, onDeleteClub })
               }}
               title="Sync members from localStorage to clubs"
             >
-              🔄 Sync Members
+              {language === 'ar' ? '🔄 مزامنة الأعضاء' : '🔄 Sync Members'}
             </button>
             <button 
               className="btn-primary"
@@ -160,26 +160,32 @@ const AllClubsManagement = ({ clubs, onCreateClub, onUpdateClub, onDeleteClub })
                 setShowCreateModal(true)
               }}
             >
-              + Add New Club
+              {language === 'ar' ? '+ إضافة نادٍ جديد' : '+ Add New Club'}
             </button>
           </div>
         </div>
 
-        <div className="clubs-table-container">
-          {safeClubs.length > 0 && (
-            <div className="table-info">
-              <span>Total Clubs: <strong>{safeClubs.length}</strong></span>
+        {safeClubs.length > 0 && (
+          <div className="total-clubs-section">
+            <div className="total-clubs-card">
+              <span className="total-clubs-icon">🏢</span>
+              <div className="total-clubs-content">
+                <span className="total-clubs-value">{safeClubs.length}</span>
+                <span className="total-clubs-label">{language === 'ar' ? 'إجمالي الأندية' : 'Total Clubs'}</span>
+              </div>
             </div>
-          )}
+          </div>
+        )}
+        <div className="clubs-table-container">
           <table className="clubs-table">
             <thead>
               <tr>
-                <th>Club Name</th>
-                <th>Address</th>
-                <th>Courts</th>
-                <th>Members</th>
-                <th>Tournaments</th>
-                <th>Actions</th>
+                <th>{language === 'ar' ? 'اسم النادي' : 'Club Name'}</th>
+                <th>{language === 'ar' ? 'العنوان' : 'Address'}</th>
+                <th>{language === 'ar' ? 'الملاعب' : 'Courts'}</th>
+                <th>{language === 'ar' ? 'الأعضاء' : 'Members'}</th>
+                <th>{language === 'ar' ? 'البطولات' : 'Tournaments'}</th>
+                <th>{language === 'ar' ? 'الإجراءات' : 'Actions'}</th>
               </tr>
             </thead>
             <tbody>
@@ -189,7 +195,7 @@ const AllClubsManagement = ({ clubs, onCreateClub, onUpdateClub, onDeleteClub })
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
                       <div style={{ fontSize: '48px', opacity: 0.5 }}>🏢</div>
                       <p style={{ margin: 0, fontSize: '16px', color: '#666' }}>
-                        No clubs found. Create your first club!
+                        {language === 'ar' ? 'لا توجد أندية. أنشئ ناديك الأول!' : 'No clubs found. Create your first club!'}
                       </p>
                       <button 
                         className="btn-primary"
@@ -209,7 +215,7 @@ const AllClubsManagement = ({ clubs, onCreateClub, onUpdateClub, onDeleteClub })
                           setShowCreateModal(true)
                         }}
                       >
-                        + Create First Club
+                        {language === 'ar' ? '+ إنشاء أول نادٍ' : '+ Create First Club'}
                       </button>
                     </div>
                   </td>
@@ -290,7 +296,7 @@ const AllClubsManagement = ({ clubs, onCreateClub, onUpdateClub, onDeleteClub })
         {showCreateModal && (
           <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-              <h3>{editingClub ? 'Edit Club' : 'Create New Club'}</h3>
+              <h3>{editingClub ? (language === 'ar' ? 'تعديل النادي' : 'Edit Club') : (language === 'ar' ? 'إنشاء نادٍ جديد' : 'Create New Club')}</h3>
               <div className="form-group">
                 <label>Club Name (English) *</label>
                 <input
@@ -362,13 +368,13 @@ const AllClubsManagement = ({ clubs, onCreateClub, onUpdateClub, onDeleteClub })
                     setEditingClub(null)
                   }}
                 >
-                  Cancel
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
                 </button>
                 <button 
                   className="btn-primary"
                   onClick={editingClub ? handleUpdate : handleCreate}
                 >
-                  {editingClub ? 'Update' : 'Create'}
+                  {editingClub ? (language === 'ar' ? 'تحديث' : 'Update') : (language === 'ar' ? 'إنشاء' : 'Create')}
                 </button>
               </div>
             </div>

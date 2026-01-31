@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import './MainAdminPanel.css'
+import './admin-rtl.css'
 import MainAdminSidebar from './components/MainAdminSidebar'
 import MainAdminHeader from './components/MainAdminHeader'
 import AllClubsDashboard from './pages/AllClubsDashboard'
@@ -58,6 +59,8 @@ function MainAdminPanel() {
     if (language) {
       localStorage.setItem('main_admin_language', language)
     }
+    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr'
+    document.documentElement.lang = language
   }, [language])
 
   const handleClubCreate = (clubData) => {
@@ -109,7 +112,7 @@ function MainAdminPanel() {
   }
 
   return (
-    <div className={`main-admin-panel ${sidebarOpen ? 'sidebar-open' : ''}`}>
+    <div className={`main-admin-panel ${sidebarOpen ? 'sidebar-open' : ''} ${language === 'ar' ? 'rtl' : ''}`}>
       <div
         className="main-admin-sidebar-backdrop"
         aria-hidden={!sidebarOpen}
@@ -145,6 +148,7 @@ function MainAdminPanel() {
             element={
               <AllClubsManagement 
                 clubs={clubs}
+                language={language}
                 onCreateClub={handleClubCreate}
                 onUpdateClub={handleClubUpdate}
                 onDeleteClub={handleClubDelete}

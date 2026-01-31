@@ -10,7 +10,7 @@ const MainAdminHeader = ({ language, onLanguageChange, onMenuToggle }) => {
             <button
               type="button"
               className="main-admin-menu-toggle"
-              onClick={onMenuToggle}
+              onClick={(e) => { e.stopPropagation(); onMenuToggle(); }}
               aria-label={language === 'en' ? 'Open menu' : 'فتح القائمة'}
             >
               <span /><span /><span />

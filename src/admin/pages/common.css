@@ -259,6 +259,18 @@
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  margin: 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 480px) {
+  .modal-content {
+    width: calc(100% - 24px);
+    max-width: none;
+    padding: 20px 18px;
+    margin: 12px;
+    max-height: 85vh;
+  }
 }
 
 .modal-content h3 {

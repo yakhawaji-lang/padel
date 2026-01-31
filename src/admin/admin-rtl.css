@@ -1,0 +1,196 @@
+/* دعم الواجهة العربية RTL - لوحة التحكم */
+
+/* Main Admin Panel RTL */
+.main-admin-panel.rtl .main-admin-content {
+  margin-left: 0;
+  margin-right: 280px;
+}
+
+.main-admin-panel.rtl .main-admin-sidebar {
+  left: auto;
+  right: 0;
+  transform: translateX(100%);
+}
+
+.main-admin-panel.rtl.sidebar-open .main-admin-sidebar.open {
+  transform: translateX(0);
+}
+
+.main-admin-panel.rtl .main-admin-nav-item.active {
+  border-left: none;
+  border-right: 3px solid #2196f3;
+}
+
+/* Club Admin Panel RTL */
+.club-admin-panel.rtl .club-admin-content {
+  margin-left: 0;
+  margin-right: 250px;
+}
+
+.club-admin-panel.rtl .club-admin-sidebar {
+  left: auto;
+  right: 0;
+  transform: translateX(100%);
+}
+
+.club-admin-panel.rtl .club-admin-sidebar.open {
+  transform: translateX(0);
+}
+
+.club-admin-panel.rtl .club-admin-nav-item.active {
+  border-left: none;
+  border-right: 3px solid #2196f3;
+}
+
+/* Header RTL */
+.main-admin-panel.rtl .main-admin-header-content,
+.club-admin-panel.rtl .club-admin-header-content {
+  flex-direction: row-reverse;
+}
+
+.main-admin-panel.rtl .main-admin-header-left,
+.club-admin-panel.rtl .club-admin-header-left {
+  flex-direction: row-reverse;
+}
+
+.main-admin-panel.rtl .main-admin-page-title,
+.club-admin-panel.rtl .club-admin-page-title {
+  text-align: right;
+}
+
+/* Sidebar close button RTL */
+.main-admin-panel.rtl .main-admin-sidebar-close {
+  right: auto;
+  left: 12px;
+}
+
+.main-admin-panel.rtl .main-admin-sidebar-header {
+  padding-left: 52px;
+  padding-right: 20px;
+}
+
+.club-admin-panel.rtl .club-admin-sidebar-close {
+  right: auto;
+  left: 16px;
+}
+
+.club-admin-panel.rtl .club-admin-sidebar-header {
+  padding-left: 52px;
+  padding-right: 20px;
+}
+
+.club-admin-panel.rtl .club-admin-nav-item {
+  text-align: right;
+}
+
+.main-admin-panel.rtl .main-admin-nav-item,
+.main-admin-panel.rtl .club-quick-item {
+  text-align: right;
+  flex-direction: row-reverse;
+}
+
+/* RTL على الجوال - الشريط من اليمين */
+@media (max-width: 1024px) {
+  .main-admin-panel.rtl .main-admin-content {
+    margin-right: 0;
+  }
+
+  .main-admin-panel.rtl .main-admin-sidebar {
+    transform: translateX(100%);
+  }
+
+  .main-admin-panel.rtl.sidebar-open .main-admin-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .club-admin-panel.rtl .club-admin-content {
+    margin-right: 0;
+  }
+
+  .club-admin-panel.rtl .club-admin-sidebar {
+    transform: translateX(100%);
+  }
+
+  .club-admin-panel.rtl .club-admin-sidebar.open {
+    transform: translateX(0);
+  }
+}
+
+/* RTL للصفحات والعناصر المشتركة */
+.main-admin-panel.rtl,
+.club-admin-panel.rtl {
+  direction: rtl;
+  text-align: right;
+}
+
+.main-admin-panel.rtl .page-header,
+.club-admin-panel.rtl .page-header {
+  flex-direction: row-reverse;
+}
+
+.main-admin-panel.rtl .page-title,
+.club-admin-panel.rtl .page-title {
+  text-align: right;
+}
+
+.main-admin-panel.rtl table th,
+.main-admin-panel.rtl table td,
+.club-admin-panel.rtl table th,
+.club-admin-panel.rtl table td {
+  text-align: right;
+}
+
+.main-admin-panel.rtl .form-group label,
+.club-admin-panel.rtl .form-group label {
+  text-align: right;
+}
+
+.main-admin-panel.rtl .modal-actions,
+.club-admin-panel.rtl .modal-actions {
+  flex-direction: row-reverse;
+}
+
+.main-admin-panel.rtl .dashboard-header,
+.club-admin-panel.rtl .dashboard-header {
+  flex-direction: row-reverse;
+}
+
+.main-admin-panel.rtl .dashboard-controls,
+.club-admin-panel.rtl .dashboard-controls {
+  flex-direction: row-reverse;
+}
+
+.main-admin-panel.rtl .club-admin-header-title-wrap .title-text,
+.club-admin-panel.rtl .club-admin-page-title,
+.club-admin-panel.rtl .club-admin-page-title {
+  text-align: right;
+}
+
+/* AllClubsDashboard RTL */
+.main-admin-panel.rtl .dashboard-header,
+.main-admin-panel.rtl .clubs-overview-section .section-header {
+  flex-direction: row-reverse;
+}
+
+.main-admin-panel.rtl .club-card-header,
+.main-admin-panel.rtl .club-header-info {
+  text-align: right;
+}
+
+.main-admin-panel.rtl .club-card-badges {
+  flex-direction: row-reverse;
+}
+
+/* AllClubsManagement RTL */
+.main-admin-panel.rtl .total-clubs-card {
+  flex-direction: row-reverse;
+}
+
+.main-admin-panel.rtl .total-clubs-content {
+  text-align: right;
+}
+
+/* Sort controls RTL */
+.main-admin-panel.rtl .sort-controls {
+  flex-direction: row-reverse;
+}

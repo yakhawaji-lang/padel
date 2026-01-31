@@ -164,3 +164,32 @@
     padding: 28px 24px;
   }
 }
+
+/* RTL */
+[dir="rtl"] .register-header {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .register-form label {
+  text-align: right;
+}
+
+[dir="rtl"] .register-title,
+[dir="rtl"] .register-subtitle {
+  text-align: center;
+}
+
+/* جوال */
+@media (max-width: 768px) {
+  .register-header {
+    padding: 16px 20px;
+  }
+
+  .register-main {
+    padding: 24px 16px;
+  }
+
+  .register-lang {
+    min-height: 44px;
+  }
+}

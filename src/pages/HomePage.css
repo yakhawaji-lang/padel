@@ -837,3 +837,37 @@
 [dir="rtl"] .features-list {
   padding: 0 24px 0 0;
 }
+
+[dir="rtl"] .header-inner {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .site-nav {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .club-card,
+[dir="rtl"] .offer-card {
+  text-align: right;
+}
+
+[dir="rtl"] .hero h1,
+[dir="rtl"] .hero p,
+[dir="rtl"] .section-title {
+  text-align: center;
+}
+
+[dir="rtl"] .stats-grid {
+  direction: rtl;
+}
+
+/* جوال - تحسين إضافي */
+@media (max-width: 480px) {
+  .header-inner {
+    padding: 0 16px;
+  }
+
+  .hero {
+    padding: 48px 16px 56px;
+  }
+}
