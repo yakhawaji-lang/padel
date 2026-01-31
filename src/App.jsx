@@ -68,6 +68,7 @@ function App({ currentUser }) {
   })
   const [viewedTournamentBooking, setViewedTournamentBooking] = useState(null) // { id, date, startTime, endTime, tournamentType } - which scheduled tournament is being viewed (shows its tabs)
 
+  const [sidebarOpen, setSidebarOpen] = useState(false) // Mobile: sidebar drawer open
   const [showResetConfirm, setShowResetConfirm] = useState(false) // Show/hide reset confirmation modal
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false) // Show/hide delete confirmation modal
   const [matchToEdit, setMatchToEdit] = useState(null) // Match being edited
@@ -4537,11 +4538,25 @@ function App({ currentUser }) {
   }
 
   return (
-    <div className={`app ${isRTL ? 'rtl' : ''}`}>
+    <div className={`app ${isRTL ? 'rtl' : ''} ${sidebarOpen ? 'sidebar-open' : ''}`}>
+      {/* Mobile backdrop */}
+      <div
+        className="app-sidebar-backdrop"
+        aria-hidden={!sidebarOpen}
+        onClick={() => setSidebarOpen(false)}
+      />
       {/* Header */}
       <header className="app-header">
         <div className="header-content">
           <div className="header-left">
+            <button
+              type="button"
+              className="app-menu-toggle"
+              onClick={() => setSidebarOpen(true)}
+              aria-label={language === 'en' ? 'Open menu' : 'فتح القائمة'}
+            >
+              <span /><span /><span />
+            </button>
             <div className="logo">
               {currentClub?.logo && <img src={currentClub.logo} alt="" className="app-header-club-logo" />}
               {currentClub 
@@ -4679,42 +4694,50 @@ function App({ currentUser }) {
 
       <div className="app-layout">
         {/* Sidebar with Tabs */}
-        <aside className="sidebar">
+        <aside className="sidebar" aria-hidden={!sidebarOpen}>
+            <button
+              type="button"
+              className="sidebar-close"
+              onClick={() => setSidebarOpen(false)}
+              aria-label={language === 'en' ? 'Close menu' : 'إغلاق القائمة'}
+            >
+              ✕
+            </button>
           <div className="sidebar-section">
             <div className="sidebar-tabs">
               <button
                 className={`sidebar-tab ${activeTab === 'king' ? 'active' : ''}`}
-                onClick={() => switchTab('king')}
+                onClick={() => { switchTab('king'); setSidebarOpen(false); }}
               >
                 {t.kingOfCourt}
               </button>
               <button
                 className={`sidebar-tab ${activeTab === 'social' ? 'active' : ''}`}
-                onClick={() => switchTab('social')}
+                onClick={() => { switchTab('social'); setSidebarOpen(false); }}
               >
                 {t.socialTournament}
               </button>
               <button
                 className={`sidebar-tab ${activeTab === 'members' ? 'active' : ''}`}
-                onClick={() => switchTab('members')}
+                onClick={() => { switchTab('members'); setSidebarOpen(false); }}
               >
                 {t.members}
               </button>
               <button
                 className={`sidebar-tab ${activeTab === 'oldTournaments' ? 'active' : ''}`}
-                onClick={() => switchTab('oldTournaments')}
+                onClick={() => { switchTab('oldTournaments'); setSidebarOpen(false); }}
               >
                 {t.oldTournaments}
               </button>
               <button
                 className={`sidebar-tab ${activeTab === 'bookings' ? 'active' : ''}`}
-                onClick={() => switchTab('bookings')}
+                onClick={() => { switchTab('bookings'); setSidebarOpen(false); }}
               >
                 {t.bookings}
               </button>
               <button
                 className={`sidebar-tab ${activeTab === 'accounting' ? 'active' : ''}`}
-                onClick={() => switchTab('accounting')}
+                onClick={() => { switchTab('accounting'); setSidebarOpen(false); }}
               >
                 {t.accounting}
               </button>
@@ -4723,7 +4746,7 @@ function App({ currentUser }) {
               <button
                 type="button"
                 className="sidebar-back-dashboard"
-                onClick={() => navigate(`/admin/club/${clubId}`)}
+                onClick={() => { navigate(`/admin/club/${clubId}`); setSidebarOpen(false); }}
                 title={t.backToDashboard}
               >
                 <span className="sidebar-back-icon">←</span>

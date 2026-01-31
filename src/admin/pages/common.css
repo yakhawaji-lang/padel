@@ -51,10 +51,23 @@
   .clubs-management,
   .all-clubs-dashboard,
   .club-dashboard,
-  .club-details {
+  .club-details,
+  .members-management,
+  .club-settings,
+  .club-store-management,
+  .bookings-management {
     max-width: 100%;
+    width: 100%;
     padding-left: 0;
     padding-right: 0;
+  }
+
+  .page-header {
+    gap: 10px;
+  }
+
+  .btn-primary {
+    min-height: 44px;
   }
 }
 
@@ -67,6 +80,7 @@
   .btn-secondary {
     padding: 10px 16px;
     font-size: 0.875rem;
+    min-height: 44px;
   }
 }
 

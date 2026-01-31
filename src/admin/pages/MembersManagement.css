@@ -1,16 +1,20 @@
 .members-management {
   max-width: 1400px;
+  width: 100%;
 }
 
 .members-table {
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
 }
 
 .members-table table {
   width: 100%;
+  min-width: 600px;
   border-collapse: collapse;
 }
 
@@ -42,4 +46,36 @@
   padding: 6px 12px;
   font-size: 12px;
   margin-right: 5px;
+}
+
+/* جوال - عرض احترافي */
+@media (max-width: 768px) {
+  .members-management {
+    max-width: 100%;
+  }
+
+  .members-table th,
+  .members-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .page-header .btn-primary {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .members-table th,
+  .members-table td {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .members-table .btn-secondary,
+  .members-table .btn-danger {
+    padding: 8px 12px;
+    min-height: 40px;
+  }
 }

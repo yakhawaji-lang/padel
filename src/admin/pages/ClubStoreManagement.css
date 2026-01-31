@@ -59,6 +59,35 @@
   }
 }
 
+/* جوال - عرض احترافي */
+@media (max-width: 768px) {
+  .club-store-management {
+    max-width: 100%;
+  }
+
+  .store-tabs {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .store-tabs button {
+    padding: 10px 14px;
+    font-size: 0.875rem;
+  }
+
+  .store-form-card,
+  .store-list-card {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .store-tabs button {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
 .store-form-card,
 .store-list-card {
   background: #ffffff;

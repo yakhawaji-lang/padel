@@ -139,6 +139,7 @@
 
 .club-quick-link {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -149,6 +150,12 @@
 
 .club-quick-link:hover {
   color: white;
+}
+
+.club-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .club-logo-small {

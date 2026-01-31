@@ -1,5 +1,6 @@
 .accounting-management {
   max-width: 1400px;
+  width: 100%;
 }
 
 .accounting-summary {
@@ -42,11 +43,13 @@
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .accounting-table table {
   width: 100%;
+  min-width: 600px;
   border-collapse: collapse;
 }
 
@@ -88,4 +91,34 @@
   padding: 6px 12px;
   font-size: 12px;
   margin-right: 5px;
+}
+
+/* جوال - عرض احترافي */
+@media (max-width: 768px) {
+  .accounting-management {
+    max-width: 100%;
+  }
+
+  .accounting-summary {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .accounting-table th,
+  .accounting-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .accounting-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .accounting-table th,
+  .accounting-table td {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
 }

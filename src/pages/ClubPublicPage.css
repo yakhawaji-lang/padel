@@ -2,17 +2,24 @@
 
 .club-public-page.commercial {
   min-height: 100vh;
+  min-height: 100dvh;
   background: #f8fafc;
   color: #0f172a;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 .club-public-header {
   background: #ffffff;
   border-bottom: 1px solid #e2e8f0;
   padding: 18px 24px;
+  padding-top: max(18px, env(safe-area-inset-top));
+  padding-left: max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
   position: sticky;
   top: 0;
   z-index: 10;
@@ -43,13 +50,15 @@
 .club-public-lang {
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
-  padding: 8px 16px;
+  padding: 10px 16px;
+  min-height: 44px;
   border-radius: 10px;
   font-size: 0.875rem;
   cursor: pointer;
   color: #475569;
   font-weight: 500;
   transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .club-public-lang:hover {
@@ -75,6 +84,7 @@
   margin: 0 auto;
   width: 100%;
   padding: 0 24px 56px;
+  padding-bottom: max(56px, env(safe-area-inset-bottom) + 40px);
 }
 
 /* Hero — تجاري */
@@ -357,6 +367,7 @@
 /* جدول الحجوزات والبطولات */
 .club-public-table-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   background: #ffffff;
@@ -365,6 +376,7 @@
 
 .club-public-table {
   width: 100%;
+  min-width: 500px;
   border-collapse: collapse;
   font-size: 0.9375rem;
 }
@@ -734,9 +746,11 @@
   text-decoration: underline;
 }
 
+/* جوال — عرض احترافي */
 @media (max-width: 640px) {
   .club-public-main {
     padding: 0 16px 40px;
+    padding-bottom: max(40px, env(safe-area-inset-bottom) + 32px);
   }
 
   .club-public-hero-inner {
@@ -760,6 +774,7 @@
 
   .club-public-header {
     padding: 12px 16px;
+    padding-top: max(12px, env(safe-area-inset-top));
   }
 
   .club-public-stats {
@@ -767,12 +782,16 @@
   }
 
   .club-public-stats span {
-    padding: 6px 12px;
+    padding: 8px 14px;
     font-size: 0.875rem;
   }
 
   .club-public-section-inner .section-heading {
     font-size: 1.125rem;
+  }
+
+  .club-public-section {
+    padding: 24px 0;
   }
 
   .club-public-table th,
@@ -781,8 +800,35 @@
     font-size: 0.8125rem;
   }
 
+  .club-public-tournaments-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .club-public-tournament-card {
+    padding: 16px 18px;
+  }
+
+  .store-products-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .club-public-offers-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .club-public-contact-grid {
+    grid-template-columns: 1fr;
+  }
+
   .club-public-cta-inner {
     padding: 24px 16px;
+  }
+
+  .btn-register,
+  .btn-join-club {
+    min-height: 44px;
+    width: 100%;
+    justify-content: center;
   }
 }
 
@@ -802,5 +848,18 @@
 
   .club-public-main {
     padding: 0 14px 32px;
+    padding-bottom: max(32px, env(safe-area-inset-bottom) + 24px);
+  }
+
+  .club-public-store {
+    padding: 20px 16px;
+  }
+
+  .club-public-court-booking-date-input {
+    min-width: 100%;
+  }
+
+  .club-public-cta-buttons {
+    flex-direction: column;
   }
 }

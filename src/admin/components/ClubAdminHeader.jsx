@@ -16,15 +16,17 @@ const ClubAdminHeader = ({ club, language, onLanguageChange, onMenuToggle }) => 
               <span /><span /><span />
             </button>
           )}
-          <h1 className="club-admin-page-title">
-            {club.logo && <img src={club.logo} alt="" className="club-logo" />}
-            {language === 'en' ? club.name : club.nameAr || club.name}
-          </h1>
-          {club.address && (
-            <span className="club-address">
-              {language === 'en' ? club.address : club.addressAr || club.address}
-            </span>
-          )}
+          <div className="club-admin-header-title-wrap">
+            <h1 className="club-admin-page-title">
+              {club.logo && <img src={club.logo} alt="" className="club-logo" />}
+              <span className="title-text">{language === 'en' ? club.name : club.nameAr || club.name}</span>
+            </h1>
+            {club.address && (
+              <span className="club-address">
+                {language === 'en' ? club.address : club.addressAr || club.address}
+              </span>
+            )}
+          </div>
         </div>
         <div className="club-admin-header-right">
           <button

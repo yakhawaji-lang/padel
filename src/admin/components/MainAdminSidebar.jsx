@@ -76,7 +76,7 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
                   className="club-quick-link"
                 >
                   {club.logo ? <img src={club.logo} alt="" className="club-logo-small" /> : <span className="club-icon-small">🏢</span>}
-                  <span className="club-name-text">
+                  <span className="club-name-text" title={language === 'en' ? club.name : club.nameAr || club.name}>
                     {language === 'en' ? club.name : club.nameAr || club.name}
                   </span>
                 </Link>
