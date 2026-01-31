@@ -1,0 +1,719 @@
+/* صفحة النادي التجارية — تصميم تجاري واحترافي */
+
+.club-public-page.commercial {
+  min-height: 100vh;
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+.club-public-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 18px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.club-public-header-inner {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.club-public-back {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  transition: color 0.2s;
+}
+
+.club-public-back:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.club-public-lang {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  color: #475569;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.club-public-lang:hover {
+  background: #e2e8f0;
+  color: #2563eb;
+}
+
+.club-public-loading {
+  padding: 60px 24px;
+  text-align: center;
+}
+
+.club-public-loading a {
+  color: #2563eb;
+  margin-top: 16px;
+  display: inline-block;
+  font-weight: 500;
+}
+
+.club-public-main {
+  flex: 1;
+  max-width: 1000px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 24px 56px;
+}
+
+/* Hero — تجاري */
+.club-public-hero {
+  padding: 56px 0 48px;
+  text-align: center;
+}
+
+.club-public-hero-inner {
+  background: linear-gradient(165deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 48px 40px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+.club-public-logo {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+  border-radius: 16px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.club-public-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 14px;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.club-public-tagline {
+  font-size: 1.0625rem;
+  color: #475569;
+  margin: 0 0 28px;
+  line-height: 1.6;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.club-public-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px 40px;
+  font-size: 0.9375rem;
+  color: #475569;
+  font-weight: 600;
+}
+
+.club-public-stats span {
+  padding: 8px 16px;
+  background: #f1f5f9;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+/* الأقسام */
+.club-public-section {
+  padding: 40px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.club-public-section-inner .section-heading {
+  font-size: 1.3125rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 20px;
+  letter-spacing: -0.02em;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #2563eb;
+  display: inline-block;
+}
+
+.club-public-about-text {
+  font-size: 1rem;
+  color: #475569;
+  line-height: 1.75;
+  margin: 0;
+  max-width: 720px;
+}
+
+/* حجز الملاعب — شبكة أفقية مع تمرير من اليمين لليسار */
+.club-public-court-booking .club-public-section-inner {
+  max-width: 100%;
+}
+.club-public-court-booking-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.club-public-court-booking-date-label {
+  font-weight: 600;
+  color: #0f172a;
+  font-size: 0.9375rem;
+}
+.club-public-court-booking-date-input {
+  padding: 8px 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  color: #0f172a;
+  min-width: 160px;
+}
+.club-public-court-booking-wrap {
+  overflow-x: auto;
+  overflow-y: visible;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+[dir="rtl"] .club-public-court-booking-wrap {
+  direction: rtl;
+}
+.club-public-court-grid {
+  display: grid;
+  gap: 0;
+  position: relative;
+}
+/* الملاعب عمودي (صفوف) — الأوقات أفقي (أعمدة) */
+.club-public-court-grid-times-horizontal .club-public-court-grid-corner {
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 44px;
+  background: #f1f5f9;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 12px 0 0 0;
+}
+.club-public-court-grid-time-header {
+  min-height: 44px;
+  padding: 8px 6px;
+  background: #f1f5f9;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-width: 70px;
+}
+.club-public-court-grid-time-header:last-of-type {
+  border-right: none;
+}
+.club-public-court-grid-court-name {
+  padding: 8px 10px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #0f172a;
+  background: #f8fafc;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+}
+[dir="rtl"] .club-public-court-grid-court-name {
+  justify-content: flex-end;
+}
+.club-public-court-grid-cell {
+  min-height: 36px;
+  min-width: 70px;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+.club-public-court-grid-cell.available {
+  background: #f0fdf4;
+  color: #166534;
+}
+.club-public-court-grid-cell.booked {
+  background: #e2e8f0;
+  color: #64748b;
+}
+.club-public-court-grid-times-horizontal .club-public-court-grid-cell:last-of-type {
+  border-right: none;
+}
+
+/* المرافق */
+.club-public-courts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.club-public-court-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.club-public-court-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.court-name {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.court-type {
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.club-public-no-data {
+  color: #64748b;
+  margin: 0;
+  font-size: 0.9375rem;
+}
+
+/* جدول الحجوزات والبطولات */
+.club-public-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.club-public-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.club-public-table thead {
+  background: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.club-public-table th {
+  padding: 14px 18px;
+  text-align: left;
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+[dir="rtl"] .club-public-table th {
+  text-align: right;
+}
+
+.club-public-table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+}
+
+.club-public-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.club-public-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* البطولات المقامة اليوم */
+.club-public-tournaments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.club-public-tournament-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.club-public-tournament-card.current {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+}
+
+.club-public-tournament-card .tournament-type {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.club-public-tournament-card .tournament-date,
+.club-public-tournament-card .tournament-time {
+  font-size: 0.9375rem;
+  color: #475569;
+}
+
+/* المتجر والمبيعات مصنفة حسب التصنيفات */
+.club-public-store {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 32px 24px;
+  margin-bottom: 8px;
+}
+
+.club-public-store .section-heading {
+  border-bottom-color: #059669;
+}
+
+.club-public-store-by-category {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.store-category-block {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.store-category-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.store-products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.store-product-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.store-product-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+}
+
+.store-product-image {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  background: #f1f5f9;
+}
+
+.store-product-body {
+  padding: 18px;
+}
+
+.store-product-name {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 8px;
+}
+
+.store-product-desc {
+  font-size: 0.875rem;
+  color: #475569;
+  margin: 0 0 10px;
+  line-height: 1.55;
+}
+
+.store-product-price {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #059669;
+  margin: 0;
+}
+
+/* العروض من لوحة التحكم */
+.club-public-offers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.club-public-offer-card {
+  background: linear-gradient(145deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 1px solid #a7f3d0;
+  border-radius: 14px;
+  padding: 22px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.club-public-offer-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(5, 150, 105, 0.15);
+}
+
+.club-public-offer-card .offer-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #065f46;
+  margin: 0 0 10px;
+}
+
+.club-public-offer-card .offer-desc {
+  font-size: 0.9375rem;
+  color: #047857;
+  margin: 0 0 14px;
+  line-height: 1.55;
+}
+
+.club-public-offer-card .offer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.club-public-offer-card .offer-discount {
+  font-weight: 700;
+  color: #059669;
+  font-size: 1rem;
+}
+
+.club-public-offer-card .offer-valid {
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+/* التواصل */
+.club-public-contact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.contact-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.contact-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.contact-value {
+  font-size: 0.9375rem;
+  color: #334155;
+  font-weight: 500;
+}
+
+.contact-value a {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.contact-value a:hover {
+  text-decoration: underline;
+}
+
+/* CTA */
+.club-public-cta {
+  padding: 48px 0 40px;
+}
+
+.club-public-cta-inner {
+  background: linear-gradient(145deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1px solid #93c5fd;
+  border-radius: 18px;
+  padding: 40px;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.1);
+}
+
+.club-public-message {
+  margin: 0 0 16px;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.club-public-message.success {
+  color: #059669;
+}
+
+.club-public-message.info {
+  color: #2563eb;
+}
+
+.club-public-message.error {
+  color: #dc2626;
+}
+
+.club-public-register-hint {
+  font-size: 0.9375rem;
+  color: #475569;
+  margin: 0 0 24px;
+  line-height: 1.65;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.club-public-cta-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+}
+
+.btn-register {
+  display: inline-flex;
+  align-items: center;
+  padding: 14px 28px;
+  background: #059669;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  text-decoration: none;
+  border-radius: 12px;
+  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-register:hover {
+  background: #047857;
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(5, 150, 105, 0.35);
+}
+
+.btn-join-club {
+  padding: 14px 32px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-join-club:hover:not(:disabled) {
+  background: #1d4ed8;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+}
+
+.btn-join-club:disabled {
+  background: #94a3b8;
+  cursor: default;
+  transform: none;
+}
+
+.club-public-footer {
+  padding: 28px 24px;
+  text-align: center;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.club-public-footer a {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.club-public-footer a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .club-public-main {
+    padding: 0 18px 40px;
+  }
+
+  .club-public-hero-inner {
+    padding: 32px 24px;
+  }
+
+  .club-public-title {
+    font-size: 1.625rem;
+  }
+
+  .club-public-stats {
+    gap: 12px 16px;
+  }
+
+  .club-public-stats span {
+    padding: 6px 12px;
+    font-size: 0.875rem;
+  }
+
+  .club-public-section-inner .section-heading {
+    font-size: 1.125rem;
+  }
+
+  .club-public-table th,
+  .club-public-table td {
+    padding: 10px 14px;
+    font-size: 0.875rem;
+  }
+
+  .club-public-cta-inner {
+    padding: 28px 20px;
+  }
+}

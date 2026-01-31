@@ -1,0 +1,212 @@
+.admin-sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 250px;
+  height: 100vh;
+  background-color: #2c3e50;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+.admin-sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-logo {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.language-toggle {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.language-toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.club-selector-container {
+  padding: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+.club-selector-btn {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: white;
+  padding: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.club-selector-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.club-icon {
+  font-size: 18px;
+}
+
+.club-logo-small {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.club-name {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropdown-arrow {
+  font-size: 10px;
+}
+
+.club-selector-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 15px;
+  right: 15px;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-top: 5px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 200;
+}
+
+.club-option {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  background: white;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #333;
+  border-bottom: 1px solid #eee;
+}
+
+.club-option:hover {
+  background: #f5f5f5;
+}
+
+.club-option.active {
+  background: #e3f2fd;
+  color: #2196f3;
+}
+
+.club-icon-small {
+  font-size: 16px;
+}
+
+.check-mark {
+  margin-left: auto;
+  color: #2196f3;
+  font-weight: bold;
+}
+
+.add-club-btn {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  text-align: center;
+  color: #2196f3;
+  text-decoration: none;
+  font-weight: 500;
+  border-top: 1px solid #eee;
+}
+
+.add-club-btn:hover {
+  background: #f5f5f5;
+}
+
+.no-clubs {
+  padding: 20px;
+  text-align: center;
+  color: #999;
+}
+
+.admin-nav {
+  flex: 1;
+  padding: 10px 0;
+  overflow-y: auto;
+}
+
+.admin-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.admin-nav-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.admin-nav-item.active {
+  background: rgba(33, 150, 243, 0.2);
+  color: white;
+  border-left: 3px solid #2196f3;
+}
+
+.nav-icon {
+  font-size: 18px;
+}
+
+.nav-label {
+  font-size: 14px;
+}
+
+.admin-sidebar-footer {
+  padding: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.back-to-app {
+  display: block;
+  padding: 10px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.back-to-app:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}

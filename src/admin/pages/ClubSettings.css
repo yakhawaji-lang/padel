@@ -1,0 +1,266 @@
+.club-settings {
+  max-width: 1000px;
+  width: 100%;
+}
+
+.settings-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  padding-bottom: 20px;
+}
+
+.settings-section {
+  background: white;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.settings-section h3 {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  color: #333;
+  border-bottom: 2px solid #2196f3;
+  padding-bottom: 10px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #555;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #2196f3;
+}
+
+.club-logo-in-title {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 8px;
+  vertical-align: middle;
+}
+
+.logo-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.logo-url-input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.logo-upload-btn {
+  margin: 0;
+  cursor: pointer;
+}
+
+.logo-preview-wrap {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-preview {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+.logo-remove {
+  padding: 6px 12px;
+  font-size: 13px;
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ffcdd2;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.logo-remove:hover {
+  background: #ffcdd2;
+}
+
+/* Courts Management */
+.courts-list {
+  margin-top: 20px;
+}
+
+.courts-table {
+  margin-bottom: 30px;
+  overflow-x: auto;
+}
+
+.courts-table-content {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.courts-table-content thead {
+  background: #f5f5f5;
+}
+
+.courts-table-content th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+  border-bottom: 2px solid #ddd;
+}
+
+.courts-table-content td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+}
+
+.courts-table-content tbody tr:hover {
+  background: #f9f9f9;
+}
+
+.court-type-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.court-type-badge.indoor {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.court-type-badge.outdoor {
+  background: #f1f8e9;
+  color: #558b2f;
+}
+
+.court-status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.court-status-badge.active {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.court-status-badge.maintenance {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.court-maintenance {
+  opacity: 0.7;
+  background: #fff9e6;
+}
+
+.court-maintenance td {
+  color: #666;
+}
+
+.court-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.btn-danger {
+  background: #f44336;
+  color: white;
+  border: none;
+}
+
+.btn-danger:hover {
+  background: #d32f2f;
+}
+
+.btn-maintenance {
+  background: #ff9800;
+  color: white;
+  border: none;
+}
+
+.btn-maintenance:hover {
+  background: #f57c00;
+}
+
+.btn-maintenance.btn-restore {
+  background: #4caf50;
+  color: white;
+}
+
+.btn-maintenance.btn-restore:hover {
+  background: #45a049;
+}
+
+.court-form {
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+
+.court-form h4 {
+  margin: 0 0 15px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+  font-style: italic;
+}

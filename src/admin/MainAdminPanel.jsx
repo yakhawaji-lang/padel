@@ -1,0 +1,140 @@
+import React, { useState, useEffect } from 'react'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import './MainAdminPanel.css'
+import MainAdminSidebar from './components/MainAdminSidebar'
+import MainAdminHeader from './components/MainAdminHeader'
+import AllClubsDashboard from './pages/AllClubsDashboard'
+import AllClubsManagement from './pages/AllClubsManagement'
+import { loadClubs, saveClubs } from '../storage/adminStorage'
+
+function MainAdminPanel() {
+  const [clubs, setClubs] = useState([])
+  const [language, setLanguage] = useState('en')
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const loadData = () => {
+      const savedClubs = loadClubs()
+      console.log('MainAdminPanel - Loaded clubs:', savedClubs)
+      console.log('MainAdminPanel - Clubs count:', savedClubs?.length)
+      // Log members count for each club
+      savedClubs.forEach(club => {
+        console.log(`MainAdminPanel - ${club.name}: ${club.members?.length || 0} members`)
+      })
+      setClubs(savedClubs || [])
+      
+      // Load saved language preference
+      const savedLanguage = localStorage.getItem('main_admin_language')
+      if (savedLanguage) {
+        setLanguage(savedLanguage)
+      }
+      
+      setIsLoading(false)
+    }
+    loadData()
+    
+    // Sync members periodically (every 5 seconds) to catch new members
+    const syncInterval = setInterval(() => {
+      const updatedClubs = loadClubs()
+      setClubs(updatedClubs || [])
+    }, 5000)
+    
+    return () => clearInterval(syncInterval)
+  }, [])
+  
+  // Save language preference when it changes
+  useEffect(() => {
+    if (language) {
+      localStorage.setItem('main_admin_language', language)
+    }
+  }, [language])
+
+  const handleClubCreate = (clubData) => {
+    const newClub = {
+      id: Date.now().toString(),
+      ...clubData,
+      createdAt: new Date().toISOString(),
+      tournaments: [],
+      members: [],
+      bookings: [],
+      offers: [],
+      accounting: [],
+      storeEnabled: false,
+      store: { name: '', nameAr: '', categories: [], products: [] },
+      tournamentData: {
+        kingState: null,
+        socialState: null,
+        currentTournamentId: 1
+      }
+    }
+    const updatedClubs = [...clubs, newClub]
+    setClubs(updatedClubs)
+    saveClubs(updatedClubs)
+    return newClub
+  }
+
+  const handleClubUpdate = (clubId, clubData) => {
+    const updatedClubs = clubs.map(club => 
+      club.id === clubId 
+        ? { ...club, ...clubData, updatedAt: new Date().toISOString() }
+        : club
+    )
+    setClubs(updatedClubs)
+    saveClubs(updatedClubs)
+  }
+
+  const handleClubDelete = (clubId) => {
+    const updatedClubs = clubs.filter(club => club.id !== clubId)
+    setClubs(updatedClubs)
+    saveClubs(updatedClubs)
+  }
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div>Loading...</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="main-admin-panel">
+      <MainAdminSidebar 
+        clubs={clubs}
+        language={language}
+        onLanguageChange={setLanguage}
+      />
+      <div className="main-admin-content">
+        <MainAdminHeader 
+          language={language}
+          onLanguageChange={setLanguage}
+        />
+        <Routes>
+          <Route path="/" element={<Navigate to="all-clubs" replace />} />
+          <Route 
+            path="all-clubs" 
+            element={
+              <AllClubsDashboard 
+                clubs={clubs}
+                onUpdateClub={handleClubUpdate}
+              />
+            } 
+          />
+          <Route 
+            path="manage-clubs" 
+            element={
+              <AllClubsManagement 
+                clubs={clubs}
+                onCreateClub={handleClubCreate}
+                onUpdateClub={handleClubUpdate}
+                onDeleteClub={handleClubDelete}
+              />
+            } 
+          />
+        </Routes>
+      </div>
+    </div>
+  )
+}
+
+export default MainAdminPanel

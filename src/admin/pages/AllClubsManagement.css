@@ -1,0 +1,160 @@
+.all-clubs-management {
+  max-width: 1400px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #333;
+}
+
+.clubs-table-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  margin-top: 20px;
+}
+
+.table-info {
+  padding: 15px 20px;
+  background: #f8f9fa;
+  border-bottom: 2px solid #e0e0e0;
+  font-size: 14px;
+  color: #666;
+}
+
+.table-info strong {
+  color: #333;
+  font-weight: 600;
+}
+
+.clubs-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.clubs-table thead {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.clubs-table th {
+  padding: 18px 15px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.clubs-table td {
+  padding: 18px 15px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+  color: #333;
+}
+
+.clubs-table tbody tr {
+  transition: background-color 0.2s;
+}
+
+.clubs-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.clubs-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.table-actions button {
+  padding: 8px 12px;
+  font-size: 16px;
+  min-width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.table-actions .btn-primary {
+  background: #4caf50;
+}
+
+.table-actions .btn-primary:hover {
+  background: #45a049;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+}
+
+.table-actions .btn-secondary {
+  background: #2196f3;
+  color: white;
+  border: none;
+}
+
+.table-actions .btn-secondary:hover {
+  background: #1976d2;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
+}
+
+.table-actions .btn-danger {
+  background: #f44336;
+}
+
+.table-actions .btn-danger:hover {
+  background: #d32f2f;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(244, 67, 54, 0.3);
+}
+
+/* Empty state */
+.clubs-table tbody tr td[colspan] {
+  text-align: center;
+  padding: 60px 20px !important;
+  color: #999;
+}
+
+.clubs-table tbody tr td[colspan] p {
+  margin: 0;
+  font-size: 16px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .clubs-table-container {
+    overflow-x: auto;
+  }
+
+  .clubs-table {
+    min-width: 800px;
+  }
+
+  .table-actions {
+    flex-direction: column;
+  }
+
+  .table-actions button {
+    width: 100%;
+  }
+}

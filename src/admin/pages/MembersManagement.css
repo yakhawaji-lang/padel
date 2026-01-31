@@ -1,0 +1,45 @@
+.members-management {
+  max-width: 1400px;
+}
+
+.members-table {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.members-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.members-table thead {
+  background: #f8f9fa;
+}
+
+.members-table th {
+  padding: 12px 15px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.members-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+}
+
+.members-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.members-table .btn-secondary,
+.members-table .btn-danger {
+  padding: 6px 12px;
+  font-size: 12px;
+  margin-right: 5px;
+}

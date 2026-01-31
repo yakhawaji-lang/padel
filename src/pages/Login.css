@@ -1,0 +1,150 @@
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.login-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  max-width: 500px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.login-header {
+  background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+  color: white;
+  padding: 30px;
+  text-align: center;
+}
+
+.login-header h1 {
+  margin: 0 0 10px 0;
+  font-size: 28px;
+}
+
+.login-header p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 16px;
+}
+
+.login-tabs {
+  display: flex;
+  border-bottom: 2px solid #e0e0e0;
+  background: #f5f5f5;
+}
+
+.login-tabs .tab {
+  flex: 1;
+  padding: 15px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.2s;
+  border-bottom: 3px solid transparent;
+}
+
+.login-tabs .tab:hover {
+  background: #e9e9e9;
+}
+
+.login-tabs .tab.active {
+  background: white;
+  color: #2196f3;
+  border-bottom-color: #2196f3;
+}
+
+.login-form-container {
+  padding: 30px;
+}
+
+.login-form h2 {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 24px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #2196f3;
+}
+
+.btn-primary {
+  background: #2196f3;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  width: 100%;
+}
+
+.btn-primary:hover {
+  background: #1976d2;
+}
+
+.btn-block {
+  display: block;
+  width: 100%;
+}
+
+.form-note {
+  margin-top: 15px;
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+}
+
+.login-footer {
+  padding: 20px 30px;
+  border-top: 1px solid #e0e0e0;
+  text-align: center;
+  background: #f9f9f9;
+}
+
+.admin-link {
+  color: #2196f3;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.admin-link:hover {
+  text-decoration: underline;
+}

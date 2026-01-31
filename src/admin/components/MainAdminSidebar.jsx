@@ -1,0 +1,94 @@
+import React from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import './MainAdminSidebar.css'
+
+const MainAdminSidebar = ({ clubs, language, onLanguageChange }) => {
+  const location = useLocation()
+
+  const isActive = (path) => {
+    return location.pathname === path || location.pathname.startsWith(path + '/')
+  }
+
+  return (
+    <aside className="main-admin-sidebar">
+      <div className="main-admin-sidebar-header">
+        <h2 className="main-admin-logo">
+          {language === 'en' ? 'Main Admin Panel' : 'لوحة التحكم الرئيسية'}
+        </h2>
+        <button
+          className="language-toggle"
+          onClick={() => onLanguageChange(language === 'en' ? 'ar' : 'en')}
+          title={language === 'en' ? 'العربية' : 'English'}
+        >
+          {language === 'en' ? 'العربية' : 'English'}
+        </button>
+      </div>
+
+      <nav className="main-admin-nav">
+        <Link
+          to="/admin/all-clubs"
+          className={`main-admin-nav-item ${isActive('/admin/all-clubs') || location.pathname === '/admin' ? 'active' : ''}`}
+        >
+          <span className="nav-icon">📊</span>
+          <span className="nav-label">
+            {language === 'en' ? 'All Clubs Dashboard' : 'لوحة جميع الأندية'}
+          </span>
+        </Link>
+        <Link
+          to="/admin/manage-clubs"
+          className={`main-admin-nav-item ${isActive('/admin/manage-clubs') ? 'active' : ''}`}
+        >
+          <span className="nav-icon">🏢</span>
+          <span className="nav-label">
+            {language === 'en' ? 'Manage All Clubs' : 'إدارة جميع الأندية'}
+          </span>
+        </Link>
+      </nav>
+
+      <div className="clubs-quick-list">
+        <div className="clubs-list-header">
+          <span className="nav-icon">🏢</span>
+          <span className="nav-label">
+            {language === 'en' ? 'Clubs' : 'الأندية'} ({clubs.length})
+          </span>
+        </div>
+        <div className="clubs-list">
+          {clubs.length === 0 ? (
+            <div className="no-clubs">
+              {language === 'en' ? 'No clubs found' : 'لا توجد أندية'}
+            </div>
+          ) : (
+            clubs.map(club => (
+              <div key={club.id} className="club-quick-item">
+                <Link
+                  to={`/club/${club.id}`}
+                  className="club-quick-link"
+                >
+                  {club.logo ? <img src={club.logo} alt="" className="club-logo-small" /> : <span className="club-icon-small">🏢</span>}
+                  <span className="club-name-text">
+                    {language === 'en' ? club.name : club.nameAr || club.name}
+                  </span>
+                </Link>
+                <Link
+                  to={`/admin/club/${club.id}`}
+                  className="club-admin-link"
+                  title={language === 'en' ? 'Club Admin Panel' : 'لوحة تحكم النادي'}
+                >
+                  ⚙️
+                </Link>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div className="main-admin-sidebar-footer">
+        <Link to="/" className="back-to-app">
+          ← {language === 'en' ? 'Back to Home' : 'العودة للرئيسية'}
+        </Link>
+      </div>
+    </aside>
+  )
+}
+
+export default MainAdminSidebar
