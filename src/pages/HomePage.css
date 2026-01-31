@@ -311,6 +311,13 @@
   margin-top: 24px;
 }
 
+@media (max-width: 480px) {
+  .services-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
 .service-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -467,6 +474,13 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 28px;
+}
+
+@media (max-width: 600px) {
+  .clubs-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 }
 
 .club-card {
@@ -693,32 +707,124 @@
   margin: 0;
 }
 
-/* ========== Responsive — النوادي ========== */
+/* ========== Responsive — النوادي والبطاقات ========== */
 @media (max-width: 640px) {
   .clubs-grid {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 16px;
+  }
+
+  .club-card {
+    padding: 0;
   }
 
   .club-card-header,
   .club-card-tagline,
   .club-card-stats,
   .club-card-details {
-    padding-left: 20px;
-    padding-right: 20px;
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
   .club-card-header {
-    padding-top: 20px;
+    padding-top: 16px;
+  }
+
+  .club-card-stats {
+    margin-top: 12px;
+    padding: 12px 16px;
+    gap: 12px 16px;
+  }
+
+  .club-stat-value {
+    font-size: 1rem;
+  }
+
+  .club-card-details {
+    padding: 12px 16px 16px;
   }
 
   .club-card-footer {
-    padding-left: 20px;
-    padding-right: 20px;
+    padding: 12px 16px 16px;
   }
 
   .club-card-title {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
+  }
+
+  .club-card-tagline {
+    font-size: 0.875rem;
+    margin-top: 8px;
+  }
+
+  .club-card-read-more {
+    padding: 10px 18px;
+    font-size: 0.875rem;
+  }
+
+  .section {
+    padding: 32px 16px;
+  }
+
+  .section-title {
+    font-size: 1.25rem;
+  }
+
+  .services-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .service-card {
+    padding: 20px;
+  }
+
+  .offers-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .offer-card {
+    padding: 16px;
+  }
+
+  .stat-num {
+    font-size: 1.5rem;
+  }
+
+  .stats-bar {
+    padding: 24px 16px;
+  }
+
+  .stats-inner {
+    gap: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .club-card-header,
+  .club-card-tagline,
+  .club-card-stats,
+  .club-card-details {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .club-card-header {
+    padding-top: 14px;
+  }
+
+  .club-card-footer {
+    padding: 10px 14px 14px;
+  }
+
+  .club-card-title {
+    font-size: 1rem;
+  }
+
+  .header-inner {
+    padding: 0 16px;
+    min-height: 56px;
   }
 }
 

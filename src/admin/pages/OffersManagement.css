@@ -343,3 +343,52 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* بطاقات العروض على الجوال */
+@media (max-width: 768px) {
+  .offers-list {
+    gap: 12px;
+  }
+
+  .offer-card {
+    padding: 14px;
+  }
+
+  .offer-card-body {
+    padding: 12px 14px;
+  }
+
+  .offer-card-title {
+    font-size: 1rem;
+  }
+
+  .offer-card-actions {
+    padding: 12px 14px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .offers-filters {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .offers-empty-state {
+    padding: 24px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .offer-card-image-wrap,
+  .offer-card-no-image {
+    min-height: 120px;
+  }
+
+  .offer-card-body {
+    padding: 10px 12px;
+  }
+
+  .offer-card-title {
+    font-size: 0.9375rem;
+  }
+}

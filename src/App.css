@@ -2625,3 +2625,49 @@ button:active {
   white-space: nowrap;
 }
 
+/* بطاقات البطولات والأعضاء على الجوال */
+@media (max-width: 768px) {
+  .tournament-card {
+    padding: 14px;
+  }
+
+  .tournament-card-time {
+    font-size: 1rem;
+  }
+
+  .tournament-card-view,
+  .tournament-card-delete {
+    padding: 10px 14px;
+    font-size: 0.875rem;
+  }
+
+  .member-card-header h3 {
+    font-size: 1rem;
+  }
+
+  .member-card-body {
+    padding: 12px 14px;
+  }
+
+  .tournament-detail-header {
+    padding: 16px 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tournament-card-header {
+    flex-wrap: wrap;
+  }
+
+  .tournament-card-view,
+  .tournament-card-delete {
+    padding: 10px 12px;
+    font-size: 0.8125rem;
+  }
+
+  .member-card-header,
+  .member-card-body {
+    padding: 10px 12px;
+  }
+}
+

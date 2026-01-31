@@ -433,11 +433,15 @@
   color: #666;
 }
 
-/* Responsive */
+/* Responsive — جوال وتبلت */
 @media (max-width: 768px) {
   .dashboard-header {
     flex-direction: column;
-    gap: 15px;
+    gap: 12px;
+  }
+
+  .page-title {
+    font-size: 1.25rem;
   }
 
   .dashboard-controls {
@@ -451,9 +455,67 @@
 
   .clubs-overview-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
   }
 
   .total-stats-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .total-stat-card {
+    padding: 16px;
+  }
+
+  .total-stat-icon {
+    font-size: 32px;
+  }
+
+  .total-stat-value {
+    font-size: 1.5rem;
+  }
+
+  .total-stat-label {
+    font-size: 0.8125rem;
+  }
+
+  .club-overview-card {
+    padding: 16px;
+  }
+
+  .club-name {
+    font-size: 1rem;
+  }
+
+  .club-card-stats {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .stat-value {
+    font-size: 0.9375rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .total-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .total-stat-card {
+    padding: 14px;
+  }
+
+  .total-stat-value {
+    font-size: 1.25rem;
+  }
+
+  .club-card-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .club-overview-card {
+    padding: 14px;
   }
 }

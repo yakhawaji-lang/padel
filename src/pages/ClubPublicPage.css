@@ -109,6 +109,51 @@
   line-height: 1.2;
 }
 
+@media (max-width: 640px) {
+  .club-public-hero-inner {
+    padding: 28px 20px;
+    border-radius: 14px;
+  }
+
+  .club-public-logo {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 16px;
+  }
+
+  .club-public-title {
+    font-size: 1.5rem;
+  }
+
+  .club-public-tagline {
+    font-size: 0.9375rem;
+  }
+
+  .club-public-header {
+    padding: 12px 16px;
+  }
+
+  .club-public-header-inner {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .club-public-hero-inner {
+    padding: 20px 16px;
+  }
+
+  .club-public-logo {
+    width: 56px;
+    height: 56px;
+  }
+
+  .club-public-title {
+    font-size: 1.25rem;
+  }
+}
+
 .club-public-tagline {
   font-size: 1.0625rem;
   color: #475569;
@@ -691,15 +736,30 @@
 
 @media (max-width: 640px) {
   .club-public-main {
-    padding: 0 18px 40px;
+    padding: 0 16px 40px;
   }
 
   .club-public-hero-inner {
-    padding: 32px 24px;
+    padding: 28px 20px;
+    border-radius: 14px;
+  }
+
+  .club-public-logo {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 16px;
   }
 
   .club-public-title {
-    font-size: 1.625rem;
+    font-size: 1.5rem;
+  }
+
+  .club-public-tagline {
+    font-size: 0.9375rem;
+  }
+
+  .club-public-header {
+    padding: 12px 16px;
   }
 
   .club-public-stats {
@@ -717,11 +777,30 @@
 
   .club-public-table th,
   .club-public-table td {
-    padding: 10px 14px;
-    font-size: 0.875rem;
+    padding: 10px 12px;
+    font-size: 0.8125rem;
   }
 
   .club-public-cta-inner {
-    padding: 28px 20px;
+    padding: 24px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .club-public-hero-inner {
+    padding: 20px 16px;
+  }
+
+  .club-public-logo {
+    width: 56px;
+    height: 56px;
+  }
+
+  .club-public-title {
+    font-size: 1.25rem;
+  }
+
+  .club-public-main {
+    padding: 0 14px 32px;
   }
 }

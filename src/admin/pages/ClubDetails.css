@@ -119,3 +119,30 @@
 .settings-form {
   max-width: 500px;
 }
+
+@media (max-width: 768px) {
+  .overview-section {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .tab-content {
+    padding: 14px;
+  }
+
+  .info-card,
+  .stats-card {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tab {
+    padding: 10px 14px;
+    font-size: 0.8125rem;
+  }
+
+  .tab-content {
+    padding: 12px;
+  }
+}

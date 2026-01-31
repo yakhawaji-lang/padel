@@ -116,3 +116,38 @@
 .stat-text {
   font-weight: 500;
 }
+
+@media (max-width: 768px) {
+  .clubs-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .club-card-header {
+    padding: 16px;
+  }
+
+  .club-card-header h3 {
+    font-size: 1.125rem;
+  }
+
+  .club-card-body {
+    padding: 16px;
+  }
+
+  .club-card-actions {
+    padding: 12px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .club-card-header,
+  .club-card-body,
+  .club-card-actions {
+    padding: 12px 14px;
+  }
+
+  .club-card-header h3 {
+    font-size: 1rem;
+  }
+}
