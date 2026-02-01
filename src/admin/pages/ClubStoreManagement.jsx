@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import '../pages/common.css'
 import './ClubStoreManagement.css'
+import BarcodeDisplay from '../components/BarcodeDisplay'
 
 const defaultStore = () => ({ name: '', nameAr: '', categories: [], products: [], sales: [], inventoryMovements: [], minStockAlert: 5 })
 
@@ -8,21 +9,28 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [store, setStore] = useState(() => club?.store || defaultStore())
   const [categoryForm, setCategoryForm] = useState({ name: '', nameAr: '', order: 0 })
-  const [productForm, setProductForm] = useState({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: 0, stock: '' })
+  const [productForm, setProductForm] = useState({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: 0, stock: '', barcode: '' })
   const [saleForm, setSaleForm] = useState({ items: [], customerName: '', notes: '', paymentMethod: 'cash' })
   const [editingCategory, setEditingCategory] = useState(null)
   const [editingProduct, setEditingProduct] = useState(null)
   const [statsPeriod, setStatsPeriod] = useState('all') // 'today' | 'week' | 'month' | 'all'
   const [saleProductSelect, setSaleProductSelect] = useState({ productId: '', qty: 1 })
+  const [saleBarcodeInput, setSaleBarcodeInput] = useState('')
+  const saleBarcodeInputRef = useRef(null)
   const [adjustStockProduct, setAdjustStockProduct] = useState(null)
   const [adjustStockForm, setAdjustStockForm] = useState({ qty: '', reason: '', type: 'in' })
   const [inventoryFilter, setInventoryFilter] = useState('all') // 'all' | 'tracked' | 'low' | 'out'
+  const [inventoryBarcodeSearch, setInventoryBarcodeSearch] = useState('')
   const [movementFilter, setMovementFilter] = useState('all') // 'all' | 'in' | 'out' | 'sale'
   const language = langProp || localStorage.getItem(`club_${club?.id}_language`) || 'en'
 
   useEffect(() => {
     setStore(club?.store ? { ...defaultStore(), ...club.store, categories: club.store.categories || [], products: club.store.products || [], sales: club.store.sales || [], inventoryMovements: club.store.inventoryMovements || [], minStockAlert: club.store.minStockAlert ?? 5 } : defaultStore())
   }, [club?.id, club?.store])
+
+  useEffect(() => {
+    if (activeTab === 'newSale') saleBarcodeInputRef.current?.focus()
+  }, [activeTab])
 
   const saveStore = (updates) => {
     const next = { ...store, ...updates }
@@ -67,10 +75,11 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       price: String(productForm.price || '').trim(),
       image: (productForm.image || '').trim() || undefined,
       order: Number(productForm.order) || 0,
-      stock: stockVal
+      stock: stockVal,
+      barcode: (productForm.barcode || '').trim() || undefined
     }
     saveStore({ products: [...(store.products || []), prod].sort((a, b) => (a.order || 0) - (b.order || 0)) })
-    setProductForm({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: (store.products?.length || 0), stock: '' })
+    setProductForm({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: (store.products?.length || 0), stock: '', barcode: '' })
     setEditingProduct(null)
   }
 
@@ -88,11 +97,12 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
         price: String(productForm.price || '').trim(),
         image: (productForm.image || '').trim() || undefined,
         order: Number(productForm.order) ?? p.order,
-        stock: stockVal
+        stock: stockVal,
+        barcode: (productForm.barcode || '').trim() || undefined
       }
     })
     saveStore({ products: prods.sort((a, b) => (a.order || 0) - (b.order || 0)) })
-    setProductForm({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: 0, stock: '' })
+    setProductForm({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: 0, stock: '', barcode: '' })
     setEditingProduct(null)
   }
 
@@ -177,6 +187,29 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
     setSaleForm(f => ({ ...f, items: f.items.filter(i => i.productId !== productId) }))
   }
 
+  const addByBarcode = () => {
+    const code = saleBarcodeInput.trim()
+    if (!code) return
+    const p = (store.products || []).find(pr => pr.barcode && String(pr.barcode).trim().toLowerCase() === code.toLowerCase())
+    if (!p) {
+      setSaleBarcodeInput('')
+      return
+    }
+    if (p.stock != null && (p.stock ?? 0) < 1) return
+    const existing = saleForm.items.find(i => i.productId === p.id)
+    let newItems
+    if (existing) {
+      const newQty = existing.qty + 1
+      if (p.stock != null && (p.stock ?? 0) < newQty) return
+      newItems = saleForm.items.map(i => i.productId === p.id ? { ...i, qty: newQty } : i)
+    } else {
+      newItems = [...saleForm.items, { productId: p.id, productName: language === 'ar' && p.nameAr ? p.nameAr : p.name, qty: 1, price: parseFloat(p.price) || 0 }]
+    }
+    setSaleForm(f => ({ ...f, items: newItems }))
+    setSaleBarcodeInput('')
+    saleBarcodeInputRef.current?.focus()
+  }
+
   const adjustStock = () => {
     if (!adjustStockProduct || !adjustStockForm.qty) return
     const p = (store.products || []).find(pr => pr.id === adjustStockProduct.id)
@@ -219,7 +252,8 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       price: prod.price ?? '',
       image: prod.image || '',
       order: prod.order ?? 0,
-      stock: prod.stock == null ? '' : prod.stock
+      stock: prod.stock == null ? '' : prod.stock,
+      barcode: prod.barcode || ''
     })
   }
 
@@ -331,6 +365,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       addStock: 'Add Stock',
       removeStock: 'Remove Stock',
       adjustStock: 'Adjust Stock',
+      adjustByBarcode: 'Adjust by barcode',
       movementHistory: 'Movement History',
       movementType: 'Type',
       movementIn: 'In',
@@ -342,7 +377,11 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       trackedOnly: 'Tracked only',
       filterAll: 'All',
       filterLow: 'Low stock',
-      filterOut: 'Out of stock'
+      filterOut: 'Out of stock',
+      barcode: 'Barcode',
+      barcodeHint: 'Optional - for scanner and quick add',
+      scanOrEnterBarcode: 'Scan or enter barcode',
+      addByBarcode: 'Add by barcode'
     },
     ar: {
       title: 'المبيعات والمتجر',
@@ -403,6 +442,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       addStock: 'إضافة مخزون',
       removeStock: 'سحب مخزون',
       adjustStock: 'تعديل المخزون',
+      adjustByBarcode: 'تعديل بالباركود',
       movementHistory: 'سجل الحركات',
       movementType: 'النوع',
       movementIn: 'إدخال',
@@ -414,7 +454,11 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       trackedOnly: 'مُتتبع فقط',
       filterAll: 'الكل',
       filterLow: 'منخفض',
-      filterOut: 'نفد'
+      filterOut: 'نفد',
+      barcode: 'الباركود',
+      barcodeHint: 'اختياري - للماسح الضوئي والإضافة السريعة',
+      scanOrEnterBarcode: 'امسح أو أدخل الباركود',
+      addByBarcode: 'إضافة بالباركود'
     }
   }
   const c = t[language]
@@ -600,6 +644,23 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
                 <button key={f.id} type="button" className={inventoryFilter === f.id ? 'active' : ''} onClick={() => setInventoryFilter(f.id)}>{f.label}</button>
               ))}
             </div>
+            <div className="inventory-barcode-search">
+              <input
+                type="text"
+                placeholder={language === 'en' ? 'Search by barcode...' : 'بحث بالباركود...'}
+                value={inventoryBarcodeSearch}
+                onChange={(e) => setInventoryBarcodeSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { const p = products.find(pr => pr.barcode && String(pr.barcode).trim().toLowerCase() === inventoryBarcodeSearch.trim().toLowerCase()); if (p && p.stock != null) { setAdjustStockProduct(p); setAdjustStockForm({ qty: '', reason: '', type: 'in' }); } } }}
+                className="inventory-barcode-input"
+              />
+              <button
+                type="button"
+                className="btn-secondary btn-small"
+                onClick={() => { const p = products.find(pr => pr.barcode && String(pr.barcode).trim().toLowerCase() === inventoryBarcodeSearch.trim().toLowerCase()); if (p && p.stock != null) { setAdjustStockProduct(p); setAdjustStockForm({ qty: '', reason: '', type: 'in' }); } else setInventoryBarcodeSearch(''); }}
+              >
+                {c.adjustByBarcode}
+              </button>
+            </div>
           </div>
           <div className="store-list-card full-width inventory-table-card">
             <h3>{c.inventory}</h3>
@@ -607,6 +668,10 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
               let invProducts = inventoryFilter === 'tracked' ? trackedProducts : inventoryFilter === 'low' ? lowStockProducts : inventoryFilter === 'out' ? outOfStockProducts : products
               invProducts = invProducts.filter(p => p.stock != null || inventoryFilter === 'all')
               if (inventoryFilter === 'tracked' || inventoryFilter === 'low' || inventoryFilter === 'out') invProducts = invProducts.filter(p => p.stock != null)
+              if (inventoryBarcodeSearch.trim()) {
+                const q = inventoryBarcodeSearch.trim().toLowerCase()
+                invProducts = invProducts.filter(p => p.barcode && String(p.barcode).toLowerCase().includes(q))
+              }
               return invProducts.length === 0 ? (
                 <p className="empty-msg">{c.noProducts}</p>
               ) : (
@@ -615,6 +680,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
                     <thead>
                       <tr>
                         <th>{c.name}</th>
+                        <th>{c.barcode}</th>
                         <th>{c.category}</th>
                         <th>{c.stock}</th>
                         <th>{language === 'en' ? 'Value' : 'القيمة'}</th>
@@ -631,6 +697,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
                         return (
                           <tr key={p.id} className={p.stock != null && p.stock <= minStockAlert ? 'row-low' : p.stock === 0 ? 'row-out' : ''}>
                             <td>{language === 'ar' && p.nameAr ? p.nameAr : p.name}</td>
+                            <td className="barcode-cell">{p.barcode ? <BarcodeDisplay value={p.barcode} options={{ height: 24, width: 1.2 }} /> : <span className="no-barcode">—</span>}</td>
                             <td>{cat ? (language === 'ar' && cat.nameAr ? cat.nameAr : cat.name) : '—'}</td>
                             <td>{p.stock == null ? '∞' : p.stock}</td>
                             <td>{val.toFixed(2)} {currency}</td>
@@ -819,6 +886,11 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
               <input type="text" value={productForm.image} onChange={(e) => setProductForm(f => ({ ...f, image: e.target.value }))} placeholder="https://..." />
             </div>
             <div className="form-row">
+              <label>{c.barcode}</label>
+              <input type="text" value={productForm.barcode} onChange={(e) => setProductForm(f => ({ ...f, barcode: e.target.value }))} placeholder="e.g. 5901234123457" autoComplete="off" />
+              <span className="form-hint">{c.barcodeHint}</span>
+            </div>
+            <div className="form-row">
               <label>{c.order}</label>
               <input type="number" min={0} value={productForm.order} onChange={(e) => setProductForm(f => ({ ...f, order: Number(e.target.value) || 0 }))} />
             </div>
@@ -826,7 +898,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
               {editingProduct ? (
                 <>
                   <button type="button" className="btn-primary" onClick={() => updateProduct(editingProduct)}>{c.save}</button>
-                  <button type="button" className="btn-secondary" onClick={() => { setEditingProduct(null); setProductForm({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: 0, stock: '' }); }}>{c.cancel}</button>
+                  <button type="button" className="btn-secondary" onClick={() => { setEditingProduct(null); setProductForm({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: 0, stock: '', barcode: '' }); }}>{c.cancel}</button>
                 </>
               ) : (
                 <button type="button" className="btn-primary" onClick={addProduct}>{c.addProduct}</button>
@@ -850,8 +922,10 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
                         <span className="product-meta">
                           {cat ? (language === 'en' ? cat.name : (cat.nameAr || cat.name)) : c.noCategory} · {prod.price ? `${prod.price} ${currency}` : '—'}
                           {prod.stock != null && <span className="stock-badge"> · {c.stock}: {prod.stock}</span>}
+                          {prod.barcode && <span className="barcode-badge"> · {c.barcode}: {prod.barcode}</span>}
                           {isLowStock && <span className="low-stock-badge">{c.lowStock}</span>}
                         </span>
+                        {prod.barcode && <div className="product-barcode-wrap"><BarcodeDisplay value={prod.barcode} options={{ height: 28, width: 1.5 }} /></div>}
                       </div>
                       <div className="item-actions">
                         <button type="button" className="btn-secondary btn-small" onClick={() => startEditProduct(prod)}>{c.edit}</button>
@@ -870,11 +944,27 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
         <div className="store-section store-sale-section">
           <div className="store-form-card sale-form-card">
             <h3>{c.newSale}</h3>
+            <div className="sale-barcode-section">
+              <label className="sale-barcode-label">{c.scanOrEnterBarcode}</label>
+              <div className="sale-barcode-row">
+                <input
+                  ref={saleBarcodeInputRef}
+                  type="text"
+                  className="sale-barcode-input"
+                  value={saleBarcodeInput}
+                  onChange={(e) => setSaleBarcodeInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addByBarcode(); } }}
+                  placeholder={language === 'en' ? 'Scan or type barcode...' : 'امسح أو اكتب الباركود...'}
+                  autoComplete="off"
+                />
+                <button type="button" className="btn-primary" onClick={addByBarcode}>{c.addByBarcode}</button>
+              </div>
+            </div>
             <div className="sale-add-item">
               <select value={saleProductSelect.productId} onChange={(e) => setSaleProductSelect(s => ({ ...s, productId: e.target.value }))}>
-                <option value="">{language === 'en' ? 'Select product' : 'اختر منتج'}</option>
+                <option value="">{language === 'en' ? 'Or select product' : 'أو اختر منتج'}</option>
                 {products.filter(p => p.stock == null || p.stock > 0).map(p => (
-                  <option key={p.id} value={p.id}>{language === 'ar' && p.nameAr ? p.nameAr : p.name} – {p.price} {currency}</option>
+                  <option key={p.id} value={p.id}>{(p.barcode ? `[${p.barcode}] ` : '')}{language === 'ar' && p.nameAr ? p.nameAr : p.name} – {p.price} {currency}</option>
                 ))}
               </select>
               <input type="number" min={1} value={saleProductSelect.qty} onChange={(e) => setSaleProductSelect(s => ({ ...s, qty: Math.max(1, Number(e.target.value) || 1) }))} />
