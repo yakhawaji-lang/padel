@@ -205,6 +205,7 @@ const RegisterClub = () => {
                 value={formData.location}
                 onChange={(loc) => setFormData(prev => ({ ...prev, location: loc }))}
                 placeholder={language === 'en' ? 'Loading address...' : 'جاري تحميل العنوان...'}
+                useMyLocationLabel={language === 'en' ? 'Use my location' : 'تحديد موقعي'}
               />
             </div>
             <div className="form-row">

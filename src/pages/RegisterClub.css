@@ -129,13 +129,47 @@
 }
 .register-club-btn:hover { background: #1e40af; }
 /* Map picker */
+.location-map-picker {
+  margin-top: 8px;
+}
+.location-map-toolbar {
+  margin-bottom: 8px;
+}
+.location-map-use-btn {
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.location-map-use-btn:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+.location-map-use-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
 .location-map-container {
   height: 280px;
+  min-height: 200px;
   width: 100%;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
-  margin-top: 8px;
   overflow: hidden;
+  background: #f1f5f9;
+  position: relative;
+}
+.location-map-picker .leaflet-container {
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+}
+.location-map-error {
+  font-size: 0.8125rem;
+  color: #dc2626;
+  margin: 8px 0 0 0;
 }
 .location-map-loading {
   font-size: 0.8125rem;
@@ -149,6 +183,7 @@
   padding: 10px;
   background: #f8fafc;
   border-radius: 8px;
+  border: 1px solid #e2e8f0;
 }
 
 /* Image upload */
