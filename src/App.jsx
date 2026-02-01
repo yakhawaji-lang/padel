@@ -3649,15 +3649,33 @@ function App({ currentUser }) {
         })
       }
       updatedLocalBookings = localBookings.filter(b => b.id !== bookingId)
+      if (clubId && currentClub?.id) {
+        const clubs = loadClubs()
+        const club = clubs.find(c => c.id === clubId)
+        if (club) {
+          const acc = (club.accounting || []).filter(a => a.bookingId !== bookingId)
+          saveClubs(clubs.map(c => c.id === clubId ? { ...c, accounting: acc } : c))
+        }
+      }
     } else {
       // Delete by date and type (legacy: removes all tournaments on that date with that type)
       const tournamentDate = arg1
+      const toRemove = localBookings.filter(b => b.isTournament && b.tournamentType === tournamentType && b.date === tournamentDate)
       updatedLocalBookings = localBookings.filter(b => {
         if (b.isTournament && b.tournamentType === tournamentType && b.date === tournamentDate) {
           return false
         }
         return true
       })
+      if (clubId && currentClub?.id && toRemove.length > 0) {
+        const clubs = loadClubs()
+        const club = clubs.find(c => c.id === clubId)
+        if (club) {
+          const removeIds = new Set(toRemove.map(b => b.id).filter(Boolean))
+          const acc = (club.accounting || []).filter(a => !removeIds.has(a.bookingId))
+          saveClubs(clubs.map(c => c.id === clubId ? { ...c, accounting: acc } : c))
+        }
+      }
     }
     setLocalBookings(updatedLocalBookings)
     localStorage.setItem('bookings', JSON.stringify(updatedLocalBookings))
@@ -4146,6 +4164,52 @@ function App({ currentUser }) {
     localStorage.setItem('bookings', JSON.stringify(updatedLocalBookings))
     // Merge with Playtomic bookings
     mergeBookings(updatedLocalBookings, playtomicBookings)
+    // Sync accounting: add/update invoice for this booking
+    if (currentClub?.id && clubId) {
+      const clubs = loadClubs()
+      const club = clubs.find(c => c.id === clubId)
+      if (club) {
+        const savedBooking = updatedLocalBookings.find(b => 
+          (bookingData.id && b.id === bookingData.id) ||
+          (b.date === bookingData.date && b.startTime === bookingData.startTime && b.resource === bookingData.resource)
+        )
+        const bookingId = savedBooking?.id || bookingData.id
+        if (bookingId) {
+          const amount = parseFloat(bookingData.amount) || 0
+          const desc = `${bookingData.resource || 'Court'} - ${bookingData.date || ''} ${(bookingData.startTime || '')}-${(bookingData.endTime || '')}`.trim()
+          const acc = club.accounting || []
+          const without = acc.filter(a => a.bookingId !== bookingId)
+          const entry = {
+            id: `acc-${bookingId}`,
+            bookingId,
+            date: bookingData.date || new Date().toISOString().split('T')[0],
+            description: desc || 'Booking',
+            amount,
+            type: 'revenue',
+            status: amount > 0 ? 'pending' : 'n/a'
+          }
+          saveClubs(clubs.map(c => c.id === clubId ? { ...c, accounting: [...without, entry] } : c))
+        }
+      }
+    }
+    setShowBookingModal(false)
+    setBookingFormData(null)
+  }
+
+  const deleteBookingAndInvoice = (bookingId) => {
+    if (!bookingId) return
+    const updatedLocalBookings = localBookings.filter(b => b.id !== bookingId)
+    setLocalBookings(updatedLocalBookings)
+    localStorage.setItem('bookings', JSON.stringify(updatedLocalBookings))
+    mergeBookings(updatedLocalBookings, playtomicBookings)
+    if (currentClub?.id && clubId) {
+      const clubs = loadClubs()
+      const club = clubs.find(c => c.id === clubId)
+      if (club) {
+        const acc = (club.accounting || []).filter(a => a.bookingId !== bookingId)
+        saveClubs(clubs.map(c => c.id === clubId ? { ...c, accounting: acc } : c))
+      }
+    }
     setShowBookingModal(false)
     setBookingFormData(null)
   }
@@ -6368,11 +6432,7 @@ function App({ currentUser }) {
                       console.error('Cannot delete: bookingId is invalid', bookingId)
                       return
                     }
-                    const updatedBookings = bookings.filter(b => b.id !== bookingId && b.id != null)
-                    setBookings(updatedBookings)
-                    localStorage.setItem('bookings', JSON.stringify(updatedBookings))
-                    setShowBookingModal(false)
-                    setBookingFormData(null)
+                    deleteBookingAndInvoice(bookingId)
                   }}
                   onCancel={() => {
                     setShowBookingModal(false)
@@ -6574,11 +6634,7 @@ function App({ currentUser }) {
                       console.error('Cannot delete: bookingId is invalid', bookingId)
                       return
                     }
-                    const updatedBookings = bookings.filter(b => b.id !== bookingId && b.id != null)
-                    setBookings(updatedBookings)
-                    localStorage.setItem('bookings', JSON.stringify(updatedBookings))
-                    setShowBookingModal(false)
-                    setBookingFormData(null)
+                    deleteBookingAndInvoice(bookingId)
                   }}
                   onCancel={() => {
                     setShowBookingModal(false)
