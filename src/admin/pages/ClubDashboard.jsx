@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import './ClubDashboard.css'
 import { loadFromLocalStorage } from '../../storage'
+import LanguageIcon from '../../components/LanguageIcon'
 
 const ClubDashboard = ({ club }) => {
   const navigate = useNavigate()
@@ -9,12 +10,6 @@ const ClubDashboard = ({ club }) => {
   const [language, setLanguage] = useState('en')
   const [tournamentData, setTournamentData] = useState(null)
   
-  // Debug
-  useEffect(() => {
-    console.log('ClubDashboard - club prop:', club)
-    console.log('ClubDashboard - clubId:', clubId)
-  }, [club, clubId])
-
   useEffect(() => {
     if (!club || !clubId) return
     

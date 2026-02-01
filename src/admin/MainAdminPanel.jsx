@@ -18,12 +18,6 @@ function MainAdminPanel() {
   useEffect(() => {
     const loadData = () => {
       const savedClubs = loadClubs()
-      console.log('MainAdminPanel - Loaded clubs:', savedClubs)
-      console.log('MainAdminPanel - Clubs count:', savedClubs?.length)
-      // Log members count for each club
-      savedClubs.forEach(club => {
-        console.log(`MainAdminPanel - ${club.name}: ${club.members?.length || 0} members`)
-      })
       setClubs(savedClubs || [])
       
       // Load saved language preference
