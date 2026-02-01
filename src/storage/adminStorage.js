@@ -90,7 +90,12 @@ export async function loadClubsAsync() {
       const data = localStorage.getItem(ADMIN_STORAGE_KEYS.CLUBS)
       if (data) local = JSON.parse(data)
     } catch (_) {}
-    const merged = mergeClubsPreservingLocalImages(remote, local)
+    let merged = mergeClubsPreservingLocalImages(remote, local)
+    if (!merged.length || !merged.some(c => c.id === 'hala-padel')) {
+      const hala = createExampleHalaPadel()
+      if (!merged.length) merged = [hala]
+      else if (!merged.some(c => c.id === 'hala-padel')) merged = [hala, ...merged]
+    }
     localStorage.setItem(ADMIN_STORAGE_KEYS.CLUBS, JSON.stringify(merged))
     _clubsCache = merged
     if (typeof window !== 'undefined') {
@@ -114,7 +119,12 @@ export function applyRemoteClubs(clubs) {
       const data = localStorage.getItem(ADMIN_STORAGE_KEYS.CLUBS)
       if (data) local = JSON.parse(data)
     } catch (_) {}
-    const merged = mergeClubsPreservingLocalImages(clubs, local)
+    let merged = mergeClubsPreservingLocalImages(clubs, local)
+    if (!merged.length || !merged.some(c => c.id === 'hala-padel')) {
+      const hala = createExampleHalaPadel()
+      if (!merged.length) merged = [hala]
+      else if (!merged.some(c => c.id === 'hala-padel')) merged = [hala, ...merged]
+    }
     localStorage.setItem(ADMIN_STORAGE_KEYS.CLUBS, JSON.stringify(merged))
     _clubsCache = merged
     if (typeof window !== 'undefined') {

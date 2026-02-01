@@ -109,11 +109,8 @@ const ClubPublicPage = () => {
   }, [language])
 
   const refreshClub = React.useCallback(() => {
-    let c = getClubById(clubId, true)
-    if (!c) {
-      loadClubs()
-      c = getClubById(clubId, false)
-    }
+    loadClubs()
+    const c = getClubById(clubId)
     setClub(c || null)
   }, [clubId])
 

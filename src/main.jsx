@@ -16,6 +16,7 @@ const Register = lazy(() => import('./pages/Register'))
 const RegisterClub = lazy(() => import('./pages/RegisterClub'))
 const ClubLogin = lazy(() => import('./pages/ClubLogin'))
 import ClubPublicPage from './pages/ClubPublicPage'
+import { ErrorBoundary } from './components/ErrorBoundary'
 const App = lazy(() => import('./App'))
 const MainAdminPanel = lazy(() => import('./admin/MainAdminPanel'))
 const ClubAdminPanel = lazy(() => import('./admin/ClubAdminPanel'))
@@ -47,7 +48,7 @@ function Root() {
           <Route path="/register-club" element={<RegisterClub />} />
           <Route path="/club-login" element={<ClubLogin />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/clubs/:clubId" element={<ClubPublicPage />} />
+          <Route path="/clubs/:clubId" element={<ErrorBoundary fallback={<div style={{ padding: 40, textAlign: 'center', minHeight: '50vh' }}><p>Something went wrong. <a href="/">Go to home</a></p></div>}><ClubPublicPage /></ErrorBoundary>} />
           <Route path="/club/:clubId/*" element={<App />} />
         </Routes>
       </Suspense>
