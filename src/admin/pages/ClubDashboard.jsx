@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import './ClubDashboard.css'
 import { loadFromLocalStorage } from '../../storage'
+import { getClubMembersFromStorage } from '../../storage/adminStorage'
 import LanguageIcon from '../../components/LanguageIcon'
 
 const ClubDashboard = ({ club }) => {
@@ -134,10 +135,13 @@ const ClubDashboard = ({ club }) => {
     const revenue = club.accounting?.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0) || 0
     
     const hasPlaytomic = !!(club.playtomicVenueId && club.playtomicApiKey)
+    const membersList = getClubMembersFromStorage(club.id)
+    const totalMembers = membersList.length || club.members?.length || 0
     
     return {
       totalTournaments: club.tournaments?.length || 0,
-      totalMembers: club.members?.length || 0,
+      totalMembers,
+      membersList,
       totalBookings: club.bookings?.length || 0,
       totalRevenue: revenue,
       totalCourts: club.courts?.length || 0,
@@ -150,7 +154,7 @@ const ClubDashboard = ({ club }) => {
       hasPlaytomic,
       totalOffers: club.offers?.length || 0
     }
-  }, [club, tournamentData])
+  }, [club, club?.id, tournamentData])
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A'
@@ -437,11 +441,11 @@ const ClubDashboard = ({ club }) => {
             </div>
 
             {/* Recent Members */}
-            {club.members && club.members.length > 0 && (
+            {stats.membersList && stats.membersList.length > 0 && (
               <div className="dashboard-section">
-                <h3 className="section-title">{t.members} ({club.members.length})</h3>
+                <h3 className="section-title">{t.members} ({stats.membersList.length})</h3>
                 <div className="members-preview">
-                  {club.members.slice(0, 5).map(member => (
+                  {stats.membersList.slice(0, 5).map(member => (
                     <div key={member.id} className="member-preview-item">
                       <div className="member-avatar">
                         {member.avatar ? (
@@ -463,12 +467,12 @@ const ClubDashboard = ({ club }) => {
                       )}
                     </div>
                   ))}
-                  {club.members.length > 5 && (
+                  {stats.membersList.length > 5 && (
                     <button 
                       className="view-all-btn"
                       onClick={() => navigate(`/admin/club/${club.id}/members`)}
                     >
-                      {language === 'en' ? `View all ${club.members.length} members` : `عرض جميع ${club.members.length} عضو`} →
+                      {language === 'en' ? `View all ${stats.membersList.length} members` : `عرض جميع ${stats.membersList.length} عضو`} →
                     </button>
                   )}
                 </div>

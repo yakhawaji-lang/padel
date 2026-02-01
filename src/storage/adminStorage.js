@@ -96,6 +96,7 @@ export async function loadClubsAsync() {
       if (!merged.length) merged = [hala]
       else if (!merged.some(c => c.id === 'hala-padel')) merged = [hala, ...merged]
     }
+    syncMembersToClubs(merged)
     localStorage.setItem(ADMIN_STORAGE_KEYS.CLUBS, JSON.stringify(merged))
     _clubsCache = merged
     if (typeof window !== 'undefined') {
@@ -125,6 +126,7 @@ export function applyRemoteClubs(clubs) {
       if (!merged.length) merged = [hala]
       else if (!merged.some(c => c.id === 'hala-padel')) merged = [hala, ...merged]
     }
+    syncMembersToClubs(merged)
     localStorage.setItem(ADMIN_STORAGE_KEYS.CLUBS, JSON.stringify(merged))
     _clubsCache = merged
     if (typeof window !== 'undefined') {
