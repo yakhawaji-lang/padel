@@ -107,19 +107,27 @@ const ClubPublicPage = () => {
     setAppLanguage(language)
   }, [language])
 
-  useEffect(() => {
-    const c = getClubById(clubId)
+  const refreshClub = React.useCallback(() => {
+    const c = getClubById(clubId, true)
     setClub(c || null)
   }, [clubId])
 
   useEffect(() => {
-    const onSynced = () => {
-      const c = getClubById(clubId)
-      if (c) setClub(c)
+    refreshClub()
+  }, [refreshClub])
+
+  useEffect(() => {
+    window.addEventListener('clubs-synced', refreshClub)
+    return () => window.removeEventListener('clubs-synced', refreshClub)
+  }, [refreshClub])
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshClub()
     }
-    window.addEventListener('clubs-synced', onSynced)
-    return () => window.removeEventListener('clubs-synced', onSynced)
-  }, [clubId])
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [refreshClub])
 
   useEffect(() => {
     setPlatformUser(getCurrentPlatformUser())

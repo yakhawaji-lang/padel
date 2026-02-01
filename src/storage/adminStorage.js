@@ -437,13 +437,26 @@ export const saveClubs = (clubs) => {
     localStorage.setItem(ADMIN_STORAGE_KEYS.CLUBS, JSON.stringify(clubs))
     _clubsCache = clubs
     setRemoteClubs(clubs)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('clubs-synced'))
+    }
   } catch (error) {
     console.error('Error saving clubs:', error)
   }
 }
 
-export const getClubById = (clubId) => {
-  const clubs = loadClubs()
+export const getClubById = (clubId, forceFromStorage = false) => {
+  let clubs
+  if (forceFromStorage) {
+    try {
+      const data = localStorage.getItem(ADMIN_STORAGE_KEYS.CLUBS)
+      clubs = data ? JSON.parse(data) : []
+    } catch (e) {
+      clubs = []
+    }
+  } else {
+    clubs = loadClubs()
+  }
   return clubs.find(club => club.id === clubId)
 }
 
