@@ -106,6 +106,15 @@ const ClubPublicPage = () => {
   }, [clubId])
 
   useEffect(() => {
+    const onSynced = () => {
+      const c = getClubById(clubId)
+      if (c) setClub(c)
+    }
+    window.addEventListener('clubs-synced', onSynced)
+    return () => window.removeEventListener('clubs-synced', onSynced)
+  }, [clubId])
+
+  useEffect(() => {
     setPlatformUser(getCurrentPlatformUser())
   }, [joinStatus])
 
@@ -157,7 +166,9 @@ const ClubPublicPage = () => {
     return (
       <div className="club-public-page">
         <div className="club-public-loading">
-          <p>{language === 'en' ? 'Loading...' : 'جاري التحميل...'}</p>
+          <p>{clubId
+            ? (language === 'en' ? 'Club not found.' : 'النادي غير موجود.')
+            : (language === 'en' ? 'Loading...' : 'جاري التحميل...')}</p>
           <Link to="/">{language === 'en' ? 'Back to home' : 'العودة للرئيسية'}</Link>
         </div>
       </div>

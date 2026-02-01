@@ -1,7 +1,7 @@
 import React, { lazy, Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { loadClubsAsync, applyRemoteClubs } from './storage/adminStorage.js'
+import { loadClubsAsync, loadClubs, applyRemoteClubs } from './storage/adminStorage.js'
 import { subscribeToClubs } from './storage/supabaseSync.js'
 import { applyAppLanguage } from './storage/languageStorage.js'
 import './index.css'
@@ -61,12 +61,13 @@ function mountApp() {
 
 loadClubsAsync()
   .then(() => {
+    loadClubs()
     mountApp()
-    // When another device adds/edits data, update locally and notify UI
     subscribeToClubs((clubs) => applyRemoteClubs(clubs))
   })
   .catch((e) => {
     console.warn('Bootstrap loadClubsAsync failed:', e)
+    loadClubs()
     mountApp()
     subscribeToClubs((clubs) => applyRemoteClubs(clubs))
   })
