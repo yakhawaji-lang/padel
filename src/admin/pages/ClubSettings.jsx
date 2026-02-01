@@ -28,6 +28,7 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
     openingTime: '06:00',
     closingTime: '23:00'
   })
+  const [activeTab, setActiveTab] = useState('basic')
   const [courts, setCourts] = useState([])
   const [editingCourt, setEditingCourt] = useState(null)
   const [courtForm, setCourtForm] = useState({
@@ -189,7 +190,28 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
           <button className="btn-primary" onClick={handleSave}>Save Settings</button>
         </div>
 
+        <div className="club-settings-tabs">
+          {[
+            { id: 'basic', label: 'Basic Information' },
+            { id: 'playtomic', label: 'Playtomic' },
+            { id: 'general', label: 'General' },
+            { id: 'booking', label: 'Booking' },
+            { id: 'courts', label: 'Courts' },
+            { id: 'hours', label: 'Club Hours' }
+          ].map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              className={`club-settings-tab ${activeTab === id ? 'active' : ''}`}
+              onClick={() => setActiveTab(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div className="settings-sections">
+          {activeTab === 'basic' && (
           <div className="settings-section">
             <h3>Basic Information</h3>
             <div className="form-group">
@@ -378,7 +400,9 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
               />
             </div>
           </div>
+          )}
 
+          {activeTab === 'playtomic' && (
           <div className="settings-section">
             <h3>Playtomic Integration</h3>
             <div className="form-group">
@@ -400,7 +424,9 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
               />
             </div>
           </div>
+          )}
 
+          {activeTab === 'general' && (
           <div className="settings-section">
             <h3>General Settings</h3>
             <div className="form-group">
@@ -430,7 +456,9 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
               />
             </div>
           </div>
+          )}
 
+          {activeTab === 'booking' && (
           <div className="settings-section">
             <h3>Booking Settings</h3>
             <div className="form-group">
@@ -458,7 +486,9 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
               />
             </div>
           </div>
+          )}
 
+          {activeTab === 'courts' && (
           <div className="settings-section">
             <h3>Courts Management</h3>
             <div className="courts-list">
@@ -583,7 +613,9 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
               </div>
             </div>
           </div>
+          )}
 
+          {activeTab === 'hours' && (
           <div className="settings-section">
             <h3>Club Hours / أوقات النادي</h3>
             <p className="section-description" style={{ marginBottom: '16px', color: '#6c757d', fontSize: '14px' }}>
@@ -618,6 +650,7 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
               </p>
             )}
           </div>
+          )}
         </div>
       </div>
     </div>
