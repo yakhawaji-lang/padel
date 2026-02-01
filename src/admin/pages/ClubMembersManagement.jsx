@@ -1,12 +1,30 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { getClubMembersFromStorage } from '../../storage/adminStorage'
 import './MembersManagement.css'
 
 const ClubMembersManagement = ({ club, onUpdateClub }) => {
-  const [members, setMembers] = useState(club?.members || [])
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const members = useMemo(() => {
+    if (!club?.id) return []
+    const fromStorage = getClubMembersFromStorage(club.id)
+    const fromClub = club?.members || []
+    const byId = new Map()
+    fromStorage.forEach(m => { if (m?.id) byId.set(String(m.id), m) })
+    fromClub.forEach(m => { if (m?.id && !byId.has(String(m.id))) byId.set(String(m.id), m) })
+    return Array.from(byId.values())
+  }, [club?.id, club?.members, refreshKey])
 
   useEffect(() => {
-    setMembers(club?.members || [])
-  }, [club?.members])
+    const onSynced = () => setRefreshKey(k => k + 1)
+    const onVisible = () => { if (document.visibilityState === 'visible') setRefreshKey(k => k + 1) }
+    window.addEventListener('clubs-synced', onSynced)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.removeEventListener('clubs-synced', onSynced)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
 
   if (!club) {
     return <div className="club-admin-page">Loading...</div>

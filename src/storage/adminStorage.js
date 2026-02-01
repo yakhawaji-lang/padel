@@ -647,8 +647,46 @@ export const getClubByAdminCredentials = (email, password) => {
 export const syncMembersToClubsManually = () => {
   const clubs = loadClubs()
   syncMembersToClubs(clubs)
-  saveClubs(clubs)
   return clubs
+}
+
+/** Get all members that belong to a club (from storage sources) - for admin display */
+export const getClubMembersFromStorage = (clubId) => {
+  const membersData = localStorage.getItem('padel_members')
+  const allMembersData = localStorage.getItem('all_members')
+  let members = []
+  let allMembers = []
+  if (membersData) {
+    try {
+      const parsed = JSON.parse(membersData)
+      if (Array.isArray(parsed)) members = parsed
+    } catch (_) {}
+  }
+  if (allMembersData) {
+    try {
+      const parsed = JSON.parse(allMembersData)
+      if (Array.isArray(parsed)) allMembers = parsed
+    } catch (_) {}
+  }
+  const byId = new Map()
+  members.forEach(m => { if (m && m.id) byId.set(m.id, m) })
+  allMembers.forEach(m => { if (m && m.id) byId.set(m.id, m) })
+  const merged = Array.from(byId.values())
+  return merged.filter(m => {
+    if (m.clubIds && Array.isArray(m.clubIds)) return m.clubIds.includes(clubId)
+    if (m.clubId) return m.clubId === clubId
+    return clubId === 'hala-padel'
+  }).map(m => ({
+    id: m.id,
+    name: m.name,
+    email: m.email,
+    avatar: m.avatar,
+    mobile: m.mobile || m.phone,
+    totalGames: m.totalGames || 0,
+    totalWins: m.totalWins || 0,
+    totalPoints: m.totalPoints || 0,
+    clubIds: m.clubIds || (m.clubId ? [m.clubId] : [])
+  }))
 }
 
 // Add member to additional club(s)
