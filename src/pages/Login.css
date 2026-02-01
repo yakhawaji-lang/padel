@@ -36,22 +36,19 @@
 }
 
 .login-lang-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  gap: 4px;
+  background: none;
+  border: none;
   color: white;
-  padding: 8px 14px;
-  min-width: 44px;
-  min-height: 44px;
-  border-radius: 8px;
+  padding: 4px 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
 .login-lang-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  opacity: 0.9;
 }
 
 .login-header h1 {

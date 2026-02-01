@@ -107,21 +107,19 @@
 }
 
 .header-language-toggle {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  background: #f5f5f5;
-  border: 1px solid #ddd;
-  padding: 8px 12px;
-  min-width: 40px;
-  min-height: 40px;
-  border-radius: 8px;
+  gap: 4px;
+  padding: 4px 0;
+  background: none;
+  border: none;
   cursor: pointer;
+  color: inherit;
   -webkit-tap-highlight-color: transparent;
 }
 
 .header-language-toggle:hover {
-  background: #e9e9e9;
+  opacity: 0.85;
 }
 
 /* تابلت وجوال - إظهار زر القائمة */
@@ -169,10 +167,6 @@
     display: none;
   }
 
-  .header-language-toggle {
-    padding: 8px 12px;
-    font-size: 13px;
-  }
 }
 
 @media (max-width: 400px) {

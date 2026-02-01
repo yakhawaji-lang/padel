@@ -82,8 +82,7 @@
   font-family: inherit;
 }
 
-.site-nav a:hover,
-.site-nav button.nav-lang:hover {
+.site-nav a:hover {
   color: #1d4ed8;
 }
 
@@ -95,12 +94,17 @@
 }
 
 .nav-lang {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-width: 40px;
-  min-height: 40px;
+  gap: 4px;
+  padding: 4px 0;
+  background: none;
+  border: none;
   color: #6b7280;
+}
+
+.nav-lang:hover {
+  opacity: 0.85;
 }
 
 .nav-admin {

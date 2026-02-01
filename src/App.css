@@ -410,8 +410,21 @@
   gap: 15px;
 }
 
-.language-toggle {
-  /* Keep for backward compatibility */
+.language-toggle,
+.language-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+}
+
+.language-toggle:hover,
+.language-toggle-btn:hover {
+  opacity: 0.85;
 }
 
 .tournament-mode-toggle {

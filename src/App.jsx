@@ -4655,11 +4655,11 @@ function App({ currentUser }) {
               </>
             )}
             <button 
-              className="btn-secondary btn-small"
+              className="language-toggle-btn"
               onClick={toggleLanguage}
               title={language === 'en' ? 'العربية' : 'English'}
             >
-              <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={16} />
+              <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={18} />
             </button>
           </div>
         </div>

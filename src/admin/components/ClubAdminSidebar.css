@@ -73,22 +73,19 @@
 }
 
 .language-toggle {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
+  gap: 4px;
+  padding: 4px 0;
+  margin-top: 10px;
+  background: none;
   border: none;
   color: white;
-  padding: 10px;
-  border-radius: 8px;
   cursor: pointer;
-  width: 100%;
-  margin-top: 10px;
-  min-height: 40px;
 }
 
 .language-toggle:hover {
-  background: rgba(255, 255, 255, 0.2);
+  opacity: 0.9;
 }
 
 .club-admin-nav {
