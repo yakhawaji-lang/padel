@@ -169,6 +169,22 @@ const ClubPublicPage = () => {
     return byCat
   }, [storeProducts])
 
+  const storeOffers = club?.store?.offers || []
+  const getProductPrice = (product, basePriceNum) => {
+    const today = new Date().toISOString().split('T')[0]
+    const active = storeOffers.filter(o => o.active && (!o.startDate || o.startDate <= today) && (!o.endDate || o.endDate >= today))
+    let best = basePriceNum
+    active.forEach(o => {
+      const matchP = (o.productIds || []).includes(product?.id)
+      const matchC = (o.categoryIds || []).includes(product?.categoryId)
+      if (!matchP && !matchC) return
+      const disc = o.type === 'percentage' ? basePriceNum * (Number(o.value) || 0) / 100 : Math.min(basePriceNum, Number(o.value) || 0)
+      const p = basePriceNum - disc
+      if (p < best) best = p
+    })
+    return Math.max(0, best)
+  }
+
   const activeOffers = useMemo(() => {
     const list = (club?.offers || []).slice()
     const todayStr = new Date().toISOString().split('T')[0]
@@ -247,6 +263,10 @@ const ClubPublicPage = () => {
       storeTitle: 'Store',
       storeEmpty: 'No products in the store yet.',
       uncategorized: 'Other',
+      sale: 'Sale',
+      viewProduct: 'View',
+      inStock: 'In stock',
+      outOfStock: 'Out of stock',
       courtBooking: 'Court booking',
       selectDate: 'Select date',
       available: 'Available',
@@ -289,6 +309,10 @@ const ClubPublicPage = () => {
       storeTitle: 'المتجر',
       storeEmpty: 'لا توجد منتجات في المتجر بعد.',
       uncategorized: 'أخرى',
+      sale: 'خصم',
+      viewProduct: 'عرض',
+      inStock: 'متوفر',
+      outOfStock: 'غير متوفر',
       courtBooking: 'حجز الملاعب',
       selectDate: 'اختر التاريخ',
       available: 'متاح',
@@ -647,20 +671,45 @@ const ClubPublicPage = () => {
                           {language === 'en' ? cat.name : (cat.nameAr || cat.name)}
                         </h3>
                         <div className="store-products-grid">
-                          {prods.map(prod => (
-                            <div key={prod.id} className="store-product-card">
-                              {prod.image && <img src={prod.image} alt="" className="store-product-image" />}
-                              <div className="store-product-body">
-                                <h4 className="store-product-name">{language === 'en' ? prod.name : (prod.nameAr || prod.name)}</h4>
-                                {(prod.description || prod.descriptionAr) && (
-                                  <p className="store-product-desc">{language === 'ar' && prod.descriptionAr ? prod.descriptionAr : (prod.description || prod.descriptionAr || '')}</p>
-                                )}
-                                {prod.price != null && prod.price !== '' && (
-                                  <p className="store-product-price">{prod.price} {club.settings?.currency || 'SAR'}</p>
-                                )}
+                          {prods.map(prod => {
+                            const basePrice = parseFloat(prod.price) || 0
+                            const salePrice = getProductPrice(prod, basePrice)
+                            const hasDiscount = basePrice > 0 && salePrice < basePrice
+                            const isOutOfStock = prod.stock != null && prod.stock <= 0
+                            return (
+                              <div key={prod.id} className={`store-product-card ${hasDiscount ? 'has-sale' : ''} ${isOutOfStock ? 'out-of-stock' : ''}`}>
+                                <div className="store-product-image-wrap">
+                                  {prod.image ? (
+                                    <img src={prod.image} alt="" className="store-product-image" />
+                                  ) : (
+                                    <div className="store-product-image-placeholder">
+                                      <span className="store-product-placeholder-icon">📦</span>
+                                    </div>
+                                  )}
+                                  {hasDiscount && <span className="store-product-sale-badge">{c.sale}</span>}
+                                  {prod.stock != null && prod.stock <= 0 && <span className="store-product-stock-badge out">{c.outOfStock}</span>}
+                                  {prod.stock != null && prod.stock > 0 && prod.stock <= (club?.store?.minStockAlert ?? 5) && (
+                                    <span className="store-product-stock-badge low">{c.inStock}</span>
+                                  )}
+                                </div>
+                                <div className="store-product-body">
+                                  <h4 className="store-product-name">{language === 'en' ? prod.name : (prod.nameAr || prod.name)}</h4>
+                                  {(prod.description || prod.descriptionAr) && (
+                                    <p className="store-product-desc">{language === 'ar' && prod.descriptionAr ? prod.descriptionAr : (prod.description || prod.descriptionAr || '')}</p>
+                                  )}
+                                  <div className="store-product-price-wrap">
+                                    {prod.price != null && prod.price !== '' && (
+                                      <>
+                                        {hasDiscount && <span className="store-product-price-old">{prod.price} {currency}</span>}
+                                        <span className="store-product-price">{salePrice.toFixed(2)} {currency}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                  <button type="button" className="store-product-view-btn" disabled={isOutOfStock}>{c.viewProduct}</button>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            )
+                          })}
                         </div>
                       </div>
                     )
@@ -669,20 +718,42 @@ const ClubPublicPage = () => {
                     <div className="store-category-block">
                       <h3 className="store-category-title">{c.uncategorized}</h3>
                       <div className="store-products-grid">
-                        {(productsByCategory['_uncategorized'] || []).map(prod => (
-                          <div key={prod.id} className="store-product-card">
-                            {prod.image && <img src={prod.image} alt="" className="store-product-image" />}
-                            <div className="store-product-body">
-                              <h4 className="store-product-name">{language === 'en' ? prod.name : (prod.nameAr || prod.name)}</h4>
-                              {(prod.description || prod.descriptionAr) && (
-                                <p className="store-product-desc">{language === 'ar' && prod.descriptionAr ? prod.descriptionAr : (prod.description || prod.descriptionAr || '')}</p>
-                              )}
-                              {prod.price != null && prod.price !== '' && (
-                                <p className="store-product-price">{prod.price} {club.settings?.currency || 'SAR'}</p>
-                              )}
+                        {(productsByCategory['_uncategorized'] || []).map(prod => {
+                          const basePrice = parseFloat(prod.price) || 0
+                          const salePrice = getProductPrice(prod, basePrice)
+                          const hasDiscount = basePrice > 0 && salePrice < basePrice
+                          const isOutOfStock = prod.stock != null && prod.stock <= 0
+                          return (
+                            <div key={prod.id} className={`store-product-card ${hasDiscount ? 'has-sale' : ''} ${isOutOfStock ? 'out-of-stock' : ''}`}>
+                              <div className="store-product-image-wrap">
+                                {prod.image ? (
+                                  <img src={prod.image} alt="" className="store-product-image" />
+                                ) : (
+                                  <div className="store-product-image-placeholder">
+                                    <span className="store-product-placeholder-icon">📦</span>
+                                  </div>
+                                )}
+                                {hasDiscount && <span className="store-product-sale-badge">{c.sale}</span>}
+                                {prod.stock != null && prod.stock <= 0 && <span className="store-product-stock-badge out">{c.outOfStock}</span>}
+                              </div>
+                              <div className="store-product-body">
+                                <h4 className="store-product-name">{language === 'en' ? prod.name : (prod.nameAr || prod.name)}</h4>
+                                {(prod.description || prod.descriptionAr) && (
+                                  <p className="store-product-desc">{language === 'ar' && prod.descriptionAr ? prod.descriptionAr : (prod.description || prod.descriptionAr || '')}</p>
+                                )}
+                                <div className="store-product-price-wrap">
+                                  {prod.price != null && prod.price !== '' && (
+                                    <>
+                                      {hasDiscount && <span className="store-product-price-old">{prod.price} {currency}</span>}
+                                      <span className="store-product-price">{salePrice.toFixed(2)} {currency}</span>
+                                    </>
+                                  )}
+                                </div>
+                                <button type="button" className="store-product-view-btn" disabled={isOutOfStock}>{c.viewProduct}</button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   )}
