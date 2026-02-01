@@ -133,6 +133,25 @@
   position: relative;
 }
 
+.club-public-banner-logo-wrap {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  text-align: center;
+}
+
+.club-public-banner-logo {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
 .club-public-hero-overlay {
   position: absolute;
   bottom: 0;
@@ -143,12 +162,6 @@
   padding: 12px 24px;
   border-radius: 0;
   box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.1);
-}
-
-.club-public-hero-overlay .club-public-logo {
-  width: 48px;
-  height: 48px;
-  margin-bottom: 8px;
 }
 
 .club-public-hero-overlay .club-public-hero-title {
@@ -274,10 +287,14 @@
     padding: 10px 16px;
   }
 
-  .club-public-hero-overlay .club-public-logo {
-    width: 40px;
-    height: 40px;
-    margin-bottom: 6px;
+  .club-public-banner-logo-wrap {
+    top: 8px;
+  }
+
+  .club-public-banner-logo {
+    width: 56px;
+    height: 56px;
+    padding: 4px;
   }
 
   .club-public-hero-overlay .club-public-hero-title {

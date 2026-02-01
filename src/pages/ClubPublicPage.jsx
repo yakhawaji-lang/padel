@@ -436,6 +436,11 @@ const ClubPublicPage = () => {
       {club.banner ? (
         <section className="club-public-banner club-public-banner-with-hero">
           <img src={club.banner} alt="" className="club-public-banner-image" />
+          {club.logo && (
+            <div className="club-public-banner-logo-wrap">
+              <img src={club.logo} alt="" className="club-public-banner-logo" />
+            </div>
+          )}
           <div
             className="club-public-hero-overlay"
             style={{
@@ -443,7 +448,6 @@ const ClubPublicPage = () => {
               color: club?.settings?.heroTextColor || '#475569'
             }}
           >
-            {club.logo && <img src={club.logo} alt="" className="club-public-logo" />}
             <h1 className="club-public-hero-title" style={{ color: club?.settings?.heroTitleColor || '#0f172a' }}>{clubName}</h1>
             {tagline && <p className="club-public-hero-tagline" style={{ color: club?.settings?.heroTextColor || '#475569' }}>{tagline}</p>}
             <div className="club-public-hero-stats" style={{ color: club?.settings?.heroStatsColor || '#0f172a' }}>
