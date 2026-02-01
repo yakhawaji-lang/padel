@@ -124,15 +124,14 @@
 
 .club-public-hero-overlay {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
   text-align: center;
-  padding: 32px 40px;
-  border-radius: 20px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  max-width: 90%;
+  padding: 24px 32px;
+  border-radius: 0;
+  box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.1);
 }
 
 .club-public-hero-overlay .club-public-logo {
@@ -170,8 +169,8 @@
 .club-public-hero-overlay .club-public-hero-stats span {
   padding: 6px 14px;
   background: rgba(255, 255, 255, 0.25);
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 0;
+  border: none;
 }
 
 .club-public-header-social {
@@ -261,8 +260,7 @@
   }
 
   .club-public-hero-overlay {
-    padding: 20px 24px;
-    border-radius: 14px;
+    padding: 16px 20px;
   }
 
   .club-public-hero-overlay .club-public-logo {
