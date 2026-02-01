@@ -444,7 +444,11 @@ const ClubDashboard = ({ club }) => {
                   {club.members.slice(0, 5).map(member => (
                     <div key={member.id} className="member-preview-item">
                       <div className="member-avatar">
-                        {member.name?.charAt(0).toUpperCase() || '?'}
+                        {member.avatar ? (
+                          <img src={member.avatar} alt="" />
+                        ) : (
+                          member.name?.charAt(0).toUpperCase() || '?'
+                        )}
                       </div>
                       <div className="member-info">
                         <div className="member-name">{member.name}</div>

@@ -4,6 +4,7 @@ import { loadClubs, getClubById, saveClubs } from '../storage/adminStorage'
 import LanguageIcon from '../components/LanguageIcon'
 import SocialIcon from '../components/SocialIcon'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
+import MemberAccountDropdown from '../components/MemberAccountDropdown'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './ClubPublicPage.css'
 
@@ -132,6 +133,16 @@ const ClubPublicPage = () => {
   useEffect(() => {
     setPlatformUser(getCurrentPlatformUser())
   }, [joinStatus])
+
+  useEffect(() => {
+    setPlatformUser(getCurrentPlatformUser())
+  }, [])
+
+  useEffect(() => {
+    const onMemberUpdate = () => setPlatformUser(getCurrentPlatformUser())
+    window.addEventListener('member-updated', onMemberUpdate)
+    return () => window.removeEventListener('member-updated', onMemberUpdate)
+  }, [])
 
   const bookings = useMemo(() => getClubBookings(clubId), [clubId])
   const today = useMemo(() => new Date().toISOString().split('T')[0], [])
@@ -383,7 +394,18 @@ const ClubPublicPage = () => {
         }}
       >
         <div className="club-public-header-inner">
-          <Link to="/" className="club-public-back">{c.backToHome}</Link>
+          <div className="club-public-header-left">
+            {platformUser ? (
+              <MemberAccountDropdown
+                member={platformUser}
+                onUpdate={() => setPlatformUser(getCurrentPlatformUser())}
+                language={language}
+                className="club-public-member-account"
+              />
+            ) : (
+              <Link to="/" className="club-public-home-link" aria-label={c.backToHome}>⌂</Link>
+            )}
+          </div>
           <div className="club-public-header-social">
             {club?.settings?.socialLinks?.filter(s => s.url).map((item, idx) => (
               <SocialIcon
@@ -397,6 +419,7 @@ const ClubPublicPage = () => {
               />
             ))}
           </div>
+          <div className="club-public-header-right">
           <button
             type="button"
             className="club-public-lang"
@@ -406,6 +429,7 @@ const ClubPublicPage = () => {
           >
             <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} />
           </button>
+          </div>
         </div>
       </header>
 
