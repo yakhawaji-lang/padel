@@ -660,7 +660,7 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
           {activeTab === 'social' && (
           <div className="settings-section">
             <h3>Social Media — التواصل الاجتماعي</h3>
-            <p className="form-hint">Icons appear in the center-top of the banner on the club public page. / تظهر الأيقونات في منتصف أعلى البنر في صفحة النادي.</p>
+            <p className="form-hint">Icons appear in the center of the header bar above the banner. / تظهر الأيقونات في منتصف الشريط الذي أعلى البنر.</p>
             <div className="social-links-editor">
               {socialLinks.map((item, idx) => (
                 <div key={idx} className="social-link-row">

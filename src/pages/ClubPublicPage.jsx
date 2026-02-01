@@ -344,6 +344,19 @@ const ClubPublicPage = () => {
       >
         <div className="club-public-header-inner">
           <Link to="/" className="club-public-back">{c.backToHome}</Link>
+          <div className="club-public-header-social">
+            {club?.settings?.socialLinks?.filter(s => s.url).map((item, idx) => (
+              <SocialIcon
+                key={idx}
+                platform={item.platform || 'facebook'}
+                url={item.url}
+                iconColor={item.iconColor || '#ffffff'}
+                textColor={item.textColor || '#333333'}
+                size={36}
+                className="club-public-social-icon"
+              />
+            ))}
+          </div>
           <button
             type="button"
             className="club-public-lang"
@@ -359,21 +372,6 @@ const ClubPublicPage = () => {
       {club.banner && (
         <section className="club-public-banner">
           <img src={club.banner} alt="" className="club-public-banner-image" />
-          {club?.settings?.socialLinks?.length > 0 && (
-            <div className="club-public-banner-social">
-              {club.settings.socialLinks.filter(s => s.url).map((item, idx) => (
-                <SocialIcon
-                  key={idx}
-                  platform={item.platform || 'facebook'}
-                  url={item.url}
-                  iconColor={item.iconColor || '#ffffff'}
-                  textColor={item.textColor || '#333333'}
-                  size={40}
-                  className="club-public-social-icon"
-                />
-              ))}
-            </div>
-          )}
         </section>
       )}
 
