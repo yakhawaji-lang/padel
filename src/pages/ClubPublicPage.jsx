@@ -337,6 +337,12 @@ const ClubPublicPage = () => {
         </div>
       </header>
 
+      {club.banner && (
+        <section className="club-public-banner">
+          <img src={club.banner} alt="" className="club-public-banner-image" />
+        </section>
+      )}
+
       <main className="club-public-main">
         <section className="club-public-hero">
           <div className="club-public-hero-inner">

@@ -107,6 +107,29 @@
   background: #ffcdd2;
 }
 
+.form-hint {
+  font-size: 12px;
+  color: #6c757d;
+  margin: -4px 0 8px 0;
+}
+
+.banner-preview-wrap {
+  margin-top: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.banner-preview {
+  max-width: 100%;
+  width: 400px;
+  max-height: 160px;
+  object-fit: cover;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
 /* Courts Management */
 .courts-list {
   margin-top: 20px;

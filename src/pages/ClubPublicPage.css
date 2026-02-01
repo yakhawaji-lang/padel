@@ -87,6 +87,23 @@
   padding-bottom: max(56px, env(safe-area-inset-bottom) + 40px);
 }
 
+/* Club Banner — بنر النادي */
+.club-public-banner {
+  width: 100%;
+  overflow: hidden;
+  background: #0f172a;
+}
+
+.club-public-banner-image {
+  width: 100%;
+  height: auto;
+  min-height: 200px;
+  max-height: 400px;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
 /* RTL - صفحة النادي */
 [dir="rtl"] .club-public-header-inner {
   flex-direction: row-reverse;
@@ -130,6 +147,11 @@
 }
 
 @media (max-width: 640px) {
+  .club-public-banner-image {
+    min-height: 140px;
+    max-height: 240px;
+  }
+
   .club-public-hero-inner {
     padding: 28px 20px;
     border-radius: 14px;

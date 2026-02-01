@@ -7,6 +7,7 @@ const ClubSettings = ({ club, onUpdateClub }) => {
     name: '',
     nameAr: '',
     logo: '',
+    banner: '',
     tagline: '',
     taglineAr: '',
     address: '',
@@ -40,6 +41,7 @@ const ClubSettings = ({ club, onUpdateClub }) => {
         name: club?.name || '',
         nameAr: club?.nameAr || '',
         logo: club?.logo || '',
+        banner: club?.banner || '',
         tagline: club?.tagline || '',
         taglineAr: club?.taglineAr || '',
         address: club?.address || '',
@@ -79,6 +81,7 @@ const ClubSettings = ({ club, onUpdateClub }) => {
       name: formData.name,
       nameAr: formData.nameAr,
       logo: formData.logo || undefined,
+      banner: formData.banner || undefined,
       tagline: formData.tagline,
       taglineAr: formData.taglineAr,
       address: formData.address,
@@ -227,6 +230,42 @@ const ClubSettings = ({ club, onUpdateClub }) => {
                 <div className="logo-preview-wrap">
                   <img src={formData.logo} alt="Logo preview" className="logo-preview" />
                   <button type="button" className="logo-remove" onClick={() => setFormData(prev => ({ ...prev, logo: '' }))}>Remove</button>
+                </div>
+              )}
+            </div>
+            <div className="form-group">
+              <label>Club Banner — بنر النادي (URL or upload image)</label>
+              <p className="form-hint">Displayed at the top of the club public page. Recommended: 1200×400px or similar wide aspect ratio. / يُعرض في أعلى صفحة النادي. يُفضّل نسبة 1200×400 بكسل.</p>
+              <div className="logo-input-row">
+                <input
+                  type="text"
+                  placeholder="https://... or leave empty"
+                  value={formData.banner}
+                  onChange={(e) => setFormData({ ...formData, banner: e.target.value })}
+                  className="logo-url-input"
+                />
+                <label className="btn-secondary logo-upload-btn">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        const reader = new FileReader()
+                        reader.onload = () => setFormData(prev => ({ ...prev, banner: reader.result }))
+                        reader.readAsDataURL(file)
+                      }
+                      e.target.value = ''
+                    }}
+                  />
+                  Upload image
+                </label>
+              </div>
+              {formData.banner && (
+                <div className="banner-preview-wrap">
+                  <img src={formData.banner} alt="Banner preview" className="banner-preview" />
+                  <button type="button" className="logo-remove" onClick={() => setFormData(prev => ({ ...prev, banner: '' }))}>Remove</button>
                 </div>
               )}
             </div>
