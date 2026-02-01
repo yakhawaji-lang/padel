@@ -61,9 +61,11 @@ const HomePage = () => {
     setAppLanguage(language)
   }, [language])
 
+  const approvedClubs = useMemo(() => clubs.filter(c => c.status !== 'pending'), [clubs])
+
   const filteredClubs = useMemo(() => {
     const q = searchQuery.toLowerCase()
-    return clubs.filter(club =>
+    return approvedClubs.filter(club =>
       (club.name || '').toLowerCase().includes(q) ||
       (club.nameAr || '').toLowerCase().includes(q) ||
       (club.address || '').toLowerCase().includes(q) ||
@@ -71,12 +73,12 @@ const HomePage = () => {
       (club.tagline || '').toLowerCase().includes(q) ||
       (club.taglineAr || '').toLowerCase().includes(q)
     )
-  }, [clubs, searchQuery])
+  }, [approvedClubs, searchQuery])
 
   const allOffers = useMemo(() => {
     const list = []
     const today = new Date().toISOString().split('T')[0]
-    clubs.forEach(club => {
+    approvedClubs.forEach(club => {
       (club?.offers || [])
         .filter(o => o.active !== false && (!o.validFrom || o.validFrom <= today) && (!o.validUntil || o.validUntil >= today))
         .sort((a, b) => (a.order || 0) - (b.order || 0))
@@ -89,7 +91,7 @@ const HomePage = () => {
         })
     })
     return list
-  }, [clubs, language])
+  }, [approvedClubs, language])
 
   const globalStats = useMemo(() => {
     let totalCourts = 0
@@ -97,7 +99,7 @@ const HomePage = () => {
     let totalTournaments = 0
     let totalMatches = 0
     let totalBookingsUpcoming = 0
-    clubs.forEach(club => {
+    approvedClubs.forEach(club => {
       totalCourts += club.courts?.filter(c => !c.maintenance).length || 0
       totalMembers += club.members?.length || 0
       const t = getClubTournamentStats(club)
@@ -106,14 +108,14 @@ const HomePage = () => {
       totalBookingsUpcoming += getClubBookingsCount(club).upcoming
     })
     return {
-      clubs: clubs.length,
+      clubs: approvedClubs.length,
       courts: totalCourts,
       members: totalMembers,
       tournaments: totalTournaments,
       matches: totalMatches,
       bookingsUpcoming: totalBookingsUpcoming
     }
-  }, [clubs])
+  }, [approvedClubs])
 
   const handleAdminLogin = () => navigate('/admin/all-clubs')
 
@@ -193,6 +195,20 @@ const HomePage = () => {
       footer: {
         tagline: 'Official platform for padel club management.',
         rights: 'All rights reserved.'
+      },
+      joinClubs: {
+        title: 'Join Padel Clubs',
+        text: 'Register your club on the platform to manage tournaments, bookings, members and accounting professionally. Your club will be reviewed and activated by the platform admin.',
+        cta: 'Register new club',
+        hint: 'Use email and password to login to club dashboard after approval.'
+      },
+      joinMembers: {
+        title: 'Register as Padel Member',
+        text: 'Create an account to join clubs with fewer steps, book courts, buy club products and participate in tournaments. Use the same account on the main platform and club pages.',
+        cta: 'Register as member',
+        or: 'Or',
+        googleSignIn: 'Sign in with Google',
+        createNew: 'Create new account'
       }
     },
     ar: {
@@ -270,6 +286,20 @@ const HomePage = () => {
       footer: {
         tagline: 'المنصة الرسمية لإدارة أندية البادل.',
         rights: 'جميع الحقوق محفوظة.'
+      },
+      joinClubs: {
+        title: 'الانظمام إلى أندية بادل',
+        text: 'سجّل ناديك على المنصة لإدارة البطولات والحجوزات والأعضاء والمحاسبة بشكل احترافي. سيتم مراجعة النادي وموافقته من إدارة المنصة.',
+        cta: 'تسجيل نادي جديد',
+        hint: 'استخدم البريد وكلمة المرور للدخول إلى لوحة التحكم بعد الموافقة.'
+      },
+      joinMembers: {
+        title: 'تسجيل أعضاء بادل',
+        text: 'أنشئ حساباً للانضمام للنوادي بخطوات أقل، وحجز الملاعب، وشراء منتجات الأندية، والمشاركة في البطولات. استخدم نفس الحساب في المنصة الرئيسية وصفحات النوادي.',
+        cta: 'تسجيل كعضو',
+        or: 'أو',
+        googleSignIn: 'تسجيل الدخول بحساب Google',
+        createNew: 'إنشاء حساب جديد'
       }
     }
   }
@@ -298,6 +328,7 @@ const HomePage = () => {
             <a href="#services" onClick={(e) => { e.preventDefault(); scrollTo('services') }}>{c.nav.services}</a>
             <a href="#features" onClick={(e) => { e.preventDefault(); scrollTo('features') }}>{c.nav.features}</a>
             <a href="#about" onClick={(e) => { e.preventDefault(); scrollTo('about') }}>{c.nav.about}</a>
+            <a href="#join" onClick={(e) => { e.preventDefault(); scrollTo('join') }}>{language === 'en' ? 'Join' : 'انضم'}</a>
             <a href="#clubs" onClick={(e) => { e.preventDefault(); scrollTo('clubs') }}>{language === 'en' ? 'Clubs' : 'النوادي'}</a>
             <span className="nav-sep"></span>
             <a href="/register" className="nav-register">{c.nav.register}</a>
@@ -332,6 +363,38 @@ const HomePage = () => {
             <div className="stat"><span className="stat-num">{globalStats.tournaments}</span><span className="stat-label">{c.stats.tournaments}</span></div>
             <div className="stat"><span className="stat-num">{globalStats.matches}</span><span className="stat-label">{c.stats.matches}</span></div>
             <div className="stat"><span className="stat-num">{globalStats.bookingsUpcoming}</span><span className="stat-label">{c.stats.bookings}</span></div>
+          </div>
+        </section>
+
+        {/* قسمان متجاوران: الانظمام للنوادي + تسجيل الأعضاء */}
+        <section id="join" className="section section-join">
+          <div className="section-inner">
+            <div className="join-cards">
+              <div className="join-card join-card-clubs">
+                <div className="join-card-icon">🏢</div>
+                <h3 className="join-card-title">{c.joinClubs.title}</h3>
+                <p className="join-card-text">{c.joinClubs.text}</p>
+                <p className="join-card-hint">{c.joinClubs.hint}</p>
+                <Link to="/register-club" className="join-card-cta btn-primary">
+                  {c.joinClubs.cta}
+                </Link>
+              </div>
+              <div className="join-card join-card-members">
+                <div className="join-card-icon">👥</div>
+                <h3 className="join-card-title">{c.joinMembers.title}</h3>
+                <p className="join-card-text">{c.joinMembers.text}</p>
+                <div className="join-card-actions">
+                  <Link to="/register" className="join-card-cta join-cta-google">
+                    <span className="join-google-icon">G</span>
+                    {c.joinMembers.googleSignIn}
+                  </Link>
+                  <span className="join-or">{c.joinMembers.or}</span>
+                  <Link to="/register" className="join-card-cta btn-secondary">
+                    {c.joinMembers.createNew}
+                  </Link>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 

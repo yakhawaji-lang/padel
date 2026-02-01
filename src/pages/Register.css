@@ -73,9 +73,50 @@
 .register-subtitle {
   font-size: 0.9375rem;
   color: #6b7280;
-  margin: 0 0 28px;
+  margin: 0 0 24px;
   text-align: center;
   line-height: 1.6;
+}
+
+.register-google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 12px 20px;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.register-google-btn:hover {
+  background: #f9fafb;
+}
+
+.register-google-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-inline-end: 10px;
+  background: linear-gradient(135deg, #4285f4 0%, #ea4335 50%, #fbbc05 75%, #34a853 100%);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 4px;
+}
+
+.register-or {
+  margin: 20px 0 8px;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: #9ca3af;
 }
 
 .register-form {

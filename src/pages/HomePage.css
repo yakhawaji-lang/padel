@@ -277,6 +277,154 @@
   font-weight: 500;
 }
 
+/* ========== قسم الانظمام (نوادي + أعضاء) ========== */
+.section-join {
+  padding: 48px 24px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.join-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.join-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.join-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+.join-card-clubs {
+  border-left: 4px solid #16a34a;
+}
+
+[dir="rtl"] .join-card-clubs {
+  border-left: none;
+  border-right: 4px solid #16a34a;
+}
+
+.join-card-members {
+  border-left: 4px solid #2563eb;
+}
+
+[dir="rtl"] .join-card-members {
+  border-left: none;
+  border-right: 4px solid #2563eb;
+}
+
+.join-card-icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+}
+
+.join-card-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 12px;
+}
+
+.join-card-text {
+  font-size: 0.9375rem;
+  color: #475569;
+  line-height: 1.6;
+  margin: 0 0 12px;
+  flex: 1;
+}
+
+.join-card-hint {
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  margin: 0 0 20px;
+}
+
+.join-card-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s;
+}
+
+.join-card-cta.btn-primary {
+  background: #16a34a;
+  color: #fff;
+}
+
+.join-card-cta.btn-primary:hover {
+  background: #15803d;
+}
+
+.join-card-cta.btn-secondary {
+  background: #fff;
+  color: #2563eb;
+  border: 1px solid #2563eb;
+}
+
+.join-card-cta.btn-secondary:hover {
+  background: #eff6ff;
+}
+
+.join-cta-google {
+  background: #fff !important;
+  color: #1f2937 !important;
+  border: 1px solid #d1d5db !important;
+}
+
+.join-cta-google:hover {
+  background: #f9fafb !important;
+}
+
+.join-google-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-inline-end: 8px;
+  background: linear-gradient(135deg, #4285f4 0%, #ea4335 50%, #fbbc05 75%, #34a853 100%);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 4px;
+}
+
+.join-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.join-or {
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .join-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ========== الأقسام العامة ========== */
 .section {
   padding: 56px 24px;

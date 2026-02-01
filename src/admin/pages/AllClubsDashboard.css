@@ -122,6 +122,54 @@
   margin-top: 2px;
 }
 
+/* Pending Clubs */
+.pending-clubs-section {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.pending-clubs-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.0625rem;
+  color: #92400e;
+}
+
+.pending-clubs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pending-club-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #fff;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #fde68a;
+}
+
+.pending-club-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pending-club-info strong {
+  font-size: 1rem;
+}
+
+.pending-club-info span {
+  font-size: 0.8125rem;
+  color: #6b7280;
+}
+
 /* Dashboard Controls */
 .dashboard-controls {
   display: flex;

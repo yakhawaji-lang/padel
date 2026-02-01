@@ -4,31 +4,34 @@ import './AllClubsDashboard.css'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
-const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub }) => {
+const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub }) => {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('name') // 'name', 'members', 'tournaments', 'revenue'
   const [sortOrder, setSortOrder] = useState('asc') // 'asc', 'desc'
 
-  // Calculate total statistics
+  const approvedClubs = useMemo(() => clubs.filter(c => c.status !== 'pending'), [clubs])
+  const pendingClubs = useMemo(() => clubs.filter(c => c.status === 'pending'), [clubs])
+
+  // Calculate total statistics (approved only)
   const totalStats = useMemo(() => {
     return {
-      totalClubs: clubs.length,
-      totalMembers: clubs.reduce((sum, club) => sum + (club.members?.length || 0), 0),
-      totalTournaments: clubs.reduce((sum, club) => sum + (club.tournaments?.length || 0), 0),
-      totalBookings: clubs.reduce((sum, club) => sum + (club.bookings?.length || 0), 0),
-      totalRevenue: clubs.reduce((sum, club) => 
+      totalClubs: approvedClubs.length,
+      totalMembers: approvedClubs.reduce((sum, club) => sum + (club.members?.length || 0), 0),
+      totalTournaments: approvedClubs.reduce((sum, club) => sum + (club.tournaments?.length || 0), 0),
+      totalBookings: approvedClubs.reduce((sum, club) => sum + (club.bookings?.length || 0), 0),
+      totalRevenue: approvedClubs.reduce((sum, club) => 
         sum + (club.accounting?.reduce((acc, item) => acc + (parseFloat(item.amount) || 0), 0) || 0), 0
       ),
-      totalCourts: clubs.reduce((sum, club) => sum + (club.courts?.length || 0), 0),
-      activeClubs: clubs.filter(club => club.members?.length > 0 || club.tournaments?.length > 0).length,
-      storesEnabled: clubs.filter(club => club.storeEnabled).length
+      totalCourts: approvedClubs.reduce((sum, club) => sum + (club.courts?.length || 0), 0),
+      activeClubs: approvedClubs.filter(club => club.members?.length > 0 || club.tournaments?.length > 0).length,
+      storesEnabled: approvedClubs.filter(club => club.storeEnabled).length
     }
-  }, [clubs])
+  }, [approvedClubs])
 
-  // Filter and sort clubs
+  // Filter and sort clubs (approved only)
   const filteredAndSortedClubs = useMemo(() => {
-    let filtered = clubs.filter(club => {
+    let filtered = approvedClubs.filter(club => {
       const query = searchQuery.toLowerCase()
       return (
         club.name?.toLowerCase().includes(query) ||
@@ -72,7 +75,7 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub }) => {
     })
 
     return filtered
-  }, [clubs, searchQuery, sortBy, sortOrder])
+  }, [approvedClubs, searchQuery, sortBy, sortOrder])
 
   const handleSort = (newSortBy) => {
     if (sortBy === newSortBy) {
@@ -182,6 +185,33 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub }) => {
             </div>
           </div>
         </div>
+
+        {/* Pending Clubs */}
+        {pendingClubs.length > 0 && (
+          <div className="pending-clubs-section">
+            <h3>{t('Pending club registrations', 'طلبات تسجيل نوادي قيد المراجعة', language)} ({pendingClubs.length})</h3>
+            <div className="pending-clubs-list">
+              {pendingClubs.map(club => (
+                <div key={club.id} className="pending-club-card">
+                  <div className="pending-club-info">
+                    <strong>{language === 'ar' && club.nameAr ? club.nameAr : club.name}</strong>
+                    <span>{club.adminEmail || club.email}</span>
+                    {club.commercialRegister && <span>{t('CR', 'س.ت', language)}: {club.commercialRegister}</span>}
+                  </div>
+                  {onApproveClub && (
+                    <button 
+                      type="button" 
+                      className="btn-primary btn-small"
+                      onClick={() => onApproveClub(club.id)}
+                    >
+                      {t('Approve', 'موافقة', language)}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Search and Filter */}
         <div className="dashboard-controls">

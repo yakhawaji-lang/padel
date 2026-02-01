@@ -13,6 +13,8 @@ applyAppLanguage()
 const HomePage = lazy(() => import('./pages/HomePage'))
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
+const RegisterClub = lazy(() => import('./pages/RegisterClub'))
+const ClubLogin = lazy(() => import('./pages/ClubLogin'))
 import ClubPublicPage from './pages/ClubPublicPage'
 const App = lazy(() => import('./App'))
 const MainAdminPanel = lazy(() => import('./admin/MainAdminPanel'))
@@ -42,6 +44,8 @@ function Root() {
           <Route path="/admin/*" element={<MainAdminPanel />} />
           <Route path="/admin/club/:clubId/*" element={<ClubAdminPanel />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/register-club" element={<RegisterClub />} />
+          <Route path="/club-login" element={<ClubLogin />} />
           <Route path="/login" element={<Login />} />
           <Route path="/clubs/:clubId" element={<ClubPublicPage />} />
           <Route path="/club/:clubId/*" element={<App />} />

@@ -518,6 +518,75 @@ export const updateClub = (clubId, updates) => {
   return updatedClubs.find(club => club.id === clubId)
 }
 
+/** Pending club registration - requires admin approval */
+export const addPendingClub = (clubData) => {
+  const clubs = loadClubs()
+  const existing = clubs.find(c => (c.adminEmail || c.email || '').toLowerCase() === (clubData.adminEmail || clubData.email || '').toLowerCase())
+  if (existing) return { error: 'EMAIL_EXISTS' }
+  const newClub = {
+    id: 'club-pending-' + Date.now(),
+    name: clubData.name || '',
+    nameAr: clubData.nameAr || '',
+    address: clubData.address || '',
+    addressAr: clubData.addressAr || '',
+    phone: clubData.phone || '',
+    email: clubData.email || '',
+    website: clubData.website || '',
+    commercialRegister: clubData.commercialRegister || '',
+    adminEmail: clubData.adminEmail || clubData.email || '',
+    adminPassword: clubData.adminPassword || '',
+    courts: (clubData.courts || []).length ? clubData.courts : [
+      { id: 'court-1', name: 'Court 1', nameAr: 'الملعب 1', type: 'indoor' },
+      { id: 'court-2', name: 'Court 2', nameAr: 'الملعب 2', type: 'indoor' },
+      { id: 'court-3', name: 'Court 3', nameAr: 'الملعب 3', type: 'indoor' },
+      { id: 'court-4', name: 'Court 4', nameAr: 'الملعب 4', type: 'indoor' }
+    ],
+    settings: clubData.settings || { defaultLanguage: 'en', timezone: 'Asia/Riyadh', currency: 'SAR', bookingDuration: 60, maxBookingAdvance: 30, cancellationPolicy: 24, openingTime: '06:00', closingTime: '23:00' },
+    tournaments: [],
+    tournamentTypes: clubData.tournamentTypes || [
+      { id: 'king-of-court', name: 'King of the Court', nameAr: 'ملك الملعب', description: 'Winners stay on court', descriptionAr: 'الفائزون يبقون على الملعب' },
+      { id: 'social', name: 'Social Tournament', nameAr: 'بطولة سوشيال', description: 'Round-robin format', descriptionAr: 'نظام دوري' }
+    ],
+    members: [],
+    bookings: [],
+    offers: [],
+    accounting: [],
+    storeEnabled: false,
+    store: { name: '', nameAr: '', categories: [], products: [], sales: [], inventoryMovements: [], offers: [], coupons: [], minStockAlert: 5 },
+    tournamentData: { kingState: null, socialState: null, currentTournamentId: 1 },
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+  clubs.push(newClub)
+  saveClubs(clubs)
+  return { club: newClub }
+}
+
+/** Approve a pending club - sets status to approved and assigns proper id */
+export const approveClub = (clubId) => {
+  const clubs = loadClubs()
+  const club = clubs.find(c => c.id === clubId)
+  if (!club || club.status !== 'pending') return null
+  let slug = (club.name || 'club').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+  if (!slug) slug = 'club'
+  const newId = `${slug}-${Date.now()}`
+  const updatedClub = { ...club, id: newId, status: 'approved', updatedAt: new Date().toISOString() }
+  const updatedClubs = clubs.map(c => c.id === clubId ? updatedClub : c)
+  saveClubs(updatedClubs)
+  return updatedClub
+}
+
+/** Find club by admin email/password for club login */
+export const getClubByAdminCredentials = (email, password) => {
+  const clubs = loadClubs()
+  return clubs.find(c => 
+    (c.adminEmail || c.email || '').toLowerCase() === (email || '').toLowerCase() &&
+    (c.adminPassword || '') === (password || '') &&
+    (c.status === 'approved' || !c.status)
+  ) || null
+}
+
 // Function to manually sync members (can be called from UI)
 export const syncMembersToClubsManually = () => {
   const clubs = loadClubs()

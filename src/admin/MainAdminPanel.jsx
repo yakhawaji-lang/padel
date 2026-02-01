@@ -6,7 +6,7 @@ import MainAdminSidebar from './components/MainAdminSidebar'
 import MainAdminHeader from './components/MainAdminHeader'
 import AllClubsDashboard from './pages/AllClubsDashboard'
 import AllClubsManagement from './pages/AllClubsManagement'
-import { loadClubs, saveClubs } from '../storage/adminStorage'
+import { loadClubs, saveClubs, approveClub as doApproveClub } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 
 function MainAdminPanel() {
@@ -96,6 +96,14 @@ function MainAdminPanel() {
     saveClubs(updatedClubs)
   }
 
+  const handleApproveClub = (clubId) => {
+    const approved = doApproveClub(clubId)
+    if (approved) {
+      const updatedClubs = loadClubs()
+      setClubs(updatedClubs)
+    }
+  }
+
   if (isLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -133,6 +141,7 @@ function MainAdminPanel() {
                 clubs={clubs}
                 language={language}
                 onUpdateClub={handleClubUpdate}
+                onApproveClub={handleApproveClub}
               />
             } 
           />

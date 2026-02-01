@@ -28,7 +28,9 @@ const Register = () => {
   const t = {
     en: {
       title: 'Register on the platform',
-      subtitle: 'Create an account to join clubs, book courts and participate in tournaments.',
+      subtitle: 'Create an account to join clubs, book courts, buy products and participate in tournaments.',
+      googleSignIn: 'Sign in with Google',
+      or: 'Or create with email',
       name: 'Full name',
       email: 'Email',
       password: 'Password',
@@ -38,11 +40,14 @@ const Register = () => {
       login: 'Log in',
       namePlaceholder: 'Enter your name',
       emailPlaceholder: 'Enter your email',
-      passwordPlaceholder: 'Choose a password'
+      passwordPlaceholder: 'Choose a password',
+      googleComingSoon: 'Google sign-in will be available soon'
     },
     ar: {
       title: 'التسجيل في المنصة',
-      subtitle: 'أنشئ حساباً للانضمام للنوادي وحجز الملاعب والمشاركة في البطولات.',
+      subtitle: 'أنشئ حساباً للانضمام للنوادي وحجز الملاعب وشراء المنتجات والمشاركة في البطولات.',
+      googleSignIn: 'تسجيل الدخول بحساب Google',
+      or: 'أو إنشاء حساب بالإيميل',
       name: 'الاسم الكامل',
       email: 'البريد الإلكتروني',
       password: 'كلمة المرور',
@@ -52,7 +57,8 @@ const Register = () => {
       login: 'تسجيل الدخول',
       namePlaceholder: 'أدخل اسمك',
       emailPlaceholder: 'أدخل بريدك الإلكتروني',
-      passwordPlaceholder: 'اختر كلمة مرور'
+      passwordPlaceholder: 'اختر كلمة مرور',
+      googleComingSoon: 'تسجيل الدخول بـ Google قريباً'
     }
   }
   const c = t[language]
@@ -98,6 +104,15 @@ const Register = () => {
         <div className="register-card">
           <h1 className="register-title">{c.title}</h1>
           <p className="register-subtitle">{c.subtitle}</p>
+          <button
+            type="button"
+            className="register-google-btn"
+            onClick={() => alert(c.googleComingSoon)}
+          >
+            <span className="register-google-icon">G</span>
+            {c.googleSignIn}
+          </button>
+          <p className="register-or">{c.or}</p>
           <form onSubmit={handleSubmit} className="register-form">
             {error && <p className="register-error">{error}</p>}
             <div className="form-group">
