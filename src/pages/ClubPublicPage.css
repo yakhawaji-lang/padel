@@ -370,6 +370,42 @@
   border-bottom: 1px solid #e2e8f0;
 }
 
+/* أقسام بعد حجز الملاعب — توسيط المحتوى */
+.club-public-court-booking ~ .club-public-section .club-public-section-inner,
+.club-public-court-booking ~ .club-public-cta .club-public-cta-inner {
+  text-align: center;
+}
+
+.club-public-court-booking ~ .club-public-section .section-heading {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.club-public-court-booking ~ .club-public-section .club-public-courts,
+.club-public-court-booking ~ .club-public-section .club-public-offers-grid,
+.club-public-court-booking ~ .club-public-section .club-public-tournaments-grid,
+.club-public-court-booking ~ .club-public-section .club-public-contact-grid {
+  justify-content: center;
+}
+
+.club-public-court-booking ~ .club-public-section .club-public-table-wrap,
+.club-public-court-booking ~ .club-public-section .club-public-about-text {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.club-public-court-booking ~ .club-public-section .store-category-block,
+.club-public-court-booking ~ .club-public-section .store-products-grid {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.club-public-court-booking ~ .club-public-section.club-public-store .club-public-store-by-category {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .club-public-section-inner .section-heading {
   font-size: 1.3125rem;
   font-weight: 700;
