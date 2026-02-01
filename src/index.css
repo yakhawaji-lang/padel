@@ -65,8 +65,6 @@ table {
 html[dir="rtl"] {
   direction: rtl;
   text-align: right;
-}
-
-html[dir="rtl"] body {
+}html[dir="rtl"] body {
   text-align: right;
 }

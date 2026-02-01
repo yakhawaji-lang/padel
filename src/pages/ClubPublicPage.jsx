@@ -334,7 +334,10 @@ const ClubPublicPage = () => {
 
   return (
     <div className="club-public-page commercial">
-      <header className="club-public-header">
+      <header
+        className="club-public-header"
+        style={club?.settings?.headerBgColor ? { background: club.settings.headerBgColor } : undefined}
+      >
         <div className="club-public-header-inner">
           <Link to="/" className="club-public-back">{c.backToHome}</Link>
           <button

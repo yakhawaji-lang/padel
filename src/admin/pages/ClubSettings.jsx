@@ -8,6 +8,7 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
     nameAr: '',
     logo: '',
     banner: '',
+    headerBgColor: '#ffffff',
     tagline: '',
     taglineAr: '',
     address: '',
@@ -42,6 +43,7 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
         nameAr: club?.nameAr || '',
         logo: club?.logo || '',
         banner: club?.banner || '',
+        headerBgColor: club?.settings?.headerBgColor || '#ffffff',
         tagline: club?.tagline || '',
         taglineAr: club?.taglineAr || '',
         address: club?.address || '',
@@ -93,6 +95,7 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
       playtomicApiKey: formData.playtomicApiKey,
       courts: courts,
       settings: {
+        ...club?.settings,
         defaultLanguage: formData.defaultLanguage,
         timezone: formData.timezone,
         currency: formData.currency,
@@ -100,7 +103,8 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
         maxBookingAdvance: formData.maxBookingAdvance,
         cancellationPolicy: formData.cancellationPolicy,
         openingTime: formData.openingTime,
-        closingTime: formData.closingTime
+        closingTime: formData.closingTime,
+        headerBgColor: formData.headerBgColor || '#ffffff'
       }
     }
     onUpdateClub(updates)
@@ -271,6 +275,25 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
                   <button type="button" className="logo-remove" onClick={() => setFormData(prev => ({ ...prev, banner: '' }))}>Remove</button>
                 </div>
               )}
+            </div>
+            <div className="form-group">
+              <label>Header background color — لون خلفية القسم الذي أعلى البنر</label>
+              <p className="form-hint">Background color of the header bar above the banner on the club public page. / لون خلفية الشريط فوق البنر في صفحة النادي.</p>
+              <div className="header-bg-color-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <input
+                  type="color"
+                  value={formData.headerBgColor}
+                  onChange={(e) => setFormData({ ...formData, headerBgColor: e.target.value })}
+                  style={{ width: 48, height: 36, padding: 2, cursor: 'pointer', border: '1px solid #e2e8f0', borderRadius: 8 }}
+                />
+                <input
+                  type="text"
+                  value={formData.headerBgColor}
+                  onChange={(e) => setFormData({ ...formData, headerBgColor: e.target.value })}
+                  placeholder="#ffffff"
+                  style={{ width: 100, padding: '8px 12px', fontSize: 14 }}
+                />
+              </div>
             </div>
             <div className="form-group">
               <label>Tagline / Short description (English) — shown on home page</label>
