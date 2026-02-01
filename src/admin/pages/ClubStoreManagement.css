@@ -1,5 +1,5 @@
 .club-store-management {
-  max-width: 1000px;
+  max-width: 1200px;
 }
 
 .store-page-header {
@@ -44,6 +44,14 @@
 .store-tabs button.active {
   color: #2563eb;
   border-bottom-color: #2563eb;
+}
+
+.store-tabs .tab-icon {
+  margin-inline-end: 6px;
+}
+
+.store-tabs .tab-label {
+  white-space: nowrap;
 }
 
 .store-section {
@@ -219,4 +227,372 @@
 .product-form .form-row textarea {
   min-height: 60px;
   resize: vertical;
+}
+
+.form-row-inline {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-row-inline > div label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.form-row-inline input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+}
+
+.product-item.low-stock {
+  border-inline-start: 3px solid #f59e0b;
+  padding-inline-start: 12px;
+}
+
+.stock-badge {
+  color: #64748b;
+}
+
+.low-stock-badge {
+  display: inline-block;
+  margin-inline-start: 8px;
+  padding: 2px 8px;
+  background: #fef3c7;
+  color: #b45309;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* لوحة الإحصائيات */
+.store-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.stats-period-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stats-period-bar button {
+  padding: 8px 16px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.stats-period-bar button:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.stats-period-bar button.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.store-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.store-stat-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.store-stat-card.revenue {
+  border-inline-start: 4px solid #10b981;
+}
+
+.store-stat-card.transactions {
+  border-inline-start: 4px solid #3b82f6;
+}
+
+.store-stat-card.products-count {
+  border-inline-start: 4px solid #8b5cf6;
+}
+
+.store-stat-card.categories-count {
+  border-inline-start: 4px solid #f59e0b;
+}
+
+.store-stat-card .stat-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.store-stat-card .stat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.store-stat-card .stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.store-stat-card .stat-label {
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.store-dashboard-bottom {
+  margin-top: 8px;
+}
+
+.top-products-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.top-products-card h3 {
+  margin: 0 0 16px;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.top-products-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.top-products-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.top-products-list li:last-child {
+  border-bottom: none;
+}
+
+.top-products-list .rank {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  background: #e0e7ff;
+  color: #4338ca;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.top-products-list .prod-name {
+  flex: 1;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.top-products-list .prod-sold {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+/* نموذج البيع */
+.store-sale-section {
+  grid-template-columns: 1fr;
+}
+
+.sale-form-card {
+  max-width: 560px;
+}
+
+.sale-add-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.sale-add-item select {
+  flex: 1;
+  min-width: 180px;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+}
+
+.sale-add-item input[type="number"] {
+  width: 70px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+}
+
+.sale-items-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.sale-items-list li {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.sale-items-list li:last-child {
+  border-bottom: none;
+}
+
+.sale-items-list .item-name {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.sale-items-list .item-qty {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.sale-items-list .item-total {
+  font-weight: 600;
+  color: #10b981;
+}
+
+.btn-icon-remove {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #fee2e2;
+  color: #dc2626;
+  border-radius: 8px;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-icon-remove:hover {
+  background: #fecaca;
+}
+
+.sale-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: #f0fdf4;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  font-size: 1.125rem;
+}
+
+.btn-complete-sale {
+  width: 100%;
+  padding: 14px 20px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* سجل المبيعات */
+.store-list-card.full-width {
+  grid-column: 1 / -1;
+}
+
+.sales-history-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sales-history-table {
+  width: 100%;
+  min-width: 500px;
+  border-collapse: collapse;
+}
+
+.sales-history-table th,
+.sales-history-table td {
+  padding: 12px 16px;
+  text-align: start;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.sales-history-table th {
+  background: #f8fafc;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.sales-history-table td.amount {
+  font-weight: 600;
+  color: #10b981;
+}
+
+.sales-history-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+@media (max-width: 768px) {
+  .store-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .sale-add-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sale-add-item select {
+    min-width: 0;
+  }
+
+  .sale-items-list li {
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+  }
+
+  .sale-items-list .item-qty {
+    grid-column: 1;
+  }
+
+  .form-row-inline {
+    grid-template-columns: 1fr;
+  }
 }

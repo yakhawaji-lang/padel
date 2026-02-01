@@ -1,20 +1,23 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import '../pages/common.css'
 import './ClubStoreManagement.css'
 
-const defaultStore = () => ({ name: '', nameAr: '', categories: [], products: [] })
+const defaultStore = () => ({ name: '', nameAr: '', categories: [], products: [], sales: [] })
 
 const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
-  const [activeTab, setActiveTab] = useState('info') // 'info' | 'categories' | 'products'
+  const [activeTab, setActiveTab] = useState('dashboard')
   const [store, setStore] = useState(() => club?.store || defaultStore())
   const [categoryForm, setCategoryForm] = useState({ name: '', nameAr: '', order: 0 })
-  const [productForm, setProductForm] = useState({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: 0 })
+  const [productForm, setProductForm] = useState({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: 0, stock: '' })
+  const [saleForm, setSaleForm] = useState({ items: [], customerName: '', notes: '', paymentMethod: 'cash' })
   const [editingCategory, setEditingCategory] = useState(null)
   const [editingProduct, setEditingProduct] = useState(null)
+  const [statsPeriod, setStatsPeriod] = useState('all') // 'today' | 'week' | 'month' | 'all'
+  const [saleProductSelect, setSaleProductSelect] = useState({ productId: '', qty: 1 })
   const language = langProp || localStorage.getItem(`club_${club?.id}_language`) || 'en'
 
   useEffect(() => {
-    setStore(club?.store ? { ...defaultStore(), ...club.store, categories: club.store.categories || [], products: club.store.products || [] } : defaultStore())
+    setStore(club?.store ? { ...defaultStore(), ...club.store, categories: club.store.categories || [], products: club.store.products || [], sales: club.store.sales || [] } : defaultStore())
   }, [club?.id, club?.store])
 
   const saveStore = (updates) => {
@@ -49,6 +52,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
   const addProduct = () => {
     if (!productForm.name?.trim()) return
     const id = `prod-${Date.now()}`
+    const stockVal = productForm.stock === '' || productForm.stock === null ? null : Math.max(0, Number(productForm.stock))
     const prod = {
       id,
       categoryId: (productForm.categoryId || '').trim() || undefined,
@@ -58,14 +62,16 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       descriptionAr: (productForm.descriptionAr || '').trim(),
       price: String(productForm.price || '').trim(),
       image: (productForm.image || '').trim() || undefined,
-      order: Number(productForm.order) || 0
+      order: Number(productForm.order) || 0,
+      stock: stockVal
     }
     saveStore({ products: [...(store.products || []), prod].sort((a, b) => (a.order || 0) - (b.order || 0)) })
-    setProductForm({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: (store.products?.length || 0) })
+    setProductForm({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: (store.products?.length || 0), stock: '' })
     setEditingProduct(null)
   }
 
   const updateProduct = (id) => {
+    const stockVal = productForm.stock === '' || productForm.stock === null ? null : Math.max(0, Number(productForm.stock))
     const prods = (store.products || []).map(p => {
       if (p.id !== id) return p
       return {
@@ -77,17 +83,78 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
         descriptionAr: (productForm.descriptionAr || '').trim(),
         price: String(productForm.price || '').trim(),
         image: (productForm.image || '').trim() || undefined,
-        order: Number(productForm.order) ?? p.order
+        order: Number(productForm.order) ?? p.order,
+        stock: stockVal
       }
     })
     saveStore({ products: prods.sort((a, b) => (a.order || 0) - (b.order || 0)) })
-    setProductForm({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: 0 })
+    setProductForm({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: 0, stock: '' })
     setEditingProduct(null)
   }
 
   const deleteProduct = (id) => {
     saveStore({ products: (store.products || []).filter(p => p.id !== id) })
     setEditingProduct(null)
+  }
+
+  const addSale = () => {
+    if (!saleForm.items.length) return
+    const currency = club?.settings?.currency || 'SAR'
+    const items = saleForm.items.map(it => {
+      const p = (store.products || []).find(pr => pr.id === it.productId)
+      const price = parseFloat(p?.price || it.price || 0) || 0
+      const qty = Math.max(1, it.qty)
+      return {
+        productId: it.productId,
+        productName: p ? (language === 'ar' && p.nameAr ? p.nameAr : p.name) : it.productName,
+        qty,
+        price,
+        total: price * qty
+      }
+    })
+    const totalAmount = items.reduce((s, i) => s + i.total, 0)
+    const sale = {
+      id: `sale-${Date.now()}`,
+      date: new Date().toISOString().split('T')[0],
+      time: new Date().toTimeString().slice(0, 5),
+      items,
+      totalAmount,
+      customerName: (saleForm.customerName || '').trim() || undefined,
+      notes: (saleForm.notes || '').trim() || undefined,
+      paymentMethod: saleForm.paymentMethod || 'cash',
+      currency
+    }
+    const newSales = [...(store.sales || []), sale]
+    const newProducts = (store.products || []).map(p => {
+      const item = items.find(i => i.productId === p.id)
+      if (!item || p.stock == null) return p
+      return { ...p, stock: Math.max(0, (p.stock ?? 0) - item.qty) }
+    })
+    saveStore({ sales: newSales, products: newProducts })
+    setSaleForm({ items: [], customerName: '', notes: '', paymentMethod: 'cash' })
+    setSaleProductSelect({ productId: '', qty: 1 })
+  }
+
+  const addItemToSale = () => {
+    if (!saleProductSelect.productId) return
+    const p = (store.products || []).find(pr => pr.id === saleProductSelect.productId)
+    if (!p) return
+    const qty = Math.max(1, saleProductSelect.qty)
+    if (p.stock != null && (p.stock ?? 0) < qty) return
+    const existing = saleForm.items.find(i => i.productId === saleProductSelect.productId)
+    let newItems
+    if (existing) {
+      const newQty = existing.qty + qty
+      if (p.stock != null && (p.stock ?? 0) < newQty) return
+      newItems = saleForm.items.map(i => i.productId === saleProductSelect.productId ? { ...i, qty: newQty } : i)
+    } else {
+      newItems = [...saleForm.items, { productId: p.id, productName: language === 'ar' && p.nameAr ? p.nameAr : p.name, qty, price: parseFloat(p.price) || 0 }]
+    }
+    setSaleForm(f => ({ ...f, items: newItems }))
+  }
+
+  const removeItemFromSale = (productId) => {
+    setSaleForm(f => ({ ...f, items: f.items.filter(i => i.productId !== productId) }))
   }
 
   const startEditCategory = (cat) => {
@@ -105,18 +172,61 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       descriptionAr: prod.descriptionAr || '',
       price: prod.price ?? '',
       image: prod.image || '',
-      order: prod.order ?? 0
+      order: prod.order ?? 0,
+      stock: prod.stock == null ? '' : prod.stock
     })
   }
 
+  const categories = store.categories || []
+  const products = store.products || []
+  const sales = store.sales || []
+  const currency = club?.settings?.currency || 'SAR'
+
+  const filteredSales = useMemo(() => {
+    if (statsPeriod === 'all') return sales
+    const now = new Date()
+    const today = now.toISOString().split('T')[0]
+    const weekAgo = new Date(now)
+    weekAgo.setDate(weekAgo.getDate() - 7)
+    const monthAgo = new Date(now)
+    monthAgo.setMonth(monthAgo.getMonth() - 1)
+    return sales.filter(s => {
+      const d = s.date || s.createdAt?.split?.('T')[0]
+      if (statsPeriod === 'today') return d === today
+      if (statsPeriod === 'week') return d >= weekAgo.toISOString().split('T')[0]
+      if (statsPeriod === 'month') return d >= monthAgo.toISOString().split('T')[0]
+      return true
+    })
+  }, [sales, statsPeriod])
+
+  const stats = useMemo(() => {
+    const totalRevenue = filteredSales.reduce((s, sale) => s + (sale.totalAmount || 0), 0)
+    const totalTransactions = filteredSales.length
+    const productCount = products.reduce((acc, p) => {
+      const sold = filteredSales.flatMap(s => s.items || []).filter(i => i.productId === p.id).reduce((a, i) => a + (i.qty || 0), 0)
+      acc[p.id] = { sold, product: p }
+      return acc
+    }, {})
+    const topProducts = Object.entries(productCount)
+      .sort((a, b) => (b[1].sold || 0) - (a[1].sold || 0))
+      .slice(0, 5)
+    return { totalRevenue, totalTransactions, topProducts }
+  }, [filteredSales, products])
+
+  const saleFormTotal = useMemo(() => saleForm.items.reduce((s, i) => s + (i.price || 0) * (i.qty || 1), 0), [saleForm.items])
+
   const t = {
     en: {
-      title: 'Sales / Store',
+      title: 'Sales & Store',
       storeInfo: 'Store info',
       storeName: 'Store name (English)',
       storeNameAr: 'Store name (Arabic)',
       categories: 'Categories',
       products: 'Products',
+      sales: 'Sales',
+      dashboard: 'Dashboard',
+      salesHistory: 'Sales History',
+      newSale: 'New Sale',
       addCategory: 'Add category',
       addProduct: 'Add product',
       name: 'Name',
@@ -124,7 +234,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       order: 'Order',
       description: 'Description',
       descriptionAr: 'Description (Arabic)',
-      price: 'Price (SAR)',
+      price: 'Price',
       image: 'Image URL',
       category: 'Category',
       noCategory: '— No category —',
@@ -134,15 +244,40 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       delete: 'Delete',
       noCategories: 'No categories yet. Add one to organize products.',
       noProducts: 'No products yet. Add your first product.',
-      storeEnabledNote: 'Store visibility is controlled from All Clubs Dashboard (enable/disable per club).'
+      storeEnabledNote: 'Store visibility is controlled from All Clubs Dashboard (enable/disable per club).',
+      totalRevenue: 'Total Revenue',
+      totalSales: 'Total Sales',
+      topProducts: 'Top Products',
+      periodToday: 'Today',
+      periodWeek: 'This Week',
+      periodMonth: 'This Month',
+      periodAll: 'All Time',
+      noSalesYet: 'No sales yet.',
+      customerName: 'Customer',
+      notes: 'Notes',
+      paymentMethod: 'Payment',
+      cash: 'Cash',
+      card: 'Card',
+      transfer: 'Transfer',
+      other: 'Other',
+      qty: 'Qty',
+      total: 'Total',
+      date: 'Date',
+      stock: 'Stock',
+      unlimited: 'Unlimited',
+      lowStock: 'Low stock'
     },
     ar: {
-      title: 'المبيعات / المتجر',
+      title: 'المبيعات والمتجر',
       storeInfo: 'معلومات المتجر',
       storeName: 'اسم المتجر (إنجليزي)',
       storeNameAr: 'اسم المتجر (عربي)',
       categories: 'التصنيفات',
       products: 'المنتجات',
+      sales: 'المبيعات',
+      dashboard: 'لوحة الإحصائيات',
+      salesHistory: 'سجل المبيعات',
+      newSale: 'بيع جديد',
       addCategory: 'إضافة تصنيف',
       addProduct: 'إضافة منتج',
       name: 'الاسم',
@@ -150,7 +285,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       order: 'الترتيب',
       description: 'الوصف',
       descriptionAr: 'الوصف (عربي)',
-      price: 'السعر (ر.س)',
+      price: 'السعر',
       image: 'رابط الصورة',
       category: 'التصنيف',
       noCategory: '— بدون تصنيف —',
@@ -160,29 +295,138 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       delete: 'حذف',
       noCategories: 'لا توجد تصنيفات. أضف تصنيفاً لتنظيم المنتجات.',
       noProducts: 'لا توجد منتجات. أضف أول منتج.',
-      storeEnabledNote: 'إظهار المتجر يُتحكم به من لوحة جميع الأندية (تفعيل/إلغاء لكل نادي).'
+      storeEnabledNote: 'إظهار المتجر يُتحكم به من لوحة جميع الأندية (تفعيل/إلغاء لكل نادي).',
+      totalRevenue: 'إجمالي الإيرادات',
+      totalSales: 'عدد المعاملات',
+      topProducts: 'الأكثر مبيعاً',
+      periodToday: 'اليوم',
+      periodWeek: 'هذا الأسبوع',
+      periodMonth: 'هذا الشهر',
+      periodAll: 'كل الفترات',
+      noSalesYet: 'لا توجد مبيعات بعد.',
+      customerName: 'العميل',
+      notes: 'ملاحظات',
+      paymentMethod: 'طريقة الدفع',
+      cash: 'نقداً',
+      card: 'بطاقة',
+      transfer: 'تحويل',
+      other: 'أخرى',
+      qty: 'الكمية',
+      total: 'الإجمالي',
+      date: 'التاريخ',
+      stock: 'المخزون',
+      unlimited: 'غير محدود',
+      lowStock: 'مخزون منخفض'
     }
   }
   const c = t[language]
 
   if (!club) return <div className="club-admin-page">Loading...</div>
 
-  const categories = store.categories || []
-  const products = store.products || []
+  const tabs = [
+    { id: 'dashboard', label: c.dashboard, icon: '📊' },
+    { id: 'info', label: c.storeInfo, icon: '⚙️' },
+    { id: 'categories', label: c.categories, icon: '📁' },
+    { id: 'products', label: c.products, icon: '🛍️' },
+    { id: 'newSale', label: c.newSale, icon: '➕' },
+    { id: 'salesHistory', label: c.salesHistory, icon: '📋' }
+  ]
 
   return (
     <div className="club-admin-page club-store-management">
       <div className="store-page-header">
-        <h2 className="page-title">{club.logo && <img src={club.logo} alt="" className="club-logo" />}{c.title} – {club.name}</h2>
+        <h2 className="page-title">
+          {club.logo && <img src={club.logo} alt="" className="club-logo" />}
+          {c.title} – {language === 'ar' && club.nameAr ? club.nameAr : club.name}
+        </h2>
       </div>
 
       <p className="store-enabled-note">{c.storeEnabledNote}</p>
 
       <div className="store-tabs">
-        <button type="button" className={activeTab === 'info' ? 'active' : ''} onClick={() => setActiveTab('info')}>{c.storeInfo}</button>
-        <button type="button" className={activeTab === 'categories' ? 'active' : ''} onClick={() => setActiveTab('categories')}>{c.categories}</button>
-        <button type="button" className={activeTab === 'products' ? 'active' : ''} onClick={() => setActiveTab('products')}>{c.products}</button>
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            type="button"
+            className={activeTab === tab.id ? 'active' : ''}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            <span className="tab-icon">{tab.icon}</span>
+            <span className="tab-label">{tab.label}</span>
+          </button>
+        ))}
       </div>
+
+      {/* Dashboard */}
+      {activeTab === 'dashboard' && (
+        <div className="store-dashboard">
+          <div className="stats-period-bar">
+            {[
+              { id: 'today', label: c.periodToday },
+              { id: 'week', label: c.periodWeek },
+              { id: 'month', label: c.periodMonth },
+              { id: 'all', label: c.periodAll }
+            ].map(p => (
+              <button
+                key={p.id}
+                type="button"
+                className={statsPeriod === p.id ? 'active' : ''}
+                onClick={() => setStatsPeriod(p.id)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <div className="store-stats-grid">
+            <div className="store-stat-card revenue">
+              <span className="stat-icon">💰</span>
+              <div className="stat-content">
+                <span className="stat-value">{stats.totalRevenue.toFixed(2)} {currency}</span>
+                <span className="stat-label">{c.totalRevenue}</span>
+              </div>
+            </div>
+            <div className="store-stat-card transactions">
+              <span className="stat-icon">🛒</span>
+              <div className="stat-content">
+                <span className="stat-value">{stats.totalTransactions}</span>
+                <span className="stat-label">{c.totalSales}</span>
+              </div>
+            </div>
+            <div className="store-stat-card products-count">
+              <span className="stat-icon">📦</span>
+              <div className="stat-content">
+                <span className="stat-value">{products.length}</span>
+                <span className="stat-label">{c.products}</span>
+              </div>
+            </div>
+            <div className="store-stat-card categories-count">
+              <span className="stat-icon">📁</span>
+              <div className="stat-content">
+                <span className="stat-value">{categories.length}</span>
+                <span className="stat-label">{c.categories}</span>
+              </div>
+            </div>
+          </div>
+          <div className="store-dashboard-bottom">
+            <div className="top-products-card">
+              <h3>{c.topProducts}</h3>
+              {stats.topProducts.length === 0 ? (
+                <p className="empty-msg">{c.noSalesYet}</p>
+              ) : (
+                <ul className="top-products-list">
+                  {stats.topProducts.map(([id, { sold, product }], idx) => (
+                    <li key={id}>
+                      <span className="rank">#{idx + 1}</span>
+                      <span className="prod-name">{language === 'ar' && product.nameAr ? product.nameAr : product.name}</span>
+                      <span className="prod-sold">{sold} {language === 'en' ? 'sold' : 'مباع'}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeTab === 'info' && (
         <div className="store-section">
@@ -190,21 +434,11 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
             <h3>{c.storeInfo}</h3>
             <div className="form-row">
               <label>{c.storeName}</label>
-              <input
-                type="text"
-                value={store.name || ''}
-                onChange={(e) => saveStore({ name: e.target.value })}
-                placeholder="e.g. Club Shop"
-              />
+              <input type="text" value={store.name || ''} onChange={(e) => saveStore({ name: e.target.value })} placeholder="e.g. Club Shop" />
             </div>
             <div className="form-row">
               <label>{c.storeNameAr}</label>
-              <input
-                type="text"
-                value={store.nameAr || ''}
-                onChange={(e) => saveStore({ nameAr: e.target.value })}
-                placeholder="مثلاً: متجر النادي"
-              />
+              <input type="text" value={store.nameAr || ''} onChange={(e) => saveStore({ nameAr: e.target.value })} placeholder="مثلاً: متجر النادي" />
             </div>
           </div>
         </div>
@@ -216,30 +450,15 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
             <h3>{editingCategory ? (language === 'en' ? 'Edit category' : 'تعديل التصنيف') : c.addCategory}</h3>
             <div className="form-row">
               <label>{c.name}</label>
-              <input
-                type="text"
-                value={categoryForm.name}
-                onChange={(e) => setCategoryForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="Category name"
-              />
+              <input type="text" value={categoryForm.name} onChange={(e) => setCategoryForm(f => ({ ...f, name: e.target.value }))} placeholder="Category name" />
             </div>
             <div className="form-row">
               <label>{c.nameAr}</label>
-              <input
-                type="text"
-                value={categoryForm.nameAr}
-                onChange={(e) => setCategoryForm(f => ({ ...f, nameAr: e.target.value }))}
-                placeholder="اسم التصنيف"
-              />
+              <input type="text" value={categoryForm.nameAr} onChange={(e) => setCategoryForm(f => ({ ...f, nameAr: e.target.value }))} placeholder="اسم التصنيف" />
             </div>
             <div className="form-row">
               <label>{c.order}</label>
-              <input
-                type="number"
-                min={0}
-                value={categoryForm.order}
-                onChange={(e) => setCategoryForm(f => ({ ...f, order: Number(e.target.value) || 0 }))}
-              />
+              <input type="number" min={0} value={categoryForm.order} onChange={(e) => setCategoryForm(f => ({ ...f, order: Number(e.target.value) || 0 }))} />
             </div>
             <div className="form-actions">
               {editingCategory ? (
@@ -280,10 +499,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
             <h3>{editingProduct ? (language === 'en' ? 'Edit product' : 'تعديل المنتج') : c.addProduct}</h3>
             <div className="form-row">
               <label>{c.category}</label>
-              <select
-                value={productForm.categoryId}
-                onChange={(e) => setProductForm(f => ({ ...f, categoryId: e.target.value }))}
-              >
+              <select value={productForm.categoryId} onChange={(e) => setProductForm(f => ({ ...f, categoryId: e.target.value }))}>
                 <option value="">{c.noCategory}</option>
                 {categories.map(cat => (
                   <option key={cat.id} value={cat.id}>{language === 'en' ? cat.name : (cat.nameAr || cat.name)}</option>
@@ -306,9 +522,15 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
               <label>{c.descriptionAr}</label>
               <textarea value={productForm.descriptionAr} onChange={(e) => setProductForm(f => ({ ...f, descriptionAr: e.target.value }))} rows={2} placeholder="الوصف" />
             </div>
-            <div className="form-row">
-              <label>{c.price}</label>
-              <input type="text" value={productForm.price} onChange={(e) => setProductForm(f => ({ ...f, price: e.target.value }))} placeholder="0" />
+            <div className="form-row form-row-inline">
+              <div>
+                <label>{c.price} ({currency})</label>
+                <input type="text" value={productForm.price} onChange={(e) => setProductForm(f => ({ ...f, price: e.target.value }))} placeholder="0" />
+              </div>
+              <div>
+                <label>{c.stock}</label>
+                <input type="text" value={productForm.stock} onChange={(e) => setProductForm(f => ({ ...f, stock: e.target.value }))} placeholder={c.unlimited} title={c.unlimited} />
+              </div>
             </div>
             <div className="form-row">
               <label>{c.image}</label>
@@ -322,7 +544,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
               {editingProduct ? (
                 <>
                   <button type="button" className="btn-primary" onClick={() => updateProduct(editingProduct)}>{c.save}</button>
-                  <button type="button" className="btn-secondary" onClick={() => { setEditingProduct(null); setProductForm({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: 0 }); }}>{c.cancel}</button>
+                  <button type="button" className="btn-secondary" onClick={() => { setEditingProduct(null); setProductForm({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: 0, stock: '' }); }}>{c.cancel}</button>
                 </>
               ) : (
                 <button type="button" className="btn-primary" onClick={addProduct}>{c.addProduct}</button>
@@ -337,12 +559,17 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
               <ul className="store-list product-list">
                 {products.map(prod => {
                   const cat = categories.find(c => c.id === prod.categoryId)
+                  const isLowStock = prod.stock != null && prod.stock <= 5
                   return (
-                    <li key={prod.id} className="store-list-item product-item">
+                    <li key={prod.id} className={`store-list-item product-item ${isLowStock ? 'low-stock' : ''}`}>
                       {prod.image && <img src={prod.image} alt="" className="product-thumb" />}
                       <div className="product-info">
                         <span className="item-name">{language === 'en' ? prod.name : (prod.nameAr || prod.name)}</span>
-                        <span className="product-meta">{cat ? (language === 'en' ? cat.name : (cat.nameAr || cat.name)) : c.noCategory} · {prod.price ? `${prod.price} SAR` : '—'}</span>
+                        <span className="product-meta">
+                          {cat ? (language === 'en' ? cat.name : (cat.nameAr || cat.name)) : c.noCategory} · {prod.price ? `${prod.price} ${currency}` : '—'}
+                          {prod.stock != null && <span className="stock-badge"> · {c.stock}: {prod.stock}</span>}
+                          {isLowStock && <span className="low-stock-badge">{c.lowStock}</span>}
+                        </span>
                       </div>
                       <div className="item-actions">
                         <button type="button" className="btn-secondary btn-small" onClick={() => startEditProduct(prod)}>{c.edit}</button>
@@ -352,6 +579,101 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
                   )
                 })}
               </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'newSale' && (
+        <div className="store-section store-sale-section">
+          <div className="store-form-card sale-form-card">
+            <h3>{c.newSale}</h3>
+            <div className="sale-add-item">
+              <select value={saleProductSelect.productId} onChange={(e) => setSaleProductSelect(s => ({ ...s, productId: e.target.value }))}>
+                <option value="">{language === 'en' ? 'Select product' : 'اختر منتج'}</option>
+                {products.filter(p => p.stock == null || p.stock > 0).map(p => (
+                  <option key={p.id} value={p.id}>{language === 'ar' && p.nameAr ? p.nameAr : p.name} – {p.price} {currency}</option>
+                ))}
+              </select>
+              <input type="number" min={1} value={saleProductSelect.qty} onChange={(e) => setSaleProductSelect(s => ({ ...s, qty: Math.max(1, Number(e.target.value) || 1) }))} />
+              <button type="button" className="btn-primary" onClick={addItemToSale}>{language === 'en' ? 'Add' : 'إضافة'}</button>
+            </div>
+            {saleForm.items.length > 0 && (
+              <>
+                <ul className="sale-items-list">
+                  {saleForm.items.map(it => (
+                    <li key={it.productId}>
+                      <span className="item-name">{it.productName}</span>
+                      <span className="item-qty">{it.qty} × {it.price} {currency}</span>
+                      <span className="item-total">{(it.qty * it.price).toFixed(2)} {currency}</span>
+                      <button type="button" className="btn-icon-remove" onClick={() => removeItemFromSale(it.productId)} aria-label="Remove">×</button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="sale-total-row">
+                  <strong>{c.total}:</strong>
+                  <strong>{saleFormTotal.toFixed(2)} {currency}</strong>
+                </div>
+                <div className="form-row">
+                  <label>{c.customerName}</label>
+                  <input type="text" value={saleForm.customerName} onChange={(e) => setSaleForm(f => ({ ...f, customerName: e.target.value }))} placeholder={language === 'en' ? 'Optional' : 'اختياري'} />
+                </div>
+                <div className="form-row">
+                  <label>{c.paymentMethod}</label>
+                  <select value={saleForm.paymentMethod} onChange={(e) => setSaleForm(f => ({ ...f, paymentMethod: e.target.value }))}>
+                    <option value="cash">{c.cash}</option>
+                    <option value="card">{c.card}</option>
+                    <option value="transfer">{c.transfer}</option>
+                    <option value="other">{c.other}</option>
+                  </select>
+                </div>
+                <div className="form-row">
+                  <label>{c.notes}</label>
+                  <textarea value={saleForm.notes} onChange={(e) => setSaleForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder={language === 'en' ? 'Optional notes' : 'ملاحظات اختيارية'} />
+                </div>
+                <button type="button" className="btn-primary btn-complete-sale" onClick={addSale}>
+                  {language === 'en' ? 'Complete Sale' : 'إتمام البيع'}
+                </button>
+              </>
+            )}
+            {saleForm.items.length === 0 && products.length === 0 && (
+              <p className="empty-msg">{c.noProducts}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'salesHistory' && (
+        <div className="store-section">
+          <div className="store-list-card full-width">
+            <h3>{c.salesHistory}</h3>
+            {sales.length === 0 ? (
+              <p className="empty-msg">{c.noSalesYet}</p>
+            ) : (
+              <div className="sales-history-table-wrap">
+                <table className="sales-history-table">
+                  <thead>
+                    <tr>
+                      <th>{c.date}</th>
+                      <th>{language === 'en' ? 'Time' : 'الوقت'}</th>
+                      <th>{c.total}</th>
+                      <th>{language === 'en' ? 'Items' : 'العناصر'}</th>
+                      <th>{c.paymentMethod}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...sales].reverse().map(sale => (
+                      <tr key={sale.id}>
+                        <td>{sale.date}</td>
+                        <td>{sale.time || '—'}</td>
+                        <td className="amount">{sale.totalAmount?.toFixed?.(2) ?? sale.totalAmount} {sale.currency || currency}</td>
+                        <td>{(sale.items || []).map(i => `${i.productName || '?'} (×${i.qty})`).join(', ')}</td>
+                        <td>{sale.paymentMethod === 'cash' ? c.cash : sale.paymentMethod === 'card' ? c.card : sale.paymentMethod === 'transfer' ? c.transfer : c.other}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>

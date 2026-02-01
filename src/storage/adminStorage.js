@@ -79,8 +79,12 @@ export const loadClubs = () => {
         }
         if (!club.store || !Array.isArray(club.store.categories)) {
           club.store = club.store && typeof club.store === 'object'
-            ? { name: club.store.name || '', nameAr: club.store.nameAr || '', categories: club.store.categories || [], products: club.store.products || [] }
-            : { name: '', nameAr: '', categories: [], products: [] }
+            ? { name: club.store.name || '', nameAr: club.store.nameAr || '', categories: club.store.categories || [], products: club.store.products || [], sales: club.store.sales || [] }
+            : { name: '', nameAr: '', categories: [], products: [], sales: [] }
+          storeMigration = true
+        }
+        if (!Array.isArray(club.store.sales)) {
+          club.store.sales = club.store.sales || []
           storeMigration = true
         }
         if (!club.settings) club.settings = {}
@@ -318,7 +322,8 @@ const createExampleHalaPadel = () => {
       name: '',
       nameAr: '',
       categories: [],
-      products: []
+      products: [],
+      sales: []
     },
     tournamentData: {
       // Club-specific tournament data (King of Court, Social Tournament states)
@@ -389,7 +394,8 @@ export const createExampleClub = () => {
       name: '',
       nameAr: '',
       categories: [],
-      products: []
+      products: [],
+      sales: []
     },
     tournamentData: {
       // Club-specific tournament data (King of Court, Social Tournament states)

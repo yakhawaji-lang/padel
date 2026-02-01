@@ -188,3 +188,17 @@
 .main-admin-panel.rtl .sort-controls {
   flex-direction: row-reverse;
 }
+
+/* Store / Sales RTL */
+.club-admin-panel.rtl .store-stat-card.revenue,
+.club-admin-panel.rtl .store-stat-card.transactions,
+.club-admin-panel.rtl .store-stat-card.products-count,
+.club-admin-panel.rtl .store-stat-card.categories-count {
+  border-inline-start: none;
+  border-inline-end: 4px solid;
+}
+
+.club-admin-panel.rtl .store-stat-card.revenue { border-inline-end-color: #10b981; }
+.club-admin-panel.rtl .store-stat-card.transactions { border-inline-end-color: #3b82f6; }
+.club-admin-panel.rtl .store-stat-card.products-count { border-inline-end-color: #8b5cf6; }
+.club-admin-panel.rtl .store-stat-card.categories-count { border-inline-end-color: #f59e0b; }

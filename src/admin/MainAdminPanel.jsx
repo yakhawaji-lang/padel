@@ -73,7 +73,7 @@ function MainAdminPanel() {
       offers: [],
       accounting: [],
       storeEnabled: false,
-      store: { name: '', nameAr: '', categories: [], products: [] },
+      store: { name: '', nameAr: '', categories: [], products: [], sales: [] },
       tournamentData: {
         kingState: null,
         socialState: null,
