@@ -21,6 +21,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
   const [adjustStockForm, setAdjustStockForm] = useState({ qty: '', reason: '', type: 'in' })
   const [inventoryFilter, setInventoryFilter] = useState('all') // 'all' | 'tracked' | 'low' | 'out'
   const [inventoryBarcodeSearch, setInventoryBarcodeSearch] = useState('')
+  const [imageSource, setImageSource] = useState('url') // 'url' | 'device'
   const [movementFilter, setMovementFilter] = useState('all') // 'all' | 'in' | 'out' | 'sale'
   const language = langProp || localStorage.getItem(`club_${club?.id}_language`) || 'en'
 
@@ -80,6 +81,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
     }
     saveStore({ products: [...(store.products || []), prod].sort((a, b) => (a.order || 0) - (b.order || 0)) })
     setProductForm({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: (store.products?.length || 0), stock: '', barcode: '' })
+    setImageSource('url')
     setEditingProduct(null)
   }
 
@@ -243,6 +245,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
 
   const startEditProduct = (prod) => {
     setEditingProduct(prod.id)
+    setImageSource(prod.image?.startsWith?.('data:') ? 'device' : 'url')
     setProductForm({
       categoryId: prod.categoryId || '',
       name: prod.name || '',
@@ -325,7 +328,9 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       description: 'Description',
       descriptionAr: 'Description (Arabic)',
       price: 'Price',
-      image: 'Image URL',
+      image: 'Product image',
+      imageFromUrl: 'Image URL',
+      imageFromDevice: 'From device',
       category: 'Category',
       noCategory: '— No category —',
       save: 'Save',
@@ -402,7 +407,9 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       description: 'الوصف',
       descriptionAr: 'الوصف (عربي)',
       price: 'السعر',
-      image: 'رابط الصورة',
+      image: 'صورة المنتج',
+      imageFromUrl: 'رابط الصورة',
+      imageFromDevice: 'من الجهاز',
       category: 'التصنيف',
       noCategory: '— بدون تصنيف —',
       save: 'حفظ',
@@ -883,7 +890,42 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
             </div>
             <div className="form-row">
               <label>{c.image}</label>
-              <input type="text" value={productForm.image} onChange={(e) => setProductForm(f => ({ ...f, image: e.target.value }))} placeholder="https://..." />
+              <div className="image-source-tabs">
+                <button type="button" className={imageSource === 'url' ? 'active' : ''} onClick={() => setImageSource('url')}>{c.imageFromUrl}</button>
+                <button type="button" className={imageSource === 'device' ? 'active' : ''} onClick={() => setImageSource('device')}>{c.imageFromDevice}</button>
+              </div>
+              {imageSource === 'url' ? (
+                <input type="text" value={productForm.image} onChange={(e) => setProductForm(f => ({ ...f, image: e.target.value }))} placeholder="https://..." />
+              ) : (
+                <div className="image-upload-wrap">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    id="product-image-upload"
+                    className="image-file-input"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file && file.type.startsWith('image/')) {
+                        const reader = new FileReader()
+                        reader.onload = () => setProductForm(f => ({ ...f, image: reader.result }))
+                        reader.readAsDataURL(file)
+                      }
+                      e.target.value = ''
+                    }}
+                  />
+                  <label htmlFor="product-image-upload" className="image-upload-label">
+                    {language === 'en' ? 'Choose image' : 'اختر صورة'}
+                  </label>
+                  {productForm.image && productForm.image.startsWith('data:') && (
+                    <div className="image-preview-wrap">
+                      <img src={productForm.image} alt="" className="image-preview" />
+                      <button type="button" className="btn-remove-image" onClick={() => setProductForm(f => ({ ...f, image: '' }))}>
+                        {language === 'en' ? 'Remove' : 'إزالة'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="form-row">
               <label>{c.barcode}</label>
@@ -898,7 +940,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
               {editingProduct ? (
                 <>
                   <button type="button" className="btn-primary" onClick={() => updateProduct(editingProduct)}>{c.save}</button>
-                  <button type="button" className="btn-secondary" onClick={() => { setEditingProduct(null); setProductForm({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: 0, stock: '', barcode: '' }); }}>{c.cancel}</button>
+                  <button type="button" className="btn-secondary" onClick={() => { setEditingProduct(null); setImageSource('url'); setProductForm({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: 0, stock: '', barcode: '' }); }}>{c.cancel}</button>
                 </>
               ) : (
                 <button type="button" className="btn-primary" onClick={addProduct}>{c.addProduct}</button>

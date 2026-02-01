@@ -686,6 +686,99 @@
   color: #64748b;
 }
 
+/* مصدر الصورة */
+.image-source-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.image-source-tabs button {
+  padding: 8px 16px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.image-source-tabs button:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.image-source-tabs button.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.image-upload-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.image-file-input {
+  position: absolute;
+  width: 0.1px;
+  height: 0.1px;
+  opacity: 0;
+  overflow: hidden;
+  z-index: -1;
+}
+
+.image-upload-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+  background: #f1f5f9;
+  border: 2px dashed #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.image-upload-label:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+.image-preview-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.image-preview {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-remove-image {
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #dc2626;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-remove-image:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
 .inventory-filter-bar,
 .movement-filter-bar {
   display: flex;
