@@ -9,6 +9,7 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
     logo: '',
     banner: '',
     headerBgColor: '#ffffff',
+    headerTextColor: '#0f172a',
     tagline: '',
     taglineAr: '',
     address: '',
@@ -44,6 +45,7 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
         logo: club?.logo || '',
         banner: club?.banner || '',
         headerBgColor: club?.settings?.headerBgColor || '#ffffff',
+        headerTextColor: club?.settings?.headerTextColor || '#0f172a',
         tagline: club?.tagline || '',
         taglineAr: club?.taglineAr || '',
         address: club?.address || '',
@@ -104,7 +106,8 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
         cancellationPolicy: formData.cancellationPolicy,
         openingTime: formData.openingTime,
         closingTime: formData.closingTime,
-        headerBgColor: formData.headerBgColor || '#ffffff'
+        headerBgColor: formData.headerBgColor || '#ffffff',
+        headerTextColor: formData.headerTextColor || '#0f172a'
       }
     }
     onUpdateClub(updates)
@@ -276,23 +279,44 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
                 </div>
               )}
             </div>
-            <div className="form-group">
-              <label>Header background color — لون خلفية القسم الذي أعلى البنر</label>
-              <p className="form-hint">Background color of the header bar above the banner on the club public page. / لون خلفية الشريط فوق البنر في صفحة النادي.</p>
-              <div className="header-bg-color-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <input
-                  type="color"
-                  value={formData.headerBgColor}
-                  onChange={(e) => setFormData({ ...formData, headerBgColor: e.target.value })}
-                  style={{ width: 48, height: 36, padding: 2, cursor: 'pointer', border: '1px solid #e2e8f0', borderRadius: 8 }}
-                />
-                <input
-                  type="text"
-                  value={formData.headerBgColor}
-                  onChange={(e) => setFormData({ ...formData, headerBgColor: e.target.value })}
-                  placeholder="#ffffff"
-                  style={{ width: 100, padding: '8px 12px', fontSize: 14 }}
-                />
+            <div className="form-row" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+              <div className="form-group" style={{ flex: '1 1 200px' }}>
+                <label>Header background color — لون خلفية القسم الذي أعلى البنر</label>
+                <p className="form-hint">Background / الخلفية</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <input
+                    type="color"
+                    value={formData.headerBgColor}
+                    onChange={(e) => setFormData({ ...formData, headerBgColor: e.target.value })}
+                    style={{ width: 48, height: 36, padding: 2, cursor: 'pointer', border: '1px solid #e2e8f0', borderRadius: 8 }}
+                  />
+                  <input
+                    type="text"
+                    value={formData.headerBgColor}
+                    onChange={(e) => setFormData({ ...formData, headerBgColor: e.target.value })}
+                    placeholder="#ffffff"
+                    style={{ width: 100, padding: '8px 12px', fontSize: 14 }}
+                  />
+                </div>
+              </div>
+              <div className="form-group" style={{ flex: '1 1 200px' }}>
+                <label>Header text color — لون الخطوط الذي أعلى البنر</label>
+                <p className="form-hint">Text / الخطوط</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <input
+                    type="color"
+                    value={formData.headerTextColor}
+                    onChange={(e) => setFormData({ ...formData, headerTextColor: e.target.value })}
+                    style={{ width: 48, height: 36, padding: 2, cursor: 'pointer', border: '1px solid #e2e8f0', borderRadius: 8 }}
+                  />
+                  <input
+                    type="text"
+                    value={formData.headerTextColor}
+                    onChange={(e) => setFormData({ ...formData, headerTextColor: e.target.value })}
+                    placeholder="#0f172a"
+                    style={{ width: 100, padding: '8px 12px', fontSize: 14 }}
+                  />
+                </div>
               </div>
             </div>
             <div className="form-group">

@@ -72,6 +72,17 @@
   flex-shrink: 0;
 }
 
+.club-public-header.has-custom-header-colors .club-public-back,
+.club-public-header.has-custom-header-colors .club-public-lang {
+  color: inherit;
+}
+
+.club-public-header.has-custom-header-colors .club-public-back:hover,
+.club-public-header.has-custom-header-colors .club-public-lang:hover {
+  color: inherit;
+  opacity: 0.85;
+}
+
 .club-public-loading {
   padding: 60px 24px;
   text-align: center;
