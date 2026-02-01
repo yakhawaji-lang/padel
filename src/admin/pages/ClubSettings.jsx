@@ -11,6 +11,11 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
     banner: '',
     headerBgColor: '#ffffff',
     headerTextColor: '#0f172a',
+    heroBgColor: '#ffffff',
+    heroBgOpacity: 85,
+    heroTitleColor: '#0f172a',
+    heroTextColor: '#475569',
+    heroStatsColor: '#0f172a',
     tagline: '',
     taglineAr: '',
     address: '',
@@ -49,6 +54,11 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
         banner: club?.banner || '',
         headerBgColor: club?.settings?.headerBgColor || '#ffffff',
         headerTextColor: club?.settings?.headerTextColor || '#0f172a',
+        heroBgColor: club?.settings?.heroBgColor || '#ffffff',
+        heroBgOpacity: club?.settings?.heroBgOpacity ?? 85,
+        heroTitleColor: club?.settings?.heroTitleColor || '#0f172a',
+        heroTextColor: club?.settings?.heroTextColor || '#475569',
+        heroStatsColor: club?.settings?.heroStatsColor || '#0f172a',
         tagline: club?.tagline || '',
         taglineAr: club?.taglineAr || '',
         address: club?.address || '',
@@ -112,6 +122,11 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
         closingTime: formData.closingTime,
         headerBgColor: formData.headerBgColor || '#ffffff',
         headerTextColor: formData.headerTextColor || '#0f172a',
+        heroBgColor: formData.heroBgColor || '#ffffff',
+        heroBgOpacity: formData.heroBgOpacity ?? 85,
+        heroTitleColor: formData.heroTitleColor || '#0f172a',
+        heroTextColor: formData.heroTextColor || '#475569',
+        heroStatsColor: formData.heroStatsColor || '#0f172a',
         socialLinks: socialLinks
       }
     }
@@ -343,6 +358,46 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
                     placeholder="#0f172a"
                     style={{ width: 100, padding: '8px 12px', fontSize: 14 }}
                   />
+                </div>
+              </div>
+            </div>
+            <div className="form-group">
+              <label>Hero card on banner — إعدادات البطاقة على البنر</label>
+              <p className="form-hint">Background transparency, color, and font colors for the card overlay on the banner. / شفافية الخلفية، اللون، وألوان الخطوط للبطاقة فوق البنر.</p>
+              <div className="form-row" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: 12 }}>
+                <div className="form-group" style={{ flex: '1 1 140px' }}>
+                  <label>Background opacity — شفافية الخلفية (%)</label>
+                  <input type="number" min="0" max="100" value={formData.heroBgOpacity} onChange={(e) => setFormData({ ...formData, heroBgOpacity: Number(e.target.value) || 85 })} style={{ width: 80 }} />
+                </div>
+                <div className="form-group" style={{ flex: '1 1 140px' }}>
+                  <label>Background color — لون الخلفية</label>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input type="color" value={formData.heroBgColor} onChange={(e) => setFormData({ ...formData, heroBgColor: e.target.value })} style={{ width: 40, height: 32, padding: 2, cursor: 'pointer' }} />
+                    <input type="text" value={formData.heroBgColor} onChange={(e) => setFormData({ ...formData, heroBgColor: e.target.value })} placeholder="#ffffff" style={{ width: 90, padding: 6, fontSize: 13 }} />
+                  </div>
+                </div>
+              </div>
+              <div className="form-row" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: 8 }}>
+                <div className="form-group" style={{ flex: '1 1 120px' }}>
+                  <label>Title color — لون العنوان</label>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input type="color" value={formData.heroTitleColor} onChange={(e) => setFormData({ ...formData, heroTitleColor: e.target.value })} style={{ width: 36, height: 30, padding: 2, cursor: 'pointer' }} />
+                    <input type="text" value={formData.heroTitleColor} onChange={(e) => setFormData({ ...formData, heroTitleColor: e.target.value })} style={{ width: 80, padding: 6, fontSize: 13 }} />
+                  </div>
+                </div>
+                <div className="form-group" style={{ flex: '1 1 120px' }}>
+                  <label>Text color — لون الوصف</label>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input type="color" value={formData.heroTextColor} onChange={(e) => setFormData({ ...formData, heroTextColor: e.target.value })} style={{ width: 36, height: 30, padding: 2, cursor: 'pointer' }} />
+                    <input type="text" value={formData.heroTextColor} onChange={(e) => setFormData({ ...formData, heroTextColor: e.target.value })} style={{ width: 80, padding: 6, fontSize: 13 }} />
+                  </div>
+                </div>
+                <div className="form-group" style={{ flex: '1 1 120px' }}>
+                  <label>Stats color — لون الإحصائيات</label>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input type="color" value={formData.heroStatsColor} onChange={(e) => setFormData({ ...formData, heroStatsColor: e.target.value })} style={{ width: 36, height: 30, padding: 2, cursor: 'pointer' }} />
+                    <input type="text" value={formData.heroStatsColor} onChange={(e) => setFormData({ ...formData, heroStatsColor: e.target.value })} style={{ width: 80, padding: 6, fontSize: 13 }} />
+                  </div>
                 </div>
               </div>
             </div>

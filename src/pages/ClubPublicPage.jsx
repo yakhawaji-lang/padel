@@ -201,6 +201,14 @@ const ClubPublicPage = () => {
   const address = club.address ? (language === 'ar' && club.addressAr ? club.addressAr : club.address) : null
   const isMember = platformUser?.clubIds?.includes(club.id) || platformUser?.clubId === club.id
 
+  const heroBgColor = club?.settings?.heroBgColor || '#ffffff'
+  const heroBgOpacity = Math.min(1, Math.max(0, (club?.settings?.heroBgOpacity ?? 85) / 100))
+  const heroBgStyle = (() => {
+    const m = heroBgColor.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i)
+    if (m) return `rgba(${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}, ${heroBgOpacity})`
+    return heroBgColor
+  })()
+
   const t = {
     en: {
       backToHome: 'Back to home',
@@ -369,19 +377,20 @@ const ClubPublicPage = () => {
         </div>
       </header>
 
-      {club.banner && (
-        <section className="club-public-banner">
+      {club.banner ? (
+        <section className="club-public-banner club-public-banner-with-hero">
           <img src={club.banner} alt="" className="club-public-banner-image" />
-        </section>
-      )}
-
-      <main className="club-public-main">
-        <section className="club-public-hero">
-          <div className="club-public-hero-inner">
+          <div
+            className="club-public-hero-overlay"
+            style={{
+              background: heroBgStyle,
+              color: club?.settings?.heroTextColor || '#475569'
+            }}
+          >
             {club.logo && <img src={club.logo} alt="" className="club-public-logo" />}
-            <h1 className="club-public-title">{clubName}</h1>
-            {tagline && <p className="club-public-tagline">{tagline}</p>}
-            <div className="club-public-stats">
+            <h1 className="club-public-hero-title" style={{ color: club?.settings?.heroTitleColor || '#0f172a' }}>{clubName}</h1>
+            {tagline && <p className="club-public-hero-tagline" style={{ color: club?.settings?.heroTextColor || '#475569' }}>{tagline}</p>}
+            <div className="club-public-hero-stats" style={{ color: club?.settings?.heroStatsColor || '#0f172a' }}>
               <span>{courts.length} {c.courtsCount}</span>
               <span>{club.members?.length || 0} {c.members}</span>
               {tournamentsCount > 0 && <span>{tournamentsCount} {c.tournaments}</span>}
@@ -389,6 +398,23 @@ const ClubPublicPage = () => {
             </div>
           </div>
         </section>
+      ) : (
+        <section className="club-public-hero club-public-hero-standalone">
+          <div className="club-public-hero-inner" style={{ background: heroBgStyle, color: club?.settings?.heroTextColor || '#475569' }}>
+            {club.logo && <img src={club.logo} alt="" className="club-public-logo" />}
+            <h1 className="club-public-title" style={{ color: club?.settings?.heroTitleColor || '#0f172a' }}>{clubName}</h1>
+            {tagline && <p className="club-public-tagline" style={{ color: club?.settings?.heroTextColor || '#475569' }}>{tagline}</p>}
+            <div className="club-public-stats" style={{ color: club?.settings?.heroStatsColor || '#0f172a' }}>
+              <span>{courts.length} {c.courtsCount}</span>
+              <span>{club.members?.length || 0} {c.members}</span>
+              {tournamentsCount > 0 && <span>{tournamentsCount} {c.tournaments}</span>}
+              {matchesCount > 0 && <span>{matchesCount} {c.matches}</span>}
+            </div>
+          </div>
+        </section>
+      )}
+
+      <main className="club-public-main">
 
         <section className="club-public-section club-public-about">
           <div className="club-public-section-inner">

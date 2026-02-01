@@ -118,6 +118,62 @@
   background: #0f172a;
 }
 
+.club-public-banner-with-hero {
+  position: relative;
+}
+
+.club-public-hero-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  padding: 32px 40px;
+  border-radius: 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  max-width: 90%;
+}
+
+.club-public-hero-overlay .club-public-logo {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 16px;
+}
+
+.club-public-hero-overlay .club-public-hero-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin: 0 0 12px;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.club-public-hero-overlay .club-public-hero-tagline {
+  font-size: 0.9375rem;
+  margin: 0 0 20px;
+  line-height: 1.5;
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.club-public-hero-overlay .club-public-hero-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px 24px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.club-public-hero-overlay .club-public-hero-stats span {
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
 .club-public-header-social {
   display: flex;
   gap: 10px;
@@ -137,6 +193,11 @@
 .club-public-social-icon:hover {
   transform: scale(1.1);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.club-public-banner-with-hero .club-public-banner-image {
+  min-height: 280px;
+  max-height: 500px;
 }
 
 .club-public-banner-image {
@@ -192,6 +253,39 @@
   .club-public-banner-image {
     min-height: 140px;
     max-height: 240px;
+  }
+
+  .club-public-banner-with-hero .club-public-banner-image {
+    min-height: 200px;
+    max-height: 320px;
+  }
+
+  .club-public-hero-overlay {
+    padding: 20px 24px;
+    border-radius: 14px;
+  }
+
+  .club-public-hero-overlay .club-public-logo {
+    width: 56px;
+    height: 56px;
+    margin-bottom: 12px;
+  }
+
+  .club-public-hero-overlay .club-public-hero-title {
+    font-size: 1.35rem;
+  }
+
+  .club-public-hero-overlay .club-public-hero-tagline {
+    font-size: 0.875rem;
+  }
+
+  .club-public-hero-overlay .club-public-hero-stats {
+    gap: 8px 16px;
+    font-size: 0.8125rem;
+  }
+
+  .club-public-hero-overlay .club-public-hero-stats span {
+    padding: 5px 10px;
   }
 
   .club-public-hero-inner {
