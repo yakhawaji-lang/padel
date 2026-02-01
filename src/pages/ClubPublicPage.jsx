@@ -557,11 +557,23 @@ const ClubPublicPage = () => {
           <div className="club-public-section-inner">
             <h2 className="section-heading">{c.facilities}</h2>
             <div className="club-public-courts">
-              {courts.length > 0 ? (
-                courts.map(court => (
+              {(club.courts?.length || 0) > 0 ? (
+                (club.courts || []).map(court => (
                   <div key={court.id} className="club-public-court-card">
-                    <span className="court-name">{language === 'ar' && court.nameAr ? court.nameAr : court.name}</span>
-                    <span className="court-type">{court.type || 'indoor'}</span>
+                    <div className="club-public-court-card-image-wrap">
+                      {court.image ? (
+                        <img src={court.image} alt="" className="club-public-court-card-image" />
+                      ) : (
+                        <div className="club-public-court-card-placeholder">
+                          <span className="court-placeholder-icon">🏸</span>
+                        </div>
+                      )}
+                      {court.maintenance && <span className="club-public-court-maintenance-badge">{language === 'en' ? 'Maintenance' : 'صيانة'}</span>}
+                    </div>
+                    <div className="club-public-court-card-body">
+                      <span className="court-name">{language === 'ar' && court.nameAr ? court.nameAr : court.name}</span>
+                      <span className="court-type">{court.type === 'indoor' ? (language === 'en' ? 'Indoor' : 'داخلي') : (language === 'en' ? 'Outdoor' : 'خارجي')}</span>
+                    </div>
                   </div>
                 ))
               ) : (

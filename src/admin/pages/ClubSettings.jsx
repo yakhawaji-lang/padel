@@ -42,7 +42,8 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
     name: '',
     nameAr: '',
     type: 'indoor',
-    maintenance: false
+    maintenance: false,
+    image: ''
   })
 
   useEffect(() => {
@@ -147,10 +148,11 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
       name: courtForm.name,
       nameAr: courtForm.nameAr || courtForm.name,
       type: courtForm.type,
-      maintenance: courtForm.maintenance || false
+      maintenance: courtForm.maintenance || false,
+      image: courtForm.image || undefined
     }
     setCourts([...courts, newCourt])
-    setCourtForm({ name: '', nameAr: '', type: 'indoor', maintenance: false })
+    setCourtForm({ name: '', nameAr: '', type: 'indoor', maintenance: false, image: '' })
   }
 
   const handleEditCourt = (court) => {
@@ -159,7 +161,8 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
       name: court.name,
       nameAr: court.nameAr || '',
       type: court.type || 'indoor',
-      maintenance: court.maintenance || false
+      maintenance: court.maintenance || false,
+      image: court.image || ''
     })
   }
 
@@ -170,12 +173,12 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
     }
     const updatedCourts = courts.map(c => 
       c.id === editingCourt.id 
-        ? { ...c, name: courtForm.name, nameAr: courtForm.nameAr || courtForm.name, type: courtForm.type, maintenance: courtForm.maintenance }
+        ? { ...c, name: courtForm.name, nameAr: courtForm.nameAr || courtForm.name, type: courtForm.type, maintenance: courtForm.maintenance, image: courtForm.image || undefined }
         : c
     )
     setCourts(updatedCourts)
     setEditingCourt(null)
-    setCourtForm({ name: '', nameAr: '', type: 'indoor', maintenance: false })
+    setCourtForm({ name: '', nameAr: '', type: 'indoor', maintenance: false, image: '' })
   }
 
   const handleDeleteCourt = (courtId) => {
@@ -186,7 +189,7 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
 
   const handleCancelEdit = () => {
     setEditingCourt(null)
-    setCourtForm({ name: '', nameAr: '', type: 'indoor', maintenance: false })
+    setCourtForm({ name: '', nameAr: '', type: 'indoor', maintenance: false, image: '' })
   }
 
   const handleToggleMaintenance = (courtId) => {
@@ -557,6 +560,7 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
                   <table className="courts-table-content">
                     <thead>
                       <tr>
+                        <th>Image</th>
                         <th>Name (English)</th>
                         <th>Name (Arabic)</th>
                         <th>Type</th>
@@ -567,6 +571,7 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
                     <tbody>
                       {courts.map(court => (
                         <tr key={court.id} className={court.maintenance ? 'court-maintenance' : ''}>
+                          <td>{court.image ? <img src={court.image} alt="" style={{ width: 48, height: 36, objectFit: 'cover', borderRadius: 4 }} /> : '—'}</td>
                           <td>{court.name}</td>
                           <td>{court.nameAr || '-'}</td>
                           <td>
@@ -654,6 +659,42 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
                     Under Maintenance
                   </label>
                 </div>
+              </div>
+              <div className="form-group">
+                <label>Court image — صورة الملعب (URL or upload)</label>
+                <p className="form-hint">Shown in Facilities section on club public page. / تُعرض في قسم المرافق والملاعب.</p>
+                <div className="logo-input-row">
+                  <input
+                    type="text"
+                    placeholder="https://... or leave empty"
+                    value={courtForm.image}
+                    onChange={(e) => setCourtForm({ ...courtForm, image: e.target.value })}
+                    className="logo-url-input"
+                  />
+                  <label className="btn-secondary logo-upload-btn">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          const reader = new FileReader()
+                          reader.onload = () => setCourtForm(prev => ({ ...prev, image: reader.result }))
+                          reader.readAsDataURL(file)
+                        }
+                        e.target.value = ''
+                      }}
+                    />
+                    Upload image
+                  </label>
+                </div>
+                {courtForm.image && (
+                  <div className="logo-preview-wrap" style={{ marginTop: 10 }}>
+                    <img src={courtForm.image} alt="Court preview" className="logo-preview" style={{ width: 80, height: 60, objectFit: 'cover' }} />
+                    <button type="button" className="logo-remove" onClick={() => setCourtForm(prev => ({ ...prev, image: '' }))}>Remove</button>
+                  </div>
+                )}
               </div>
               <div className="form-actions">
                 {editingCourt ? (
