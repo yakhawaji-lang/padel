@@ -372,6 +372,22 @@
   background: #15803d;
 }
 
+.join-card-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.join-card-cta.btn-outline {
+  background: #fff;
+  color: #16a34a;
+  border: 1px solid #16a34a;
+}
+
+.join-card-cta.btn-outline:hover {
+  background: #f0fdf4;
+}
+
 .join-card-cta.btn-secondary {
   background: #fff;
   color: #2563eb;

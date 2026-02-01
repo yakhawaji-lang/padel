@@ -200,6 +200,7 @@ const HomePage = () => {
         title: 'Join Padel Clubs',
         text: 'Register your club on the platform to manage tournaments, bookings, members and accounting professionally. Your club will be reviewed and activated by the platform admin.',
         cta: 'Register new club',
+        login: 'Club Login',
         hint: 'Use email and password to login to club dashboard after approval.'
       },
       joinMembers: {
@@ -291,6 +292,7 @@ const HomePage = () => {
         title: 'الانظمام إلى أندية بادل',
         text: 'سجّل ناديك على المنصة لإدارة البطولات والحجوزات والأعضاء والمحاسبة بشكل احترافي. سيتم مراجعة النادي وموافقته من إدارة المنصة.',
         cta: 'تسجيل نادي جديد',
+        login: 'تسجيل دخول النادي',
         hint: 'استخدم البريد وكلمة المرور للدخول إلى لوحة التحكم بعد الموافقة.'
       },
       joinMembers: {
@@ -375,9 +377,14 @@ const HomePage = () => {
                 <h3 className="join-card-title">{c.joinClubs.title}</h3>
                 <p className="join-card-text">{c.joinClubs.text}</p>
                 <p className="join-card-hint">{c.joinClubs.hint}</p>
-                <Link to="/register-club" className="join-card-cta btn-primary">
-                  {c.joinClubs.cta}
-                </Link>
+                <div className="join-card-btns">
+                  <Link to="/register-club" className="join-card-cta btn-primary">
+                    {c.joinClubs.cta}
+                  </Link>
+                  <Link to="/club-login" className="join-card-cta btn-outline">
+                    {c.joinClubs.login}
+                  </Link>
+                </div>
               </div>
               <div className="join-card join-card-members">
                 <div className="join-card-icon">👥</div>
