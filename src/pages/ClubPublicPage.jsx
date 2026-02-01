@@ -489,6 +489,38 @@ const ClubPublicPage = () => {
           </div>
         </section>
 
+        <section className="club-public-section club-public-offers">
+          <div className="club-public-section-inner">
+            {offers.length === 0 ? (
+              <p className="club-public-no-data">{language === 'en' ? 'No offers at the moment.' : 'لا توجد عروض حالياً.'}</p>
+            ) : (
+              <div className="club-public-offers-grid">
+                {offers.map((offer, i) => {
+                  const title = language === 'ar' ? (offer.titleAr || offer.nameAr || offer.title || offer.name) : (offer.title || offer.name)
+                  const desc = language === 'ar' ? (offer.descriptionAr || offer.description) : (offer.description || offer.descriptionAr)
+                  return (
+                    <div key={offer.id || i} className="club-public-offer-card">
+                      {offer.image && <img src={offer.image} alt="" className="club-public-offer-image" />}
+                      <h3 className="offer-title">{title}</h3>
+                      {desc && <p className="offer-desc">{desc}</p>}
+                      <div className="offer-meta">
+                        {(offer.discount != null || offer.fixedAmount != null) && (
+                          <span className="offer-discount">
+                            {offer.discountType === 'fixed' && offer.fixedAmount != null
+                              ? `${offer.fixedAmount} ${currency} ${c.discount}`
+                              : `${offer.discount}% ${c.discount}`}
+                          </span>
+                        )}
+                        {offer.validUntil && <span className="offer-valid">{c.validUntil} {offer.validUntil}</span>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+
         <section className="club-public-section club-public-about">
           <div className="club-public-section-inner">
             <h2 className="section-heading">{c.aboutClub}</h2>
@@ -660,39 +692,6 @@ const ClubPublicPage = () => {
             </div>
           </section>
         )}
-
-        <section className="club-public-section club-public-offers">
-          <div className="club-public-section-inner">
-            <h2 className="section-heading">{c.offersFromAdmin}</h2>
-            {offers.length === 0 ? (
-              <p className="club-public-no-data">{language === 'en' ? 'No offers at the moment.' : 'لا توجد عروض حالياً.'}</p>
-            ) : (
-              <div className="club-public-offers-grid">
-                {offers.map((offer, i) => {
-                  const title = language === 'ar' ? (offer.titleAr || offer.nameAr || offer.title || offer.name) : (offer.title || offer.name)
-                  const desc = language === 'ar' ? (offer.descriptionAr || offer.description) : (offer.description || offer.descriptionAr)
-                  return (
-                    <div key={offer.id || i} className="club-public-offer-card">
-                      {offer.image && <img src={offer.image} alt="" className="club-public-offer-image" />}
-                      <h3 className="offer-title">{title}</h3>
-                      {desc && <p className="offer-desc">{desc}</p>}
-                      <div className="offer-meta">
-                        {(offer.discount != null || offer.fixedAmount != null) && (
-                          <span className="offer-discount">
-                            {offer.discountType === 'fixed' && offer.fixedAmount != null
-                              ? `${offer.fixedAmount} ${currency} ${c.discount}`
-                              : `${offer.discount}% ${c.discount}`}
-                          </span>
-                        )}
-                        {offer.validUntil && <span className="offer-valid">{c.validUntil} {offer.validUntil}</span>}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </section>
 
         <section className="club-public-section club-public-contact">
           <div className="club-public-section-inner">
