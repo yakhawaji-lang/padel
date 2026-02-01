@@ -109,7 +109,11 @@ const ClubPublicPage = () => {
   }, [language])
 
   const refreshClub = React.useCallback(() => {
-    const c = getClubById(clubId, true)
+    let c = getClubById(clubId, true)
+    if (!c) {
+      loadClubs()
+      c = getClubById(clubId, false)
+    }
     setClub(c || null)
   }, [clubId])
 
@@ -220,12 +224,12 @@ const ClubPublicPage = () => {
 
   if (!club) {
     return (
-      <div className="club-public-page">
-        <div className="club-public-loading">
+      <div className="club-public-page commercial">
+        <div className="club-public-loading" style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
           <p>{clubId
             ? (language === 'en' ? 'Club not found.' : 'النادي غير موجود.')
             : (language === 'en' ? 'Loading...' : 'جاري التحميل...')}</p>
-          <Link to="/">{language === 'en' ? 'Back to home' : 'العودة للرئيسية'}</Link>
+          <Link to="/" style={{ marginTop: 16 }}>{language === 'en' ? 'Back to home' : 'العودة للرئيسية'}</Link>
         </div>
       </div>
     )
@@ -238,11 +242,17 @@ const ClubPublicPage = () => {
   const clubName = language === 'ar' && club.nameAr ? club.nameAr : club.name
   const tagline = language === 'ar' ? (club.taglineAr || club.tagline) : (club.tagline || club.taglineAr)
   const address = club.address ? (language === 'ar' && club.addressAr ? club.addressAr : club.address) : null
-  const clubMembersList = React.useMemo(() => getClubMembersFromStorage(club?.id || ''), [club?.id])
+  const clubMembersList = React.useMemo(() => {
+    try {
+      return getClubMembersFromStorage(club?.id || '') || []
+    } catch (_) {
+      return []
+    }
+  }, [club?.id])
   const isMember = platformUser && (
     platformUser.clubIds?.includes(club.id) ||
     platformUser.clubId === club.id ||
-    clubMembersList.some(m => String(m.id) === String(platformUser.id))
+    (Array.isArray(clubMembersList) && clubMembersList.some(m => String(m.id) === String(platformUser.id)))
   )
 
   const heroBgColor = club?.settings?.heroBgColor || '#ffffff'
