@@ -261,6 +261,7 @@ const ClubPublicPage = () => {
       joinSuccess: 'You have joined the club successfully.',
       alreadyMember: 'You are already a member of this club.',
       registerFirst: 'Register on the platform first',
+      registerMembers: 'Register as member',
       registerThenJoin: 'You must register on the platform before joining a club. Register now, then return here to join.',
       tournaments: 'Tournaments',
       matches: 'Matches',
@@ -307,6 +308,7 @@ const ClubPublicPage = () => {
       joinSuccess: 'تم انضمامك للنادي بنجاح.',
       alreadyMember: 'أنت عضو في هذا النادي مسبقاً.',
       registerFirst: 'سجّل في المنصة أولاً',
+      registerMembers: 'تسجيل الأعضاء',
       registerThenJoin: 'يجب التسجيل في المنصة قبل الانضمام لأي نادي. سجّل الآن ثم عد هنا للانضمام.',
       tournaments: 'بطولات',
       matches: 'مباريات',
@@ -403,7 +405,7 @@ const ClubPublicPage = () => {
                 className="club-public-member-account"
               />
             ) : (
-              <Link to="/" className="club-public-home-link" aria-label={c.backToHome}>⌂</Link>
+              <Link to={`/register?join=${clubId}`} className="club-public-register-link">{c.registerMembers}</Link>
             )}
           </div>
           <div className="club-public-header-social">

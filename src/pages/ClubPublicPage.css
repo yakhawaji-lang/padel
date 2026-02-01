@@ -46,16 +46,20 @@
   gap: 8px;
 }
 
-.club-public-home-link {
+.club-public-register-link {
   color: inherit;
   text-decoration: none;
-  font-size: 1.25rem;
-  opacity: 0.8;
-  padding: 4px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.2);
   display: inline-flex;
+  align-items: center;
+  transition: background 0.2s, opacity 0.2s;
 }
-.club-public-home-link:hover {
-  opacity: 1;
+.club-public-register-link:hover {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 .club-public-member-account .member-account-avatar,
@@ -91,12 +95,12 @@
 
 .club-public-header.has-custom-header-colors .club-public-lang,
 .club-public-header.has-custom-header-colors .language-icon-label,
-.club-public-header.has-custom-header-colors .club-public-home-link {
+.club-public-header.has-custom-header-colors .club-public-register-link {
   color: inherit;
 }
 
 .club-public-header.has-custom-header-colors .club-public-lang:hover,
-.club-public-header.has-custom-header-colors .club-public-home-link:hover {
+.club-public-header.has-custom-header-colors .club-public-register-link:hover {
   color: inherit;
   opacity: 0.85;
 }
