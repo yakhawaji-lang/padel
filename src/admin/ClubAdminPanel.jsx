@@ -121,6 +121,7 @@ function ClubAdminPanel() {
             element={
               <ClubOffersManagement 
                 club={club}
+                language={language}
                 onUpdateClub={handleClubUpdate}
               />
             } 

@@ -210,3 +210,9 @@
 .club-admin-panel.rtl .store-stat-card.low-stock-alert { border-inline-end-color: #f59e0b; }
 .club-admin-panel.rtl .store-stat-card.out-stock-alert,
 .club-admin-panel.rtl .store-stat-card.out-stock { border-inline-end-color: #ef4444; }
+
+/* Club Offers Management RTL */
+.club-admin-panel.rtl .offers-management .page-title,
+.club-admin-panel.rtl .offers-management .offer-card-title { text-align: right; }
+.club-admin-panel.rtl .offers-management .offers-header-top { flex-direction: row-reverse; }
+.club-admin-panel.rtl .offers-management .offers-filters { flex-direction: row-reverse; }

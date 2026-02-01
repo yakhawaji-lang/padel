@@ -74,13 +74,18 @@ const HomePage = () => {
 
   const allOffers = useMemo(() => {
     const list = []
+    const today = new Date().toISOString().split('T')[0]
     clubs.forEach(club => {
-      (club?.offers || []).forEach(offer => {
-        list.push({
-          ...offer,
-          clubName: language === 'ar' && club.nameAr ? club.nameAr : club.name
+      (club?.offers || [])
+        .filter(o => o.active !== false && (!o.validFrom || o.validFrom <= today) && (!o.validUntil || o.validUntil >= today))
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
+        .forEach(offer => {
+          list.push({
+            ...offer,
+            clubName: language === 'ar' && club.nameAr ? club.nameAr : club.name,
+            currency: club?.settings?.currency || 'SAR'
+          })
         })
-      })
     })
     return list
   }, [clubs, language])
@@ -378,7 +383,13 @@ const HomePage = () => {
                     <h3 className="offer-title">{offer.title || offer.name}</h3>
                     {offer.description && <p className="offer-desc">{offer.description}</p>}
                     <div className="offer-meta">
-                      {offer.discount != null && <span>{c.offers.discount}: {offer.discount}%</span>}
+                      {(offer.discount != null || offer.fixedAmount != null) && (
+                        <span>
+                          {c.offers.discount}: {offer.discountType === 'fixed' && offer.fixedAmount != null
+                            ? `${offer.fixedAmount} ${offer.currency || 'SAR'}`
+                            : `${offer.discount}%`}
+                        </span>
+                      )}
                       {offer.validUntil && <span>{c.offers.validUntil}: {offer.validUntil}</span>}
                     </div>
                   </div>
@@ -410,7 +421,8 @@ const HomePage = () => {
                 const { tournamentsCount, matchesCount } = getClubTournamentStats(club)
                 const { upcoming } = getClubBookingsCount(club)
                 const tagline = language === 'ar' ? (club.taglineAr || club.tagline) : (club.tagline || club.taglineAr)
-                const offers = club?.offers || []
+                const todayStr = new Date().toISOString().split('T')[0]
+                const offers = (club?.offers || []).filter(o => o.active !== false && (!o.validFrom || o.validFrom <= todayStr) && (!o.validUntil || o.validUntil >= todayStr))
                 const clubName = language === 'ar' && club.nameAr ? club.nameAr : club.name
                 const clubAddress = club.address ? (language === 'ar' && club.addressAr ? club.addressAr : club.address) : null
 

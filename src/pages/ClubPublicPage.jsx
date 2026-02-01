@@ -165,7 +165,17 @@ const ClubPublicPage = () => {
   }
 
   const courts = club.courts?.filter(c => !c.maintenance) || []
-  const offers = club.offers || []
+  const currency = club?.settings?.currency || 'SAR'
+  const activeOffers = useMemo(() => {
+    const list = (club.offers || []).slice()
+    const today = new Date().toISOString().split('T')[0]
+    return list
+      .filter(o => o.active !== false)
+      .filter(o => !o.validFrom || o.validFrom <= today)
+      .filter(o => !o.validUntil || o.validUntil >= today)
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+  }, [club.offers])
+  const offers = activeOffers
   const { tournamentsCount, matchesCount } = getClubTournamentStats(club)
   const clubName = language === 'ar' && club.nameAr ? club.nameAr : club.name
   const tagline = language === 'ar' ? (club.taglineAr || club.tagline) : (club.tagline || club.taglineAr)
@@ -587,7 +597,13 @@ const ClubPublicPage = () => {
                       <h3 className="offer-title">{title}</h3>
                       {desc && <p className="offer-desc">{desc}</p>}
                       <div className="offer-meta">
-                        {offer.discount != null && <span className="offer-discount">{offer.discount}% {c.discount}</span>}
+                        {(offer.discount != null || offer.fixedAmount != null) && (
+                          <span className="offer-discount">
+                            {offer.discountType === 'fixed' && offer.fixedAmount != null
+                              ? `${offer.fixedAmount} ${currency} ${c.discount}`
+                              : `${offer.discount}% ${c.discount}`}
+                          </span>
+                        )}
                         {offer.validUntil && <span className="offer-valid">{c.validUntil} {offer.validUntil}</span>}
                       </div>
                     </div>
