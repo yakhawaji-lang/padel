@@ -31,7 +31,7 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
           onClick={() => onLanguageChange(language === 'en' ? 'ar' : 'en')}
           title={language === 'en' ? 'العربية' : 'English'}
         >
-          {language === 'en' ? 'العربية' : 'English'}
+          <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={18} />
         </button>
       </div>
 

@@ -67,9 +67,8 @@
   color: #2563eb;
 }
 
+.club-public-lang span,
 .club-public-lang svg {
-  width: 22px;
-  height: 22px;
   flex-shrink: 0;
 }
 

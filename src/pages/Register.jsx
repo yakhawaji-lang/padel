@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
+import LanguageIcon from '../components/LanguageIcon'
 import { getCurrentPlatformUser, setCurrentPlatformUser } from '../storage/platformAuth'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './Register.css'
@@ -89,8 +90,8 @@ const Register = () => {
     <div className="register-page">
       <header className="register-header">
         <Link to="/" className="register-back">{c.backToHome}</Link>
-        <button type="button" className="register-lang" onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}>
-          {language === 'en' ? 'العربية' : 'English'}
+        <button type="button" className="register-lang" onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')} title={language === 'en' ? 'العربية' : 'English'}>
+          <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={20} />
         </button>
       </header>
       <main className="register-main">

@@ -1,4 +1,5 @@
 import React from 'react'
+import LanguageIcon from '../../components/LanguageIcon'
 import './ClubAdminHeader.css'
 
 const ClubAdminHeader = ({ club, language, onLanguageChange, onMenuToggle }) => {
@@ -32,8 +33,9 @@ const ClubAdminHeader = ({ club, language, onLanguageChange, onMenuToggle }) => 
           <button
             className="header-language-toggle"
             onClick={() => onLanguageChange(language === 'en' ? 'ar' : 'en')}
+            title={language === 'en' ? 'العربية' : 'English'}
           >
-            {language === 'en' ? 'العربية' : 'English'}
+            <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={18} />
           </button>
         </div>
       </div>

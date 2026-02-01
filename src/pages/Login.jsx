@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import LanguageIcon from '../components/LanguageIcon'
 import { useNavigate } from 'react-router-dom'
 import './Login.css'
 import { loadClubs, saveClubs } from '../storage/adminStorage'
@@ -172,8 +173,9 @@ const Login = () => {
               type="button"
               className="login-lang-btn"
               onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
+              title={language === 'en' ? 'العربية' : 'English'}
             >
-              {language === 'en' ? 'العربية' : 'English'}
+              <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={20} />
             </button>
           </div>
           <h1>{language === 'en' ? 'Padel Tournament System' : 'نظام بطولات البادل'}</h1>

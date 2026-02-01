@@ -95,6 +95,11 @@
 }
 
 .nav-lang {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
   color: #6b7280;
 }
 

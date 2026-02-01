@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import './ClubSettings.css'
 import '../pages/common.css'
 
-const ClubSettings = ({ club, onUpdateClub }) => {
+const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
   const [formData, setFormData] = useState({
     name: '',
     nameAr: '',
@@ -104,6 +104,9 @@ const ClubSettings = ({ club, onUpdateClub }) => {
       }
     }
     onUpdateClub(updates)
+    if (typeof onDefaultLanguageChange === 'function' && updates.settings?.defaultLanguage) {
+      onDefaultLanguageChange(updates.settings.defaultLanguage)
+    }
     alert('Settings saved successfully!')
   }
 

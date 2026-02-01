@@ -30,11 +30,11 @@ function ClubAdminPanel() {
       const foundClub = getClubById(clubId)
       if (foundClub) {
         setClub(foundClub)
-        // Load language: prefer app-wide, then club-specific, then club default
-        const appLang = getAppLanguage()
+        // Load language: club-specific preference first, then club default, then app-wide
         const clubLang = localStorage.getItem(`club_${clubId}_language`)
         const clubDefaultLanguage = foundClub.settings?.defaultLanguage || 'en'
-        setLanguage(appLang || clubLang || clubDefaultLanguage)
+        const appLang = getAppLanguage()
+        setLanguage(clubLang || clubDefaultLanguage || appLang)
       } else {
         // Club not found, redirect to main admin
         navigate('/admin/all-clubs')
@@ -152,6 +152,11 @@ function ClubAdminPanel() {
               <ClubSettings 
                 club={club}
                 onUpdateClub={handleClubUpdate}
+                onDefaultLanguageChange={(lang) => {
+                  setLanguage(lang)
+                  setAppLanguage(lang)
+                  if (clubId) localStorage.setItem(`club_${clubId}_language`, lang)
+                }}
               />
             } 
           />

@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react'
+import LanguageIcon from '../../components/LanguageIcon'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import './ClubAdminSidebar.css'
 
@@ -53,7 +54,7 @@ const ClubAdminSidebar = ({ club, language, onLanguageChange, open, onClose }) =
           onClick={() => onLanguageChange(language === 'en' ? 'ar' : 'en')}
           title={language === 'en' ? 'العربية' : 'English'}
         >
-          {language === 'en' ? 'العربية' : 'English'}
+          <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={18} />
         </button>
       </div>
 

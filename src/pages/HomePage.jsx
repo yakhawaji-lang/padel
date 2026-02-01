@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import LanguageIcon from '../components/LanguageIcon'
 import { loadClubs } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './HomePage.css'
@@ -301,8 +302,8 @@ const HomePage = () => {
             <span className="nav-sep"></span>
             <a href="/register" className="nav-register">{c.nav.register}</a>
             <a href="/login" className="nav-login">{c.nav.login}</a>
-            <button type="button" className="nav-lang" onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')} aria-label={language === 'en' ? 'العربية' : 'English'}>
-              {language === 'en' ? 'العربية' : 'English'}
+            <button type="button" className="nav-lang" onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')} title={language === 'en' ? 'العربية' : 'English'} aria-label={language === 'en' ? 'Switch to Arabic' : 'التبديل للإنجليزية'}>
+              <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={18} />
             </button>
             <button type="button" className="nav-admin" onClick={handleAdminLogin}>
               {c.nav.adminLogin}

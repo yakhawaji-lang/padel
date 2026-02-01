@@ -223,7 +223,7 @@ const ClubDashboard = ({ club }) => {
               localStorage.setItem(`club_${clubId}_language`, newLang)
             }}
           >
-            {language === 'en' ? 'العربية' : 'English'}
+            <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={18} />
           </button>
         </div>
 

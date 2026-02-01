@@ -17,6 +17,7 @@ import {
 } from './storage'
 import { loadClubs, getClubById, saveClubs } from './storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
+import LanguageIcon from './components/LanguageIcon'
 import playtomicApi from './services/playtomicApi'
 
 function App({ currentUser }) {
@@ -4656,8 +4657,9 @@ function App({ currentUser }) {
             <button 
               className="btn-secondary btn-small"
               onClick={toggleLanguage}
+              title={language === 'en' ? 'العربية' : 'English'}
             >
-              {language === 'en' ? 'العربية' : 'English'}
+              <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={16} />
             </button>
           </div>
         </div>

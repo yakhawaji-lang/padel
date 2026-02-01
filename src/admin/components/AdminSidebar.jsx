@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import LanguageIcon from '../../components/LanguageIcon'
 import { Link, useLocation } from 'react-router-dom'
 import './AdminSidebar.css'
 
@@ -32,7 +33,7 @@ const AdminSidebar = ({ currentClub, clubs, onClubChange, language, onLanguageCh
           onClick={() => onLanguageChange(language === 'en' ? 'ar' : 'en')}
           title={language === 'en' ? 'العربية' : 'English'}
         >
-          {language === 'en' ? 'العربية' : 'English'}
+          <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={18} />
         </button>
       </div>
 

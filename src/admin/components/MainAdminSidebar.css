@@ -66,13 +66,16 @@
 }
 
 .language-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(255, 255, 255, 0.1);
   border: none;
   color: white;
-  padding: 5px 10px;
-  border-radius: 4px;
+  padding: 10px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 12px;
+  min-height: 40px;
 }
 
 .language-toggle:hover {

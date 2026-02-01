@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { loadClubs, getClubById, saveClubs } from '../storage/adminStorage'
+import LanguageIcon from '../components/LanguageIcon'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './ClubPublicPage.css'
@@ -91,7 +92,12 @@ const ClubPublicPage = () => {
   const { clubId } = useParams()
   const navigate = useNavigate()
   const [club, setClub] = useState(null)
-  const [language, setLanguage] = useState(getAppLanguage())
+  const [language, setLanguage] = useState(() => {
+    const appLang = localStorage.getItem('app_language')
+    if (appLang) return appLang
+    const c = getClubById(clubId)
+    return c?.settings?.defaultLanguage || 'en'
+  })
   const [joinStatus, setJoinStatus] = useState(null)
   const [platformUser, setPlatformUser] = useState(null)
   const [courtGridDate, setCourtGridDate] = useState(() => new Date().toISOString().split('T')[0])
@@ -338,11 +344,7 @@ const ClubPublicPage = () => {
             title={language === 'en' ? 'العربية' : 'English'}
             aria-label={language === 'en' ? 'Switch to Arabic' : 'التبديل للإنجليزية'}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="2" y1="12" x2="22" y2="12" />
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-            </svg>
+            <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} />
           </button>
         </div>
       </header>
