@@ -11,7 +11,7 @@ const Login = () => {
   const [searchParams] = useSearchParams()
   const joinClubId = searchParams.get('join')
   const [language, setLanguage] = useState(getAppLanguage())
-  const [mode, setMode] = useState('login') // 'login' or 'signup' or 'createClub'
+  const [mode, setMode] = useState(joinClubId ? 'login' : 'login') // 'login', 'signup', or 'createClub'
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -21,10 +21,15 @@ const Login = () => {
   const [clubs, setClubs] = useState([])
 
   React.useEffect(() => {
-    // Load clubs for member signup
     const loadedClubs = loadClubs()
     setClubs(loadedClubs)
   }, [])
+
+  React.useEffect(() => {
+    if (joinClubId) {
+      setFormData(prev => ({ ...prev, clubId: joinClubId }))
+    }
+  }, [joinClubId])
 
   React.useEffect(() => {
     setAppLanguage(language)
@@ -55,8 +60,9 @@ const Login = () => {
 
   const handleMemberSignup = (e) => {
     e.preventDefault()
-    if (!formData.name || !formData.email || !formData.password || !formData.clubId) {
-      alert('Please fill all fields')
+    const clubIdToUse = joinClubId || formData.clubId
+    if (!formData.name || !formData.email || !formData.password || !clubIdToUse) {
+      alert(language === 'en' ? 'Please fill all fields' : 'يرجى تعبئة جميع الحقول')
       return
     }
 
@@ -73,36 +79,24 @@ const Login = () => {
       name: formData.name,
       email: formData.email,
       password: formData.password, // In production, hash this
-      clubIds: [formData.clubId], // Support multiple clubs - start with one
-      clubId: formData.clubId, // Keep for backward compatibility
+      clubIds: [clubIdToUse],
+      clubId: clubIdToUse,
       role: 'member',
       createdAt: new Date().toISOString()
     }
 
     members.push(newMember)
     localStorage.setItem('all_members', JSON.stringify(members))
-    
-    // Add member to club(s)
+
     const clubs = loadClubs()
-    newMember.clubIds.forEach(clubId => {
-      const club = clubs.find(c => c.id === clubId)
-      if (club) {
-        club.members = club.members || []
-        // Check if member already exists in club
-        if (!club.members.find(m => m.id === newMember.id)) {
-          club.members.push({
-            id: newMember.id,
-            name: newMember.name,
-            email: newMember.email,
-            clubIds: newMember.clubIds
-          })
-        }
-      }
-    })
     saveClubs(clubs)
 
-    // Navigate to member's club page
-    navigate(`/club/${formData.clubId}`)
+    setCurrentPlatformUser(newMember.id)
+    if (joinClubId) {
+      navigate(`/clubs/${joinClubId}`)
+    } else {
+      navigate(`/club/${clubIdToUse}`)
+    }
   }
 
   const handleCreateClub = (e) => {
@@ -184,8 +178,10 @@ const Login = () => {
               <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={20} />
             </button>
           </div>
-          <h1>{language === 'en' ? 'Padel Tournament System' : 'نظام بطولات البادل'}</h1>
-          <p>{language === 'en' ? 'Login & Registration' : 'تسجيل الدخول والتسجيل'}</p>
+          <h1>{language === 'en' ? 'Padel Platform' : 'منصة بادل'}</h1>
+          <p>{joinClubId 
+            ? (language === 'en' ? 'Login or register to join the club' : 'سجّل الدخول أو أنشئ حساباً للانضمام للنادي')
+            : (language === 'en' ? 'Login & Registration' : 'تسجيل الدخول والتسجيل')}</p>
         </div>
 
         <div className="login-tabs">
@@ -193,26 +189,28 @@ const Login = () => {
             className={`tab ${mode === 'login' ? 'active' : ''}`}
             onClick={() => setMode('login')}
           >
-            Member Login / تسجيل دخول عضو
+            {language === 'en' ? 'Member Login' : 'تسجيل دخول الأعضاء'}
           </button>
           <button 
             className={`tab ${mode === 'signup' ? 'active' : ''}`}
             onClick={() => setMode('signup')}
           >
-            Member Signup / تسجيل عضو جديد
+            {language === 'en' ? 'Register New Member' : 'تسجيل عضو جديد'}
           </button>
-          <button 
-            className={`tab ${mode === 'createClub' ? 'active' : ''}`}
-            onClick={() => setMode('createClub')}
-          >
-            Create Club / إنشاء نادي
-          </button>
+          {!joinClubId && (
+            <button 
+              className={`tab ${mode === 'createClub' ? 'active' : ''}`}
+              onClick={() => setMode('createClub')}
+            >
+              {language === 'en' ? 'Create Club' : 'إنشاء نادي'}
+            </button>
+          )}
         </div>
 
         <div className="login-form-container">
           {mode === 'login' && (
             <form onSubmit={handleMemberLogin} className="login-form">
-              <h2>Member Login</h2>
+              <h2>{language === 'en' ? 'Member Login' : 'تسجيل دخول الأعضاء'}</h2>
               <div className="form-group">
                 <label>Email or Name</label>
                 <input
@@ -241,7 +239,7 @@ const Login = () => {
 
           {mode === 'signup' && (
             <form onSubmit={handleMemberSignup} className="login-form">
-              <h2>Member Signup</h2>
+              <h2>{language === 'en' ? 'Register New Member' : 'تسجيل عضو جديد'}</h2>
               <div className="form-group">
                 <label>Name *</label>
                 <input
@@ -272,21 +270,30 @@ const Login = () => {
                   required
                 />
               </div>
-              <div className="form-group">
-                <label>Select Club *</label>
-                <select
-                  value={formData.clubId}
-                  onChange={(e) => setFormData({ ...formData, clubId: e.target.value })}
-                  required
-                >
-                  <option value="">Choose a club</option>
-                  {clubs.map(club => (
-                    <option key={club.id} value={club.id}>
-                      {club.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {joinClubId ? (
+                <div className="form-group">
+                  <label>{language === 'en' ? 'Club' : 'النادي'}</label>
+                  <p style={{ margin: 0, padding: '8px 0', fontWeight: 600, color: '#1976d2' }}>
+                    {clubs.find(c => c.id === joinClubId)?.name || clubs.find(c => c.id === joinClubId)?.nameAr || joinClubId}
+                  </p>
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label>{language === 'en' ? 'Select Club *' : 'اختر النادي *'}</label>
+                  <select
+                    value={formData.clubId}
+                    onChange={(e) => setFormData({ ...formData, clubId: e.target.value })}
+                    required
+                  >
+                    <option value="">{language === 'en' ? 'Choose a club' : 'اختر نادي'}</option>
+                    {clubs.filter(c => c.status !== 'pending').map(club => (
+                      <option key={club.id} value={club.id}>
+                        {club.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <button type="submit" className="btn-primary btn-block">
                 Sign Up
               </button>
@@ -370,17 +377,18 @@ const Login = () => {
           )}
         </div>
 
+        {!joinClubId && (
         <div className="login-footer">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', alignItems: 'center' }}>
             <a href="/admin" className="admin-link">
-              Go to Admin Panel / الذهاب للوحة التحكم
+              {language === 'en' ? 'Go to Admin Panel' : 'الذهاب للوحة التحكم'}
             </a>
-            {clubs.length > 0 && (
+            {clubs.filter(c => c.status !== 'pending').length > 0 && (
               <div style={{ marginTop: '10px', padding: '15px', background: '#f0f7ff', borderRadius: '6px', width: '100%' }}>
                 <p style={{ margin: '0 0 15px 0', fontSize: '14px', fontWeight: '500', color: '#333', textAlign: 'center' }}>
                   Quick Access to Existing Clubs / الوصول السريع للأندية:
                 </p>
-                {clubs.map(club => (
+                {clubs.filter(c => c.status !== 'pending').map(club => (
                   <a
                     key={club.id}
                     href={`/admin/club/${club.id}`}
@@ -417,6 +425,7 @@ const Login = () => {
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   )
