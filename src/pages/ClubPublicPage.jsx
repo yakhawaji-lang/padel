@@ -219,6 +219,14 @@ const ClubPublicPage = () => {
       .sort((a, b) => (a.order || 0) - (b.order || 0))
   }, [club?.offers])
 
+  const clubMembersList = React.useMemo(() => {
+    try {
+      return getClubMembersFromStorage(club?.id || '') || []
+    } catch (_) {
+      return []
+    }
+  }, [club?.id])
+
   if (!club) {
     return (
       <div className="club-public-page commercial">
@@ -239,13 +247,6 @@ const ClubPublicPage = () => {
   const clubName = language === 'ar' && club.nameAr ? club.nameAr : club.name
   const tagline = language === 'ar' ? (club.taglineAr || club.tagline) : (club.tagline || club.taglineAr)
   const address = club.address ? (language === 'ar' && club.addressAr ? club.addressAr : club.address) : null
-  const clubMembersList = React.useMemo(() => {
-    try {
-      return getClubMembersFromStorage(club?.id || '') || []
-    } catch (_) {
-      return []
-    }
-  }, [club?.id])
   const isMember = platformUser && (
     platformUser.clubIds?.includes(club.id) ||
     platformUser.clubId === club.id ||
