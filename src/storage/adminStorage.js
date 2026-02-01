@@ -579,6 +579,16 @@ export const approveClub = (clubId) => {
   return updatedClub
 }
 
+/** Reject/remove a pending club */
+export const rejectClub = (clubId) => {
+  const clubs = loadClubs()
+  const club = clubs.find(c => c.id === clubId)
+  if (!club || club.status !== 'pending') return false
+  const updatedClubs = clubs.filter(c => c.id !== clubId)
+  saveClubs(updatedClubs)
+  return true
+}
+
 /** Find club by admin email/password for club login */
 export const getClubByAdminCredentials = (email, password) => {
   const clubs = loadClubs()

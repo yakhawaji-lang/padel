@@ -154,6 +154,11 @@
   border-radius: 8px;
   border: 1px solid #fde68a;
 }
+.pending-club-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 
 .pending-club-info {
   display: flex;
@@ -168,6 +173,107 @@
 .pending-club-info span {
   font-size: 0.8125rem;
   color: #6b7280;
+}
+
+/* Pending club details modal */
+.pending-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+.pending-modal {
+  background: #fff;
+  border-radius: 12px;
+  max-width: 520px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.pending-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.pending-modal-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  color: #111827;
+}
+.pending-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.pending-modal-close:hover { color: #111827; }
+.pending-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+.pending-detail-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.pending-detail-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.pending-detail-row.pending-detail-full {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pending-detail-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #6b7280;
+}
+.pending-detail-value {
+  font-size: 0.9375rem;
+  color: #111827;
+}
+.pending-cr-image-wrap {
+  margin-top: 4px;
+}
+.pending-cr-image-wrap img {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+.pending-modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-top: 1px solid #e5e7eb;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.pending-modal-footer-right {
+  display: flex;
+  gap: 8px;
+}
+@media (max-width: 500px) {
+  .pending-detail-row { grid-template-columns: 1fr; }
 }
 
 /* Dashboard Controls */

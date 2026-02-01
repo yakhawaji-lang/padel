@@ -1,12 +1,14 @@
 import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import './common.css'
 import './AllClubsDashboard.css'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
-const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub }) => {
+const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub, onRejectClub }) => {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
+  const [viewingPending, setViewingPending] = useState(null)
   const [sortBy, setSortBy] = useState('name') // 'name', 'members', 'tournaments', 'revenue'
   const [sortOrder, setSortOrder] = useState('asc') // 'asc', 'desc'
 
@@ -198,17 +200,114 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
                     <span>{club.adminEmail || club.email}</span>
                     {club.commercialRegister && <span>{t('CR', 'س.ت', language)}: {club.commercialRegister}</span>}
                   </div>
-                  {onApproveClub && (
-                    <button 
-                      type="button" 
-                      className="btn-primary btn-small"
-                      onClick={() => onApproveClub(club.id)}
+                  <div className="pending-club-actions">
+                    <button
+                      type="button"
+                      className="btn-secondary btn-small"
+                      onClick={() => setViewingPending(club)}
                     >
+                      {t('View details', 'عرض البيانات', language)}
+                    </button>
+                    {onApproveClub && (
+                      <button 
+                        type="button" 
+                        className="btn-primary btn-small"
+                        onClick={() => onApproveClub(club.id)}
+                      >
+                        {t('Approve', 'موافقة', language)}
+                      </button>
+                    )}
+                    {onRejectClub && (
+                      <button 
+                        type="button" 
+                        className="btn-danger btn-small"
+                        onClick={() => window.confirm(t('Reject this registration?', 'رفض هذا التسجيل؟', language)) && onRejectClub(club.id)}
+                      >
+                        {t('Reject', 'رفض', language)}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Pending club details modal */}
+        {viewingPending && (
+          <div className="pending-modal-overlay" onClick={() => setViewingPending(null)}>
+            <div className="pending-modal" onClick={e => e.stopPropagation()}>
+              <div className="pending-modal-header">
+                <h3>{t('Club registration details', 'بيانات تسجيل النادي', language)}</h3>
+                <button type="button" className="pending-modal-close" onClick={() => setViewingPending(null)} aria-label="Close">&times;</button>
+              </div>
+              <div className="pending-modal-body">
+                <div className="pending-detail-grid">
+                  <div className="pending-detail-row">
+                    <span className="pending-detail-label">{t('Club name (English)', 'اسم النادي (إنجليزي)', language)}</span>
+                    <span className="pending-detail-value">{viewingPending.name || '—'}</span>
+                  </div>
+                  <div className="pending-detail-row">
+                    <span className="pending-detail-label">{t('Club name (Arabic)', 'اسم النادي (عربي)', language)}</span>
+                    <span className="pending-detail-value">{viewingPending.nameAr || '—'}</span>
+                  </div>
+                  <div className="pending-detail-row">
+                    <span className="pending-detail-label">{t('Admin email', 'البريد الإلكتروني للدخول', language)}</span>
+                    <span className="pending-detail-value">{viewingPending.adminEmail || viewingPending.email || '—'}</span>
+                  </div>
+                  <div className="pending-detail-row">
+                    <span className="pending-detail-label">{t('Club email', 'بريد النادي', language)}</span>
+                    <span className="pending-detail-value">{viewingPending.email || '—'}</span>
+                  </div>
+                  <div className="pending-detail-row">
+                    <span className="pending-detail-label">{t('Phone', 'الهاتف', language)}</span>
+                    <span className="pending-detail-value">{viewingPending.phone || '—'}</span>
+                  </div>
+                  <div className="pending-detail-row">
+                    <span className="pending-detail-label">{t('Commercial register', 'السجل التجاري', language)}</span>
+                    <span className="pending-detail-value">{viewingPending.commercialRegister || '—'}</span>
+                  </div>
+                  <div className="pending-detail-row">
+                    <span className="pending-detail-label">{t('Address / Location', 'العنوان / الموقع', language)}</span>
+                    <span className="pending-detail-value">{viewingPending.address || viewingPending.location?.address || '—'}</span>
+                  </div>
+                  {viewingPending.location?.lat != null && (
+                    <div className="pending-detail-row">
+                      <span className="pending-detail-label">{t('Coordinates', 'الإحداثيات', language)}</span>
+                      <span className="pending-detail-value">{viewingPending.location.lat?.toFixed(5)}, {viewingPending.location.lng?.toFixed(5)}</span>
+                    </div>
+                  )}
+                  <div className="pending-detail-row">
+                    <span className="pending-detail-label">{t('Submitted', 'تاريخ التقديم', language)}</span>
+                    <span className="pending-detail-value">{formatDate(viewingPending.createdAt)}</span>
+                  </div>
+                  {viewingPending.commercialRegisterImage && (
+                    <div className="pending-detail-row pending-detail-full">
+                      <span className="pending-detail-label">{t('Commercial register document', 'صورة السجل التجاري', language)}</span>
+                      <div className="pending-cr-image-wrap">
+                        <img src={viewingPending.commercialRegisterImage} alt="CR" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="pending-modal-footer">
+                {onRejectClub && (
+                  <button type="button" className="btn-danger" onClick={() => { if (window.confirm(t('Reject this registration?', 'رفض هذا التسجيل؟', language))) { onRejectClub(viewingPending.id); setViewingPending(null); } }}>
+                    {t('Reject', 'رفض', language)}
+                  </button>
+                )}
+                <div className="pending-modal-footer-right">
+                  <button type="button" className="btn-secondary" onClick={() => setViewingPending(null)}>
+                    {t('Close', 'إغلاق', language)}
+                  </button>
+                  {onApproveClub && (
+                    <button type="button" className="btn-primary" onClick={() => { onApproveClub(viewingPending.id); setViewingPending(null); }}>
                       {t('Approve', 'موافقة', language)}
                     </button>
                   )}
                 </div>
-              ))}
+              </div>
             </div>
           </div>
         )}
