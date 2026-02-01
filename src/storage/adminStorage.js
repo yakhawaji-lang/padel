@@ -79,12 +79,20 @@ export const loadClubs = () => {
         }
         if (!club.store || !Array.isArray(club.store.categories)) {
           club.store = club.store && typeof club.store === 'object'
-            ? { name: club.store.name || '', nameAr: club.store.nameAr || '', categories: club.store.categories || [], products: club.store.products || [], sales: club.store.sales || [] }
-            : { name: '', nameAr: '', categories: [], products: [], sales: [] }
+            ? { name: club.store.name || '', nameAr: club.store.nameAr || '', categories: club.store.categories || [], products: club.store.products || [], sales: club.store.sales || [], inventoryMovements: club.store.inventoryMovements || [], minStockAlert: club.store.minStockAlert ?? 5 }
+            : { name: '', nameAr: '', categories: [], products: [], sales: [], inventoryMovements: [], minStockAlert: 5 }
           storeMigration = true
         }
         if (!Array.isArray(club.store.sales)) {
           club.store.sales = club.store.sales || []
+          storeMigration = true
+        }
+        if (!Array.isArray(club.store.inventoryMovements)) {
+          club.store.inventoryMovements = club.store.inventoryMovements || []
+          storeMigration = true
+        }
+        if (club.store.minStockAlert === undefined) {
+          club.store.minStockAlert = 5
           storeMigration = true
         }
         if (!club.settings) club.settings = {}
@@ -323,7 +331,9 @@ const createExampleHalaPadel = () => {
       nameAr: '',
       categories: [],
       products: [],
-      sales: []
+      sales: [],
+      inventoryMovements: [],
+      minStockAlert: 5
     },
     tournamentData: {
       // Club-specific tournament data (King of Court, Social Tournament states)
@@ -395,7 +405,9 @@ export const createExampleClub = () => {
       nameAr: '',
       categories: [],
       products: [],
-      sales: []
+      sales: [],
+      inventoryMovements: [],
+      minStockAlert: 5
     },
     tournamentData: {
       // Club-specific tournament data (King of Court, Social Tournament states)

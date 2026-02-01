@@ -251,6 +251,13 @@
   font-size: 0.9375rem;
 }
 
+.form-hint {
+  display: block;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
 .product-item.low-stock {
   border-inline-start: 3px solid #f59e0b;
   padding-inline-start: 12px;
@@ -338,6 +345,19 @@
 
 .store-stat-card.categories-count {
   border-inline-start: 4px solid #f59e0b;
+}
+
+.store-stat-card.inventory-value {
+  border-inline-start: 4px solid #06b6d4;
+}
+
+.store-stat-card.low-stock-alert {
+  border-inline-start: 4px solid #f59e0b;
+}
+
+.store-stat-card.out-stock-alert,
+.store-stat-card.out-stock {
+  border-inline-start: 4px solid #ef4444;
 }
 
 .store-stat-card .stat-icon {
@@ -569,9 +589,195 @@
   background: #f8fafc;
 }
 
+/* المخزون */
+.store-inventory-section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.inventory-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.inventory-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.inventory-filter-bar,
+.movement-filter-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.inventory-filter-bar button,
+.movement-filter-bar button {
+  padding: 8px 14px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.inventory-filter-bar button:hover,
+.movement-filter-bar button:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.inventory-filter-bar button.active,
+.movement-filter-bar button.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.inventory-table-card h3,
+.store-list-card.full-width h3 {
+  margin: 0 0 16px;
+}
+
+.inventory-table-wrap,
+.movements-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.inventory-table,
+.movements-table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+}
+
+.inventory-table th,
+.inventory-table td,
+.movements-table th,
+.movements-table td {
+  padding: 12px 14px;
+  text-align: start;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.inventory-table th,
+.movements-table th {
+  background: #f8fafc;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.inventory-table .row-low {
+  background: #fffbeb;
+}
+
+.inventory-table .row-out {
+  background: #fef2f2;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-badge.ok {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.low {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.status-badge.out {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.mov-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.mov-badge.in {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.mov-badge.out {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.mov-badge.sale {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.movements-table .positive {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.movements-table .negative {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.adjust-stock-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.adjust-stock-modal {
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.adjust-stock-modal h3 {
+  margin: 0 0 20px;
+  font-size: 1.125rem;
+}
+
 @media (max-width: 768px) {
   .store-stats-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .inventory-stats-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .inventory-table,
+  .movements-table {
+    min-width: 400px;
+    font-size: 0.875rem;
   }
 
   .sale-add-item {

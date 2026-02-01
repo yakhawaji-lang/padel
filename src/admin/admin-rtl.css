@@ -193,7 +193,11 @@
 .club-admin-panel.rtl .store-stat-card.revenue,
 .club-admin-panel.rtl .store-stat-card.transactions,
 .club-admin-panel.rtl .store-stat-card.products-count,
-.club-admin-panel.rtl .store-stat-card.categories-count {
+.club-admin-panel.rtl .store-stat-card.categories-count,
+.club-admin-panel.rtl .store-stat-card.inventory-value,
+.club-admin-panel.rtl .store-stat-card.low-stock-alert,
+.club-admin-panel.rtl .store-stat-card.out-stock-alert,
+.club-admin-panel.rtl .store-stat-card.out-stock {
   border-inline-start: none;
   border-inline-end: 4px solid;
 }
@@ -202,3 +206,7 @@
 .club-admin-panel.rtl .store-stat-card.transactions { border-inline-end-color: #3b82f6; }
 .club-admin-panel.rtl .store-stat-card.products-count { border-inline-end-color: #8b5cf6; }
 .club-admin-panel.rtl .store-stat-card.categories-count { border-inline-end-color: #f59e0b; }
+.club-admin-panel.rtl .store-stat-card.inventory-value { border-inline-end-color: #06b6d4; }
+.club-admin-panel.rtl .store-stat-card.low-stock-alert { border-inline-end-color: #f59e0b; }
+.club-admin-panel.rtl .store-stat-card.out-stock-alert,
+.club-admin-panel.rtl .store-stat-card.out-stock { border-inline-end-color: #ef4444; }

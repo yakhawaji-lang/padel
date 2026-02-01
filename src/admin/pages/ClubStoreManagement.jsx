@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import '../pages/common.css'
 import './ClubStoreManagement.css'
 
-const defaultStore = () => ({ name: '', nameAr: '', categories: [], products: [], sales: [] })
+const defaultStore = () => ({ name: '', nameAr: '', categories: [], products: [], sales: [], inventoryMovements: [], minStockAlert: 5 })
 
 const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -14,10 +14,14 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
   const [editingProduct, setEditingProduct] = useState(null)
   const [statsPeriod, setStatsPeriod] = useState('all') // 'today' | 'week' | 'month' | 'all'
   const [saleProductSelect, setSaleProductSelect] = useState({ productId: '', qty: 1 })
+  const [adjustStockProduct, setAdjustStockProduct] = useState(null)
+  const [adjustStockForm, setAdjustStockForm] = useState({ qty: '', reason: '', type: 'in' })
+  const [inventoryFilter, setInventoryFilter] = useState('all') // 'all' | 'tracked' | 'low' | 'out'
+  const [movementFilter, setMovementFilter] = useState('all') // 'all' | 'in' | 'out' | 'sale'
   const language = langProp || localStorage.getItem(`club_${club?.id}_language`) || 'en'
 
   useEffect(() => {
-    setStore(club?.store ? { ...defaultStore(), ...club.store, categories: club.store.categories || [], products: club.store.products || [], sales: club.store.sales || [] } : defaultStore())
+    setStore(club?.store ? { ...defaultStore(), ...club.store, categories: club.store.categories || [], products: club.store.products || [], sales: club.store.sales || [], inventoryMovements: club.store.inventoryMovements || [], minStockAlert: club.store.minStockAlert ?? 5 } : defaultStore())
   }, [club?.id, club?.store])
 
   const saveStore = (updates) => {
@@ -125,12 +129,28 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       currency
     }
     const newSales = [...(store.sales || []), sale]
+    const movements = []
     const newProducts = (store.products || []).map(p => {
       const item = items.find(i => i.productId === p.id)
       if (!item || p.stock == null) return p
-      return { ...p, stock: Math.max(0, (p.stock ?? 0) - item.qty) }
+      const prev = p.stock ?? 0
+      const next = Math.max(0, prev - item.qty)
+      movements.push({
+        id: `mov-${Date.now()}-${p.id}`,
+        productId: p.id,
+        productName: language === 'ar' && p.nameAr ? p.nameAr : p.name,
+        date: sale.date,
+        time: sale.time,
+        type: 'sale',
+        qty: -item.qty,
+        reason: sale.id,
+        previousStock: prev,
+        newStock: next
+      })
+      return { ...p, stock: next }
     })
-    saveStore({ sales: newSales, products: newProducts })
+    const newMovements = [...(store.inventoryMovements || []), ...movements]
+    saveStore({ sales: newSales, products: newProducts, inventoryMovements: newMovements })
     setSaleForm({ items: [], customerName: '', notes: '', paymentMethod: 'cash' })
     setSaleProductSelect({ productId: '', qty: 1 })
   }
@@ -157,6 +177,32 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
     setSaleForm(f => ({ ...f, items: f.items.filter(i => i.productId !== productId) }))
   }
 
+  const adjustStock = () => {
+    if (!adjustStockProduct || !adjustStockForm.qty) return
+    const p = (store.products || []).find(pr => pr.id === adjustStockProduct.id)
+    if (!p || p.stock == null) return
+    const delta = adjustStockForm.type === 'in' ? Math.abs(Number(adjustStockForm.qty) || 0) : -Math.abs(Number(adjustStockForm.qty) || 0)
+    const prev = p.stock ?? 0
+    const next = Math.max(0, prev + delta)
+    const mov = {
+      id: `mov-${Date.now()}`,
+      productId: p.id,
+      productName: language === 'ar' && p.nameAr ? p.nameAr : p.name,
+      date: new Date().toISOString().split('T')[0],
+      time: new Date().toTimeString().slice(0, 5),
+      type: adjustStockForm.type,
+      qty: delta,
+      reason: (adjustStockForm.reason || '').trim() || undefined,
+      previousStock: prev,
+      newStock: next
+    }
+    const newProducts = (store.products || []).map(pr => pr.id === p.id ? { ...pr, stock: next } : pr)
+    const newMovements = [...(store.inventoryMovements || []), mov]
+    saveStore({ products: newProducts, inventoryMovements: newMovements })
+    setAdjustStockProduct(null)
+    setAdjustStockForm({ qty: '', reason: '', type: 'in' })
+  }
+
   const startEditCategory = (cat) => {
     setEditingCategory(cat.id)
     setCategoryForm({ name: cat.name || '', nameAr: cat.nameAr || '', order: cat.order ?? 0 })
@@ -180,7 +226,13 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
   const categories = store.categories || []
   const products = store.products || []
   const sales = store.sales || []
+  const movements = store.inventoryMovements || []
+  const minStockAlert = store.minStockAlert ?? 5
   const currency = club?.settings?.currency || 'SAR'
+
+  const trackedProducts = products.filter(p => p.stock != null)
+  const lowStockProducts = trackedProducts.filter(p => p.stock > 0 && p.stock <= minStockAlert)
+  const outOfStockProducts = trackedProducts.filter(p => p.stock <= 0)
 
   const filteredSales = useMemo(() => {
     if (statsPeriod === 'all') return sales
@@ -210,8 +262,12 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
     const topProducts = Object.entries(productCount)
       .sort((a, b) => (b[1].sold || 0) - (a[1].sold || 0))
       .slice(0, 5)
-    return { totalRevenue, totalTransactions, topProducts }
-  }, [filteredSales, products])
+    const tracked = products.filter(p => p.stock != null)
+    const low = tracked.filter(p => p.stock > 0 && p.stock <= (store.minStockAlert ?? 5))
+    const out = tracked.filter(p => p.stock <= 0)
+    const inventoryValue = tracked.reduce((s, p) => s + ((p.stock ?? 0) * (parseFloat(p.price) || 0)), 0)
+    return { totalRevenue, totalTransactions, topProducts, inventoryValue, lowStockCount: low.length, outOfStockCount: out.length }
+  }, [filteredSales, products, store.minStockAlert])
 
   const saleFormTotal = useMemo(() => saleForm.items.reduce((s, i) => s + (i.price || 0) * (i.qty || 1), 0), [saleForm.items])
 
@@ -265,7 +321,28 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       date: 'Date',
       stock: 'Stock',
       unlimited: 'Unlimited',
-      lowStock: 'Low stock'
+      lowStock: 'Low stock',
+      inventory: 'Inventory',
+      inventoryValue: 'Inventory Value',
+      lowStockCount: 'Low Stock',
+      outOfStock: 'Out of Stock',
+      outOfStockCount: 'Out of Stock',
+      minStockAlert: 'Low stock alert threshold',
+      addStock: 'Add Stock',
+      removeStock: 'Remove Stock',
+      adjustStock: 'Adjust Stock',
+      movementHistory: 'Movement History',
+      movementType: 'Type',
+      movementIn: 'In',
+      movementOut: 'Out',
+      movementSale: 'Sale',
+      reason: 'Reason',
+      previousStock: 'Prev',
+      newStock: 'New',
+      trackedOnly: 'Tracked only',
+      filterAll: 'All',
+      filterLow: 'Low stock',
+      filterOut: 'Out of stock'
     },
     ar: {
       title: 'المبيعات والمتجر',
@@ -316,7 +393,28 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       date: 'التاريخ',
       stock: 'المخزون',
       unlimited: 'غير محدود',
-      lowStock: 'مخزون منخفض'
+      lowStock: 'مخزون منخفض',
+      inventory: 'المخزون',
+      inventoryValue: 'قيمة المخزون',
+      lowStockCount: 'منخفض المخزون',
+      outOfStock: 'نفد من المخزون',
+      outOfStockCount: 'نفد من المخزون',
+      minStockAlert: 'حد تنبيه المخزون المنخفض',
+      addStock: 'إضافة مخزون',
+      removeStock: 'سحب مخزون',
+      adjustStock: 'تعديل المخزون',
+      movementHistory: 'سجل الحركات',
+      movementType: 'النوع',
+      movementIn: 'إدخال',
+      movementOut: 'إخراج',
+      movementSale: 'بيع',
+      reason: 'السبب',
+      previousStock: 'قبل',
+      newStock: 'بعد',
+      trackedOnly: 'مُتتبع فقط',
+      filterAll: 'الكل',
+      filterLow: 'منخفض',
+      filterOut: 'نفد'
     }
   }
   const c = t[language]
@@ -325,6 +423,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
 
   const tabs = [
     { id: 'dashboard', label: c.dashboard, icon: '📊' },
+    { id: 'inventory', label: c.inventory, icon: '📦' },
     { id: 'info', label: c.storeInfo, icon: '⚙️' },
     { id: 'categories', label: c.categories, icon: '📁' },
     { id: 'products', label: c.products, icon: '🛍️' },
@@ -406,6 +505,27 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
                 <span className="stat-label">{c.categories}</span>
               </div>
             </div>
+            <div className="store-stat-card inventory-value">
+              <span className="stat-icon">📦</span>
+              <div className="stat-content">
+                <span className="stat-value">{(stats.inventoryValue ?? 0).toFixed(0)} {currency}</span>
+                <span className="stat-label">{c.inventoryValue}</span>
+              </div>
+            </div>
+            <div className="store-stat-card low-stock-alert">
+              <span className="stat-icon">⚠️</span>
+              <div className="stat-content">
+                <span className="stat-value">{stats.lowStockCount ?? 0}</span>
+                <span className="stat-label">{c.lowStockCount}</span>
+              </div>
+            </div>
+            <div className="store-stat-card out-stock-alert">
+              <span className="stat-icon">❌</span>
+              <div className="stat-content">
+                <span className="stat-value">{stats.outOfStockCount ?? 0}</span>
+                <span className="stat-label">{c.outOfStockCount}</span>
+              </div>
+            </div>
           </div>
           <div className="store-dashboard-bottom">
             <div className="top-products-card">
@@ -440,7 +560,169 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
               <label>{c.storeNameAr}</label>
               <input type="text" value={store.nameAr || ''} onChange={(e) => saveStore({ nameAr: e.target.value })} placeholder="مثلاً: متجر النادي" />
             </div>
+            <div className="form-row">
+              <label>{c.minStockAlert}</label>
+              <input type="number" min={0} value={store.minStockAlert ?? 5} onChange={(e) => saveStore({ minStockAlert: Math.max(0, Number(e.target.value) || 0) })} placeholder="5" />
+              <span className="form-hint">{language === 'en' ? 'Alert when stock falls at or below this value' : 'تنبيه عندما يصل المخزون لهذه القيمة أو أقل'}</span>
+            </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'inventory' && (
+        <div className="store-section store-inventory-section">
+          <div className="inventory-stats-row">
+            <div className="store-stat-card inventory-value">
+              <span className="stat-icon">💰</span>
+              <div className="stat-content">
+                <span className="stat-value">{stats.inventoryValue?.toFixed(2) ?? 0} {currency}</span>
+                <span className="stat-label">{c.inventoryValue}</span>
+              </div>
+            </div>
+            <div className="store-stat-card">
+              <span className="stat-icon">⚠️</span>
+              <div className="stat-content">
+                <span className="stat-value">{stats.lowStockCount}</span>
+                <span className="stat-label">{c.lowStockCount}</span>
+              </div>
+            </div>
+            <div className="store-stat-card out-stock">
+              <span className="stat-icon">❌</span>
+              <div className="stat-content">
+                <span className="stat-value">{stats.outOfStockCount}</span>
+                <span className="stat-label">{c.outOfStockCount}</span>
+              </div>
+            </div>
+          </div>
+          <div className="inventory-controls">
+            <div className="inventory-filter-bar">
+              {[{ id: 'all', label: c.filterAll }, { id: 'tracked', label: c.trackedOnly }, { id: 'low', label: c.filterLow }, { id: 'out', label: c.filterOut }].map(f => (
+                <button key={f.id} type="button" className={inventoryFilter === f.id ? 'active' : ''} onClick={() => setInventoryFilter(f.id)}>{f.label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="store-list-card full-width inventory-table-card">
+            <h3>{c.inventory}</h3>
+            {(() => {
+              let invProducts = inventoryFilter === 'tracked' ? trackedProducts : inventoryFilter === 'low' ? lowStockProducts : inventoryFilter === 'out' ? outOfStockProducts : products
+              invProducts = invProducts.filter(p => p.stock != null || inventoryFilter === 'all')
+              if (inventoryFilter === 'tracked' || inventoryFilter === 'low' || inventoryFilter === 'out') invProducts = invProducts.filter(p => p.stock != null)
+              return invProducts.length === 0 ? (
+                <p className="empty-msg">{c.noProducts}</p>
+              ) : (
+                <div className="inventory-table-wrap">
+                  <table className="inventory-table">
+                    <thead>
+                      <tr>
+                        <th>{c.name}</th>
+                        <th>{c.category}</th>
+                        <th>{c.stock}</th>
+                        <th>{language === 'en' ? 'Value' : 'القيمة'}</th>
+                        <th>{language === 'en' ? 'Status' : 'الحالة'}</th>
+                        <th>{language === 'en' ? 'Actions' : 'إجراءات'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invProducts.map(p => {
+                        const cat = categories.find(c => c.id === p.categoryId)
+                        const val = (p.stock ?? 0) * (parseFloat(p.price) || 0)
+                        const status = p.stock == null ? (language === 'en' ? 'Unlimited' : 'غير محدود') : p.stock <= 0 ? c.outOfStock : p.stock <= minStockAlert ? c.lowStock : (language === 'en' ? 'OK' : 'جيد')
+                        const canAdjust = p.stock != null
+                        return (
+                          <tr key={p.id} className={p.stock != null && p.stock <= minStockAlert ? 'row-low' : p.stock === 0 ? 'row-out' : ''}>
+                            <td>{language === 'ar' && p.nameAr ? p.nameAr : p.name}</td>
+                            <td>{cat ? (language === 'ar' && cat.nameAr ? cat.nameAr : cat.name) : '—'}</td>
+                            <td>{p.stock == null ? '∞' : p.stock}</td>
+                            <td>{val.toFixed(2)} {currency}</td>
+                            <td><span className={`status-badge ${p.stock == null ? '' : p.stock <= 0 ? 'out' : p.stock <= minStockAlert ? 'low' : 'ok'}`}>{status}</span></td>
+                            <td>
+                              {canAdjust && (
+                                <button type="button" className="btn-secondary btn-small" onClick={() => { setAdjustStockProduct(p); setAdjustStockForm({ qty: '', reason: '', type: 'in' }); }}>
+                                  {c.adjustStock}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })()}
+          </div>
+          <div className="store-list-card full-width">
+            <h3>{c.movementHistory}</h3>
+            <div className="movement-filter-bar">
+              {[{ id: 'all', label: c.filterAll }, { id: 'in', label: c.movementIn }, { id: 'out', label: c.movementOut }, { id: 'sale', label: c.movementSale }].map(f => (
+                <button key={f.id} type="button" className={movementFilter === f.id ? 'active' : ''} onClick={() => setMovementFilter(f.id)}>{f.label}</button>
+              ))}
+            </div>
+            {movements.length === 0 ? (
+              <p className="empty-msg">{language === 'en' ? 'No movements yet.' : 'لا توجد حركات بعد.'}</p>
+            ) : (
+              <div className="movements-table-wrap">
+                <table className="movements-table">
+                  <thead>
+                    <tr>
+                      <th>{c.date}</th>
+                      <th>{language === 'en' ? 'Time' : 'الوقت'}</th>
+                      <th>{c.name}</th>
+                      <th>{c.movementType}</th>
+                      <th>{c.qty}</th>
+                      <th>{c.previousStock}</th>
+                      <th>{c.newStock}</th>
+                      <th>{c.reason}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...movements]
+                      .filter(m => movementFilter === 'all' || m.type === movementFilter)
+                      .reverse()
+                      .slice(0, 100)
+                      .map(m => (
+                        <tr key={m.id} className={`mov-type-${m.type}`}>
+                          <td>{m.date}</td>
+                          <td>{m.time || '—'}</td>
+                          <td>{m.productName}</td>
+                          <td><span className={`mov-badge ${m.type}`}>{m.type === 'sale' ? c.movementSale : m.type === 'in' ? c.movementIn : c.movementOut}</span></td>
+                          <td className={m.qty >= 0 ? 'positive' : 'negative'}>{m.qty >= 0 ? '+' : ''}{m.qty}</td>
+                          <td>{m.previousStock ?? '—'}</td>
+                          <td>{m.newStock ?? '—'}</td>
+                          <td>{m.reason || '—'}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          {adjustStockProduct && (
+            <div className="adjust-stock-modal-overlay" onClick={() => setAdjustStockProduct(null)}>
+              <div className="adjust-stock-modal" onClick={e => e.stopPropagation()}>
+                <h3>{c.adjustStock} – {language === 'ar' && adjustStockProduct.nameAr ? adjustStockProduct.nameAr : adjustStockProduct.name}</h3>
+                <div className="form-row">
+                  <label>{language === 'en' ? 'Operation' : 'العملية'}</label>
+                  <select value={adjustStockForm.type} onChange={(e) => setAdjustStockForm(f => ({ ...f, type: e.target.value }))}>
+                    <option value="in">{c.addStock}</option>
+                    <option value="out">{c.removeStock}</option>
+                  </select>
+                </div>
+                <div className="form-row">
+                  <label>{c.qty}</label>
+                  <input type="number" min={1} value={adjustStockForm.qty} onChange={(e) => setAdjustStockForm(f => ({ ...f, qty: e.target.value }))} placeholder="0" />
+                </div>
+                <div className="form-row">
+                  <label>{c.reason}</label>
+                  <input type="text" value={adjustStockForm.reason} onChange={(e) => setAdjustStockForm(f => ({ ...f, reason: e.target.value }))} placeholder={language === 'en' ? 'e.g. Restock, Damage' : 'مثلاً: إعادة توريد، تلف'} />
+                </div>
+                <div className="form-actions">
+                  <button type="button" className="btn-primary" onClick={adjustStock}>{c.save}</button>
+                  <button type="button" className="btn-secondary" onClick={() => setAdjustStockProduct(null)}>{c.cancel}</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -559,7 +841,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
               <ul className="store-list product-list">
                 {products.map(prod => {
                   const cat = categories.find(c => c.id === prod.categoryId)
-                  const isLowStock = prod.stock != null && prod.stock <= 5
+                  const isLowStock = prod.stock != null && prod.stock <= minStockAlert
                   return (
                     <li key={prod.id} className={`store-list-item product-item ${isLowStock ? 'low-stock' : ''}`}>
                       {prod.image && <img src={prod.image} alt="" className="product-thumb" />}
