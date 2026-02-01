@@ -129,29 +129,29 @@
   right: 0;
   width: 100%;
   text-align: center;
-  padding: 24px 32px;
+  padding: 12px 24px;
   border-radius: 0;
   box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.1);
 }
 
 .club-public-hero-overlay .club-public-logo {
-  width: 72px;
-  height: 72px;
-  margin-bottom: 16px;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 8px;
 }
 
 .club-public-hero-overlay .club-public-hero-title {
-  font-size: 1.75rem;
+  font-size: 1.25rem;
   font-weight: 800;
-  margin: 0 0 12px;
+  margin: 0 0 6px;
   letter-spacing: -0.03em;
   line-height: 1.2;
 }
 
 .club-public-hero-overlay .club-public-hero-tagline {
-  font-size: 0.9375rem;
-  margin: 0 0 20px;
-  line-height: 1.5;
+  font-size: 0.8125rem;
+  margin: 0 0 10px;
+  line-height: 1.4;
   max-width: 420px;
   margin-left: auto;
   margin-right: auto;
@@ -161,13 +161,13 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 12px 24px;
-  font-size: 0.875rem;
+  gap: 8px 16px;
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
 .club-public-hero-overlay .club-public-hero-stats span {
-  padding: 6px 14px;
+  padding: 4px 10px;
   background: rgba(255, 255, 255, 0.25);
   border-radius: 0;
   border: none;
@@ -195,15 +195,15 @@
 }
 
 .club-public-banner-with-hero .club-public-banner-image {
-  min-height: 280px;
-  max-height: 500px;
+  min-height: 180px;
+  max-height: 320px;
 }
 
 .club-public-banner-image {
   width: 100%;
   height: auto;
-  min-height: 200px;
-  max-height: 400px;
+  min-height: 140px;
+  max-height: 280px;
   object-fit: cover;
   object-position: center;
   display: block;
@@ -250,40 +250,40 @@
 
 @media (max-width: 640px) {
   .club-public-banner-image {
+    min-height: 100px;
+    max-height: 180px;
+  }
+
+  .club-public-banner-with-hero .club-public-banner-image {
     min-height: 140px;
     max-height: 240px;
   }
 
-  .club-public-banner-with-hero .club-public-banner-image {
-    min-height: 200px;
-    max-height: 320px;
-  }
-
   .club-public-hero-overlay {
-    padding: 16px 20px;
+    padding: 10px 16px;
   }
 
   .club-public-hero-overlay .club-public-logo {
-    width: 56px;
-    height: 56px;
-    margin-bottom: 12px;
+    width: 40px;
+    height: 40px;
+    margin-bottom: 6px;
   }
 
   .club-public-hero-overlay .club-public-hero-title {
-    font-size: 1.35rem;
+    font-size: 1.1rem;
   }
 
   .club-public-hero-overlay .club-public-hero-tagline {
-    font-size: 0.875rem;
+    font-size: 0.75rem;
   }
 
   .club-public-hero-overlay .club-public-hero-stats {
-    gap: 8px 16px;
-    font-size: 0.8125rem;
+    gap: 6px 12px;
+    font-size: 0.6875rem;
   }
 
   .club-public-hero-overlay .club-public-hero-stats span {
-    padding: 5px 10px;
+    padding: 3px 8px;
   }
 
   .club-public-hero-inner {
