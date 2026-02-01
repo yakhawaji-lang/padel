@@ -162,6 +162,16 @@ const ClubPublicPage = () => {
     return byCat
   }, [storeProducts])
 
+  const activeOffers = useMemo(() => {
+    const list = (club?.offers || []).slice()
+    const todayStr = new Date().toISOString().split('T')[0]
+    return list
+      .filter(o => o.active !== false)
+      .filter(o => !o.validFrom || o.validFrom <= todayStr)
+      .filter(o => !o.validUntil || o.validUntil >= todayStr)
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+  }, [club?.offers])
+
   if (!club) {
     return (
       <div className="club-public-page">
@@ -177,15 +187,6 @@ const ClubPublicPage = () => {
 
   const courts = club.courts?.filter(c => !c.maintenance) || []
   const currency = club?.settings?.currency || 'SAR'
-  const activeOffers = useMemo(() => {
-    const list = (club.offers || []).slice()
-    const today = new Date().toISOString().split('T')[0]
-    return list
-      .filter(o => o.active !== false)
-      .filter(o => !o.validFrom || o.validFrom <= today)
-      .filter(o => !o.validUntil || o.validUntil >= today)
-      .sort((a, b) => (a.order || 0) - (b.order || 0))
-  }, [club.offers])
   const offers = activeOffers
   const { tournamentsCount, matchesCount } = getClubTournamentStats(club)
   const clubName = language === 'ar' && club.nameAr ? club.nameAr : club.name
