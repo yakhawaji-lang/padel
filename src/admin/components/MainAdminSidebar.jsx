@@ -5,6 +5,7 @@ import LanguageIcon from '../../components/LanguageIcon'
 
 const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) => {
   const location = useLocation()
+  const displayClubs = clubs.filter(c => c.status !== 'pending')
   useEffect(() => {
     if (open && typeof onClose === 'function') onClose()
   }, [location.pathname])
@@ -61,16 +62,16 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
         <div className="clubs-list-header">
           <span className="nav-icon">🏢</span>
           <span className="nav-label">
-            {language === 'en' ? 'Clubs' : 'الأندية'} ({clubs.length})
+            {language === 'en' ? 'Clubs' : 'الأندية'} ({displayClubs.length})
           </span>
         </div>
         <div className="clubs-list">
-          {clubs.length === 0 ? (
+          {displayClubs.length === 0 ? (
             <div className="no-clubs">
               {language === 'en' ? 'No clubs found' : 'لا توجد أندية'}
             </div>
           ) : (
-            clubs.map(club => (
+            displayClubs.map(club => (
               <div key={club.id} className="club-quick-item">
                 <Link
                   to={`/club/${club.id}`}

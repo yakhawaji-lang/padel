@@ -11,30 +11,70 @@ const ADMIN_STORAGE_KEYS = {
 let _clubsCache = null
 
 /**
+ * Deduplicate clubs: keep one per id, remove pending when approved exists (same adminEmail),
+ * and for approved clubs keep only one per adminEmail (prefer by name match)
+ */
+function deduplicateClubs(clubs) {
+  if (!Array.isArray(clubs)) return clubs
+  const byId = new Map()
+  const approvedEmails = new Set()
+  const seenApprovedEmails = new Map()
+  clubs.forEach(c => {
+    if (!c?.id) return
+    if (c.status === 'approved' || !c.status) {
+      const email = (c.adminEmail || c.email || '').toLowerCase()
+      if (email) approvedEmails.add(email)
+    }
+  })
+  clubs.forEach(c => {
+    if (!c?.id) return
+    if (byId.has(c.id)) return
+    if (c.status === 'pending') {
+      const email = (c.adminEmail || c.email || '').toLowerCase()
+      if (email && approvedEmails.has(email)) return
+    }
+    if (c.status === 'approved' || !c.status) {
+      const email = (c.adminEmail || c.email || '').toLowerCase()
+      if (email && seenApprovedEmails.has(email)) return
+      if (email) seenApprovedEmails.set(email, c.id)
+    }
+    byId.set(c.id, c)
+  })
+  return Array.from(byId.values())
+}
+
+/**
  * Merge remote clubs with local, preserving court images and local-only courts
  * (remote may not have images due to size limits, or may be stale)
  */
 function mergeClubsPreservingLocalImages(remote, local) {
   if (!Array.isArray(remote)) return remote
-  if (!Array.isArray(local) || local.length === 0) return remote
-  const merged = remote.map(remoteClub => {
-    const localClub = local.find(c => c.id === remoteClub.id)
-    if (!localClub?.courts?.length) return remoteClub
-    const remoteCourts = remoteClub.courts || []
-    const mergedCourts = remoteCourts.map(remoteCourt => {
-      const localCourt = localClub.courts.find(c => c.id === remoteCourt.id)
-      if (localCourt?.image && !remoteCourt?.image) {
-        return { ...remoteCourt, image: localCourt.image }
-      }
-      return remoteCourt
+  if (!Array.isArray(local) || local.length === 0) return deduplicateClubs(remote)
+  const merged = remote
+    .filter(rc => {
+      if (rc.status !== 'pending') return true
+      const email = (rc.adminEmail || rc.email || '').toLowerCase()
+      const hasApproved = local.some(lc => (lc.status === 'approved' || !lc.status) && (lc.adminEmail || lc.email || '').toLowerCase() === email)
+      return !hasApproved
     })
-    const localOnlyCourts = localClub.courts.filter(
-      lc => !mergedCourts.some(mc => mc.id === lc.id)
-    )
-    return { ...remoteClub, courts: [...mergedCourts, ...localOnlyCourts] }
-  })
+    .map(remoteClub => {
+      const localClub = local.find(c => c.id === remoteClub.id)
+      if (!localClub?.courts?.length) return remoteClub
+      const remoteCourts = remoteClub.courts || []
+      const mergedCourts = remoteCourts.map(remoteCourt => {
+        const localCourt = localClub.courts.find(c => c.id === remoteCourt.id)
+        if (localCourt?.image && !remoteCourt?.image) {
+          return { ...remoteCourt, image: localCourt.image }
+        }
+        return remoteCourt
+      })
+      const localOnlyCourts = localClub.courts.filter(
+        lc => !mergedCourts.some(mc => mc.id === lc.id)
+      )
+      return { ...remoteClub, courts: [...mergedCourts, ...localOnlyCourts] }
+    })
   const localOnlyClubs = local.filter(lc => !remote.some(rc => rc.id === lc.id))
-  return [...merged, ...localOnlyClubs]
+  return deduplicateClubs([...merged, ...localOnlyClubs])
 }
 
 /**
@@ -90,7 +130,7 @@ export const loadClubs = () => {
   try {
     if (_clubsCache != null) {
       syncMembersToClubs(_clubsCache)
-      return _clubsCache
+      return deduplicateClubs(_clubsCache)
     }
     const data = localStorage.getItem(ADMIN_STORAGE_KEYS.CLUBS)
     if (data) {
@@ -161,8 +201,10 @@ export const loadClubs = () => {
         }
       })
       if (storeMigration) saveClubs(clubs)
-      _clubsCache = clubs
-      return clubs
+      const deduped = deduplicateClubs(clubs)
+      if (deduped.length !== clubs.length) saveClubs(deduped)
+      _clubsCache = deduped
+      return deduped
     }
     // Initialize with Hala Padel as example club
     const halaPadel = createExampleHalaPadel()
