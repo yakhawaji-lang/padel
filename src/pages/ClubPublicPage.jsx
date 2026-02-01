@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { loadClubs, getClubById, saveClubs } from '../storage/adminStorage'
+import { loadClubs, getClubById, saveClubs, getClubMembersFromStorage } from '../storage/adminStorage'
 import LanguageIcon from '../components/LanguageIcon'
 import SocialIcon from '../components/SocialIcon'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
@@ -118,8 +118,12 @@ const ClubPublicPage = () => {
   }, [refreshClub])
 
   useEffect(() => {
-    window.addEventListener('clubs-synced', refreshClub)
-    return () => window.removeEventListener('clubs-synced', refreshClub)
+    const onSynced = () => {
+      refreshClub()
+      setPlatformUser(getCurrentPlatformUser())
+    }
+    window.addEventListener('clubs-synced', onSynced)
+    return () => window.removeEventListener('clubs-synced', onSynced)
   }, [refreshClub])
 
   useEffect(() => {
@@ -234,7 +238,12 @@ const ClubPublicPage = () => {
   const clubName = language === 'ar' && club.nameAr ? club.nameAr : club.name
   const tagline = language === 'ar' ? (club.taglineAr || club.tagline) : (club.tagline || club.taglineAr)
   const address = club.address ? (language === 'ar' && club.addressAr ? club.addressAr : club.address) : null
-  const isMember = platformUser?.clubIds?.includes(club.id) || platformUser?.clubId === club.id
+  const clubMembersList = React.useMemo(() => getClubMembersFromStorage(club?.id || ''), [club?.id])
+  const isMember = platformUser && (
+    platformUser.clubIds?.includes(club.id) ||
+    platformUser.clubId === club.id ||
+    clubMembersList.some(m => String(m.id) === String(platformUser.id))
+  )
 
   const heroBgColor = club?.settings?.heroBgColor || '#ffffff'
   const heroBgOpacity = Math.min(1, Math.max(0, (club?.settings?.heroBgOpacity ?? 85) / 100))
@@ -387,6 +396,7 @@ const ClubPublicPage = () => {
       saveClubs(loadClubs())
       setJoinStatus('success')
       setPlatformUser(getCurrentPlatformUser())
+      refreshClub()
     } catch (e) {
       setJoinStatus('error')
     }
@@ -463,7 +473,7 @@ const ClubPublicPage = () => {
             {tagline && <p className="club-public-hero-tagline" style={{ color: club?.settings?.heroTextColor || '#475569' }}>{tagline}</p>}
             <div className="club-public-hero-stats" style={{ color: club?.settings?.heroStatsColor || '#0f172a' }}>
               <span>{courts.length} {c.courtsCount}</span>
-              <span>{club.members?.length || 0} {c.members}</span>
+              <span>{clubMembersList.length || club.members?.length || 0} {c.members}</span>
               {tournamentsCount > 0 && <span>{tournamentsCount} {c.tournaments}</span>}
               {matchesCount > 0 && <span>{matchesCount} {c.matches}</span>}
             </div>
@@ -477,7 +487,7 @@ const ClubPublicPage = () => {
             {tagline && <p className="club-public-tagline" style={{ color: club?.settings?.heroTextColor || '#475569' }}>{tagline}</p>}
             <div className="club-public-stats" style={{ color: club?.settings?.heroStatsColor || '#0f172a' }}>
               <span>{courts.length} {c.courtsCount}</span>
-              <span>{club.members?.length || 0} {c.members}</span>
+              <span>{clubMembersList.length || club.members?.length || 0} {c.members}</span>
               {tournamentsCount > 0 && <span>{tournamentsCount} {c.tournaments}</span>}
               {matchesCount > 0 && <span>{matchesCount} {c.matches}</span>}
             </div>
