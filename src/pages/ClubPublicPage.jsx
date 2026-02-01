@@ -416,15 +416,6 @@ const ClubPublicPage = () => {
 
       <main className="club-public-main">
 
-        <section className="club-public-section club-public-about">
-          <div className="club-public-section-inner">
-            <h2 className="section-heading">{c.aboutClub}</h2>
-            <p className="club-public-about-text">
-              {tagline || (language === 'en' ? 'Indoor padel courts. King of the Court and Social tournaments. For all levels.' : 'ملاعب بادل داخلية. بطولات ملك الملعب وسوشيال. لجميع المستويات.')}
-            </p>
-          </div>
-        </section>
-
         <section className="club-public-section club-public-court-booking">
           <div className="club-public-section-inner">
             <h2 className="section-heading">{c.courtBooking}</h2>
@@ -495,6 +486,15 @@ const ClubPublicPage = () => {
                 </div>
               )
             })()}
+          </div>
+        </section>
+
+        <section className="club-public-section club-public-about">
+          <div className="club-public-section-inner">
+            <h2 className="section-heading">{c.aboutClub}</h2>
+            <p className="club-public-about-text">
+              {tagline || (language === 'en' ? 'Indoor padel courts. King of the Court and Social tournaments. For all levels.' : 'ملاعب بادل داخلية. بطولات ملك الملعب وسوشيال. لجميع المستويات.')}
+            </p>
           </div>
         </section>
 
