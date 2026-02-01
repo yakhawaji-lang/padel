@@ -276,6 +276,101 @@
   .pending-detail-row { grid-template-columns: 1fr; }
 }
 
+/* All Members Section */
+.all-members-section {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.all-members-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.25rem;
+  color: #111827;
+}
+.all-members-search {
+  margin-bottom: 16px;
+}
+.all-members-table-wrap {
+  overflow-x: auto;
+}
+.all-members-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+.all-members-table th,
+.all-members-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+[dir="rtl"] .all-members-table th,
+[dir="rtl"] .all-members-table td { text-align: right; }
+.all-members-table th {
+  font-weight: 600;
+  color: #6b7280;
+  background: #f9fafb;
+}
+.all-members-table tr:hover td {
+  background: #f9fafb;
+}
+.member-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.member-avatar-small {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.member-initial {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1rem;
+}
+.clubs-joined-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.club-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: #e0f2fe;
+  color: #0369a1;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+}
+.no-clubs { color: #9ca3af; font-size: 0.875rem; }
+.add-to-club-cell {
+  position: relative;
+}
+.add-to-club-dropdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.in-all-clubs {
+  color: #4caf50;
+  font-size: 0.875rem;
+}
+.empty-state.small {
+  padding: 24px;
+  text-align: center;
+  color: #6b7280;
+}
+
 /* Dashboard Controls */
 .dashboard-controls {
   display: flex;

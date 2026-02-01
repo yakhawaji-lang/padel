@@ -707,6 +707,42 @@ export const getClubMembersFromStorage = (clubId) => {
   }
 }
 
+/** Get all members from storage (merged from padel_members and all_members) with their clubIds */
+export const getAllMembersFromStorage = () => {
+  try {
+    const membersData = localStorage.getItem('padel_members')
+    const allMembersData = localStorage.getItem('all_members')
+    let members = []
+    let allMembers = []
+    if (membersData) {
+      try {
+        const parsed = JSON.parse(membersData)
+        if (Array.isArray(parsed)) members = parsed
+      } catch (_) {}
+    }
+    if (allMembersData) {
+      try {
+        const parsed = JSON.parse(allMembersData)
+        if (Array.isArray(parsed)) allMembers = parsed
+      } catch (_) {}
+    }
+    const byId = new Map()
+    members.forEach(m => { if (m && m.id) byId.set(m.id, m) })
+    allMembers.forEach(m => { if (m && m.id) byId.set(m.id, m) })
+    return Array.from(byId.values()).map(m => ({
+      id: m.id,
+      name: m.name,
+      email: m.email,
+      avatar: m.avatar,
+      mobile: m.mobile || m.phone,
+      clubIds: m.clubIds || (m.clubId ? [m.clubId] : [])
+    }))
+  } catch (e) {
+    console.error('getAllMembersFromStorage error:', e)
+    return []
+  }
+}
+
 // Add member to additional club(s)
 export const addMemberToClubs = (memberId, clubIds) => {
   try {

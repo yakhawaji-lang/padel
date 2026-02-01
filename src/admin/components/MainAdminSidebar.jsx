@@ -1,10 +1,11 @@
 import React, { useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import './MainAdminSidebar.css'
 import LanguageIcon from '../../components/LanguageIcon'
 
 const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) => {
   const location = useLocation()
+  const navigate = useNavigate()
   const displayClubs = clubs.filter(c => c.status !== 'pending')
   useEffect(() => {
     if (open && typeof onClose === 'function') onClose()
@@ -56,6 +57,24 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
             {language === 'en' ? 'Manage All Clubs' : 'إدارة جميع الأندية'}
           </span>
         </Link>
+        <a
+          href="#all-members-section"
+          className="main-admin-nav-item"
+          onClick={(e) => {
+            e.preventDefault()
+            if (location.pathname !== '/admin/all-clubs') {
+              navigate('/admin/all-clubs')
+              setTimeout(() => document.getElementById('all-members-section')?.scrollIntoView({ behavior: 'smooth' }), 300)
+            } else {
+              document.getElementById('all-members-section')?.scrollIntoView({ behavior: 'smooth' })
+            }
+          }}
+        >
+          <span className="nav-icon">👥</span>
+          <span className="nav-label">
+            {language === 'en' ? 'All Members' : 'أعضاء كل الأندية'}
+          </span>
+        </a>
       </nav>
 
       <div className="clubs-quick-list">

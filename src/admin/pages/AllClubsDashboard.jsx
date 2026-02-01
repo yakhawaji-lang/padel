@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './common.css'
 import './AllClubsDashboard.css'
+import { getAllMembersFromStorage, addMemberToClubs } from '../../storage/adminStorage'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
@@ -9,27 +10,35 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [viewingPending, setViewingPending] = useState(null)
-  const [sortBy, setSortBy] = useState('name') // 'name', 'members', 'tournaments', 'revenue'
-  const [sortOrder, setSortOrder] = useState('asc') // 'asc', 'desc'
+  const [sortBy, setSortBy] = useState('name')
+  const [sortOrder, setSortOrder] = useState('asc')
+  const [addToClubMember, setAddToClubMember] = useState(null)
+  const [memberSearch, setMemberSearch] = useState('')
+  const [membersRefresh, setMembersRefresh] = useState(0)
 
   const approvedClubs = useMemo(() => clubs.filter(c => c.status !== 'pending'), [clubs])
+  const allMembers = useMemo(() => getAllMembersFromStorage(), [clubs, membersRefresh])
   const pendingClubs = useMemo(() => clubs.filter(c => c.status === 'pending'), [clubs])
 
   // Calculate total statistics (approved only)
   const totalStats = useMemo(() => {
     return {
       totalClubs: approvedClubs.length,
-      totalMembers: approvedClubs.reduce((sum, club) => sum + (club.members?.length || 0), 0),
+      totalMembers: allMembers.length,
       totalTournaments: approvedClubs.reduce((sum, club) => sum + (club.tournaments?.length || 0), 0),
       totalBookings: approvedClubs.reduce((sum, club) => sum + (club.bookings?.length || 0), 0),
       totalRevenue: approvedClubs.reduce((sum, club) => 
         sum + (club.accounting?.reduce((acc, item) => acc + (parseFloat(item.amount) || 0), 0) || 0), 0
       ),
       totalCourts: approvedClubs.reduce((sum, club) => sum + (club.courts?.length || 0), 0),
-      activeClubs: approvedClubs.filter(club => club.members?.length > 0 || club.tournaments?.length > 0).length,
+      activeClubs: approvedClubs.filter(club => 
+        (club.members?.length || 0) > 0 || 
+        allMembers.some(m => (m.clubIds || []).includes(club.id)) ||
+        (club.tournaments?.length || 0) > 0
+      ).length,
       storesEnabled: approvedClubs.filter(club => club.storeEnabled).length
     }
-  }, [approvedClubs])
+  }, [approvedClubs, allMembers])
 
   // Filter and sort clubs (approved only)
   const filteredAndSortedClubs = useMemo(() => {
@@ -92,6 +101,29 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
     return club.accounting?.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0) || 0
   }
 
+  const getClubName = (clubId) => {
+    const club = approvedClubs.find(c => c.id === clubId)
+    return club ? (language === 'ar' && club.nameAr ? club.nameAr : club.name) : clubId
+  }
+
+  const handleAddMemberToClub = (memberId, clubId) => {
+    if (addMemberToClubs(memberId, clubId)) {
+      setAddToClubMember(null)
+      setMembersRefresh(k => k + 1)
+      window.dispatchEvent(new CustomEvent('clubs-synced'))
+    }
+  }
+
+  const filteredMembers = useMemo(() => {
+    if (!memberSearch.trim()) return allMembers
+    const q = memberSearch.toLowerCase().trim()
+    return allMembers.filter(m =>
+      m.name?.toLowerCase().includes(q) ||
+      m.email?.toLowerCase().includes(q) ||
+      m.mobile?.toLowerCase().includes(q)
+    )
+  }, [allMembers, memberSearch])
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A'
     const date = new Date(dateString)
@@ -132,9 +164,7 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
               <div className="total-stat-value">{totalStats.totalMembers}</div>
               <div className="total-stat-label">Total Members</div>
               <div className="total-stat-sublabel">
-                {totalStats.totalClubs > 0 
-                  ? Math.round(totalStats.totalMembers / totalStats.totalClubs) 
-                  : 0} avg per club
+                {t('Registered on platform', 'مسجلون في المنصة', language)}
               </div>
             </div>
           </div>
@@ -311,6 +341,110 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
             </div>
           </div>
         )}
+
+        {/* All Members Section */}
+        <div id="all-members-section" className="all-members-section">
+          <h3>{t('All Members Across Clubs', 'أعضاء كل الأندية', language)} ({allMembers.length})</h3>
+          <div className="all-members-search">
+            <input
+              type="text"
+              placeholder={t('Search members by name, email...', 'البحث بالأعضاء بالاسم أو البريد...', language)}
+              value={memberSearch}
+              onChange={(e) => setMemberSearch(e.target.value)}
+              className="search-input"
+              style={{ maxWidth: 320 }}
+            />
+          </div>
+          {filteredMembers.length === 0 ? (
+            <div className="empty-state small">
+              <p>{t('No members found.', 'لا يوجد أعضاء.', language)}</p>
+            </div>
+          ) : (
+            <div className="all-members-table-wrap">
+              <table className="all-members-table">
+                <thead>
+                  <tr>
+                    <th>{t('Member', 'العضو', language)}</th>
+                    <th>{t('Email', 'البريد', language)}</th>
+                    <th>{t('Clubs Joined', 'النوادي المنضم لها', language)}</th>
+                    <th>{t('Actions', 'إجراءات', language)}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredMembers.map(member => {
+                    const clubsJoined = (member.clubIds || []).filter(id => approvedClubs.some(c => c.id === id))
+                    const clubsNotJoined = approvedClubs.filter(c => !(member.clubIds || []).includes(c.id))
+                    return (
+                      <tr key={member.id}>
+                        <td>
+                          <div className="member-cell">
+                            {member.avatar ? (
+                              <img src={member.avatar} alt="" className="member-avatar-small" />
+                            ) : (
+                              <span className="member-initial">{member.name?.[0] || '?'}</span>
+                            )}
+                            <span>{member.name || '—'}</span>
+                          </div>
+                        </td>
+                        <td>{member.email || '—'}</td>
+                        <td>
+                          <div className="clubs-joined-cell">
+                            {clubsJoined.length === 0 ? (
+                              <span className="no-clubs">{t('None', 'لا يوجد', language)}</span>
+                            ) : (
+                              clubsJoined.map(clubId => (
+                                <span key={clubId} className="club-badge">
+                                  {getClubName(clubId)}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          {clubsNotJoined.length > 0 ? (
+                            <div className="add-to-club-cell">
+                              {addToClubMember?.id === member.id ? (
+                                <div className="add-to-club-dropdown">
+                                  {clubsNotJoined.map(club => (
+                                    <button
+                                      key={club.id}
+                                      type="button"
+                                      className="btn-secondary btn-small"
+                                      onClick={() => handleAddMemberToClub(member.id, club.id)}
+                                    >
+                                      + {getClubName(club.id)}
+                                    </button>
+                                  ))}
+                                  <button
+                                    type="button"
+                                    className="btn-secondary btn-small"
+                                    onClick={() => setAddToClubMember(null)}
+                                  >
+                                    {t('Cancel', 'إلغاء', language)}
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn-primary btn-small"
+                                  onClick={() => setAddToClubMember(member)}
+                                >
+                                  {t('Add to club', 'إضافة لنادي', language)}
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="in-all-clubs">{t('In all clubs', 'في جميع الأندية', language)}</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
         {/* Search and Filter */}
         <div className="dashboard-controls">
