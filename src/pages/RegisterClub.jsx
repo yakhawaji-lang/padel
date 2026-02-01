@@ -1,24 +1,23 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import LanguageIcon from '../components/LanguageIcon'
+import LocationMapPicker from '../components/LocationMapPicker'
 import { addPendingClub } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './RegisterClub.css'
 
 const RegisterClub = () => {
-  const navigate = useNavigate()
   const [language, setLanguage] = useState(getAppLanguage())
   const [formData, setFormData] = useState({
     name: '',
     nameAr: '',
-    address: '',
-    addressAr: '',
+    location: null,
     phone: '',
     email: '',
     adminEmail: '',
     adminPassword: '',
     commercialRegister: '',
-    website: ''
+    commercialRegisterImage: ''
   })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -31,15 +30,15 @@ const RegisterClub = () => {
       subtitle: 'Join the platform and manage your padel club professionally. Your registration will be reviewed and activated shortly.',
       name: 'Club name (English) *',
       nameAr: 'Club name (Arabic)',
-      address: 'Address',
-      addressAr: 'Address (Arabic)',
+      location: 'Select location on map',
+      locationHint: 'Click on the map to set your club location',
       phone: 'Phone',
       email: 'Club email',
       adminEmail: 'Admin login email *',
       adminPassword: 'Password for admin panel *',
       adminHint: 'Use this to login to club dashboard and club page',
       commercialRegister: 'Commercial register number',
-      website: 'Website',
+      commercialRegisterImage: 'Commercial register document (image)',
       submit: 'Register Club',
       backToHome: 'Back to home',
       successTitle: 'Registration submitted',
@@ -53,15 +52,15 @@ const RegisterClub = () => {
       subtitle: 'انضم للمنصة وأدر نادي البادل بشكل احترافي. سيتم مراجعة تسجيلك وتفعيله قريباً.',
       name: 'اسم النادي (إنجليزي) *',
       nameAr: 'اسم النادي (عربي)',
-      address: 'العنوان',
-      addressAr: 'العنوان (عربي)',
+      location: 'تحديد الموقع على الخريطة',
+      locationHint: 'انقر على الخريطة لتحديد موقع النادي',
       phone: 'الهاتف',
       email: 'بريد النادي',
       adminEmail: 'البريد الإلكتروني لتسجيل الدخول *',
       adminPassword: 'كلمة المرور للوحة التحكم *',
       adminHint: 'تُستخدم للدخول إلى لوحة تحكم النادي وصفحة النادي',
       commercialRegister: 'رقم السجل التجاري',
-      website: 'الموقع الإلكتروني',
+      commercialRegisterImage: 'صورة وثيقة السجل التجاري',
       submit: 'تسجيل النادي',
       backToHome: 'العودة للرئيسية',
       successTitle: 'تم إرسال التسجيل',
@@ -91,9 +90,12 @@ const RegisterClub = () => {
     }
     const result = addPendingClub({
       ...formData,
+      address: formData.location?.address || '',
+      addressAr: formData.location?.address || '',
       adminEmail: adminEmail.trim(),
       adminPassword: formData.adminPassword,
-      email: formData.email || adminEmail
+      email: formData.email || adminEmail,
+      commercialRegisterImage: formData.commercialRegisterImage || undefined
     })
     if (result.error === 'EMAIL_EXISTS') {
       setError(language === 'en' ? 'This email is already registered.' : 'هذا البريد مسجّل مسبقاً.')
@@ -159,15 +161,51 @@ const RegisterClub = () => {
               <label>{c.commercialRegister}</label>
               <input type="text" value={formData.commercialRegister} onChange={(e) => setFormData({ ...formData, commercialRegister: e.target.value })} placeholder="رقم السجل التجاري" />
             </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label>{c.address}</label>
-                <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} />
+            <div className="form-group">
+              <label>{c.commercialRegisterImage}</label>
+              <div className="form-image-row">
+                <input
+                  type="text"
+                  placeholder={language === 'en' ? 'URL or upload' : 'رابط أو رفع'}
+                  value={typeof formData.commercialRegisterImage === 'string' ? formData.commercialRegisterImage : ''}
+                  onChange={(e) => setFormData({ ...formData, commercialRegisterImage: e.target.value })}
+                  className="form-image-url"
+                />
+                <label className="btn-secondary btn-upload">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) {
+                        const r = new FileReader()
+                        r.onload = () => setFormData(prev => ({ ...prev, commercialRegisterImage: r.result }))
+                        r.readAsDataURL(f)
+                      }
+                      e.target.value = ''
+                    }}
+                  />
+                  {language === 'en' ? 'Upload' : 'رفع'}
+                </label>
               </div>
-              <div className="form-group">
-                <label>{c.addressAr}</label>
-                <input type="text" value={formData.addressAr} onChange={(e) => setFormData({ ...formData, addressAr: e.target.value })} />
-              </div>
+              {formData.commercialRegisterImage && (
+                <div className="form-image-preview">
+                  <img src={formData.commercialRegisterImage} alt="CR" />
+                  <button type="button" className="btn-remove-img" onClick={() => setFormData(prev => ({ ...prev, commercialRegisterImage: '' }))}>
+                    {language === 'en' ? 'Remove' : 'إزالة'}
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="form-group">
+              <label>{c.location}</label>
+              <span className="form-hint">{c.locationHint}</span>
+              <LocationMapPicker
+                value={formData.location}
+                onChange={(loc) => setFormData(prev => ({ ...prev, location: loc }))}
+                placeholder={language === 'en' ? 'Loading address...' : 'جاري تحميل العنوان...'}
+              />
             </div>
             <div className="form-row">
               <div className="form-group">
@@ -178,10 +216,6 @@ const RegisterClub = () => {
                 <label>{c.email}</label>
                 <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder={language === 'en' ? 'club@example.com' : 'النادي@example.com'} />
               </div>
-            </div>
-            <div className="form-group">
-              <label>{c.website}</label>
-              <input type="url" value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="https://..." />
             </div>
             <button type="submit" className="register-club-submit">{c.submit}</button>
           </form>

@@ -24,7 +24,7 @@
   padding: 4px;
 }
 .register-club-main {
-  max-width: 560px;
+  max-width: 640px;
   margin: 0 auto;
   padding: 32px 24px;
 }
@@ -128,6 +128,74 @@
   font-weight: 600;
 }
 .register-club-btn:hover { background: #1e40af; }
+/* Map picker */
+.location-map-container {
+  height: 280px;
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  margin-top: 8px;
+  overflow: hidden;
+}
+.location-map-loading {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin: 8px 0 0 0;
+}
+.location-map-address {
+  font-size: 0.875rem;
+  color: #475569;
+  margin: 8px 0 0 0;
+  padding: 10px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+/* Image upload */
+.form-image-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+.form-image-url {
+  flex: 1;
+}
+.btn-upload {
+  flex-shrink: 0;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+}
+.btn-upload:hover { background: #f3f4f6; }
+.form-image-preview {
+  margin-top: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.form-image-preview img {
+  max-width: 120px;
+  max-height: 90px;
+  object-fit: contain;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+.btn-remove-img {
+  padding: 6px 14px;
+  font-size: 0.8125rem;
+  color: #dc2626;
+  background: none;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.btn-remove-img:hover { background: #fef2f2; }
+
 @media (max-width: 600px) {
   .register-club-form .form-row { grid-template-columns: 1fr; }
+  .form-image-row { flex-direction: column; }
 }
