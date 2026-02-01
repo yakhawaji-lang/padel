@@ -230,7 +230,11 @@ const ClubPublicPage = () => {
       discount: 'off',
       storeTitle: 'Store',
       storeEmpty: 'No products in the store yet.',
-      uncategorized: 'Other'
+      uncategorized: 'Other',
+      courtBooking: 'Court booking',
+      selectDate: 'Select date',
+      available: 'Available',
+      booked: 'Booked'
     },
     ar: {
       backToHome: 'العودة للرئيسية',
@@ -275,7 +279,7 @@ const ClubPublicPage = () => {
       booked: 'محجوز'
     }
   }
-  const c = t[language]
+  const c = t[language] || t.en
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '—'

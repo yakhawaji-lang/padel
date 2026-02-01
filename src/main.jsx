@@ -13,7 +13,7 @@ applyAppLanguage()
 const HomePage = lazy(() => import('./pages/HomePage'))
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
-const ClubPublicPage = lazy(() => import('./pages/ClubPublicPage'))
+import ClubPublicPage from './pages/ClubPublicPage'
 const App = lazy(() => import('./App'))
 const MainAdminPanel = lazy(() => import('./admin/MainAdminPanel'))
 const ClubAdminPanel = lazy(() => import('./admin/ClubAdminPanel'))
@@ -59,17 +59,18 @@ function mountApp() {
   )
 }
 
+loadClubs()
+mountApp()
 loadClubsAsync()
   .then(() => {
     loadClubs()
-    mountApp()
-    subscribeToClubs((clubs) => applyRemoteClubs(clubs))
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('clubs-synced', { detail: loadClubs() }))
+    }
   })
   .catch((e) => {
     console.warn('Bootstrap loadClubsAsync failed:', e)
-    loadClubs()
-    mountApp()
-    subscribeToClubs((clubs) => applyRemoteClubs(clubs))
   })
+subscribeToClubs((clubs) => applyRemoteClubs(clubs))
 
 
