@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { loadClubs, getClubById, saveClubs } from '../storage/adminStorage'
 import LanguageIcon from '../components/LanguageIcon'
+import SocialIcon from '../components/SocialIcon'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './ClubPublicPage.css'
@@ -358,6 +359,21 @@ const ClubPublicPage = () => {
       {club.banner && (
         <section className="club-public-banner">
           <img src={club.banner} alt="" className="club-public-banner-image" />
+          {club?.settings?.socialLinks?.length > 0 && (
+            <div className="club-public-banner-social">
+              {club.settings.socialLinks.filter(s => s.url).map((item, idx) => (
+                <SocialIcon
+                  key={idx}
+                  platform={item.platform || 'facebook'}
+                  url={item.url}
+                  iconColor={item.iconColor || '#ffffff'}
+                  textColor={item.textColor || '#333333'}
+                  size={40}
+                  className="club-public-social-icon"
+                />
+              ))}
+            </div>
+          )}
         </section>
       )}
 

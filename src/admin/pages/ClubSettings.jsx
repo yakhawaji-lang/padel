@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import './ClubSettings.css'
 import '../pages/common.css'
+import SocialIcon, { PLATFORMS } from '../../components/SocialIcon'
 
 const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
   const [formData, setFormData] = useState({
@@ -29,6 +30,7 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
     closingTime: '23:00'
   })
   const [activeTab, setActiveTab] = useState('basic')
+  const [socialLinks, setSocialLinks] = useState([])
   const [courts, setCourts] = useState([])
   const [editingCourt, setEditingCourt] = useState(null)
   const [courtForm, setCourtForm] = useState({
@@ -66,6 +68,7 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
         closingTime: club?.settings?.closingTime || '23:00'
       })
       setCourts(club?.courts || [])
+      setSocialLinks(club?.settings?.socialLinks || [])
     }
   }, [club])
 
@@ -108,7 +111,8 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
         openingTime: formData.openingTime,
         closingTime: formData.closingTime,
         headerBgColor: formData.headerBgColor || '#ffffff',
-        headerTextColor: formData.headerTextColor || '#0f172a'
+        headerTextColor: formData.headerTextColor || '#0f172a',
+        socialLinks: socialLinks
       }
     }
     onUpdateClub(updates)
@@ -197,7 +201,8 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
             { id: 'general', label: 'General' },
             { id: 'booking', label: 'Booking' },
             { id: 'courts', label: 'Courts' },
-            { id: 'hours', label: 'Club Hours' }
+            { id: 'hours', label: 'Club Hours' },
+            { id: 'social', label: 'Social Media' }
           ].map(({ id, label }) => (
             <button
               key={id}
@@ -649,6 +654,76 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
                 Closing time must be after opening time.
               </p>
             )}
+          </div>
+          )}
+
+          {activeTab === 'social' && (
+          <div className="settings-section">
+            <h3>Social Media — التواصل الاجتماعي</h3>
+            <p className="form-hint">Icons appear in the center-top of the banner on the club public page. / تظهر الأيقونات في منتصف أعلى البنر في صفحة النادي.</p>
+            <div className="social-links-editor">
+              {socialLinks.map((item, idx) => (
+                <div key={idx} className="social-link-row">
+                  <select
+                    value={item.platform || 'facebook'}
+                    onChange={(e) => {
+                      const next = [...socialLinks]
+                      next[idx] = { ...next[idx], platform: e.target.value }
+                      setSocialLinks(next)
+                    }}
+                  >
+                    {PLATFORMS.map(p => (
+                      <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={item.url || ''}
+                    onChange={(e) => {
+                      const next = [...socialLinks]
+                      next[idx] = { ...next[idx], url: e.target.value }
+                      setSocialLinks(next)
+                    }}
+                  />
+                  <div className="social-link-colors">
+                    <input
+                      type="color"
+                      title="Icon / Background color — لون الأيقونة"
+                      value={item.iconColor || '#1877f2'}
+                      onChange={(e) => {
+                        const next = [...socialLinks]
+                        next[idx] = { ...next[idx], iconColor: e.target.value }
+                        setSocialLinks(next)
+                      }}
+                    />
+                    <input
+                      type="color"
+                      title="Icon fill / Text color — لون الخطوط"
+                      value={item.textColor || '#ffffff'}
+                      onChange={(e) => {
+                        const next = [...socialLinks]
+                        next[idx] = { ...next[idx], textColor: e.target.value }
+                        setSocialLinks(next)
+                      }}
+                    />
+                  </div>
+                  <div className="social-link-preview">
+                    <SocialIcon platform={item.platform} iconColor={item.iconColor} textColor={item.textColor} size={28} preview />
+                  </div>
+                  <button type="button" className="btn-danger btn-small" onClick={() => setSocialLinks(socialLinks.filter((_, i) => i !== idx))}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setSocialLinks([...socialLinks, { platform: 'facebook', url: '', iconColor: '#1877f2', textColor: '#ffffff' }])}
+              >
+                + Add social link
+              </button>
+            </div>
           </div>
           )}
         </div>

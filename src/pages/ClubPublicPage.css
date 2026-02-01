@@ -106,9 +106,35 @@
 
 /* Club Banner — بنر النادي */
 .club-public-banner {
+  position: relative;
   width: 100%;
   overflow: hidden;
   background: #0f172a;
+}
+
+.club-public-banner-social {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  z-index: 2;
+}
+
+.club-public-social-icon {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.club-public-social-icon:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .club-public-banner-image {

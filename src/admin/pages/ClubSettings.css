@@ -324,6 +324,65 @@
   font-style: italic;
 }
 
+/* Social Links Editor */
+.social-links-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.social-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.social-link-row select {
+  width: 130px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.social-link-row input[type="url"] {
+  flex: 1;
+  min-width: 180px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.social-link-colors {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.social-link-colors input[type="color"] {
+  width: 36px;
+  height: 36px;
+  padding: 2px;
+  cursor: pointer;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.social-link-preview {
+  display: flex;
+  align-items: center;
+}
+
+.social-link-row .btn-danger {
+  flex-shrink: 0;
+}
+
 /* Responsive - تابلت وجوال */
 @media (max-width: 1024px) {
   .settings-section {
