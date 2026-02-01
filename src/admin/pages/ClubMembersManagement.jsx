@@ -1,8 +1,12 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import './MembersManagement.css'
 
 const ClubMembersManagement = ({ club, onUpdateClub }) => {
   const [members, setMembers] = useState(club?.members || [])
+
+  useEffect(() => {
+    setMembers(club?.members || [])
+  }, [club?.members])
 
   if (!club) {
     return <div className="club-admin-page">Loading...</div>

@@ -245,6 +245,15 @@ function App({ currentUser }) {
         const savedContentTab = loadFromLocalStorage.contentTab()
         const savedMemberTab = loadFromLocalStorage.memberTab()
         
+        // Members: prefer club.members (synced from platform joins) merged with savedMembers
+        const clubMembers = club?.members && Array.isArray(club.members) ? club.members : []
+        const savedList = Array.isArray(savedMembers) ? savedMembers : []
+        const mergedById = new Map()
+        clubMembers.forEach(m => { if (m?.id) mergedById.set(String(m.id), m) })
+        savedList.forEach(m => { if (m?.id && !mergedById.has(String(m.id))) mergedById.set(String(m.id), m) })
+        const initialMembers = Array.from(mergedById.values())
+        setMembers(initialMembers.length > 0 ? initialMembers : (savedList.length > 0 ? savedList : []))
+        
         // Set language first (before restoring other state)
         setLanguage(savedLanguage)
         
@@ -252,10 +261,6 @@ function App({ currentUser }) {
         setKingStateByTournamentId(savedKingStateByTournament || {})
         // Restore state per tournament for Social
         setSocialStateByTournamentId(savedSocialStateByTournament || {})
-        
-        if (savedMembers) {
-          setMembers(savedMembers)
-        }
         
         if (savedTournamentId) {
           setCurrentTournamentId(savedTournamentId)
@@ -288,6 +293,28 @@ function App({ currentUser }) {
       navigate('/login')
     }
   }, [clubId, navigate])
+
+  // Refresh club and members when clubs are synced (e.g. after member joins from public page)
+  useEffect(() => {
+    if (!clubId) return
+    const onSynced = () => {
+      const clubs = loadClubs()
+      const club = clubs.find(c => c.id === clubId)
+      if (club) {
+        setCurrentClub(club)
+        if (club.members?.length > 0) {
+          setMembers(prev => {
+            const merged = new Map()
+            club.members.forEach(m => { if (m?.id) merged.set(String(m.id), m) })
+            prev.forEach(m => { if (m?.id && !merged.has(String(m.id))) merged.set(String(m.id), m) })
+            return Array.from(merged.values())
+          })
+        }
+      }
+    }
+    window.addEventListener('clubs-synced', onSynced)
+    return () => window.removeEventListener('clubs-synced', onSynced)
+  }, [clubId])
 
   // Update document direction and persist language
   useEffect(() => {

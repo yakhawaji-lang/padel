@@ -228,38 +228,39 @@ export const loadClubs = () => {
 // Sync members from localStorage to clubs
 export const syncMembersToClubs = (clubs) => {
   try {
-    // Load members from localStorage (from App.jsx)
+    // Load from both padel_members (admin) and all_members (Register/Login)
+    // Users who register via platform are in all_members only until sync
     const membersData = localStorage.getItem('padel_members')
-    if (!membersData) return
-    
-    const members = JSON.parse(membersData)
-    if (!Array.isArray(members) || members.length === 0) return
-    
-    // Also check all_members (from Login.jsx)
     const allMembersData = localStorage.getItem('all_members')
+    let members = []
     let allMembers = []
+    if (membersData) {
+      try {
+        const parsed = JSON.parse(membersData)
+        if (Array.isArray(parsed)) members = parsed
+      } catch (e) {
+        console.error('Error parsing padel_members:', e)
+      }
+    }
     if (allMembersData) {
       try {
-        allMembers = JSON.parse(allMembersData)
+        const parsed = JSON.parse(allMembersData)
+        if (Array.isArray(parsed)) allMembers = parsed
       } catch (e) {
         console.error('Error parsing all_members:', e)
       }
     }
-    
-    // Merge both sources
+
+    // Merge both sources (all_members takes precedence for platform registrations)
     const allMembersMap = new Map()
     members.forEach(m => {
-      if (m && m.id) {
-        allMembersMap.set(m.id, m)
-      }
+      if (m && m.id) allMembersMap.set(m.id, m)
     })
     allMembers.forEach(m => {
-      if (m && m.id) {
-        allMembersMap.set(m.id, m)
-      }
+      if (m && m.id) allMembersMap.set(m.id, m)
     })
-    
     const mergedMembers = Array.from(allMembersMap.values())
+    if (mergedMembers.length === 0) return
     
     // For each club, sync members
     let hasChanges = false

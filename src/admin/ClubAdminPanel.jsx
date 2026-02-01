@@ -22,28 +22,32 @@ function ClubAdminPanel() {
   const [isLoading, setIsLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  useEffect(() => {
-    const loadData = () => {
-      const allClubs = loadClubs()
-      setClubs(allClubs)
-      
-      const foundClub = getClubById(clubId)
-      if (foundClub) {
-        setClub(foundClub)
+  const loadData = () => {
+    const allClubs = loadClubs()
+    setClubs(allClubs)
+    const foundClub = getClubById(clubId)
+    if (foundClub) {
+      setClub(foundClub)
         // Load language: club-specific preference first, then club default, then app-wide
         const clubLang = localStorage.getItem(`club_${clubId}_language`)
         const clubDefaultLanguage = foundClub.settings?.defaultLanguage || 'en'
         const appLang = getAppLanguage()
         setLanguage(clubLang || clubDefaultLanguage || appLang)
-      } else {
-        // Club not found, redirect to main admin
-        navigate('/admin/all-clubs')
-      }
-      
-      setIsLoading(false)
+    } else {
+      navigate('/admin/all-clubs')
     }
+    setIsLoading(false)
+  }
+
+  useEffect(() => {
     loadData()
   }, [clubId, navigate])
+
+  useEffect(() => {
+    const onSynced = () => loadData()
+    window.addEventListener('clubs-synced', onSynced)
+    return () => window.removeEventListener('clubs-synced', onSynced)
+  }, [clubId])
   
   // Save language preference when it changes
   useEffect(() => {
