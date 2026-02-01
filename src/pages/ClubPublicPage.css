@@ -46,20 +46,39 @@
   gap: 8px;
 }
 
-.club-public-register-link {
+.club-public-auth-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.club-public-register-link,
+.club-public-login-link {
   color: inherit;
   text-decoration: none;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 600;
   padding: 6px 12px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.2);
   display: inline-flex;
   align-items: center;
   transition: background 0.2s, opacity 0.2s;
 }
+
+.club-public-register-link {
+  background: rgba(255, 255, 255, 0.25);
+}
 .club-public-register-link:hover {
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.club-public-login-link {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+.club-public-login-link:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .club-public-member-account .member-account-avatar,
@@ -95,12 +114,14 @@
 
 .club-public-header.has-custom-header-colors .club-public-lang,
 .club-public-header.has-custom-header-colors .language-icon-label,
-.club-public-header.has-custom-header-colors .club-public-register-link {
+.club-public-header.has-custom-header-colors .club-public-register-link,
+.club-public-header.has-custom-header-colors .club-public-login-link {
   color: inherit;
 }
 
 .club-public-header.has-custom-header-colors .club-public-lang:hover,
-.club-public-header.has-custom-header-colors .club-public-register-link:hover {
+.club-public-header.has-custom-header-colors .club-public-register-link:hover,
+.club-public-header.has-custom-header-colors .club-public-login-link:hover {
   color: inherit;
   opacity: 0.85;
 }
@@ -115,6 +136,47 @@
   margin-top: 16px;
   display: inline-block;
   font-weight: 500;
+}
+
+/* Join prompt - between banner and main content */
+.club-public-join-prompt {
+  width: 100%;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  text-align: center;
+}
+.club-public-join-prompt-inner {
+  max-width: 560px;
+  margin: 0 auto;
+}
+.club-public-join-prompt-title {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+}
+.club-public-join-prompt-text {
+  margin: 0 0 16px;
+  font-size: 0.9375rem;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.5;
+}
+.club-public-join-prompt-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 24px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #0284c7;
+  background: #fff;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.club-public-join-prompt-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .club-public-main {
@@ -335,6 +397,23 @@
 
   .club-public-tagline {
     font-size: 0.9375rem;
+  }
+
+  .club-public-join-prompt {
+    padding: 16px;
+  }
+
+  .club-public-join-prompt-title {
+    font-size: 1.1rem;
+  }
+
+  .club-public-join-prompt-text {
+    font-size: 0.875rem;
+  }
+
+  .club-public-auth-links {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .club-public-header {

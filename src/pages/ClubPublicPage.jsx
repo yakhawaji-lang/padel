@@ -262,6 +262,7 @@ const ClubPublicPage = () => {
       alreadyMember: 'You are already a member of this club.',
       registerFirst: 'Register on the platform first',
       registerMembers: 'Register as member',
+      loginPlatform: 'Login with platform',
       registerThenJoin: 'You must register on the platform before joining a club. Register now, then return here to join.',
       tournaments: 'Tournaments',
       matches: 'Matches',
@@ -290,7 +291,9 @@ const ClubPublicPage = () => {
       courtBooking: 'Court booking',
       selectDate: 'Select date',
       available: 'Available',
-      booked: 'Booked'
+      booked: 'Booked',
+      joinPromptTitle: 'You\'re one step away!',
+      joinPromptText: 'Join this club now to book courts, participate in tournaments, and enjoy member benefits.',
     },
     ar: {
       backToHome: 'العودة للرئيسية',
@@ -309,6 +312,7 @@ const ClubPublicPage = () => {
       alreadyMember: 'أنت عضو في هذا النادي مسبقاً.',
       registerFirst: 'سجّل في المنصة أولاً',
       registerMembers: 'تسجيل الأعضاء',
+      loginPlatform: 'تسجيل الدخول بحساب المنصة',
       registerThenJoin: 'يجب التسجيل في المنصة قبل الانضمام لأي نادي. سجّل الآن ثم عد هنا للانضمام.',
       tournaments: 'بطولات',
       matches: 'مباريات',
@@ -337,7 +341,9 @@ const ClubPublicPage = () => {
       courtBooking: 'حجز الملاعب',
       selectDate: 'اختر التاريخ',
       available: 'متاح',
-      booked: 'محجوز'
+      booked: 'محجوز',
+      joinPromptTitle: 'أنت على بُعد خطوة واحدة!',
+      joinPromptText: 'انضم للنادي الآن لحجز الملاعب والمشاركة في البطولات والاستفادة من مزايا العضوية.',
     }
   }
   const c = t[language] || t.en
@@ -405,7 +411,10 @@ const ClubPublicPage = () => {
                 className="club-public-member-account"
               />
             ) : (
-              <Link to={`/register?join=${clubId}`} className="club-public-register-link">{c.registerMembers}</Link>
+              <div className="club-public-auth-links">
+                <Link to={`/register?join=${clubId}`} className="club-public-register-link">{c.registerMembers}</Link>
+                <Link to={`/login?join=${clubId}`} className="club-public-login-link">{c.loginPlatform}</Link>
+              </div>
             )}
           </div>
           <div className="club-public-header-social">
@@ -472,6 +481,18 @@ const ClubPublicPage = () => {
               {tournamentsCount > 0 && <span>{tournamentsCount} {c.tournaments}</span>}
               {matchesCount > 0 && <span>{matchesCount} {c.matches}</span>}
             </div>
+          </div>
+        </section>
+      )}
+
+      {platformUser && !isMember && (
+        <section className="club-public-join-prompt" role="region" aria-live="polite">
+          <div className="club-public-join-prompt-inner">
+            <h3 className="club-public-join-prompt-title">{c.joinPromptTitle}</h3>
+            <p className="club-public-join-prompt-text">{c.joinPromptText}</p>
+            <button type="button" className="club-public-join-prompt-btn" onClick={handleJoinClub}>
+              {c.joinClub}
+            </button>
           </div>
         </section>
       )}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import LanguageIcon from '../components/LanguageIcon'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import './Login.css'
 import { loadClubs, saveClubs } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
@@ -8,6 +8,8 @@ import { setCurrentPlatformUser } from '../storage/platformAuth'
 
 const Login = () => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const joinClubId = searchParams.get('join')
   const [language, setLanguage] = useState(getAppLanguage())
   const [mode, setMode] = useState('login') // 'login' or 'signup' or 'createClub'
   const [formData, setFormData] = useState({
@@ -39,9 +41,13 @@ const Login = () => {
     
     if (member) {
       setCurrentPlatformUser(member.id)
-      const clubId = member.clubIds?.[0] || member.clubId
-      if (clubId) navigate(`/club/${clubId}`)
-      else navigate('/')
+      if (joinClubId) {
+        navigate(`/clubs/${joinClubId}`)
+      } else {
+        const clubId = member.clubIds?.[0] || member.clubId
+        if (clubId) navigate(`/club/${clubId}`)
+        else navigate('/')
+      }
     } else {
       alert('Invalid credentials')
     }
