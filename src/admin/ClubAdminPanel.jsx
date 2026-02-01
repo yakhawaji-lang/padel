@@ -141,6 +141,7 @@ function ClubAdminPanel() {
             element={
               <ClubAccountingManagement 
                 club={club}
+                language={language}
                 onUpdateClub={handleClubUpdate}
               />
             } 
