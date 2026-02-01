@@ -62,12 +62,6 @@ function mountApp() {
 loadClubs()
 mountApp()
 loadClubsAsync()
-  .then(() => {
-    loadClubs()
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('clubs-synced', { detail: loadClubs() }))
-    }
-  })
   .catch((e) => {
     console.warn('Bootstrap loadClubsAsync failed:', e)
   })

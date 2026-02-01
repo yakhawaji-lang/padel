@@ -11,14 +11,50 @@ const ADMIN_STORAGE_KEYS = {
 let _clubsCache = null
 
 /**
+ * Merge remote clubs with local, preserving court images and local-only courts
+ * (remote may not have images due to size limits, or may be stale)
+ */
+function mergeClubsPreservingLocalImages(remote, local) {
+  if (!Array.isArray(remote)) return remote
+  if (!Array.isArray(local) || local.length === 0) return remote
+  const merged = remote.map(remoteClub => {
+    const localClub = local.find(c => c.id === remoteClub.id)
+    if (!localClub?.courts?.length) return remoteClub
+    const remoteCourts = remoteClub.courts || []
+    const mergedCourts = remoteCourts.map(remoteCourt => {
+      const localCourt = localClub.courts.find(c => c.id === remoteCourt.id)
+      if (localCourt?.image && !remoteCourt?.image) {
+        return { ...remoteCourt, image: localCourt.image }
+      }
+      return remoteCourt
+    })
+    const localOnlyCourts = localClub.courts.filter(
+      lc => !mergedCourts.some(mc => mc.id === lc.id)
+    )
+    return { ...remoteClub, courts: [...mergedCourts, ...localOnlyCourts] }
+  })
+  const localOnlyClubs = local.filter(lc => !remote.some(rc => rc.id === lc.id))
+  return [...merged, ...localOnlyClubs]
+}
+
+/**
  * Load clubs from Supabase into localStorage so the next loadClubs() uses them.
- * Call once at app bootstrap.
+ * Call once at app bootstrap. Merges with local to preserve court images.
  */
 export async function loadClubsAsync() {
   try {
     const remote = await getRemoteClubs()
-    if (remote !== null && Array.isArray(remote)) {
-      localStorage.setItem(ADMIN_STORAGE_KEYS.CLUBS, JSON.stringify(remote))
+    if (remote === null || !Array.isArray(remote)) return
+    let local = []
+    try {
+      const data = localStorage.getItem(ADMIN_STORAGE_KEYS.CLUBS)
+      if (data) local = JSON.parse(data)
+    } catch (_) {}
+    const merged = mergeClubsPreservingLocalImages(remote, local)
+    localStorage.setItem(ADMIN_STORAGE_KEYS.CLUBS, JSON.stringify(merged))
+    _clubsCache = merged
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('clubs-synced'))
     }
   } catch (e) {
     console.warn('loadClubsAsync failed:', e)
@@ -28,12 +64,19 @@ export async function loadClubsAsync() {
 /**
  * Apply clubs received from another device (real-time sync). Updates cache and localStorage
  * and dispatches 'clubs-synced' so the UI refreshes without reload.
+ * Preserves local court images when remote doesn't have them.
  */
 export function applyRemoteClubs(clubs) {
   if (!Array.isArray(clubs)) return
   try {
-    localStorage.setItem(ADMIN_STORAGE_KEYS.CLUBS, JSON.stringify(clubs))
-    _clubsCache = clubs
+    let local = []
+    try {
+      const data = localStorage.getItem(ADMIN_STORAGE_KEYS.CLUBS)
+      if (data) local = JSON.parse(data)
+    } catch (_) {}
+    const merged = mergeClubsPreservingLocalImages(clubs, local)
+    localStorage.setItem(ADMIN_STORAGE_KEYS.CLUBS, JSON.stringify(merged))
+    _clubsCache = merged
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('clubs-synced'))
     }
@@ -434,7 +477,8 @@ export const createExampleClub = () => {
 
 export const saveClubs = (clubs) => {
   try {
-    localStorage.setItem(ADMIN_STORAGE_KEYS.CLUBS, JSON.stringify(clubs))
+    const json = JSON.stringify(clubs)
+    localStorage.setItem(ADMIN_STORAGE_KEYS.CLUBS, json)
     _clubsCache = clubs
     setRemoteClubs(clubs)
     if (typeof window !== 'undefined') {
@@ -442,6 +486,9 @@ export const saveClubs = (clubs) => {
     }
   } catch (error) {
     console.error('Error saving clubs:', error)
+    if (error?.name === 'QuotaExceededError' || error?.code === 22) {
+      alert('Storage limit reached. Court images may be too large. Try using image URLs instead of uploads.')
+    }
   }
 }
 
