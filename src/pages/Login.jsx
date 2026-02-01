@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import LanguageIcon from '../components/LanguageIcon'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import './Login.css'
-import { loadClubs, saveClubs } from '../storage/adminStorage'
+import { loadClubs, saveClubs, upsertMember, getMergedMembersRaw } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import { setCurrentPlatformUser } from '../storage/platformAuth'
 
@@ -37,8 +37,7 @@ const Login = () => {
 
   const handleMemberLogin = (e) => {
     e.preventDefault()
-    // Simple authentication - in production, use proper auth
-    const members = JSON.parse(localStorage.getItem('all_members') || '[]')
+    const members = getMergedMembersRaw()
     const member = members.find(m => 
       (m.email === formData.email || m.name === formData.name) && 
       m.password === formData.password
@@ -66,8 +65,8 @@ const Login = () => {
       return
     }
 
-    const members = JSON.parse(localStorage.getItem('all_members') || '[]')
-    const existingMember = members.find(m => m.email === formData.email)
+    const members = getMergedMembersRaw()
+    const existingMember = members.find(m => (m.email || '').toLowerCase() === (formData.email || '').toLowerCase())
     
     if (existingMember) {
       alert('Email already exists')
@@ -78,18 +77,17 @@ const Login = () => {
       id: Date.now().toString(),
       name: formData.name,
       email: formData.email,
-      password: formData.password, // In production, hash this
+      password: formData.password,
       clubIds: [clubIdToUse],
       clubId: clubIdToUse,
       role: 'member',
       createdAt: new Date().toISOString()
     }
 
-    members.push(newMember)
-    localStorage.setItem('all_members', JSON.stringify(members))
-
-    const clubs = loadClubs()
-    saveClubs(clubs)
+    if (!upsertMember(newMember)) {
+      alert(language === 'en' ? 'Registration failed' : 'فشل التسجيل')
+      return
+    }
 
     setCurrentPlatformUser(newMember.id)
     if (joinClubId) {

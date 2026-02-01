@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { loadClubs, getClubById, saveClubs, getClubMembersFromStorage } from '../storage/adminStorage'
+import { loadClubs, getClubById, saveClubs, getClubMembersFromStorage, addMemberToClub } from '../storage/adminStorage'
 import LanguageIcon from '../components/LanguageIcon'
 import SocialIcon from '../components/SocialIcon'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
@@ -386,25 +386,14 @@ const ClubPublicPage = () => {
       return
     }
     try {
-      const members = JSON.parse(localStorage.getItem('all_members') || '[]')
-      const member = members.find(m => m.id === platformUser.id)
-      if (!member) {
+      const ok = addMemberToClub(platformUser.id, club.id)
+      if (ok) {
+        setJoinStatus('success')
+        setPlatformUser(getCurrentPlatformUser())
+        refreshClub()
+      } else {
         setJoinStatus('error')
-        return
       }
-      const clubIds = Array.isArray(member.clubIds) ? [...member.clubIds] : (member.clubId ? [member.clubId] : [])
-      if (clubIds.includes(club.id)) {
-        setJoinStatus('already')
-        return
-      }
-      clubIds.push(club.id)
-      member.clubIds = clubIds
-      member.clubId = clubIds[0]
-      localStorage.setItem('all_members', JSON.stringify(members))
-      saveClubs(loadClubs())
-      setJoinStatus('success')
-      setPlatformUser(getCurrentPlatformUser())
-      refreshClub()
     } catch (e) {
       setJoinStatus('error')
     }

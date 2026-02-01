@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import LanguageIcon from '../components/LanguageIcon'
 import { getCurrentPlatformUser, setCurrentPlatformUser } from '../storage/platformAuth'
+import { upsertMember, getMergedMembersRaw } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './Register.css'
 
@@ -70,7 +71,7 @@ const Register = () => {
       setError(language === 'en' ? 'Please fill all fields.' : 'يرجى تعبئة جميع الحقول.')
       return
     }
-    const members = JSON.parse(localStorage.getItem('all_members') || '[]')
+    const members = getMergedMembersRaw()
     const existing = members.find(m => (m.email || '').toLowerCase() === formData.email.trim().toLowerCase())
     if (existing) {
       setError(language === 'en' ? 'This email is already registered.' : 'هذا البريد مسجّل مسبقاً.')
@@ -85,8 +86,10 @@ const Register = () => {
       role: 'member',
       createdAt: new Date().toISOString()
     }
-    members.push(newMember)
-    localStorage.setItem('all_members', JSON.stringify(members))
+    if (!upsertMember(newMember)) {
+      setError(language === 'en' ? 'Registration failed.' : 'فشل التسجيل.')
+      return
+    }
     setCurrentPlatformUser(newMember.id)
     if (joinClubId) navigate(`/clubs/${joinClubId}`, { replace: true })
     else navigate('/', { replace: true })

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { getClubMembersFromStorage } from '../../storage/adminStorage'
 import './ClubDetails.css'
 
 const ClubDetails = ({ clubs, onUpdateClub }) => {
@@ -74,7 +75,7 @@ const ClubDetails = ({ clubs, onUpdateClub }) => {
                     <span className="stat-label">Tournaments</span>
                   </div>
                   <div className="stat-item">
-                    <span className="stat-value">{club.members?.length || 0}</span>
+                    <span className="stat-value">{getClubMembersFromStorage(club.id).length}</span>
                     <span className="stat-label">Members</span>
                   </div>
                   <div className="stat-item">

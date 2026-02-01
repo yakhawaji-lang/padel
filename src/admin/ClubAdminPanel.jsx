@@ -11,7 +11,7 @@ import ClubOffersManagement from './pages/ClubOffersManagement'
 import ClubStoreManagement from './pages/ClubStoreManagement'
 import ClubAccountingManagement from './pages/ClubAccountingManagement'
 import ClubSettings from './pages/ClubSettings'
-import { loadClubs, saveClubs, getClubById } from '../storage/adminStorage'
+import { loadClubs, saveClubs, getClubById, syncMembersToClubsManually } from '../storage/adminStorage'
 
 function ClubAdminPanel() {
   const { clubId } = useParams()
@@ -23,6 +23,7 @@ function ClubAdminPanel() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const loadData = () => {
+    syncMembersToClubsManually()
     const allClubs = loadClubs()
     setClubs(allClubs)
     const foundClub = getClubById(clubId)

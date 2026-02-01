@@ -1,5 +1,7 @@
 // Storage utility for hybrid localStorage + IndexedDB approach
 
+import { saveMembers, getMergedMembersRaw } from './storage/adminStorage.js'
+
 // ==================== LOCALSTORAGE (Current State) ====================
 
 const STORAGE_KEYS = {
@@ -55,7 +57,12 @@ export const saveToLocalStorage = {
   
   members: (members) => {
     try {
-      localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(members))
+      if (!Array.isArray(members)) return
+      const existing = getMergedMembersRaw()
+      const byId = new Map()
+      existing.forEach(m => { if (m?.id) byId.set(String(m.id), m) })
+      members.forEach(m => { if (m?.id) byId.set(String(m.id), { ...byId.get(m.id), ...m }) })
+      saveMembers(Array.from(byId.values()))
     } catch (error) {
       console.error('Error saving members:', error)
     }
@@ -160,8 +167,8 @@ export const loadFromLocalStorage = {
   
   members: () => {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.MEMBERS)
-      return data ? JSON.parse(data) : null
+      const merged = getMergedMembersRaw()
+      return merged.length > 0 ? merged : null
     } catch (error) {
       console.error('Error loading members:', error)
       return null

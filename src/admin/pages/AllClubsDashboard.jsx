@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './common.css'
 import './AllClubsDashboard.css'
-import { getAllMembersFromStorage, addMemberToClubs } from '../../storage/adminStorage'
+import { getAllMembersFromStorage, addMemberToClubs, getClubMembersFromStorage } from '../../storage/adminStorage'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
@@ -32,8 +32,7 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
       ),
       totalCourts: approvedClubs.reduce((sum, club) => sum + (club.courts?.length || 0), 0),
       activeClubs: approvedClubs.filter(club => 
-        (club.members?.length || 0) > 0 || 
-        allMembers.some(m => (m.clubIds || []).includes(club.id)) ||
+        getClubMembersFromStorage(club.id).length > 0 || 
         (club.tournaments?.length || 0) > 0
       ).length,
       storesEnabled: approvedClubs.filter(club => club.storeEnabled).length
@@ -58,8 +57,8 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
       
       switch (sortBy) {
         case 'members':
-          aValue = a.members?.length || 0
-          bValue = b.members?.length || 0
+          aValue = getClubMembersFromStorage(a.id).length
+          bValue = getClubMembersFromStorage(b.id).length
           break
         case 'tournaments':
           aValue = a.tournaments?.length || 0
@@ -567,7 +566,7 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
                       <div className="club-stat-item">
                         <span className="stat-icon">👥</span>
                         <div className="stat-details">
-                          <span className="stat-value">{club.members?.length || 0}</span>
+                          <span className="stat-value">{getClubMembersFromStorage(club.id).length}</span>
                           <span className="stat-label">Members</span>
                         </div>
                       </div>

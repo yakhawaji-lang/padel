@@ -8,7 +8,97 @@ const ADMIN_STORAGE_KEYS = {
   CURRENT_CLUB: 'admin_current_club_id'
 }
 
+const MEMBER_STORAGE_KEYS = {
+  ALL: 'all_members',
+  PADEL: 'padel_members'
+}
+
 let _clubsCache = null
+
+/**
+ * Load and merge members from both all_members and padel_members.
+ * all_members takes precedence for platform registrations.
+ */
+export function getMergedMembersRaw() {
+  let members = []
+  let allMembers = []
+  try {
+    const pm = localStorage.getItem(MEMBER_STORAGE_KEYS.PADEL)
+    if (pm) members = JSON.parse(pm)
+    if (!Array.isArray(members)) members = []
+  } catch (_) {}
+  try {
+    const am = localStorage.getItem(MEMBER_STORAGE_KEYS.ALL)
+    if (am) allMembers = JSON.parse(am)
+    if (!Array.isArray(allMembers)) allMembers = []
+  } catch (_) {}
+  const byId = new Map()
+  members.forEach(m => { if (m && m.id) byId.set(m.id, m) })
+  allMembers.forEach(m => { if (m && m.id) byId.set(m.id, { ...byId.get(m.id), ...m }) })
+  return Array.from(byId.values())
+}
+
+/**
+ * Save members to BOTH all_members and padel_members. Single source of truth.
+ * Call after any member add/update. Triggers clubs sync and clubs-synced event.
+ */
+export function saveMembers(members) {
+  if (!Array.isArray(members)) return false
+  try {
+    const json = JSON.stringify(members)
+    localStorage.setItem(MEMBER_STORAGE_KEYS.ALL, json)
+    localStorage.setItem(MEMBER_STORAGE_KEYS.PADEL, json)
+    const clubs = loadClubs()
+    syncMembersToClubs(clubs)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('clubs-synced'))
+    }
+    return true
+  } catch (e) {
+    console.error('saveMembers error:', e)
+    if (e?.name === 'QuotaExceededError') {
+      try {
+        localStorage.setItem(MEMBER_STORAGE_KEYS.ALL, JSON.stringify(members))
+      } catch (_) {}
+    }
+    return false
+  }
+}
+
+/**
+ * Add or update a member. Merges with existing. Saves to both storages.
+ */
+export function upsertMember(member) {
+  if (!member || !member.id) return null
+  const members = getMergedMembersRaw()
+  const idx = members.findIndex(m => m.id === member.id)
+  const merged = { ...(idx >= 0 ? members[idx] : {}), ...member }
+  if (idx >= 0) members[idx] = merged
+  else members.push(merged)
+  return saveMembers(members) ? merged : null
+}
+
+/**
+ * Add a member to one or more clubs. Saves to both storages; syncMembersToClubs updates clubs.
+ */
+export function addMemberToClub(memberId, clubIdOrIds) {
+  const clubIds = Array.isArray(clubIdOrIds) ? clubIdOrIds : [clubIdOrIds]
+  const members = getMergedMembersRaw()
+  const member = members.find(m => m.id === memberId)
+  if (!member) return false
+  const currentIds = member.clubIds || (member.clubId ? [member.clubId] : [])
+  let changed = false
+  clubIds.forEach(cid => {
+    if (!currentIds.includes(cid)) {
+      currentIds.push(cid)
+      changed = true
+    }
+  })
+  if (!changed) return true
+  member.clubIds = currentIds
+  member.clubId = currentIds[0]
+  return saveMembers(members)
+}
 
 /**
  * Deduplicate clubs: keep one per id, remove pending when approved exists (same adminEmail),
@@ -240,40 +330,7 @@ export const loadClubs = () => {
 // Sync members from localStorage to clubs
 export const syncMembersToClubs = (clubs) => {
   try {
-    // Load from both padel_members (admin) and all_members (Register/Login)
-    // Users who register via platform are in all_members only until sync
-    const membersData = localStorage.getItem('padel_members')
-    const allMembersData = localStorage.getItem('all_members')
-    let members = []
-    let allMembers = []
-    if (membersData) {
-      try {
-        const parsed = JSON.parse(membersData)
-        if (Array.isArray(parsed)) members = parsed
-      } catch (e) {
-        console.error('Error parsing padel_members:', e)
-      }
-    }
-    if (allMembersData) {
-      try {
-        const parsed = JSON.parse(allMembersData)
-        if (Array.isArray(parsed)) allMembers = parsed
-      } catch (e) {
-        console.error('Error parsing all_members:', e)
-      }
-    }
-
-    // Merge both sources (all_members takes precedence for platform registrations)
-    const allMembersMap = new Map()
-    members.forEach(m => {
-      if (m && m.id) allMembersMap.set(m.id, m)
-    })
-    allMembers.forEach(m => {
-      if (m && m.id) allMembersMap.set(m.id, m)
-    })
-    const mergedMembers = Array.from(allMembersMap.values())
-    if (mergedMembers.length === 0) return
-    
+    const mergedMembers = getMergedMembersRaw()
     // For each club, sync members
     let hasChanges = false
     clubs.forEach(club => {
@@ -359,11 +416,12 @@ export const syncMembersToClubs = (clubs) => {
         })
         
         const updatedMembers = Array.from(updatedMembersMap.values())
-        
-        // Save to both storage locations
-        localStorage.setItem('padel_members', JSON.stringify(updatedMembers))
-        if (localStorage.getItem('all_members')) {
-          localStorage.setItem('all_members', JSON.stringify(updatedMembers))
+        try {
+          const json = JSON.stringify(updatedMembers)
+          localStorage.setItem(MEMBER_STORAGE_KEYS.ALL, json)
+          localStorage.setItem(MEMBER_STORAGE_KEYS.PADEL, json)
+        } catch (e) {
+          console.error('syncMembersToClubs save error:', e)
         }
       } catch (error) {
         console.error('Error updating members with clubIds:', error)
@@ -666,26 +724,7 @@ export const syncMembersToClubsManually = () => {
 export const getClubMembersFromStorage = (clubId) => {
   try {
     if (!clubId) return []
-    const membersData = localStorage.getItem('padel_members')
-    const allMembersData = localStorage.getItem('all_members')
-    let members = []
-    let allMembers = []
-    if (membersData) {
-      try {
-        const parsed = JSON.parse(membersData)
-        if (Array.isArray(parsed)) members = parsed
-      } catch (_) {}
-    }
-    if (allMembersData) {
-      try {
-        const parsed = JSON.parse(allMembersData)
-        if (Array.isArray(parsed)) allMembers = parsed
-      } catch (_) {}
-    }
-    const byId = new Map()
-    members.forEach(m => { if (m && m.id) byId.set(m.id, m) })
-    allMembers.forEach(m => { if (m && m.id) byId.set(m.id, m) })
-    const merged = Array.from(byId.values())
+    const merged = getMergedMembersRaw()
     return merged.filter(m => {
       if (m.clubIds && Array.isArray(m.clubIds)) return m.clubIds.includes(clubId)
       if (m.clubId) return m.clubId === clubId
@@ -710,26 +749,7 @@ export const getClubMembersFromStorage = (clubId) => {
 /** Get all members from storage (merged from padel_members and all_members) with their clubIds */
 export const getAllMembersFromStorage = () => {
   try {
-    const membersData = localStorage.getItem('padel_members')
-    const allMembersData = localStorage.getItem('all_members')
-    let members = []
-    let allMembers = []
-    if (membersData) {
-      try {
-        const parsed = JSON.parse(membersData)
-        if (Array.isArray(parsed)) members = parsed
-      } catch (_) {}
-    }
-    if (allMembersData) {
-      try {
-        const parsed = JSON.parse(allMembersData)
-        if (Array.isArray(parsed)) allMembers = parsed
-      } catch (_) {}
-    }
-    const byId = new Map()
-    members.forEach(m => { if (m && m.id) byId.set(m.id, m) })
-    allMembers.forEach(m => { if (m && m.id) byId.set(m.id, m) })
-    return Array.from(byId.values()).map(m => ({
+    return getMergedMembersRaw().map(m => ({
       id: m.id,
       name: m.name,
       email: m.email,
@@ -743,183 +763,24 @@ export const getAllMembersFromStorage = () => {
   }
 }
 
-// Add member to additional club(s)
+/** Add member to additional club(s) - delegates to addMemberToClub */
 export const addMemberToClubs = (memberId, clubIds) => {
-  try {
-    // Load members from localStorage
-    const membersData = localStorage.getItem('padel_members')
-    const allMembersData = localStorage.getItem('all_members')
-    
-    let members = []
-    if (membersData) {
-      try {
-        members = JSON.parse(membersData)
-      } catch (e) {
-        console.error('Error parsing padel_members:', e)
-      }
-    }
-    
-    if (allMembersData) {
-      try {
-        const allMembers = JSON.parse(allMembersData)
-        // Merge with existing members
-        const membersMap = new Map()
-        members.forEach(m => {
-          if (m && m.id) membersMap.set(m.id, m)
-        })
-        allMembers.forEach(m => {
-          if (m && m.id) {
-            const existing = membersMap.get(m.id)
-            if (existing) {
-              // Merge data
-              membersMap.set(m.id, { ...existing, ...m })
-            } else {
-              membersMap.set(m.id, m)
-            }
-          }
-        })
-        members = Array.from(membersMap.values())
-      } catch (e) {
-        console.error('Error parsing all_members:', e)
-      }
-    }
-    
-    // Find member
-    const member = members.find(m => m.id === memberId)
-    if (!member) {
-      console.error('Member not found:', memberId)
-      return false
-    }
-    
-    // Ensure clubIds is an array
-    if (!member.clubIds) {
-      member.clubIds = member.clubId ? [member.clubId] : []
-    }
-    
-    // Add new club IDs (avoid duplicates)
-    const clubIdsArray = Array.isArray(clubIds) ? clubIds : [clubIds]
-    clubIdsArray.forEach(clubId => {
-      if (!member.clubIds.includes(clubId)) {
-        member.clubIds.push(clubId)
-      }
-    })
-    
-    // Update member in array
-    const memberIndex = members.findIndex(m => m.id === memberId)
-    if (memberIndex !== -1) {
-      members[memberIndex] = member
-    }
-    
-    // Save updated members
-    localStorage.setItem('padel_members', JSON.stringify(members))
-    localStorage.setItem('all_members', JSON.stringify(members))
-    
-    // Update clubs
-    const clubs = loadClubs()
-    clubIdsArray.forEach(clubId => {
-      const club = clubs.find(c => c.id === clubId)
-      if (club) {
-        club.members = club.members || []
-        if (!club.members.find(m => m.id === memberId)) {
-          club.members.push({
-            id: member.id,
-            name: member.name,
-            email: member.email,
-            avatar: member.avatar,
-            mobile: member.mobile || member.phone,
-            totalGames: member.totalGames || 0,
-            totalWins: member.totalWins || 0,
-            totalPoints: member.totalPoints || 0,
-            clubIds: member.clubIds
-          })
-        }
-      }
-    })
-    saveClubs(clubs)
-    
-    return true
-  } catch (error) {
-    console.error('Error adding member to clubs:', error)
-    return false
-  }
+  return addMemberToClub(memberId, clubIds)
 }
 
-// Remove member from club(s)
+/** Remove member from club(s). Uses centralized saveMembers; sync updates clubs. */
 export const removeMemberFromClubs = (memberId, clubIds) => {
   try {
-    // Load members
-    const membersData = localStorage.getItem('padel_members')
-    const allMembersData = localStorage.getItem('all_members')
-    
-    let members = []
-    if (membersData) {
-      try {
-        members = JSON.parse(membersData)
-      } catch (e) {
-        console.error('Error parsing padel_members:', e)
-      }
-    }
-    
-    if (allMembersData) {
-      try {
-        const allMembers = JSON.parse(allMembersData)
-        const membersMap = new Map()
-        members.forEach(m => {
-          if (m && m.id) membersMap.set(m.id, m)
-        })
-        allMembers.forEach(m => {
-          if (m && m.id) {
-            const existing = membersMap.get(m.id)
-            if (existing) {
-              membersMap.set(m.id, { ...existing, ...m })
-            } else {
-              membersMap.set(m.id, m)
-            }
-          }
-        })
-        members = Array.from(membersMap.values())
-      } catch (e) {
-        console.error('Error parsing all_members:', e)
-      }
-    }
-    
-    // Find member
+    const members = getMergedMembersRaw()
     const member = members.find(m => m.id === memberId)
-    if (!member) {
-      console.error('Member not found:', memberId)
-      return false
-    }
-    
-    // Remove club IDs
-    if (member.clubIds && Array.isArray(member.clubIds)) {
-      const clubIdsArray = Array.isArray(clubIds) ? clubIds : [clubIds]
-      member.clubIds = member.clubIds.filter(id => !clubIdsArray.includes(id))
-    }
-    
-    // Update member
-    const memberIndex = members.findIndex(m => m.id === memberId)
-    if (memberIndex !== -1) {
-      members[memberIndex] = member
-    }
-    
-    // Save updated members
-    localStorage.setItem('padel_members', JSON.stringify(members))
-    localStorage.setItem('all_members', JSON.stringify(members))
-    
-    // Update clubs
-    const clubs = loadClubs()
-    const clubIdsArray = Array.isArray(clubIds) ? clubIds : [clubIds]
-    clubIdsArray.forEach(clubId => {
-      const club = clubs.find(c => c.id === clubId)
-      if (club && club.members) {
-        club.members = club.members.filter(m => m.id !== memberId)
-      }
-    })
-    saveClubs(clubs)
-    
-    return true
-  } catch (error) {
-    console.error('Error removing member from clubs:', error)
+    if (!member) return false
+    const toRemove = Array.isArray(clubIds) ? clubIds : [clubIds]
+    const currentIds = member.clubIds || (member.clubId ? [member.clubId] : [])
+    member.clubIds = currentIds.filter(id => !toRemove.includes(id))
+    member.clubId = member.clubIds[0]
+    return saveMembers(members)
+  } catch (e) {
+    console.error('removeMemberFromClubs error:', e)
     return false
   }
 }

@@ -6,7 +6,7 @@ import MainAdminSidebar from './components/MainAdminSidebar'
 import MainAdminHeader from './components/MainAdminHeader'
 import AllClubsDashboard from './pages/AllClubsDashboard'
 import AllClubsManagement from './pages/AllClubsManagement'
-import { loadClubs, saveClubs, approveClub as doApproveClub, rejectClub as doRejectClub } from '../storage/adminStorage'
+import { loadClubs, saveClubs, approveClub as doApproveClub, rejectClub as doRejectClub, syncMembersToClubsManually } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 
 function MainAdminPanel() {
@@ -17,6 +17,7 @@ function MainAdminPanel() {
 
   useEffect(() => {
     const loadData = () => {
+      syncMembersToClubsManually()
       const savedClubs = loadClubs()
       setClubs(savedClubs || [])
       
