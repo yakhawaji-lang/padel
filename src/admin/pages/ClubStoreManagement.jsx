@@ -3,14 +3,14 @@ import '../pages/common.css'
 import './ClubStoreManagement.css'
 import BarcodeDisplay from '../components/BarcodeDisplay'
 
-const defaultStore = () => ({ name: '', nameAr: '', categories: [], products: [], sales: [], inventoryMovements: [], minStockAlert: 5 })
+const defaultStore = () => ({ name: '', nameAr: '', categories: [], products: [], sales: [], inventoryMovements: [], offers: [], coupons: [], minStockAlert: 5 })
 
 const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [store, setStore] = useState(() => club?.store || defaultStore())
   const [categoryForm, setCategoryForm] = useState({ name: '', nameAr: '', order: 0 })
   const [productForm, setProductForm] = useState({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: 0, stock: '', barcode: '' })
-  const [saleForm, setSaleForm] = useState({ items: [], customerName: '', notes: '', paymentMethod: 'cash' })
+  const [saleForm, setSaleForm] = useState({ items: [], customerName: '', notes: '', paymentMethod: 'cash', couponCode: '', appliedCoupon: null })
   const [editingCategory, setEditingCategory] = useState(null)
   const [editingProduct, setEditingProduct] = useState(null)
   const [statsPeriod, setStatsPeriod] = useState('all') // 'today' | 'week' | 'month' | 'all'
@@ -22,11 +22,15 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
   const [inventoryFilter, setInventoryFilter] = useState('all') // 'all' | 'tracked' | 'low' | 'out'
   const [inventoryBarcodeSearch, setInventoryBarcodeSearch] = useState('')
   const [imageSource, setImageSource] = useState('url') // 'url' | 'device'
+  const [offerForm, setOfferForm] = useState({ name: '', nameAr: '', type: 'percentage', value: '', productIds: [], categoryIds: [], startDate: '', endDate: '', active: true })
+  const [couponForm, setCouponForm] = useState({ code: '', name: '', nameAr: '', type: 'percentage', value: '', minPurchase: '', maxUses: '', startDate: '', endDate: '', active: true })
+  const [editingOffer, setEditingOffer] = useState(null)
+  const [editingCoupon, setEditingCoupon] = useState(null)
   const [movementFilter, setMovementFilter] = useState('all') // 'all' | 'in' | 'out' | 'sale'
   const language = langProp || localStorage.getItem(`club_${club?.id}_language`) || 'en'
 
   useEffect(() => {
-    setStore(club?.store ? { ...defaultStore(), ...club.store, categories: club.store.categories || [], products: club.store.products || [], sales: club.store.sales || [], inventoryMovements: club.store.inventoryMovements || [], minStockAlert: club.store.minStockAlert ?? 5 } : defaultStore())
+    setStore(club?.store ? { ...defaultStore(), ...club.store, categories: club.store.categories || [], products: club.store.products || [], sales: club.store.sales || [], inventoryMovements: club.store.inventoryMovements || [], offers: club.store.offers || [], coupons: club.store.coupons || [], minStockAlert: club.store.minStockAlert ?? 5 } : defaultStore())
   }, [club?.id, club?.store])
 
   useEffect(() => {
@@ -117,28 +121,36 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
     if (!saleForm.items.length) return
     const currency = club?.settings?.currency || 'SAR'
     const items = saleForm.items.map(it => {
-      const p = (store.products || []).find(pr => pr.id === it.productId)
-      const price = parseFloat(p?.price || it.price || 0) || 0
+      const price = it.price || 0
       const qty = Math.max(1, it.qty)
       return {
         productId: it.productId,
-        productName: p ? (language === 'ar' && p.nameAr ? p.nameAr : p.name) : it.productName,
+        productName: it.productName,
         qty,
         price,
         total: price * qty
       }
     })
-    const totalAmount = items.reduce((s, i) => s + i.total, 0)
+    const subtotal = items.reduce((s, i) => s + i.total, 0)
+    const couponDiscount = saleForm.appliedCoupon ? applyCouponToTotal(saleForm.appliedCoupon, subtotal) : 0
+    const totalAmount = Math.max(0, subtotal - couponDiscount)
     const sale = {
       id: `sale-${Date.now()}`,
       date: new Date().toISOString().split('T')[0],
       time: new Date().toTimeString().slice(0, 5),
       items,
+      subtotal,
+      couponCode: saleForm.appliedCoupon?.code,
+      couponDiscount: couponDiscount || undefined,
       totalAmount,
       customerName: (saleForm.customerName || '').trim() || undefined,
       notes: (saleForm.notes || '').trim() || undefined,
       paymentMethod: saleForm.paymentMethod || 'cash',
       currency
+    }
+    let newCoupons = coupons
+    if (saleForm.appliedCoupon) {
+      newCoupons = coupons.map(c => c.id === saleForm.appliedCoupon.id ? { ...c, usedCount: (c.usedCount || 0) + 1 } : c)
     }
     const newSales = [...(store.sales || []), sale]
     const movements = []
@@ -162,8 +174,8 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       return { ...p, stock: next }
     })
     const newMovements = [...(store.inventoryMovements || []), ...movements]
-    saveStore({ sales: newSales, products: newProducts, inventoryMovements: newMovements })
-    setSaleForm({ items: [], customerName: '', notes: '', paymentMethod: 'cash' })
+    saveStore({ sales: newSales, products: newProducts, inventoryMovements: newMovements, coupons: newCoupons })
+    setSaleForm({ items: [], customerName: '', notes: '', paymentMethod: 'cash', couponCode: '', appliedCoupon: null })
     setSaleProductSelect({ productId: '', qty: 1 })
   }
 
@@ -180,13 +192,118 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       if (p.stock != null && (p.stock ?? 0) < newQty) return
       newItems = saleForm.items.map(i => i.productId === saleProductSelect.productId ? { ...i, qty: newQty } : i)
     } else {
-      newItems = [...saleForm.items, { productId: p.id, productName: language === 'ar' && p.nameAr ? p.nameAr : p.name, qty, price: parseFloat(p.price) || 0 }]
+      const basePrice = parseFloat(p.price) || 0
+      const effPrice = getEffectivePrice(p, basePrice)
+      newItems = [...saleForm.items, { productId: p.id, productName: language === 'ar' && p.nameAr ? p.nameAr : p.name, qty, price: getEffectivePrice(p, basePrice) }]
     }
     setSaleForm(f => ({ ...f, items: newItems }))
   }
 
   const removeItemFromSale = (productId) => {
     setSaleForm(f => ({ ...f, items: f.items.filter(i => i.productId !== productId) }))
+  }
+
+  const applyCoupon = () => {
+    const subtotal = saleForm.items.reduce((s, i) => s + (i.price || 0) * (i.qty || 1), 0)
+    const result = validateCoupon(saleForm.couponCode, subtotal)
+    if (result && !result.error) {
+      setSaleForm(f => ({ ...f, appliedCoupon: result }))
+    } else {
+      setSaleForm(f => ({ ...f, appliedCoupon: null }))
+    }
+  }
+
+  const removeCoupon = () => {
+    setSaleForm(f => ({ ...f, couponCode: '', appliedCoupon: null }))
+  }
+
+  const addOffer = () => {
+    if (!offerForm.name?.trim()) return
+    const id = `off-${Date.now()}`
+    const offer = {
+      id,
+      name: offerForm.name.trim(),
+      nameAr: (offerForm.nameAr || '').trim(),
+      type: offerForm.type || 'percentage',
+      value: Number(offerForm.value) || 0,
+      productIds: offerForm.productIds || [],
+      categoryIds: offerForm.categoryIds || [],
+      startDate: (offerForm.startDate || '').trim() || undefined,
+      endDate: (offerForm.endDate || '').trim() || undefined,
+      active: !!offerForm.active
+    }
+    saveStore({ offers: [...offers, offer] })
+    setOfferForm({ name: '', nameAr: '', type: 'percentage', value: '', productIds: [], categoryIds: [], startDate: '', endDate: '', active: true })
+    setEditingOffer(null)
+  }
+
+  const updateOffer = (id) => {
+    const next = offers.map(o => o.id !== id ? o : {
+      ...o,
+      name: offerForm.name?.trim() || o.name,
+      nameAr: (offerForm.nameAr || '').trim(),
+      type: offerForm.type || 'percentage',
+      value: Number(offerForm.value) || 0,
+      productIds: offerForm.productIds || [],
+      categoryIds: offerForm.categoryIds || [],
+      startDate: (offerForm.startDate || '').trim() || undefined,
+      endDate: (offerForm.endDate || '').trim() || undefined,
+      active: !!offerForm.active
+    })
+    saveStore({ offers: next })
+    setOfferForm({ name: '', nameAr: '', type: 'percentage', value: '', productIds: [], categoryIds: [], startDate: '', endDate: '', active: true })
+    setEditingOffer(null)
+  }
+
+  const deleteOffer = (id) => {
+    saveStore({ offers: offers.filter(o => o.id !== id) })
+    setEditingOffer(null)
+  }
+
+  const addCoupon = () => {
+    if (!couponForm.code?.trim()) return
+    const id = `cup-${Date.now()}`
+    const coupon = {
+      id,
+      code: couponForm.code.trim().toUpperCase(),
+      name: (couponForm.name || '').trim(),
+      nameAr: (couponForm.nameAr || '').trim(),
+      type: couponForm.type || 'percentage',
+      value: Number(couponForm.value) || 0,
+      minPurchase: Number(couponForm.minPurchase) || undefined,
+      maxUses: Number(couponForm.maxUses) || undefined,
+      usedCount: 0,
+      startDate: (couponForm.startDate || '').trim() || undefined,
+      endDate: (couponForm.endDate || '').trim() || undefined,
+      active: !!couponForm.active
+    }
+    saveStore({ coupons: [...coupons, coupon] })
+    setCouponForm({ code: '', name: '', nameAr: '', type: 'percentage', value: '', minPurchase: '', maxUses: '', startDate: '', endDate: '', active: true })
+    setEditingCoupon(null)
+  }
+
+  const updateCoupon = (id) => {
+    const next = coupons.map(c => c.id !== id ? c : {
+      ...c,
+      code: (couponForm.code || '').trim().toUpperCase() || c.code,
+      name: (couponForm.name || '').trim(),
+      nameAr: (couponForm.nameAr || '').trim(),
+      type: couponForm.type || 'percentage',
+      value: Number(couponForm.value) || 0,
+      minPurchase: Number(couponForm.minPurchase) || undefined,
+      maxUses: Number(couponForm.maxUses) || undefined,
+      startDate: (couponForm.startDate || '').trim() || undefined,
+      endDate: (couponForm.endDate || '').trim() || undefined,
+      active: !!couponForm.active
+    })
+    saveStore({ coupons: next })
+    setCouponForm({ code: '', name: '', nameAr: '', type: 'percentage', value: '', minPurchase: '', maxUses: '', startDate: '', endDate: '', active: true })
+    setEditingCoupon(null)
+  }
+
+  const deleteCoupon = (id) => {
+    saveStore({ coupons: coupons.filter(c => c.id !== id) })
+    setEditingCoupon(null)
   }
 
   const addByBarcode = () => {
@@ -205,7 +322,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       if (p.stock != null && (p.stock ?? 0) < newQty) return
       newItems = saleForm.items.map(i => i.productId === p.id ? { ...i, qty: newQty } : i)
     } else {
-      newItems = [...saleForm.items, { productId: p.id, productName: language === 'ar' && p.nameAr ? p.nameAr : p.name, qty: 1, price: parseFloat(p.price) || 0 }]
+      newItems = [...saleForm.items, { productId: p.id, productName: language === 'ar' && p.nameAr ? p.nameAr : p.name, qty: 1, price: getEffectivePrice(p, parseFloat(p.price) || 0) }]
     }
     setSaleForm(f => ({ ...f, items: newItems }))
     setSaleBarcodeInput('')
@@ -263,7 +380,42 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
   const categories = store.categories || []
   const products = store.products || []
   const sales = store.sales || []
+  const offers = store.offers || []
+  const coupons = store.coupons || []
   const movements = store.inventoryMovements || []
+
+  const getEffectivePrice = (product, basePrice) => {
+    const today = new Date().toISOString().split('T')[0]
+    const activeOffers = offers.filter(o => o.active && (!o.startDate || o.startDate <= today) && (!o.endDate || o.endDate >= today))
+    let bestPrice = basePrice
+    activeOffers.forEach(o => {
+      const matchProduct = (o.productIds || []).includes(product?.id)
+      const matchCategory = (o.categoryIds || []).includes(product?.categoryId)
+      if (!matchProduct && !matchCategory) return
+      const discount = o.type === 'percentage' ? basePrice * (Number(o.value) || 0) / 100 : Math.min(basePrice, Number(o.value) || 0)
+      const p = basePrice - discount
+      if (p < bestPrice) bestPrice = p
+    })
+    return Math.max(0, bestPrice)
+  }
+
+  const validateCoupon = (code, subtotal) => {
+    const c = code?.trim().toUpperCase()
+    if (!c) return null
+    const today = new Date().toISOString().split('T')[0]
+    const coupon = coupons.find(co => co.active && co.code?.toUpperCase() === c && (!co.startDate || co.startDate <= today) && (!co.endDate || co.endDate >= today))
+    if (!coupon) return null
+    const min = Number(coupon.minPurchase) || 0
+    if (subtotal < min) return { ...coupon, error: 'min' }
+    const max = Number(coupon.maxUses) || 999999
+    if ((coupon.usedCount || 0) >= max) return { ...coupon, error: 'max' }
+    return coupon
+  }
+
+  const applyCouponToTotal = (coupon, subtotal) => {
+    if (!coupon) return 0
+    return coupon.type === 'percentage' ? subtotal * (Number(coupon.value) || 0) / 100 : Math.min(subtotal, Number(coupon.value) || 0)
+  }
   const minStockAlert = store.minStockAlert ?? 5
   const currency = club?.settings?.currency || 'SAR'
 
@@ -306,7 +458,9 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
     return { totalRevenue, totalTransactions, topProducts, inventoryValue, lowStockCount: low.length, outOfStockCount: out.length }
   }, [filteredSales, products, store.minStockAlert])
 
-  const saleFormTotal = useMemo(() => saleForm.items.reduce((s, i) => s + (i.price || 0) * (i.qty || 1), 0), [saleForm.items])
+  const saleFormSubtotal = useMemo(() => saleForm.items.reduce((s, i) => s + (i.price || 0) * (i.qty || 1), 0), [saleForm.items])
+  const saleFormCouponDiscount = useMemo(() => saleForm.appliedCoupon ? applyCouponToTotal(saleForm.appliedCoupon, saleFormSubtotal) : 0, [saleForm.appliedCoupon, saleFormSubtotal])
+  const saleFormTotal = useMemo(() => Math.max(0, saleFormSubtotal - saleFormCouponDiscount), [saleFormSubtotal, saleFormCouponDiscount])
 
   const t = {
     en: {
@@ -386,7 +540,32 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       barcode: 'Barcode',
       barcodeHint: 'Optional - for scanner and quick add',
       scanOrEnterBarcode: 'Scan or enter barcode',
-      addByBarcode: 'Add by barcode'
+      addByBarcode: 'Add by barcode',
+      offers: 'Offers & Discounts',
+      coupons: 'Coupons',
+      addOffer: 'Add offer',
+      addCoupon: 'Add coupon',
+      offerName: 'Offer name',
+      discountType: 'Type',
+      percentage: 'Percentage',
+      fixed: 'Fixed amount',
+      discountValue: 'Value',
+      appliesTo: 'Applies to',
+      products: 'Products',
+      categories: 'Categories',
+      startDate: 'Start date',
+      endDate: 'End date',
+      active: 'Active',
+      couponCode: 'Code',
+      minPurchase: 'Min. purchase',
+      maxUses: 'Max uses',
+      usedCount: 'Used',
+      applyCoupon: 'Apply',
+      removeCoupon: 'Remove',
+      subtotal: 'Subtotal',
+      discount: 'Discount',
+      noOffers: 'No offers yet.',
+      noCoupons: 'No coupons yet.'
     },
     ar: {
       title: 'المبيعات والمتجر',
@@ -465,7 +644,32 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
       barcode: 'الباركود',
       barcodeHint: 'اختياري - للماسح الضوئي والإضافة السريعة',
       scanOrEnterBarcode: 'امسح أو أدخل الباركود',
-      addByBarcode: 'إضافة بالباركود'
+      addByBarcode: 'إضافة بالباركود',
+      offers: 'العروض والخصومات',
+      coupons: 'الكوبونات',
+      addOffer: 'إضافة عرض',
+      addCoupon: 'إضافة كوبون',
+      offerName: 'اسم العرض',
+      discountType: 'النوع',
+      percentage: 'نسبة مئوية',
+      fixed: 'مبلغ ثابت',
+      discountValue: 'القيمة',
+      appliesTo: 'ينطبق على',
+      products: 'المنتجات',
+      categories: 'التصنيفات',
+      startDate: 'تاريخ البداية',
+      endDate: 'تاريخ النهاية',
+      active: 'نشط',
+      couponCode: 'الكود',
+      minPurchase: 'الحد الأدنى للشراء',
+      maxUses: 'الحد الأقصى للاستخدام',
+      usedCount: 'تم الاستخدام',
+      applyCoupon: 'تطبيق',
+      removeCoupon: 'إزالة',
+      subtotal: 'المجموع الفرعي',
+      discount: 'الخصم',
+      noOffers: 'لا توجد عروض بعد.',
+      noCoupons: 'لا توجد كوبونات بعد.'
     }
   }
   const c = t[language]
@@ -475,6 +679,8 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
   const tabs = [
     { id: 'dashboard', label: c.dashboard, icon: '📊' },
     { id: 'inventory', label: c.inventory, icon: '📦' },
+    { id: 'offers', label: c.offers, icon: '🏷️' },
+    { id: 'coupons', label: c.coupons, icon: '🎫' },
     { id: 'info', label: c.storeInfo, icon: '⚙️' },
     { id: 'categories', label: c.categories, icon: '📁' },
     { id: 'products', label: c.products, icon: '🛍️' },
@@ -800,6 +1006,179 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
         </div>
       )}
 
+      {activeTab === 'offers' && (
+        <div className="store-section">
+          <div className="store-form-card offer-form">
+            <h3>{editingOffer ? (language === 'en' ? 'Edit offer' : 'تعديل العرض') : c.addOffer}</h3>
+            <div className="form-row">
+              <label>{c.offerName}</label>
+              <input type="text" value={offerForm.name} onChange={(e) => setOfferForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Summer Sale" />
+            </div>
+            <div className="form-row">
+              <label>{c.nameAr}</label>
+              <input type="text" value={offerForm.nameAr} onChange={(e) => setOfferForm(f => ({ ...f, nameAr: e.target.value }))} placeholder="مثلاً: تخفيضات الصيف" />
+            </div>
+            <div className="form-row form-row-inline">
+              <div>
+                <label>{c.discountType}</label>
+                <select value={offerForm.type} onChange={(e) => setOfferForm(f => ({ ...f, type: e.target.value }))}>
+                  <option value="percentage">{c.percentage}</option>
+                  <option value="fixed">{c.fixed}</option>
+                </select>
+              </div>
+              <div>
+                <label>{c.discountValue}</label>
+                <input type="text" value={offerForm.value} onChange={(e) => setOfferForm(f => ({ ...f, value: e.target.value }))} placeholder={offerForm.type === 'percentage' ? '10' : '20'} />
+              </div>
+            </div>
+            <div className="form-row">
+              <label>{c.appliesTo} – {c.products}</label>
+              <select multiple value={offerForm.productIds} onChange={(e) => setOfferForm(f => ({ ...f, productIds: [...e.target.selectedOptions].map(o => o.value) }))} className="multi-select">
+                {products.map(p => (
+                  <option key={p.id} value={p.id}>{language === 'ar' && p.nameAr ? p.nameAr : p.name}</option>
+                ))}
+              </select>
+              <span className="form-hint">{language === 'en' ? 'Hold Ctrl/Cmd to select multiple' : 'اضغط Ctrl لاختيار متعدد'}</span>
+            </div>
+            <div className="form-row">
+              <label>{c.appliesTo} – {c.categories}</label>
+              <select multiple value={offerForm.categoryIds} onChange={(e) => setOfferForm(f => ({ ...f, categoryIds: [...e.target.selectedOptions].map(o => o.value) }))} className="multi-select">
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{language === 'ar' && cat.nameAr ? cat.nameAr : cat.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-row form-row-inline">
+              <div>
+                <label>{c.startDate}</label>
+                <input type="date" value={offerForm.startDate} onChange={(e) => setOfferForm(f => ({ ...f, startDate: e.target.value }))} />
+              </div>
+              <div>
+                <label>{c.endDate}</label>
+                <input type="date" value={offerForm.endDate} onChange={(e) => setOfferForm(f => ({ ...f, endDate: e.target.value }))} />
+              </div>
+            </div>
+            <div className="form-row">
+              <label><input type="checkbox" checked={offerForm.active} onChange={(e) => setOfferForm(f => ({ ...f, active: e.target.checked }))} /> {c.active}</label>
+            </div>
+            <div className="form-actions">
+              {editingOffer ? (
+                <>
+                  <button type="button" className="btn-primary" onClick={() => updateOffer(editingOffer)}>{c.save}</button>
+                  <button type="button" className="btn-secondary" onClick={() => { setEditingOffer(null); setOfferForm({ name: '', nameAr: '', type: 'percentage', value: '', productIds: [], categoryIds: [], startDate: '', endDate: '', active: true }); }}>{c.cancel}</button>
+                </>
+              ) : (
+                <button type="button" className="btn-primary" onClick={addOffer}>{c.addOffer}</button>
+              )}
+            </div>
+          </div>
+          <div className="store-list-card">
+            <h3>{c.offers}</h3>
+            {offers.length === 0 ? (
+              <p className="empty-msg">{c.noOffers}</p>
+            ) : (
+              <ul className="store-list offers-list">
+                {offers.map(o => (
+                  <li key={o.id} className={`store-list-item offer-item ${!o.active ? 'inactive' : ''}`}>
+                    <div className="offer-info">
+                      <span className="item-name">{language === 'ar' && o.nameAr ? o.nameAr : o.name}</span>
+                      <span className="offer-value">{o.type === 'percentage' ? `${o.value}%` : `${o.value} ${currency}`} {o.active ? '✓' : '○'}</span>
+                    </div>
+                    <div className="item-actions">
+                      <button type="button" className="btn-secondary btn-small" onClick={() => { setEditingOffer(o.id); setOfferForm({ name: o.name || '', nameAr: o.nameAr || '', type: o.type || 'percentage', value: String(o.value || ''), productIds: o.productIds || [], categoryIds: o.categoryIds || [], startDate: o.startDate || '', endDate: o.endDate || '', active: !!o.active }); }}>{c.edit}</button>
+                      <button type="button" className="btn-danger btn-small" onClick={() => deleteOffer(o.id)}>{c.delete}</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'coupons' && (
+        <div className="store-section">
+          <div className="store-form-card coupon-form">
+            <h3>{editingCoupon ? (language === 'en' ? 'Edit coupon' : 'تعديل الكوبون') : c.addCoupon}</h3>
+            <div className="form-row">
+              <label>{c.couponCode}</label>
+              <input type="text" value={couponForm.code} onChange={(e) => setCouponForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} placeholder="SAVE10" style={{ fontFamily: 'monospace' }} />
+            </div>
+            <div className="form-row">
+              <label>{c.name}</label>
+              <input type="text" value={couponForm.name} onChange={(e) => setCouponForm(f => ({ ...f, name: e.target.value }))} placeholder={language === 'en' ? 'Optional description' : 'وصف اختياري'} />
+            </div>
+            <div className="form-row form-row-inline">
+              <div>
+                <label>{c.discountType}</label>
+                <select value={couponForm.type} onChange={(e) => setCouponForm(f => ({ ...f, type: e.target.value }))}>
+                  <option value="percentage">{c.percentage}</option>
+                  <option value="fixed">{c.fixed}</option>
+                </select>
+              </div>
+              <div>
+                <label>{c.discountValue}</label>
+                <input type="text" value={couponForm.value} onChange={(e) => setCouponForm(f => ({ ...f, value: e.target.value }))} placeholder="10" />
+              </div>
+            </div>
+            <div className="form-row form-row-inline">
+              <div>
+                <label>{c.minPurchase} ({currency})</label>
+                <input type="text" value={couponForm.minPurchase} onChange={(e) => setCouponForm(f => ({ ...f, minPurchase: e.target.value }))} placeholder="0" />
+              </div>
+              <div>
+                <label>{c.maxUses}</label>
+                <input type="text" value={couponForm.maxUses} onChange={(e) => setCouponForm(f => ({ ...f, maxUses: e.target.value }))} placeholder={language === 'en' ? 'Unlimited' : 'غير محدود'} />
+              </div>
+            </div>
+            <div className="form-row form-row-inline">
+              <div>
+                <label>{c.startDate}</label>
+                <input type="date" value={couponForm.startDate} onChange={(e) => setCouponForm(f => ({ ...f, startDate: e.target.value }))} />
+              </div>
+              <div>
+                <label>{c.endDate}</label>
+                <input type="date" value={couponForm.endDate} onChange={(e) => setCouponForm(f => ({ ...f, endDate: e.target.value }))} />
+              </div>
+            </div>
+            <div className="form-row">
+              <label><input type="checkbox" checked={couponForm.active} onChange={(e) => setCouponForm(f => ({ ...f, active: e.target.checked }))} /> {c.active}</label>
+            </div>
+            <div className="form-actions">
+              {editingCoupon ? (
+                <>
+                  <button type="button" className="btn-primary" onClick={() => updateCoupon(editingCoupon)}>{c.save}</button>
+                  <button type="button" className="btn-secondary" onClick={() => { setEditingCoupon(null); setCouponForm({ code: '', name: '', nameAr: '', type: 'percentage', value: '', minPurchase: '', maxUses: '', startDate: '', endDate: '', active: true }); }}>{c.cancel}</button>
+                </>
+              ) : (
+                <button type="button" className="btn-primary" onClick={addCoupon}>{c.addCoupon}</button>
+              )}
+            </div>
+          </div>
+          <div className="store-list-card">
+            <h3>{c.coupons}</h3>
+            {coupons.length === 0 ? (
+              <p className="empty-msg">{c.noCoupons}</p>
+            ) : (
+              <ul className="store-list coupons-list">
+                {coupons.map(cup => (
+                  <li key={cup.id} className={`store-list-item coupon-item ${!cup.active ? 'inactive' : ''}`}>
+                    <div className="coupon-info">
+                      <span className="coupon-code">{cup.code}</span>
+                      <span className="coupon-value">{cup.type === 'percentage' ? `${cup.value}%` : `${cup.value} ${currency}`} · {c.usedCount}: {cup.usedCount || 0}{cup.maxUses ? `/${cup.maxUses}` : ''}</span>
+                    </div>
+                    <div className="item-actions">
+                      <button type="button" className="btn-secondary btn-small" onClick={() => { setEditingCoupon(cup.id); setCouponForm({ code: cup.code || '', name: cup.name || '', nameAr: cup.nameAr || '', type: cup.type || 'percentage', value: String(cup.value || ''), minPurchase: cup.minPurchase ? String(cup.minPurchase) : '', maxUses: cup.maxUses ? String(cup.maxUses) : '', startDate: cup.startDate || '', endDate: cup.endDate || '', active: !!cup.active }); }}>{c.edit}</button>
+                      <button type="button" className="btn-danger btn-small" onClick={() => deleteCoupon(cup.id)}>{c.delete}</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'categories' && (
         <div className="store-section">
           <div className="store-form-card">
@@ -1024,9 +1403,40 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
                     </li>
                   ))}
                 </ul>
-                <div className="sale-total-row">
-                  <strong>{c.total}:</strong>
-                  <strong>{saleFormTotal.toFixed(2)} {currency}</strong>
+                <div className="sale-coupon-row">
+                  <label>{c.coupons}</label>
+                  <div className="sale-coupon-input-wrap">
+                    <input
+                      type="text"
+                      value={saleForm.couponCode}
+                      onChange={(e) => setSaleForm(f => ({ ...f, couponCode: e.target.value.toUpperCase() }))}
+                      placeholder={language === 'en' ? 'Enter coupon code' : 'أدخل كود الكوبون'}
+                      className="sale-coupon-input"
+                    />
+                    <button type="button" className="btn-primary btn-small" onClick={applyCoupon}>{c.applyCoupon}</button>
+                    {saleForm.appliedCoupon && (
+                      <span className="coupon-applied">
+                        {saleForm.appliedCoupon.code} −{saleForm.appliedCoupon.type === 'percentage' ? `${saleForm.appliedCoupon.value}%` : `${saleForm.appliedCoupon.value} ${currency}`}
+                        <button type="button" className="btn-remove-coupon" onClick={removeCoupon}>×</button>
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="sale-totals-block">
+                  <div className="sale-total-row">
+                    <span>{c.subtotal}:</span>
+                    <span>{saleFormSubtotal.toFixed(2)} {currency}</span>
+                  </div>
+                  {saleFormCouponDiscount > 0 && (
+                    <div className="sale-total-row discount-row">
+                      <span>{c.discount}:</span>
+                      <span className="discount-value">−{saleFormCouponDiscount.toFixed(2)} {currency}</span>
+                    </div>
+                  )}
+                  <div className="sale-total-row total-row">
+                    <strong>{c.total}:</strong>
+                    <strong>{saleFormTotal.toFixed(2)} {currency}</strong>
+                  </div>
                 </div>
                 <div className="form-row">
                   <label>{c.customerName}</label>

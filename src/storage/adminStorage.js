@@ -79,8 +79,16 @@ export const loadClubs = () => {
         }
         if (!club.store || !Array.isArray(club.store.categories)) {
           club.store = club.store && typeof club.store === 'object'
-            ? { name: club.store.name || '', nameAr: club.store.nameAr || '', categories: club.store.categories || [], products: club.store.products || [], sales: club.store.sales || [], inventoryMovements: club.store.inventoryMovements || [], minStockAlert: club.store.minStockAlert ?? 5 }
-            : { name: '', nameAr: '', categories: [], products: [], sales: [], inventoryMovements: [], minStockAlert: 5 }
+            ? { name: club.store.name || '', nameAr: club.store.nameAr || '', categories: club.store.categories || [], products: club.store.products || [], sales: club.store.sales || [], inventoryMovements: club.store.inventoryMovements || [], offers: club.store.offers || [], coupons: club.store.coupons || [], minStockAlert: club.store.minStockAlert ?? 5 }
+            : { name: '', nameAr: '', categories: [], products: [], sales: [], inventoryMovements: [], offers: [], coupons: [], minStockAlert: 5 }
+          storeMigration = true
+        }
+        if (!Array.isArray(club.store.offers)) {
+          club.store.offers = club.store.offers || []
+          storeMigration = true
+        }
+        if (!Array.isArray(club.store.coupons)) {
+          club.store.coupons = club.store.coupons || []
           storeMigration = true
         }
         if (!Array.isArray(club.store.sales)) {
@@ -333,6 +341,8 @@ const createExampleHalaPadel = () => {
       products: [],
       sales: [],
       inventoryMovements: [],
+      offers: [],
+      coupons: [],
       minStockAlert: 5
     },
     tournamentData: {
@@ -407,6 +417,8 @@ export const createExampleClub = () => {
       products: [],
       sales: [],
       inventoryMovements: [],
+      offers: [],
+      coupons: [],
       minStockAlert: 5
     },
     tournamentData: {

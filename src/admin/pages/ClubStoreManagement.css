@@ -571,14 +571,78 @@
   background: #fecaca;
 }
 
+.sale-coupon-row {
+  margin-bottom: 16px;
+}
+
+.sale-coupon-row label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.sale-coupon-input-wrap {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sale-coupon-input {
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  min-width: 140px;
+}
+
+.coupon-applied {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #d1fae5;
+  color: #065f46;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.btn-remove-coupon {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.sale-totals-block {
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
 .sale-total-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px;
-  background: #f0fdf4;
-  border-radius: 10px;
-  margin-bottom: 20px;
+  padding: 6px 0;
+  font-size: 0.9375rem;
+}
+
+.sale-total-row.discount-row .discount-value {
+  color: #10b981;
+}
+
+.sale-total-row.total-row {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 2px solid #e2e8f0;
   font-size: 1.125rem;
 }
 
@@ -587,6 +651,49 @@
   padding: 14px 20px;
   font-size: 1rem;
   font-weight: 600;
+}
+
+/* العروض والكوبونات */
+.multi-select {
+  min-height: 100px;
+  padding: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.offer-item,
+.coupon-item {
+  flex-wrap: wrap;
+}
+
+.offer-item.inactive,
+.coupon-item.inactive {
+  opacity: 0.7;
+}
+
+.offer-info,
+.coupon-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.offer-value {
+  font-size: 0.875rem;
+  color: #10b981;
+}
+
+.coupon-code {
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.coupon-value {
+  font-size: 0.875rem;
+  color: #64748b;
 }
 
 /* سجل المبيعات */
