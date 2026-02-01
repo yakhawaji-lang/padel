@@ -418,7 +418,6 @@ const ClubPublicPage = () => {
 
         <section className="club-public-section club-public-court-booking">
           <div className="club-public-section-inner">
-            <h2 className="section-heading">{c.courtBooking}</h2>
             <div className="club-public-court-booking-header">
               <label className="club-public-court-booking-date-label">{c.selectDate}</label>
               <input
