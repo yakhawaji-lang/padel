@@ -344,8 +344,8 @@ const HomePage = () => {
           <div className="hero-inner">
             <h1 className="hero-title">{c.hero.title}</h1>
             <p className="hero-subtitle">{c.hero.subtitle}</p>
-            <button type="button" className="hero-cta" onClick={handleAdminLogin}>
-              {c.hero.cta}
+            <button type="button" className="hero-cta" onClick={() => scrollTo('join')}>
+              {language === 'en' ? 'Register or join a club' : 'سجّل أو انضم لنادي'}
             </button>
           </div>
         </section>
