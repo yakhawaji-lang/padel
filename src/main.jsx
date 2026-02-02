@@ -14,6 +14,8 @@ applyAppLanguage()
 const HomePage = lazy(() => import('./pages/HomePage'))
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const RegisterClub = lazy(() => import('./pages/RegisterClub'))
 const ClubLogin = lazy(() => import('./pages/ClubLogin'))
 import ClubPublicPage from './pages/ClubPublicPage'
@@ -49,6 +51,8 @@ function Root() {
           <Route path="/register-club" element={<RegisterClub />} />
           <Route path="/club-login" element={<ClubLogin />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/clubs/:clubId" element={<ErrorBoundary fallback={<div style={{ padding: 40, textAlign: 'center', minHeight: '50vh' }}><p>Something went wrong. <a href="/">Go to home</a></p></div>}><ClubPublicPage /></ErrorBoundary>} />
           <Route path="/club/:clubId/*" element={<App />} />
         </Routes>

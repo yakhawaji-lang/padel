@@ -242,6 +242,20 @@ npm run sync-from-cloud
 
 ---
 
+---
+
+## استعادة كلمة المرور (Forgot Password)
+
+لتشغيل ميزة استعادة كلمة المرور للأعضاء:
+
+1. **RESEND_API_KEY** — أضفها في Vercel Environment Variables (من [resend.com](https://resend.com) → API Keys)
+2. **RESEND_FROM** (اختياري) — عنوان المرسل، مثال: `Padel <noreply@yourdomain.com>`. إن لم تُضف، يُستخدم الافتراضي من Resend.
+3. **ملاحظة:** مع Resend المجاني، قد تحتاج التحقق من نطاقك (Domain) لإرسال بريد لأي مستلم.
+
+الصفحات: `/forgot-password` و `/reset-password?token=xxx`
+
+---
+
 ## ملخص
 
 | الأمر | الاتجاه | الاستخدام |

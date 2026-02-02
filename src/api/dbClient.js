@@ -118,6 +118,22 @@ export async function saveTournamentSummary(clubId, data) {
   })
 }
 
+// ---- Password reset ----
+
+export async function requestPasswordReset(email) {
+  return fetchJson('/api/password-reset/request', {
+    method: 'POST',
+    body: JSON.stringify({ email })
+  })
+}
+
+export async function confirmPasswordReset(token, newPassword) {
+  return fetchJson('/api/password-reset/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ token, newPassword })
+  })
+}
+
 // ---- Health check ----
 
 export async function healthCheck() {

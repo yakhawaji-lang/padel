@@ -12,6 +12,7 @@ import storeRouter from './routes/store.js'
 import matchesRouter from './routes/matches.js'
 import memberStatsRouter from './routes/memberStats.js'
 import tournamentSummariesRouter from './routes/tournamentSummaries.js'
+import passwordResetRouter from './routes/passwordReset.js'
 import { isConnected } from './db/pool.js'
 
 const app = express()
@@ -24,6 +25,7 @@ app.use('/api/store', storeRouter)
 app.use('/api/matches', matchesRouter)
 app.use('/api/member-stats', memberStatsRouter)
 app.use('/api/tournament-summaries', tournamentSummariesRouter)
+app.use('/api/password-reset', passwordResetRouter)
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, db: isConnected() })

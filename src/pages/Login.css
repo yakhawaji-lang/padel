@@ -178,8 +178,23 @@
   text-align: center;
 }
 
+.login-forgot-hint {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.login-forgot-hint a {
+  color: #2196f3;
+  text-decoration: none;
+}
+
+.login-forgot-hint a:hover {
+  text-decoration: underline;
+}
+
 .login-register-hint {
-  margin-top: 16px;
+  margin-top: 12px;
   text-align: center;
   font-size: 14px;
   color: #666;

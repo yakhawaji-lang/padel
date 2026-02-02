@@ -90,6 +90,11 @@ const Login = () => {
               {language === 'en' ? 'Login' : 'تسجيل الدخول'}
             </button>
           </form>
+          <p className="login-forgot-hint">
+            <Link to="/forgot-password">
+              {language === 'en' ? 'Forgot password?' : 'نسيت كلمة المرور؟'}
+            </Link>
+          </p>
           <p className="login-register-hint">
             {language === 'en' ? "Don't have an account? " : 'ليس لديك حساب؟ '}
             <Link to={joinClubId ? `/register?join=${joinClubId}` : '/register'}>
