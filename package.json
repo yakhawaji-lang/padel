@@ -16,6 +16,7 @@
     "db:init": "cd server && npm run db:init",
     "postgres:setup": "node scripts/postgres-setup.js",
     "postgres:dev": "node scripts/start-with-postgres.js",
+    "sync:setup": "node scripts/sync-setup.js",
     "sync-to-cloud": "node scripts/sync-to-cloud.js",
     "sync-from-cloud": "node scripts/sync-from-cloud.js"
   },

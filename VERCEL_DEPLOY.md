@@ -207,7 +207,13 @@ https://your-app.vercel.app/api/health
 
 ## الإعداد
 
-أضف في `.env.local`:
+```bash
+npm run sync:setup
+```
+
+ثم عدّل `.env.local` وضَع رابط Neon في `DATABASE_URL_CLOUD`.
+
+أو أضف يدوياً في `.env.local`:
 
 ```env
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/padel

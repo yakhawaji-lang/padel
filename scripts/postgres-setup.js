@@ -34,6 +34,9 @@ function main() {
   if (needsWrite) {
     if (!content.includes('VITE_USE_POSTGRES')) {
       content += '\n# PostgreSQL\nVITE_USE_POSTGRES=true\nDATABASE_URL=' + DEFAULT_DATABASE_URL + '\n'
+      if (!content.includes('DATABASE_URL_CLOUD')) {
+        content += '\n# مزامنة ثنائية الاتجاه: أزل # وضع رابط Neon\n# DATABASE_URL_CLOUD=postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require\n'
+      }
     } else {
       content = content.replace(/VITE_USE_POSTGRES=false/, 'VITE_USE_POSTGRES=true')
       if (!content.match(/DATABASE_URL=.+/)) {
