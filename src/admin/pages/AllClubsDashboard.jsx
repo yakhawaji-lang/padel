@@ -6,7 +6,7 @@ import { getAllMembersFromStorage, addMemberToClubs, getClubMembersFromStorage }
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
-const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub, onRejectClub }) => {
+const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub, onRejectClub, onRefresh }) => {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [viewingPending, setViewingPending] = useState(null)
@@ -137,13 +137,25 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
             <h2 className="page-title">{t('All Clubs Dashboard', 'لوحة جميع الأندية', language)}</h2>
             <p className="page-subtitle">{t('Overview and statistics for all clubs in the system', 'نظرة عامة وإحصائيات لجميع الأندية في النظام', language)}</p>
           </div>
-          <button 
-            type="button"
-            className="btn-primary dashboard-add-btn"
-            onClick={() => navigate('/admin/manage-clubs')}
-          >
-            + {t('Add New Club', 'إضافة نادٍ جديد', language)}
-          </button>
+          <div className="dashboard-header-actions">
+            {onRefresh && (
+              <button
+                type="button"
+                className="btn-secondary dashboard-refresh-btn"
+                onClick={() => onRefresh()}
+                title={t('Refresh from server', 'تحديث من الخادم', language)}
+              >
+                {t('Refresh', 'تحديث', language)}
+              </button>
+            )}
+            <button 
+              type="button"
+              className="btn-primary dashboard-add-btn"
+              onClick={() => navigate('/admin/manage-clubs')}
+            >
+              + {t('Add New Club', 'إضافة نادٍ جديد', language)}
+            </button>
+          </div>
         </div>
         
         {/* Statistics Cards */}

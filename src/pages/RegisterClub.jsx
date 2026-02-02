@@ -21,6 +21,7 @@ const RegisterClub = () => {
   })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => setAppLanguage(language), [language])
 
@@ -72,7 +73,7 @@ const RegisterClub = () => {
   }
   const c = t[language]
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     const adminEmail = formData.adminEmail || formData.email
@@ -88,20 +89,29 @@ const RegisterClub = () => {
       setError(language === 'en' ? 'Password must be at least 6 characters.' : 'كلمة المرور 6 أحرف على الأقل.')
       return
     }
-    const result = addPendingClub({
-      ...formData,
-      address: formData.location?.address || '',
-      addressAr: formData.location?.address || '',
-      adminEmail: adminEmail.trim(),
-      adminPassword: formData.adminPassword,
-      email: formData.email || adminEmail,
-      commercialRegisterImage: formData.commercialRegisterImage || undefined
-    })
-    if (result.error === 'EMAIL_EXISTS') {
-      setError(language === 'en' ? 'This email is already registered.' : 'هذا البريد مسجّل مسبقاً.')
-      return
+    setSubmitting(true)
+    try {
+      const result = await addPendingClub({
+        ...formData,
+        address: formData.location?.address || '',
+        addressAr: formData.location?.address || '',
+        adminEmail: adminEmail.trim(),
+        adminPassword: formData.adminPassword,
+        email: formData.email || adminEmail,
+        commercialRegisterImage: formData.commercialRegisterImage || undefined
+      })
+      if (result?.error === 'EMAIL_EXISTS') {
+        setError(language === 'en' ? 'This email is already registered.' : 'هذا البريد مسجّل مسبقاً.')
+        return
+      }
+      if (result?.error === 'SAVE_FAILED') {
+        setError(language === 'en' ? 'Failed to save. Please check your connection and try again.' : 'فشل الحفظ. تحقق من اتصالك وحاول مرة أخرى.')
+        return
+      }
+      setSuccess(true)
+    } catch (err) {
+      setError(language === 'en' ? 'An error occurred. Please try again.' : 'حدث خطأ. حاول مرة أخرى.')
     }
-    setSuccess(true)
   }
 
   if (success) {
@@ -218,7 +228,9 @@ const RegisterClub = () => {
                 <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder={language === 'en' ? 'club@example.com' : 'النادي@example.com'} />
               </div>
             </div>
-            <button type="submit" className="register-club-submit">{c.submit}</button>
+            <button type="submit" className="register-club-submit" disabled={submitting}>
+              {submitting ? (language === 'en' ? 'Saving...' : 'جاري الحفظ...') : c.submit}
+            </button>
           </form>
           <p className="register-club-login-hint">
             {language === 'en' ? 'Already approved? ' : 'تمت الموافقة مسبقاً؟ '}

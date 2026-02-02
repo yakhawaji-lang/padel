@@ -668,8 +668,8 @@ export const updateClub = (clubId, updates) => {
   return updatedClubs.find(club => club.id === clubId)
 }
 
-/** Pending club registration - requires admin approval */
-export const addPendingClub = (clubData) => {
+/** Pending club registration - requires admin approval. Returns Promise when using Postgres. */
+export async function addPendingClub(clubData) {
   const clubs = loadClubs()
   const existing = clubs.find(c => (c.adminEmail || c.email || '').toLowerCase() === (clubData.adminEmail || clubData.email || '').toLowerCase())
   if (existing) return { error: 'EMAIL_EXISTS' }
@@ -711,7 +711,12 @@ export const addPendingClub = (clubData) => {
     updatedAt: new Date().toISOString()
   }
   clubs.push(newClub)
-  saveClubs(clubs)
+  if (USE_POSTGRES && _backendStorage) {
+    const ok = await saveClubsAsync(clubs)
+    if (!ok) return { error: 'SAVE_FAILED' }
+  } else {
+    saveClubs(clubs)
+  }
   return { club: newClub }
 }
 

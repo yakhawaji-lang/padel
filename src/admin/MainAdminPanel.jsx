@@ -37,15 +37,21 @@ function MainAdminPanel() {
     }
     window.addEventListener('clubs-synced', onClubsSynced)
     
-    // Refresh clubs from API periodically (every 5 seconds) to catch pending registrations from other devices
-    const syncInterval = setInterval(async () => {
+    // Refresh clubs from API every 3 seconds to catch pending registrations from other devices
+    const doRefresh = async () => {
       await refreshClubsFromApi()
-      const updatedClubs = loadClubs()
-      setClubs(updatedClubs || [])
-    }, 5000)
+      setClubs(loadClubs() || [])
+    }
+    const syncInterval = setInterval(doRefresh, 3000)
+    // Refresh when user returns to the tab
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') doRefresh()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
     
     return () => {
       window.removeEventListener('clubs-synced', onClubsSynced)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       clearInterval(syncInterval)
     }
   }, [])
@@ -112,6 +118,11 @@ function MainAdminPanel() {
     }
   }
 
+  const handleRefreshClubs = async () => {
+    await refreshClubsFromApi()
+    setClubs(loadClubs() || [])
+  }
+
   if (isLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -151,6 +162,7 @@ function MainAdminPanel() {
                 onUpdateClub={handleClubUpdate}
                 onApproveClub={handleApproveClub}
                 onRejectClub={handleRejectClub}
+                onRefresh={handleRefreshClubs}
               />
             } 
           />
