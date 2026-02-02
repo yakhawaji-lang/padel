@@ -3,8 +3,12 @@
  * All methods are async. Uses VITE_API_URL (default: http://localhost:4000) for backend.
  */
 
-const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ||
-  (typeof window !== 'undefined' && window.location?.port === '3000' ? '' : 'http://localhost:4000')
+const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ??
+  (typeof window !== 'undefined'
+    ? (window.location?.port === '3000' || !/localhost|127\.0\.0\.1/.test(window.location?.hostname || ''))
+      ? ''
+      : 'http://localhost:4000'
+    : 'http://localhost:4000')
 
 async function fetchJson(path, options = {}) {
   const res = await fetch(`${API_URL}${path}`, {
