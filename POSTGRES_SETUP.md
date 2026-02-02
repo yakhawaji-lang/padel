@@ -5,9 +5,23 @@
 - PostgreSQL 14+
 - أو حساب Supabase/Neon للحصول على PostgreSQL سحابي مجاني
 
-## الخطوات
+## طريقة الاستخدام السريعة
 
-### 1. إنشاء قاعدة البيانات
+```bash
+# 1. الإعداد (ينشئ .env.local ويهيئ قاعدة البيانات - ينشئها إن لم تكن موجودة)
+npm run postgres:setup
+
+# 2. التشغيل (خادم API + الواجهة معاً)
+npm run postgres:dev
+```
+
+الخادم يعمل على المنفذ 4000 والواجهة على 3000.
+
+---
+
+## الخطوات اليدوية
+
+### 1. إنشاء قاعدة البيانات (اختياري - السكربت ينشئها تلقائياً)
 ```bash
 createdb padel
 # أو استخدم واجهة pgAdmin / Supabase Dashboard
@@ -15,38 +29,31 @@ createdb padel
 
 ### 2. تهيئة الجداول
 ```bash
-# استخدم connection string
-export DATABASE_URL=postgresql://user:password@localhost:5432/padel
+# Windows:
+set DATABASE_URL=postgresql://postgres:postgres@localhost:5432/padel
+npm run db:init
+
+# Linux/Mac:
+export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/padel
 npm run db:init
 ```
 
-أو يدوياً:
-```bash
-psql $DATABASE_URL -f server/db/schema.sql
-```
-
-### 3. تشغيل الخادم (API)
-```bash
-cd server
-npm install
-export DATABASE_URL=postgresql://...
-npm run dev
-```
-
-الخادم يعمل على المنفذ 4000
-
-### 4. تفعيل PostgreSQL في الواجهة
-أضف في `.env.local`:
+### 3. تفعيل PostgreSQL
+السكربت `postgres:setup` ينشئ `.env.local` تلقائياً. أو أضف يدوياً:
 ```
 VITE_USE_POSTGRES=true
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/padel
 ```
 
-### 5. تشغيل التطبيق
+### 4. التشغيل
 ```bash
-npm run dev
+npm run postgres:dev
 ```
-
-Vite سيعمل على المنفذ 3000 ويمرر طلبات `/api` إلى الخادم.
+أو في نافذتين منفصلتين:
+```bash
+npm run server    # المنفذ 4000
+npm run dev       # المنفذ 3000
+```
 
 ## البنية
 - `server/` - خادم Express مع PostgreSQL

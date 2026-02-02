@@ -62,19 +62,13 @@ The built files will be in the `dist` folder. You can deploy this folder to any 
 
 ## قاعدة بيانات PostgreSQL
 
-يمكن تشغيل النظام بالكامل على PostgreSQL بدلاً من تخزين المتصفح. راجع [POSTGRES_SETUP.md](./POSTGRES_SETUP.md) للتفاصيل.
-
 ```bash
-# تهيئة قاعدة البيانات
-npm run db:init
-
-# تشغيل الخادم (في نافذة منفصلة)
-npm run server
-
-# في .env.local
-VITE_USE_POSTGRES=true
-DATABASE_URL=postgresql://user:password@localhost:5432/padel
+# الإعداد والتشغيل
+npm run postgres:setup   # تهيئة .env.local وقاعدة البيانات
+npm run postgres:dev     # تشغيل الخادم + الواجهة
 ```
+
+راجع [POSTGRES_SETUP.md](./POSTGRES_SETUP.md) للتفاصيل.
 
 ## مزامنة البيانات بين الأجهزة (Vercel وجميع الأجهزة)
 

@@ -10,7 +10,9 @@
     "export-data": "node scripts/export-clubs.js",
     "server": "cd server && npm run dev",
     "server:start": "cd server && npm start",
-    "db:init": "cd server && npm run db:init"
+    "db:init": "cd server && npm run db:init",
+    "postgres:setup": "node scripts/postgres-setup.js",
+    "postgres:dev": "node scripts/start-with-postgres.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
