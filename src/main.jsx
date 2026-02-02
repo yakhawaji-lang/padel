@@ -69,8 +69,15 @@ async function bootstrap() {
   if (USE_POSTGRES) {
     const backendStorage = (await import('./storage/backendStorage.js')).default
     initBackendStorage(backendStorage)
-    await backendStorage.bootstrap()
-    await loadClubsAsync()
+    try {
+      await Promise.race([
+        backendStorage.bootstrap(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Bootstrap timeout')), 15000))
+      ])
+      await loadClubsAsync()
+    } catch (e) {
+      console.warn('Bootstrap failed, using fallback:', e?.message || e)
+    }
   } else {
     loadClubs()
     const { subscribeToClubs } = await import('./storage/supabaseSync.js')
@@ -80,9 +87,21 @@ async function bootstrap() {
   }
 }
 
-bootstrap().then(() => mountApp()).catch((e) => {
-  console.error('Bootstrap failed:', e)
-  document.getElementById('root').innerHTML = `<div style="padding:40px;text-align:center;"><p>فشل تحميل التطبيق. تأكد من تشغيل الخادم وقاعدة البيانات.</p><p>Bootstrap failed. Ensure the server and database are running.</p></div>`
-})
+async function initAndMount() {
+  if (USE_POSTGRES) {
+    try {
+      const backendStorage = (await import('./storage/backendStorage.js')).default
+      initBackendStorage(backendStorage)
+    } catch (e) {
+      console.error('Init backend failed:', e)
+    }
+  }
+  mountApp()
+  bootstrap().catch((e) => {
+    console.error('Bootstrap failed:', e)
+  })
+}
+
+initAndMount()
 
 

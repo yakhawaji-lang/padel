@@ -16,7 +16,9 @@ export async function bootstrap() {
       'app_language', 'current_member_id', 'admin_current_club_id', 'bookings'
     ]
     const data = await api.getStoreBatch(keys)
-    Object.entries(data).forEach(([k, v]) => cache.set(k, v))
+    if (data && typeof data === 'object') {
+      Object.entries(data).forEach(([k, v]) => cache.set(k, v))
+    }
     // Ensure admin_clubs exists
     let clubs = cache.get('admin_clubs')
     if (!Array.isArray(clubs) || clubs.length === 0) {
