@@ -2,8 +2,10 @@ import React, { useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import './MainAdminSidebar.css'
 import LanguageIcon from '../../components/LanguageIcon'
+import { getPlatformAdminSession, hasPlatformPermission, clearPlatformAdminSession } from '../../storage/platformAdminAuth'
 
 const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) => {
+  const session = getPlatformAdminSession()
   const location = useLocation()
   const navigate = useNavigate()
   const displayClubs = clubs.filter(c => c.status !== 'pending')
@@ -39,42 +41,59 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
       </div>
 
       <nav className="main-admin-nav">
-        <Link
-          to="/admin/all-clubs"
-          className={`main-admin-nav-item ${isActive('/admin/all-clubs') || location.pathname === '/admin' ? 'active' : ''}`}
-        >
-          <span className="nav-icon">📊</span>
-          <span className="nav-label">
-            {language === 'en' ? 'All Clubs Dashboard' : 'لوحة جميع الأندية'}
-          </span>
-        </Link>
-        <Link
-          to="/admin/manage-clubs"
-          className={`main-admin-nav-item ${isActive('/admin/manage-clubs') ? 'active' : ''}`}
-        >
-          <span className="nav-icon">🏢</span>
-          <span className="nav-label">
-            {language === 'en' ? 'Manage All Clubs' : 'إدارة جميع الأندية'}
-          </span>
-        </Link>
-        <a
-          href="#all-members-section"
-          className="main-admin-nav-item"
-          onClick={(e) => {
-            e.preventDefault()
-            if (location.pathname !== '/admin/all-clubs') {
-              navigate('/admin/all-clubs')
-              setTimeout(() => document.getElementById('all-members-section')?.scrollIntoView({ behavior: 'smooth' }), 300)
-            } else {
-              document.getElementById('all-members-section')?.scrollIntoView({ behavior: 'smooth' })
-            }
-          }}
-        >
-          <span className="nav-icon">👥</span>
-          <span className="nav-label">
-            {language === 'en' ? 'All Members' : 'أعضاء كل الأندية'}
-          </span>
-        </a>
+        {hasPlatformPermission(session, 'all-clubs') && (
+          <Link
+            to="/admin/all-clubs"
+            className={`main-admin-nav-item ${isActive('/admin/all-clubs') || location.pathname === '/admin' ? 'active' : ''}`}
+          >
+            <span className="nav-icon">📊</span>
+            <span className="nav-label">
+              {language === 'en' ? 'All Clubs Dashboard' : 'لوحة جميع الأندية'}
+            </span>
+          </Link>
+        )}
+        {hasPlatformPermission(session, 'manage-clubs') && (
+          <Link
+            to="/admin/manage-clubs"
+            className={`main-admin-nav-item ${isActive('/admin/manage-clubs') ? 'active' : ''}`}
+          >
+            <span className="nav-icon">🏢</span>
+            <span className="nav-label">
+              {language === 'en' ? 'Manage All Clubs' : 'إدارة جميع الأندية'}
+            </span>
+          </Link>
+        )}
+        {hasPlatformPermission(session, 'all-members') && (
+          <a
+            href="#all-members-section"
+            className="main-admin-nav-item"
+            onClick={(e) => {
+              e.preventDefault()
+              if (location.pathname !== '/admin/all-clubs') {
+                navigate('/admin/all-clubs')
+                setTimeout(() => document.getElementById('all-members-section')?.scrollIntoView({ behavior: 'smooth' }), 300)
+              } else {
+                document.getElementById('all-members-section')?.scrollIntoView({ behavior: 'smooth' })
+              }
+            }}
+          >
+            <span className="nav-icon">👥</span>
+            <span className="nav-label">
+              {language === 'en' ? 'All Members' : 'أعضاء كل الأندية'}
+            </span>
+          </a>
+        )}
+        {hasPlatformPermission(session, 'admin-users') && (
+          <Link
+            to="/admin/admin-users"
+            className={`main-admin-nav-item ${isActive('/admin/admin-users') ? 'active' : ''}`}
+          >
+            <span className="nav-icon">👤</span>
+            <span className="nav-label">
+              {language === 'en' ? 'Admin Users' : 'مدراء المنصة'}
+            </span>
+          </Link>
+        )}
       </nav>
 
       <div className="clubs-quick-list">
@@ -117,6 +136,14 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
       <div className="main-admin-sidebar-footer">
         <Link to="/" className="back-to-app">
           ← {language === 'en' ? 'Back to Home' : 'العودة للرئيسية'}
+        </Link>
+        <Link
+          to="/admin-login"
+          className="back-to-app"
+          onClick={() => clearPlatformAdminSession()}
+          style={{ marginTop: 8, fontSize: '0.85rem', opacity: 0.8 }}
+        >
+          {language === 'en' ? 'Logout' : 'تسجيل الخروج'}
         </Link>
       </div>
     </aside>

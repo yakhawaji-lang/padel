@@ -18,8 +18,11 @@ const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const RegisterClub = lazy(() => import('./pages/RegisterClub'))
 const ClubLogin = lazy(() => import('./pages/ClubLogin'))
+const PlatformAdminLogin = lazy(() => import('./pages/PlatformAdminLogin'))
 import ClubPublicPage from './pages/ClubPublicPage'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import PlatformAuthGuard from './components/PlatformAuthGuard'
+import ClubAuthGuard from './components/ClubAuthGuard'
 const App = lazy(() => import('./App'))
 const MainAdminPanel = lazy(() => import('./admin/MainAdminPanel'))
 const ClubAdminPanel = lazy(() => import('./admin/ClubAdminPanel'))
@@ -45,8 +48,9 @@ function Root() {
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/admin/*" element={<MainAdminPanel />} />
-          <Route path="/admin/club/:clubId/*" element={<ClubAdminPanel />} />
+          <Route path="/admin-login" element={<PlatformAdminLogin />} />
+          <Route path="/admin/*" element={<PlatformAuthGuard><MainAdminPanel /></PlatformAuthGuard>} />
+          <Route path="/admin/club/:clubId/*" element={<ClubAuthGuard><ClubAdminPanel /></ClubAuthGuard>} />
           <Route path="/register" element={<Register />} />
           <Route path="/register-club" element={<RegisterClub />} />
           <Route path="/club-login" element={<ClubLogin />} />

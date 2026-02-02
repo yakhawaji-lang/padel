@@ -11,6 +11,8 @@ import ClubOffersManagement from './pages/ClubOffersManagement'
 import ClubStoreManagement from './pages/ClubStoreManagement'
 import ClubAccountingManagement from './pages/ClubAccountingManagement'
 import ClubSettings from './pages/ClubSettings'
+import ClubUsersManagement from './pages/ClubUsersManagement'
+import ClubPageGuard from '../components/ClubPageGuard'
 import { loadClubs, saveClubs, getClubById, syncMembersToClubsManually } from '../storage/adminStorage'
 
 function ClubAdminPanel() {
@@ -104,67 +106,13 @@ function ClubAdminPanel() {
         />
         <Routes>
           <Route path="/" element={<Navigate to="dashboard" replace />} />
-          <Route 
-            path="dashboard" 
-            element={
-              <ClubDashboard 
-                club={club}
-              />
-            } 
-          />
-          <Route 
-            path="members" 
-            element={
-              <ClubMembersManagement 
-                club={club}
-                onUpdateClub={handleClubUpdate}
-              />
-            } 
-          />
-          <Route 
-            path="offers" 
-            element={
-              <ClubOffersManagement 
-                club={club}
-                language={language}
-                onUpdateClub={handleClubUpdate}
-              />
-            } 
-          />
-          <Route 
-            path="store" 
-            element={
-              <ClubStoreManagement 
-                club={club}
-                language={language}
-                onUpdateClub={handleClubUpdate}
-              />
-            } 
-          />
-          <Route 
-            path="accounting" 
-            element={
-              <ClubAccountingManagement 
-                club={club}
-                language={language}
-                onUpdateClub={handleClubUpdate}
-              />
-            } 
-          />
-          <Route 
-            path="settings" 
-            element={
-              <ClubSettings 
-                club={club}
-                onUpdateClub={handleClubUpdate}
-                onDefaultLanguageChange={(lang) => {
-                  setLanguage(lang)
-                  setAppLanguage(lang)
-                  if (clubId) localStorage.setItem(`club_${clubId}_language`, lang)
-                }}
-              />
-            } 
-          />
+          <Route path="dashboard" element={<ClubPageGuard permission="dashboard"><ClubDashboard club={club} /></ClubPageGuard>} />
+          <Route path="members" element={<ClubPageGuard permission="members"><ClubMembersManagement club={club} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
+          <Route path="offers" element={<ClubPageGuard permission="offers"><ClubOffersManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
+          <Route path="store" element={<ClubPageGuard permission="store"><ClubStoreManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
+          <Route path="accounting" element={<ClubPageGuard permission="accounting"><ClubAccountingManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
+          <Route path="settings" element={<ClubPageGuard permission="settings"><ClubSettings club={club} onUpdateClub={handleClubUpdate} onDefaultLanguageChange={(lang) => { setLanguage(lang); setAppLanguage(lang); if (clubId) localStorage.setItem(`club_${clubId}_language`, lang) }} /></ClubPageGuard>} />
+          <Route path="users" element={<ClubPageGuard permission="users"><ClubUsersManagement club={club} onUpdateClub={handleClubUpdate} language={language} /></ClubPageGuard>} />
         </Routes>
       </div>
     </div>

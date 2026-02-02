@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import LanguageIcon from '../components/LanguageIcon'
-import { getClubByAdminCredentials } from '../storage/adminStorage'
+import { getClubAdminSessionFromCredentials } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
-import { setCurrentClubAdmin } from '../storage/clubAuth'
+import { setClubAdminSession } from '../storage/clubAuth'
 import './ClubLogin.css'
 
 const ClubLogin = () => {
@@ -42,10 +42,15 @@ const ClubLogin = () => {
   const handleSubmit = (e) => {
     e.preventDefault()
     setError('')
-    const club = getClubByAdminCredentials(email.trim(), password)
-    if (club) {
-      setCurrentClubAdmin(club.id)
-      navigate(`/admin/club/${club.id}/dashboard`, { replace: true })
+    const sessionInfo = getClubAdminSessionFromCredentials(email.trim(), password)
+    if (sessionInfo) {
+      setClubAdminSession({
+        clubId: sessionInfo.clubId,
+        userId: sessionInfo.userId,
+        isOwner: sessionInfo.isOwner,
+        permissions: sessionInfo.permissions
+      })
+      navigate(`/admin/club/${sessionInfo.clubId}/dashboard`, { replace: true })
     } else {
       setError(language === 'en' 
         ? 'Invalid credentials or club not yet approved.' 

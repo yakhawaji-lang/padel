@@ -1,9 +1,11 @@
 import React, { useEffect } from 'react'
 import LanguageIcon from '../../components/LanguageIcon'
 import { Link, useLocation, useParams } from 'react-router-dom'
+import { getClubAdminSession, hasClubPermission, clearClubAdminSession } from '../../storage/clubAuth'
 import './ClubAdminSidebar.css'
 
 const ClubAdminSidebar = ({ club, language, onLanguageChange, open, onClose }) => {
+  const session = getClubAdminSession()
   const location = useLocation()
   const { clubId } = useParams()
   useEffect(() => {
@@ -17,12 +19,13 @@ const ClubAdminSidebar = ({ club, language, onLanguageChange, open, onClose }) =
   }
 
   const menuItems = [
-    { path: `dashboard`, icon: '📊', label: { en: 'Dashboard', ar: 'لوحة التحكم' } },
-    { path: `members`, icon: '👥', label: { en: 'Members', ar: 'الأعضاء' } },
-    { path: `offers`, icon: '🎁', label: { en: 'Offers', ar: 'العروض' } },
-    { path: `store`, icon: '🛒', label: { en: 'Sales / Store', ar: 'المبيعات / المتجر' } },
-    { path: `accounting`, icon: '💰', label: { en: 'Accounting', ar: 'المحاسبة' } },
-    { path: `settings`, icon: '⚙️', label: { en: 'Settings', ar: 'الإعدادات' } },
+    { path: `dashboard`, icon: '📊', label: { en: 'Dashboard', ar: 'لوحة التحكم' }, perm: 'dashboard' },
+    { path: `members`, icon: '👥', label: { en: 'Members', ar: 'الأعضاء' }, perm: 'members' },
+    { path: `offers`, icon: '🎁', label: { en: 'Offers', ar: 'العروض' }, perm: 'offers' },
+    { path: `store`, icon: '🛒', label: { en: 'Sales / Store', ar: 'المبيعات / المتجر' }, perm: 'store' },
+    { path: `accounting`, icon: '💰', label: { en: 'Accounting', ar: 'المحاسبة' }, perm: 'accounting' },
+    { path: `settings`, icon: '⚙️', label: { en: 'Settings', ar: 'الإعدادات' }, perm: 'settings' },
+    { path: `users`, icon: '👤', label: { en: 'Club Users', ar: 'مدراء النادي' }, perm: 'users' }
   ]
   
   const getFullPath = (relativePath) => {
@@ -59,7 +62,7 @@ const ClubAdminSidebar = ({ club, language, onLanguageChange, open, onClose }) =
       </div>
 
       <nav className="club-admin-nav">
-        {menuItems.map(item => {
+        {menuItems.filter(item => hasClubPermission(session, item.perm)).map(item => {
           const fullPath = getFullPath(item.path)
           return (
             <Link
@@ -80,6 +83,9 @@ const ClubAdminSidebar = ({ club, language, onLanguageChange, open, onClose }) =
         </Link>
         <Link to="/admin/all-clubs" className="back-to-main-admin">
           ← {language === 'en' ? 'Main Admin' : 'التحكم الرئيسي'}
+        </Link>
+        <Link to="/club-login" className="back-to-club" onClick={() => clearClubAdminSession()} style={{ marginTop: 8, fontSize: '0.85rem', opacity: 0.8 }}>
+          {language === 'en' ? 'Logout' : 'تسجيل الخروج'}
         </Link>
       </div>
     </aside>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import './common.css'
 import './AllClubsDashboard.css'
 import { getAllMembersFromStorage, addMemberToClubs, getClubMembersFromStorage } from '../../storage/adminStorage'
+import { getPlatformAdminSession, hasPlatformPermission } from '../../storage/platformAdminAuth'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
@@ -16,6 +17,7 @@ const getDataSourceLabel = () => {
 
 const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub, onRejectClub, onRefresh }) => {
   const navigate = useNavigate()
+  const platformSession = getPlatformAdminSession()
   const dataSource = getDataSourceLabel()
   const [searchQuery, setSearchQuery] = useState('')
   const [viewingPending, setViewingPending] = useState(null)
@@ -370,7 +372,8 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
           </div>
         )}
 
-        {/* All Members Section */}
+        {/* All Members Section - only visible with all-members permission */}
+        {hasPlatformPermission(platformSession, 'all-members') && (
         <div id="all-members-section" className="all-members-section">
           <h3>
             {t('All Members Across Clubs', 'أعضاء كل الأندية', language)} ({allMembers.length})
@@ -478,6 +481,7 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
             </div>
           )}
         </div>
+        )}
 
         {/* Search and Filter */}
         <div className="dashboard-controls">

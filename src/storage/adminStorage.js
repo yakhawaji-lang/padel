@@ -6,7 +6,8 @@ const USE_POSTGRES = (typeof import.meta === 'undefined' || import.meta.env?.VIT
 const ADMIN_STORAGE_KEYS = {
   CLUBS: 'admin_clubs',
   SETTINGS: 'admin_settings',
-  CURRENT_CLUB: 'admin_current_club_id'
+  CURRENT_CLUB: 'admin_current_club_id',
+  PLATFORM_ADMINS: 'platform_admins'
 }
 
 const MEMBER_STORAGE_KEYS = {
@@ -767,11 +768,39 @@ export const rejectClub = (clubId) => {
 /** Find club by admin email/password for club login */
 export const getClubByAdminCredentials = (email, password) => {
   const clubs = loadClubs()
-  return clubs.find(c => 
+  const club = clubs.find(c =>
     (c.adminEmail || c.email || '').toLowerCase() === (email || '').toLowerCase() &&
     (c.adminPassword || '') === (password || '') &&
     (c.status === 'approved' || !c.status)
-  ) || null
+  )
+  if (club) return club
+  const em = (email || '').trim().toLowerCase()
+  for (const c of clubs) {
+    if ((c.status !== 'approved' && c.status) ? false : true) {
+      const users = c.adminUsers || []
+      const u = users.find(au => (au.email || '').toLowerCase() === em && (au.password || '') === (password || ''))
+      if (u) return c
+    }
+  }
+  return null
+}
+
+/** Get club admin session from credentials - returns { club, isOwner, permissions } for setClubAdminSession */
+export const getClubAdminSessionFromCredentials = (email, password) => {
+  const clubs = loadClubs()
+  const em = (email || '').trim().toLowerCase()
+  for (const club of clubs) {
+    if (club.status && club.status !== 'approved') continue
+    if ((club.adminEmail || club.email || '').toLowerCase() === em && (club.adminPassword || '') === (password || '')) {
+      return { club, isOwner: true, clubId: club.id, userId: 'owner', permissions: ['dashboard', 'members', 'offers', 'store', 'accounting', 'settings', 'users'] }
+    }
+    const users = club.adminUsers || []
+    const u = users.find(au => (au.email || '').toLowerCase() === em && (au.password || '') === (password || ''))
+    if (u) {
+      return { club, isOwner: false, clubId: club.id, userId: u.id, permissions: u.permissions || [] }
+    }
+  }
+  return null
 }
 
 // Function to manually sync members (can be called from UI)
@@ -863,4 +892,82 @@ export const saveAdminSettings = (settings) => {
   } catch (error) {
     console.error('Error saving admin settings:', error)
   }
+}
+
+// ----- Platform Admin (Main Admin Panel) -----
+export const loadPlatformAdmins = () => {
+  try {
+    const raw = _read(ADMIN_STORAGE_KEYS.PLATFORM_ADMINS)
+    if (Array.isArray(raw)) return raw
+    return []
+  } catch (_) { return [] }
+}
+
+function _savePlatformAdmins(admins) {
+  _write(ADMIN_STORAGE_KEYS.PLATFORM_ADMINS, admins)
+}
+
+export async function savePlatformAdminsAsync(admins) {
+  if (!Array.isArray(admins)) return false
+  try {
+    if (USE_POSTGRES && _backendStorage) {
+      _backendStorage.setCache(ADMIN_STORAGE_KEYS.PLATFORM_ADMINS, admins)
+      await _backendStorage.setStore(ADMIN_STORAGE_KEYS.PLATFORM_ADMINS, admins)
+      return true
+    }
+    _savePlatformAdmins(admins)
+    return true
+  } catch (e) {
+    console.error('savePlatformAdminsAsync failed:', e)
+    return false
+  }
+}
+
+export const createPlatformOwner = (email, password) => {
+  const admins = loadPlatformAdmins()
+  if (admins.some(a => a.role === 'owner')) return null
+  const owner = {
+    id: 'platform-owner-' + Date.now(),
+    email: (email || '').trim().toLowerCase(),
+    password: password || '',
+    role: 'owner',
+    permissions: ['all-clubs', 'manage-clubs', 'all-members', 'admin-users'],
+    createdAt: new Date().toISOString()
+  }
+  admins.push(owner)
+  _savePlatformAdmins(admins)
+  return owner
+}
+
+export const getPlatformAdminByCredentials = (email, password) => {
+  const admins = loadPlatformAdmins()
+  return admins.find(a =>
+    (a.email || '').toLowerCase() === (email || '').trim().toLowerCase() &&
+    (a.password || '') === (password || '')
+  ) || null
+}
+
+export const addPlatformAdmin = (email, password, permissions = []) => {
+  const admins = loadPlatformAdmins()
+  const em = (email || '').trim().toLowerCase()
+  if (admins.some(a => (a.email || '').toLowerCase() === em)) return { error: 'EMAIL_EXISTS' }
+  const admin = {
+    id: 'platform-admin-' + Date.now(),
+    email: em,
+    password: password || '',
+    role: 'admin',
+    permissions: Array.isArray(permissions) ? permissions : [],
+    createdAt: new Date().toISOString()
+  }
+  admins.push(admin)
+  _savePlatformAdmins(admins)
+  return { admin }
+}
+
+export const removePlatformAdmin = (id) => {
+  const admins = loadPlatformAdmins()
+  const filtered = admins.filter(a => a.id !== id)
+  if (filtered.length === admins.length) return false
+  _savePlatformAdmins(filtered)
+  return true
 }

@@ -12,7 +12,7 @@ export async function bootstrap() {
   if (bootstrapped) return
   try {
     const keys = [
-      'admin_clubs', 'all_members', 'padel_members', 'admin_settings',
+      'admin_clubs', 'all_members', 'padel_members', 'admin_settings', 'platform_admins',
       'app_language', 'current_member_id', 'admin_current_club_id', 'bookings'
     ]
     const data = await api.getStoreBatch(keys)

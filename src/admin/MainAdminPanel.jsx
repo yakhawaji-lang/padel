@@ -6,6 +6,8 @@ import MainAdminSidebar from './components/MainAdminSidebar'
 import MainAdminHeader from './components/MainAdminHeader'
 import AllClubsDashboard from './pages/AllClubsDashboard'
 import AllClubsManagement from './pages/AllClubsManagement'
+import AdminUsersManagement from './pages/AdminUsersManagement'
+import PlatformPageGuard from '../components/PlatformPageGuard'
 import { loadClubs, saveClubs, approveClub as doApproveClub, rejectClub as doRejectClub, syncMembersToClubsManually, refreshClubsFromApi } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 
@@ -153,31 +155,9 @@ function MainAdminPanel() {
         />
         <Routes>
           <Route path="/" element={<Navigate to="all-clubs" replace />} />
-          <Route 
-            path="all-clubs" 
-            element={
-              <AllClubsDashboard 
-                clubs={clubs}
-                language={language}
-                onUpdateClub={handleClubUpdate}
-                onApproveClub={handleApproveClub}
-                onRejectClub={handleRejectClub}
-                onRefresh={handleRefreshClubs}
-              />
-            } 
-          />
-          <Route 
-            path="manage-clubs" 
-            element={
-              <AllClubsManagement 
-                clubs={clubs}
-                language={language}
-                onCreateClub={handleClubCreate}
-                onUpdateClub={handleClubUpdate}
-                onDeleteClub={handleClubDelete}
-              />
-            } 
-          />
+          <Route path="all-clubs" element={<PlatformPageGuard permission="all-clubs"><AllClubsDashboard clubs={clubs} language={language} onUpdateClub={handleClubUpdate} onApproveClub={handleApproveClub} onRejectClub={handleRejectClub} onRefresh={handleRefreshClubs} /></PlatformPageGuard>} />
+          <Route path="manage-clubs" element={<PlatformPageGuard permission="manage-clubs"><AllClubsManagement clubs={clubs} language={language} onCreateClub={handleClubCreate} onUpdateClub={handleClubUpdate} onDeleteClub={handleClubDelete} /></PlatformPageGuard>} />
+          <Route path="admin-users" element={<PlatformPageGuard permission="admin-users"><AdminUsersManagement language={language} /></PlatformPageGuard>} />
         </Routes>
       </div>
     </div>
