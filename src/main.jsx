@@ -1,10 +1,11 @@
 import React, { lazy, Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { loadClubsAsync, loadClubs, applyRemoteClubs } from './storage/adminStorage.js'
-import { subscribeToClubs } from './storage/supabaseSync.js'
+import { loadClubsAsync, loadClubs, initBackendStorage } from './storage/adminStorage.js'
 import { applyAppLanguage } from './storage/languageStorage.js'
 import './index.css'
+
+const USE_POSTGRES = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_USE_POSTGRES) === 'true'
 
 // تطبيق اللغة المحفوظة عند بدء التطبيق
 applyAppLanguage()
@@ -64,12 +65,24 @@ function mountApp() {
   )
 }
 
-loadClubs()
-mountApp()
-loadClubsAsync()
-  .catch((e) => {
-    console.warn('Bootstrap loadClubsAsync failed:', e)
-  })
-subscribeToClubs((clubs) => applyRemoteClubs(clubs))
+async function bootstrap() {
+  if (USE_POSTGRES) {
+    const backendStorage = (await import('./storage/backendStorage.js')).default
+    initBackendStorage(backendStorage)
+    await backendStorage.bootstrap()
+    await loadClubsAsync()
+  } else {
+    loadClubs()
+    const { subscribeToClubs } = await import('./storage/supabaseSync.js')
+    const { applyRemoteClubs } = await import('./storage/adminStorage.js')
+    subscribeToClubs((clubs) => applyRemoteClubs(clubs))
+    await loadClubsAsync().catch((e) => console.warn('loadClubsAsync failed:', e))
+  }
+}
+
+bootstrap().then(() => mountApp()).catch((e) => {
+  console.error('Bootstrap failed:', e)
+  document.getElementById('root').innerHTML = `<div style="padding:40px;text-align:center;"><p>فشل تحميل التطبيق. تأكد من تشغيل الخادم وقاعدة البيانات.</p><p>Bootstrap failed. Ensure the server and database are running.</p></div>`
+})
 
 

@@ -464,7 +464,7 @@ function App({ currentUser }) {
     
     try {
       // Step 1: Delete matches from IndexedDB
-      await deleteMatchesByTournament(tid, tournamentType)
+      await deleteMatchesByTournament(tid, tournamentType, currentClub?.id)
       
       // Step 2: Remove member points and history related to this tournament
       const updatedMembers = members.map(member => {
@@ -560,7 +560,7 @@ function App({ currentUser }) {
       setCurrentTournamentId(prev => prev + 1)
       
       // Step 7: Reload historical matches
-      getAllMatchesFromIndexedDB().then(historical => {
+      getAllMatchesFromIndexedDB(currentClub?.id).then(historical => {
         setHistoricalMatches(historical)
       })
       
@@ -2327,8 +2327,8 @@ function App({ currentUser }) {
       }))
 
       // Save to IndexedDB
-      saveMatchToIndexedDB(newMatch, activeTab, effectiveTournamentId).then(() => {
-        getAllMatchesFromIndexedDB().then(historical => {
+      saveMatchToIndexedDB(newMatch, activeTab, effectiveTournamentId, currentClub?.id).then(() => {
+        getAllMatchesFromIndexedDB(currentClub?.id).then(historical => {
           setHistoricalMatches(historical)
         })
       })
@@ -2569,9 +2569,9 @@ function App({ currentUser }) {
     const updatedMatches = [...matches, newMatch]
     
     // Save match to IndexedDB for historical records
-    saveMatchToIndexedDB(newMatch, activeTab, effectiveTournamentId).then(() => {
+    saveMatchToIndexedDB(newMatch, activeTab, effectiveTournamentId, currentClub?.id).then(() => {
       // Reload historical matches
-      getAllMatchesFromIndexedDB().then(historical => {
+      getAllMatchesFromIndexedDB(currentClub?.id).then(historical => {
         setHistoricalMatches(historical)
       })
     })
@@ -3288,8 +3288,8 @@ function App({ currentUser }) {
     setMembers(updatedMembers)
 
     // Step 9: Update match in IndexedDB
-    saveMatchToIndexedDB(updatedMatch, activeTab, effectiveTournamentId).then(() => {
-      getAllMatchesFromIndexedDB().then(historical => {
+    saveMatchToIndexedDB(updatedMatch, activeTab, effectiveTournamentId, currentClub?.id).then(() => {
+      getAllMatchesFromIndexedDB(currentClub?.id).then(historical => {
         setHistoricalMatches(historical)
       })
     })
@@ -3498,7 +3498,7 @@ function App({ currentUser }) {
   // Load dates that have tournaments and calculate overall stats
   const loadDatesWithTournaments = async (tournamentType) => {
     try {
-      const allMatches = await getAllMatchesFromIndexedDB()
+      const allMatches = await getAllMatchesFromIndexedDB(currentClub?.id)
       const datesSet = new Set()
       const datesArray = []
       

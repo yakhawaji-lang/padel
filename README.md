@@ -60,9 +60,25 @@ npm run build
 
 The built files will be in the `dist` folder. You can deploy this folder to any web server or run it on another laptop.
 
+## قاعدة بيانات PostgreSQL
+
+يمكن تشغيل النظام بالكامل على PostgreSQL بدلاً من تخزين المتصفح. راجع [POSTGRES_SETUP.md](./POSTGRES_SETUP.md) للتفاصيل.
+
+```bash
+# تهيئة قاعدة البيانات
+npm run db:init
+
+# تشغيل الخادم (في نافذة منفصلة)
+npm run server
+
+# في .env.local
+VITE_USE_POSTGRES=true
+DATABASE_URL=postgresql://user:password@localhost:5432/padel
+```
+
 ## مزامنة البيانات بين الأجهزة (Vercel وجميع الأجهزة)
 
-لجعل بيانات النوادي والحجوزات تظهر على **جميع الأجهزة** (كمبيوتر، جوال، وغيرها)، ربط التطبيق بـ Supabase. اتبع الخطوات في [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) لإنشاء الجدول وإضافة `VITE_SUPABASE_URL` و`VITE_SUPABASE_ANON_KEY` محلياً وعلى Vercel.
+عند عدم استخدام PostgreSQL، يمكن ربط التطبيق بـ Supabase. اتبع [SUPABASE_SETUP.md](./SUPABASE_SETUP.md).
 
 ## رفع المشروع مع البيانات إلى GitHub
 

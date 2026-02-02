@@ -1,6 +1,7 @@
 // Admin Storage - Multi-club management
+// Uses PostgreSQL (via API) when VITE_USE_POSTGRES=true, else localStorage
 
-import { getRemoteClubs, setRemoteClubs, subscribeToClubs } from './supabaseSync.js'
+const USE_POSTGRES = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_USE_POSTGRES) === 'true'
 
 const ADMIN_STORAGE_KEYS = {
   CLUBS: 'admin_clubs',
@@ -14,6 +15,28 @@ const MEMBER_STORAGE_KEYS = {
 }
 
 let _clubsCache = null
+let _backendStorage = null
+
+export function initBackendStorage(backend) {
+  _backendStorage = backend
+}
+
+function _read(key) {
+  if (USE_POSTGRES && _backendStorage) return _backendStorage.getCache(key) ?? null
+  try {
+    const v = localStorage.getItem(key)
+    return v != null ? JSON.parse(v) : null
+  } catch (_) { return null }
+}
+
+function _write(key, value) {
+  if (USE_POSTGRES && _backendStorage) {
+    _backendStorage.setCache(key, value)
+    _backendStorage.setStore(key, value).catch(e => console.error('_write:', e))
+    return
+  }
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch (_) {}
+}
 
 /**
  * Load and merge members from both all_members and padel_members.
@@ -23,14 +46,12 @@ export function getMergedMembersRaw() {
   let members = []
   let allMembers = []
   try {
-    const pm = localStorage.getItem(MEMBER_STORAGE_KEYS.PADEL)
-    if (pm) members = JSON.parse(pm)
-    if (!Array.isArray(members)) members = []
+    const pm = _read(MEMBER_STORAGE_KEYS.PADEL)
+    if (Array.isArray(pm)) members = pm
   } catch (_) {}
   try {
-    const am = localStorage.getItem(MEMBER_STORAGE_KEYS.ALL)
-    if (am) allMembers = JSON.parse(am)
-    if (!Array.isArray(allMembers)) allMembers = []
+    const am = _read(MEMBER_STORAGE_KEYS.ALL)
+    if (Array.isArray(am)) allMembers = am
   } catch (_) {}
   const byId = new Map()
   members.forEach(m => { if (m && m.id) byId.set(m.id, m) })
@@ -45,9 +66,8 @@ export function getMergedMembersRaw() {
 export function saveMembers(members) {
   if (!Array.isArray(members)) return false
   try {
-    const json = JSON.stringify(members)
-    localStorage.setItem(MEMBER_STORAGE_KEYS.ALL, json)
-    localStorage.setItem(MEMBER_STORAGE_KEYS.PADEL, json)
+    _write(MEMBER_STORAGE_KEYS.ALL, members)
+    _write(MEMBER_STORAGE_KEYS.PADEL, members)
     const clubs = loadClubs()
     syncMembersToClubs(clubs)
     if (typeof window !== 'undefined') {
@@ -57,9 +77,7 @@ export function saveMembers(members) {
   } catch (e) {
     console.error('saveMembers error:', e)
     if (e?.name === 'QuotaExceededError') {
-      try {
-        localStorage.setItem(MEMBER_STORAGE_KEYS.ALL, JSON.stringify(members))
-      } catch (_) {}
+      try { _write(MEMBER_STORAGE_KEYS.ALL, members) } catch (_) {}
     }
     return false
   }
@@ -168,18 +186,28 @@ function mergeClubsPreservingLocalImages(remote, local) {
 }
 
 /**
- * Load clubs from Supabase into localStorage so the next loadClubs() uses them.
- * Call once at app bootstrap. Merges with local to preserve court images.
+ * Load clubs from backend (PostgreSQL) or Supabase. Call once at app bootstrap.
  */
 export async function loadClubsAsync() {
+  if (USE_POSTGRES && _backendStorage) {
+    try {
+      await _backendStorage.bootstrap()
+      const clubs = _backendStorage.getCache(ADMIN_STORAGE_KEYS.CLUBS) || []
+      _clubsCache = deduplicateClubs(clubs)
+      syncMembersToClubs(_clubsCache)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('clubs-synced'))
+      }
+    } catch (e) {
+      console.warn('loadClubsAsync (Postgres) failed:', e)
+    }
+    return
+  }
   try {
+    const { getRemoteClubs } = await import('./supabaseSync.js')
     const remote = await getRemoteClubs()
     if (remote === null || !Array.isArray(remote)) return
-    let local = []
-    try {
-      const data = localStorage.getItem(ADMIN_STORAGE_KEYS.CLUBS)
-      if (data) local = JSON.parse(data)
-    } catch (_) {}
+    let local = _read(ADMIN_STORAGE_KEYS.CLUBS) || []
     let merged = mergeClubsPreservingLocalImages(remote, local)
     if (!merged.length || !merged.some(c => c.id === 'hala-padel')) {
       const hala = createExampleHalaPadel()
@@ -187,7 +215,7 @@ export async function loadClubsAsync() {
       else if (!merged.some(c => c.id === 'hala-padel')) merged = [hala, ...merged]
     }
     syncMembersToClubs(merged)
-    localStorage.setItem(ADMIN_STORAGE_KEYS.CLUBS, JSON.stringify(merged))
+    _write(ADMIN_STORAGE_KEYS.CLUBS, merged)
     _clubsCache = merged
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('clubs-synced'))
@@ -198,18 +226,14 @@ export async function loadClubsAsync() {
 }
 
 /**
- * Apply clubs received from another device (real-time sync). Updates cache and localStorage
- * and dispatches 'clubs-synced' so the UI refreshes without reload.
- * Preserves local court images when remote doesn't have them.
+ * Apply clubs received from another device (real-time sync). Updates cache and storage.
+ * No-op when using Postgres (data comes from API).
  */
 export function applyRemoteClubs(clubs) {
+  if (USE_POSTGRES) return
   if (!Array.isArray(clubs)) return
   try {
-    let local = []
-    try {
-      const data = localStorage.getItem(ADMIN_STORAGE_KEYS.CLUBS)
-      if (data) local = JSON.parse(data)
-    } catch (_) {}
+    let local = _read(ADMIN_STORAGE_KEYS.CLUBS) || []
     let merged = mergeClubsPreservingLocalImages(clubs, local)
     if (!merged.length || !merged.some(c => c.id === 'hala-padel')) {
       const hala = createExampleHalaPadel()
@@ -217,7 +241,7 @@ export function applyRemoteClubs(clubs) {
       else if (!merged.some(c => c.id === 'hala-padel')) merged = [hala, ...merged]
     }
     syncMembersToClubs(merged)
-    localStorage.setItem(ADMIN_STORAGE_KEYS.CLUBS, JSON.stringify(merged))
+    _write(ADMIN_STORAGE_KEYS.CLUBS, merged)
     _clubsCache = merged
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('clubs-synced'))
@@ -234,9 +258,8 @@ export const loadClubs = () => {
       syncMembersToClubs(_clubsCache)
       return deduplicateClubs(_clubsCache)
     }
-    const data = localStorage.getItem(ADMIN_STORAGE_KEYS.CLUBS)
-    if (data) {
-      const clubs = JSON.parse(data)
+    const clubs = _read(ADMIN_STORAGE_KEYS.CLUBS)
+    if (clubs && Array.isArray(clubs)) {
       // Ensure Hala Padel exists if clubs array is empty or doesn't contain it
       if (clubs.length === 0 || !clubs.some(c => c.id === 'hala-padel')) {
         const halaPadel = createExampleHalaPadel()
@@ -308,7 +331,6 @@ export const loadClubs = () => {
       _clubsCache = deduped
       return deduped
     }
-    // Initialize with Hala Padel as example club
     const halaPadel = createExampleHalaPadel()
     saveClubs([halaPadel])
     _clubsCache = [halaPadel]
@@ -417,9 +439,8 @@ export const syncMembersToClubs = (clubs) => {
         
         const updatedMembers = Array.from(updatedMembersMap.values())
         try {
-          const json = JSON.stringify(updatedMembers)
-          localStorage.setItem(MEMBER_STORAGE_KEYS.ALL, json)
-          localStorage.setItem(MEMBER_STORAGE_KEYS.PADEL, json)
+          _write(MEMBER_STORAGE_KEYS.ALL, updatedMembers)
+          _write(MEMBER_STORAGE_KEYS.PADEL, updatedMembers)
         } catch (e) {
           console.error('syncMembersToClubs save error:', e)
         }
@@ -591,10 +612,11 @@ export const createExampleClub = () => {
 
 export const saveClubs = (clubs) => {
   try {
-    const json = JSON.stringify(clubs)
-    localStorage.setItem(ADMIN_STORAGE_KEYS.CLUBS, json)
+    _write(ADMIN_STORAGE_KEYS.CLUBS, clubs)
     _clubsCache = clubs
-    setRemoteClubs(clubs)
+    if (!USE_POSTGRES) {
+      import('./supabaseSync.js').then(({ setRemoteClubs }) => setRemoteClubs(clubs)).catch(() => {})
+    }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('clubs-synced'))
     }
@@ -609,16 +631,12 @@ export const saveClubs = (clubs) => {
 export const getClubById = (clubId, forceFromStorage = false) => {
   let clubs
   if (forceFromStorage) {
-    try {
-      const data = localStorage.getItem(ADMIN_STORAGE_KEYS.CLUBS)
-      clubs = data ? JSON.parse(data) : []
-    } catch (e) {
-      clubs = []
-    }
+    clubs = _read(ADMIN_STORAGE_KEYS.CLUBS) || []
+    if (!Array.isArray(clubs)) clubs = []
   } else {
     clubs = loadClubs()
   }
-  return clubs.find(club => club.id === clubId)
+  return clubs?.find(club => club.id === clubId)
 }
 
 export const updateClub = (clubId, updates) => {
@@ -788,12 +806,8 @@ export const removeMemberFromClubs = (memberId, clubIds) => {
 // Admin Settings
 export const loadAdminSettings = () => {
   try {
-    const data = localStorage.getItem(ADMIN_STORAGE_KEYS.SETTINGS)
-    return data ? JSON.parse(data) : {
-      theme: 'light',
-      language: 'en',
-      defaultView: 'dashboard'
-    }
+    const data = _read(ADMIN_STORAGE_KEYS.SETTINGS)
+    return data || { theme: 'light', language: 'en', defaultView: 'dashboard' }
   } catch (error) {
     console.error('Error loading admin settings:', error)
     return {}
@@ -802,7 +816,7 @@ export const loadAdminSettings = () => {
 
 export const saveAdminSettings = (settings) => {
   try {
-    localStorage.setItem(ADMIN_STORAGE_KEYS.SETTINGS, JSON.stringify(settings))
+    _write(ADMIN_STORAGE_KEYS.SETTINGS, settings)
   } catch (error) {
     console.error('Error saving admin settings:', error)
   }

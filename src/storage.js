@@ -1,6 +1,9 @@
 // Storage utility for hybrid localStorage + IndexedDB approach
+// Uses PostgreSQL API when VITE_USE_POSTGRES=true
 
 import { saveMembers, getMergedMembersRaw } from './storage/adminStorage.js'
+
+const USE_POSTGRES = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_USE_POSTGRES) === 'true'
 
 // ==================== LOCALSTORAGE (Current State) ====================
 
@@ -244,8 +247,9 @@ const STORES = {
 
 let dbInstance = null
 
-// Initialize IndexedDB
+// Initialize IndexedDB (no-op when using Postgres)
 export const initIndexedDB = () => {
+  if (USE_POSTGRES) return Promise.resolve(null)
   return new Promise((resolve, reject) => {
     if (dbInstance) {
       resolve(dbInstance)
@@ -293,8 +297,18 @@ export const initIndexedDB = () => {
   })
 }
 
-// Save match to IndexedDB
-export const saveMatchToIndexedDB = async (match, tournamentType, tournamentId) => {
+// Save match to IndexedDB or PostgreSQL. Pass clubId when using Postgres.
+export const saveMatchToIndexedDB = async (match, tournamentType, tournamentId, clubId) => {
+  if (USE_POSTGRES && clubId) {
+    try {
+      const { saveMatch } = await import('./api/dbClient.js')
+      await saveMatch({ ...match, clubId }, tournamentType, tournamentId)
+      return true
+    } catch (e) {
+      console.error('Error saving match to API:', e)
+      return false
+    }
+  }
   try {
     const db = await initIndexedDB()
     const transaction = db.transaction([STORES.MATCHES], 'readwrite')
@@ -321,10 +335,20 @@ export const saveMatchToIndexedDB = async (match, tournamentType, tournamentId) 
   }
 }
 
-// Get all matches from IndexedDB
-export const getAllMatchesFromIndexedDB = async () => {
+// Get all matches from IndexedDB or PostgreSQL. Pass clubId when using Postgres.
+export const getAllMatchesFromIndexedDB = async (clubId) => {
+  if (USE_POSTGRES && clubId) {
+    try {
+      const { getMatches } = await import('./api/dbClient.js')
+      return await getMatches({ clubId })
+    } catch (e) {
+      console.error('Error loading matches from API:', e)
+      return []
+    }
+  }
   try {
     const db = await initIndexedDB()
+    if (!db) return []
     const transaction = db.transaction([STORES.MATCHES], 'readonly')
     const store = transaction.objectStore(STORES.MATCHES)
 
@@ -398,8 +422,18 @@ export const getMatchesByTournamentId = async (tournamentId) => {
   }
 }
 
-// Delete matches by tournament ID and type
-export const deleteMatchesByTournament = async (tournamentId, tournamentType) => {
+// Delete matches by tournament ID and type. Pass clubId when using Postgres.
+export const deleteMatchesByTournament = async (tournamentId, tournamentType, clubId) => {
+  if (USE_POSTGRES && clubId) {
+    try {
+      const api = await import('./api/dbClient.js')
+      await api.deleteMatchesByTournament(clubId, tournamentId, tournamentType)
+      return true
+    } catch (e) {
+      console.error('Error deleting matches from API:', e)
+      return false
+    }
+  }
   try {
     const db = await initIndexedDB()
     const transaction = db.transaction([STORES.MATCHES], 'readwrite')
