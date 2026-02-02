@@ -2,7 +2,9 @@
   "name": "padel-tournament",
   "version": "1.0.0",
   "type": "module",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -14,12 +16,14 @@
     "db:init": "cd server && npm run db:init",
     "postgres:setup": "node scripts/postgres-setup.js",
     "postgres:dev": "node scripts/start-with-postgres.js",
-    "sync-to-cloud": "node scripts/sync-to-cloud.js"
+    "sync-to-cloud": "node scripts/sync-to-cloud.js",
+    "sync-from-cloud": "node scripts/sync-from-cloud.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
     "axios": "^1.13.4",
     "date-fns": "^3.0.0",
+    "dotenv": "^16.6.1",
     "jsbarcode": "^3.12.3",
     "leaflet": "^1.9.4",
     "pg": "^8.18.0",

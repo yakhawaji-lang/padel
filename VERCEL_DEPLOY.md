@@ -203,19 +203,42 @@ https://your-app.vercel.app/api/health
 
 ---
 
-# مزامنة البيانات من المحلي إلى السحابة
+# مزامنة البيانات بين المحلي والسحابة
 
-إن كان لديك بيانات في PostgreSQL المحلي وتريد نقلها:
+## الإعداد
 
-1. أنشئ ملف `.env.local` في جذر المشروع:
+أضف في `.env.local`:
 
 ```env
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/padel
 DATABASE_URL_CLOUD=postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require
 ```
 
-2. نفّذ:
+---
+
+## من المحلي → السحابة
+
+لنقل بياناتك المحلية إلى قاعدة البيانات السحابية:
 
 ```bash
 npm run sync-to-cloud
 ```
+
+---
+
+## من السحابة → المحلي
+
+لسحب البيانات من السحابة إلى PostgreSQL المحلي:
+
+```bash
+npm run sync-from-cloud
+```
+
+---
+
+## ملخص
+
+| الأمر | الاتجاه | الاستخدام |
+|-------|---------|-----------|
+| `npm run sync-to-cloud` | المحلي → السحابة | نقل بيانات التطوير المحلي للسحابة |
+| `npm run sync-from-cloud` | السحابة → المحلي | سحب بيانات الإنتاج للمحلي |
