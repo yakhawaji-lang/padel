@@ -37,6 +37,10 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   } catch (e) {
     console.error('store error:', e)
-    return res.status(500).json({ error: e.message })
+    const msg = e.message || 'Database error'
+    const hint = msg.includes('ENOTFOUND') || msg.includes('getaddrinfo')
+      ? ' Check DATABASE_URL in Vercel env and redeploy.'
+      : ''
+    return res.status(500).json({ error: msg + hint })
   }
 }

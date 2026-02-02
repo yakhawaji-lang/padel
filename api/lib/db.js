@@ -5,11 +5,12 @@
 import pg from 'pg'
 const { Pool } = pg
 
-const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL
+const connectionString = (process.env.DATABASE_URL || process.env.POSTGRES_URL || '').trim()
 const pool = connectionString
   ? new Pool({
       connectionString,
-      ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false }
+      ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10000
     })
   : null
 
