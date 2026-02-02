@@ -5,7 +5,7 @@ import { loadClubsAsync, loadClubs, initBackendStorage } from './storage/adminSt
 import { applyAppLanguage } from './storage/languageStorage.js'
 import './index.css'
 
-const USE_POSTGRES = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_USE_POSTGRES) === 'true'
+const USE_POSTGRES = (typeof import.meta === 'undefined' || import.meta.env?.VITE_USE_POSTGRES !== 'false')
 
 // تطبيق اللغة المحفوظة عند بدء التطبيق
 applyAppLanguage()

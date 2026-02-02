@@ -3,7 +3,7 @@
 
 import { saveMembers, getMergedMembersRaw } from './storage/adminStorage.js'
 
-const USE_POSTGRES = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_USE_POSTGRES) === 'true'
+const USE_POSTGRES = (typeof import.meta === 'undefined' || import.meta.env?.VITE_USE_POSTGRES !== 'false')
 
 // ==================== LOCALSTORAGE (Current State) ====================
 

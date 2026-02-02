@@ -1,7 +1,7 @@
 // Admin Storage - Multi-club management
 // Uses PostgreSQL (via API) when VITE_USE_POSTGRES=true, else localStorage
 
-const USE_POSTGRES = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_USE_POSTGRES) === 'true'
+const USE_POSTGRES = (typeof import.meta === 'undefined' || import.meta.env?.VITE_USE_POSTGRES !== 'false')
 
 const ADMIN_STORAGE_KEYS = {
   CLUBS: 'admin_clubs',

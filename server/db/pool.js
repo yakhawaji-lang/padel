@@ -1,3 +1,13 @@
+import { config } from 'dotenv'
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const root = join(__dirname, '..', '..')
+config({ path: join(root, '.env.local') })
+config({ path: join(root, '.env') })
+config({ path: join(__dirname, '..', '.env') })
+
 import pg from 'pg'
 const { Pool } = pg
 
