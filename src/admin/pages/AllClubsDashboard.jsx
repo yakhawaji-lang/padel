@@ -6,8 +6,17 @@ import { getAllMembersFromStorage, addMemberToClubs, getClubMembersFromStorage }
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
+const getDataSourceLabel = () => {
+  if (typeof window === 'undefined') return { en: '—', ar: '—' }
+  const h = (window.location?.hostname || '').toLowerCase()
+  if (h.includes('vercel.app')) return { en: 'Cloud', ar: 'سحابي' }
+  if (h.includes('localhost') || h === '127.0.0.1') return { en: 'Local', ar: 'محلي' }
+  return { en: 'Cloud', ar: 'سحابي' }
+}
+
 const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub, onRejectClub, onRefresh }) => {
   const navigate = useNavigate()
+  const dataSource = getDataSourceLabel()
   const [searchQuery, setSearchQuery] = useState('')
   const [viewingPending, setViewingPending] = useState(null)
   const [sortBy, setSortBy] = useState('name')
@@ -134,7 +143,12 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
       <div className="all-clubs-dashboard">
         <div className="dashboard-header">
           <div className="dashboard-header-text">
-            <h2 className="page-title">{t('All Clubs Dashboard', 'لوحة جميع الأندية', language)}</h2>
+            <h2 className="page-title">
+              {t('All Clubs Dashboard', 'لوحة جميع الأندية', language)}
+              <span className="dashboard-data-source" title={language === 'ar' ? 'مصدر البيانات المعروضة' : 'Data source for displayed stats'}>
+                {language === 'ar' ? ` (${dataSource.ar})` : ` (${dataSource.en})`}
+              </span>
+            </h2>
             <p className="page-subtitle">{t('Overview and statistics for all clubs in the system', 'نظرة عامة وإحصائيات لجميع الأندية في النظام', language)}</p>
           </div>
           <div className="dashboard-header-actions">
@@ -176,6 +190,9 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
               <div className="total-stat-label">Total Members</div>
               <div className="total-stat-sublabel">
                 {t('Registered on platform', 'مسجلون في المنصة', language)}
+                <span className="data-source-badge" title={language === 'ar' ? 'مصدر البيانات' : 'Data source'}>
+                  · {language === 'ar' ? dataSource.ar : dataSource.en}
+                </span>
               </div>
             </div>
           </div>
@@ -355,7 +372,12 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
 
         {/* All Members Section */}
         <div id="all-members-section" className="all-members-section">
-          <h3>{t('All Members Across Clubs', 'أعضاء كل الأندية', language)} ({allMembers.length})</h3>
+          <h3>
+            {t('All Members Across Clubs', 'أعضاء كل الأندية', language)} ({allMembers.length})
+            <span className="data-source-inline" title={language === 'ar' ? 'مصدر البيانات' : 'Data source'}>
+              ({language === 'ar' ? dataSource.ar : dataSource.en})
+            </span>
+          </h3>
           <div className="all-members-search">
             <input
               type="text"

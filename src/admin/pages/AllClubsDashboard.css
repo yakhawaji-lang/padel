@@ -134,6 +134,26 @@
   margin-top: 2px;
 }
 
+.data-source-badge {
+  color: #1976d2;
+  font-weight: 500;
+  margin-left: 2px;
+}
+
+.data-source-inline {
+  font-size: 0.85em;
+  color: #666;
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+.dashboard-data-source {
+  font-size: 0.7em;
+  font-weight: 500;
+  color: #1976d2;
+  margin-left: 8px;
+}
+
 /* Pending Clubs */
 .pending-clubs-section {
   background: #fef3c7;
