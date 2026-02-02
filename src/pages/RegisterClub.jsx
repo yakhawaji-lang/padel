@@ -105,12 +105,18 @@ const RegisterClub = () => {
         return
       }
       if (result?.error === 'SAVE_FAILED') {
-        setError(language === 'en' ? 'Failed to save. Please check your connection and try again.' : 'فشل الحفظ. تحقق من اتصالك وحاول مرة أخرى.')
+        setError(language === 'en' ? 'Server unavailable. Please try again later.' : 'الخادم غير متاح. حاول لاحقاً.')
         return
       }
       setSuccess(true)
     } catch (err) {
-      setError(language === 'en' ? 'An error occurred. Please try again.' : 'حدث خطأ. حاول مرة أخرى.')
+      const msg = String(err?.message || '')
+      const isServer = /fetch|network|failed|504|502|500|connection/i.test(msg)
+      setError(isServer
+        ? (language === 'en' ? 'Server connection failed. Try again later.' : 'فشل الاتصال بالخادم. حاول لاحقاً.')
+        : (language === 'en' ? 'An error occurred. Please try again.' : 'حدث خطأ. حاول مرة أخرى.'))
+    } finally {
+      setSubmitting(false)
     }
   }
 
