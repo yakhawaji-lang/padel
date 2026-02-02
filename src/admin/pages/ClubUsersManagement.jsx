@@ -9,12 +9,47 @@ export default function ClubUsersManagement({ club, onUpdateClub, language = 'en
   const session = getClubAdminSession()
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ email: '', password: '', permissions: [] })
+  const [editingId, setEditingId] = useState(null)
+  const [error, setError] = useState('')
 
   if (!hasClubPermission(session, 'users')) {
     return <div className="empty-state"><p>{t('Access denied', 'غير مصرح', language)}</p></div>
   }
 
   const adminUsers = club?.adminUsers || []
+
+  const openEdit = (user) => {
+    setEditingId(user.id)
+    setForm({ email: user.email, password: '', permissions: user.permissions || [] })
+    setError('')
+  }
+
+  const handleEdit = (e) => {
+    e.preventDefault()
+    if (!editingId || !club || !onUpdateClub) return
+    setError('')
+    const users = (club.adminUsers || []).map(u =>
+      u.id === editingId
+        ? {
+            ...u,
+            email: form.email.trim().toLowerCase(),
+            password: form.password || u.password,
+            permissions: form.permissions
+          }
+        : u
+    )
+    if (form.password && form.password.length > 0 && form.password.length < 6) {
+      setError(t('Password must be at least 6 characters.', 'كلمة المرور 6 أحرف على الأقل.', language))
+      return
+    }
+    if (users.some(u => u.id !== editingId && (u.email || '').toLowerCase() === form.email.trim().toLowerCase())) {
+      setError(t('This email is already used.', 'هذا البريد مستخدم مسبقاً.', language))
+      return
+    }
+    onUpdateClub({ adminUsers: users })
+    setEditingId(null)
+    setForm({ email: '', password: '', permissions: [] })
+  }
 
   const togglePerm = (id) => {
     setForm(prev => ({
@@ -30,7 +65,8 @@ export default function ClubUsersManagement({ club, onUpdateClub, language = 'en
     if (!form.email || !form.password || form.password.length < 6) return
     const users = [...adminUsers]
     if (users.some(u => (u.email || '').toLowerCase() === form.email.trim().toLowerCase())) {
-      alert(t('Email already exists', 'البريد مسجّل مسبقاً', language))
+      setError(t('Email already exists', 'البريد مسجّل مسبقاً', language))
+      setShowAdd(true)
       return
     }
     users.push({
@@ -49,6 +85,7 @@ export default function ClubUsersManagement({ club, onUpdateClub, language = 'en
     if (!window.confirm(t('Remove this user?', 'إزالة هذا المستخدم؟', language))) return
     const users = adminUsers.filter(u => u.id !== id)
     onUpdateClub({ adminUsers: users })
+    setEditingId(null)
   }
 
   return (
@@ -60,11 +97,12 @@ export default function ClubUsersManagement({ club, onUpdateClub, language = 'en
         </button>
       </div>
 
-      {showAdd && (
-        <div className="modal-overlay" onClick={() => setShowAdd(false)}>
+          {showAdd && !editingId && (
+        <div className="modal-overlay" onClick={() => { setShowAdd(false); setError('') }}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h3>{t('Add Club Admin User', 'إضافة مدير للنادي', language)}</h3>
             <form onSubmit={handleAdd}>
+              {error && <p className="register-error" style={{ marginBottom: 12 }}>{error}</p>}
               <div className="form-group">
                 <label>{t('Email', 'البريد')} *</label>
                 <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required />
@@ -93,6 +131,40 @@ export default function ClubUsersManagement({ club, onUpdateClub, language = 'en
         </div>
       )}
 
+      {editingId && (
+        <div className="modal-overlay" onClick={() => { setEditingId(null); setForm({ email: '', password: '', permissions: [] }) }}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>{t('Edit Club Admin User', 'تعديل مدير النادي', language)}</h3>
+            <form onSubmit={handleEdit}>
+              {error && <p className="register-error" style={{ marginBottom: 12 }}>{error}</p>}
+              <div className="form-group">
+                <label>{t('Email', 'البريد')} *</label>
+                <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required />
+              </div>
+              <div className="form-group">
+                <label>{t('Password', 'كلمة المرور')} (min 6, leave blank to keep)</label>
+                <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" />
+              </div>
+              <div className="form-group">
+                <label>{t('Pages access', 'صفحات الوصول')}</label>
+                <div className="permissions-checkbox-grid">
+                  {CLUB_PERMISSIONS.map(p => (
+                    <label key={p.id} className="permission-checkbox-item">
+                      <input type="checkbox" checked={form.permissions.includes(p.id)} onChange={() => togglePerm(p.id)} />
+                      <span>{p.label[language]}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+                <button type="submit" className="btn-primary">{t('Save', 'حفظ', language)}</button>
+                <button type="button" className="btn-secondary" onClick={() => { setEditingId(null); setForm({ email: '', password: '', permissions: [] }) }}>{t('Cancel', 'إلغاء', language)}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="members-table-wrap">
         <table className="members-table">
           <thead>
@@ -113,9 +185,10 @@ export default function ClubUsersManagement({ club, onUpdateClub, language = 'en
                 <td>{u.email}</td>
                 <td>{(u.permissions || []).map(p => CLUB_PERMISSIONS.find(x => x.id === p)?.label[language] || p).join(', ') || '—'}</td>
                 <td>
-                  <button type="button" className="btn-danger btn-small" onClick={() => handleRemove(u.id)}>
-                    {t('Remove', 'إزالة', language)}
-                  </button>
+                  <div className="action-buttons">
+                    <button type="button" className="btn-secondary btn-small" onClick={() => openEdit(u)}>{t('Edit', 'تعديل', language)}</button>
+                    <button type="button" className="btn-danger btn-small" onClick={() => handleRemove(u.id)}>{t('Remove', 'إزالة', language)}</button>
+                  </div>
                 </td>
               </tr>
             ))}

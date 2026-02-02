@@ -37,6 +37,7 @@ const ResetPassword = () => {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const token = searchParams.get('token')
+  const resetType = searchParams.get('type')
   const [language, setLanguage] = useState(getAppLanguage())
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -76,11 +77,15 @@ const ResetPassword = () => {
     try {
       await confirmPasswordReset(token, password)
       if (backendStorage.refreshStoreKeys) {
-        await backendStorage.refreshStoreKeys(['all_members', 'padel_members']).catch(() => {})
+        const keys = ['all_members', 'padel_members']
+        if (resetType === 'platform') keys.push('platform_admins')
+        if (resetType === 'club') keys.push('admin_clubs')
+        await backendStorage.refreshStoreKeys(keys).catch(() => {})
       }
       setStatus('success')
       setMessage(c.success)
-      setTimeout(() => navigate('/login'), 2500)
+      const loginPath = resetType === 'platform' ? '/admin-login' : resetType === 'club' ? '/club-login' : '/login'
+      setTimeout(() => navigate(loginPath), 2500)
     } catch (err) {
       setStatus('error')
       setMessage(err?.message || c.genericError)
@@ -108,7 +113,7 @@ const ResetPassword = () => {
           {status === 'success' ? (
             <div className="forgot-password-success">
               <p>{message}</p>
-              <Link to="/login" className="forgot-password-btn">{c.backToLogin}</Link>
+              <Link to={resetType === 'platform' ? '/admin-login' : resetType === 'club' ? '/club-login' : '/login'} className="forgot-password-btn">{c.backToLogin}</Link>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="forgot-password-form">
@@ -145,7 +150,7 @@ const ResetPassword = () => {
             </form>
           )}
           <p className="forgot-password-login-hint">
-            <Link to="/login">{c.backToLogin}</Link>
+            <Link to={resetType === 'platform' ? '/admin-login' : resetType === 'club' ? '/club-login' : '/login'}>{c.backToLogin}</Link>
           </p>
         </div>
       </main>

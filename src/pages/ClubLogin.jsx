@@ -100,6 +100,8 @@ const ClubLogin = () => {
             </button>
           </form>
           <p className="auth-login-hint">
+            <Link to="/forgot-password?type=club">{language === 'en' ? 'Forgot password?' : 'نسيت كلمة المرور؟'}</Link>
+            {' · '}
             <Link to="/register-club">{c.registerClub}</Link>
           </p>
         </div>

@@ -91,7 +91,7 @@ const Login = () => {
             </button>
           </form>
           <p className="login-forgot-hint">
-            <Link to="/forgot-password">
+            <Link to="/forgot-password?type=member">
               {language === 'en' ? 'Forgot password?' : 'نسيت كلمة المرور؟'}
             </Link>
           </p>

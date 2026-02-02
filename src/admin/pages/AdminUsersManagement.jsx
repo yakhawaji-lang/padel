@@ -6,6 +6,7 @@ import {
   loadPlatformAdmins,
   addPlatformAdmin,
   removePlatformAdmin,
+  updatePlatformAdmin,
   savePlatformAdminsAsync
 } from '../../storage/adminStorage'
 import { getPlatformAdminSession, hasPlatformPermission } from '../../storage/platformAdminAuth'
@@ -24,6 +25,8 @@ export default function AdminUsersManagement({ language = 'en', clubs = [], onUp
   const [showAddClubUser, setShowAddClubUser] = useState(false)
   const [clubUserForm, setClubUserForm] = useState({ email: '', password: '', permissions: [] })
   const [clubUserError, setClubUserError] = useState('')
+  const [editingPlatformId, setEditingPlatformId] = useState(null)
+  const [editingClubUserId, setEditingClubUserId] = useState(null)
 
   if (!hasPlatformPermission(session, 'admin-users')) {
     return <div className="empty-state"><p>{t('Access denied', 'غير مصرح', language)}</p></div>
@@ -66,7 +69,35 @@ export default function AdminUsersManagement({ language = 'en', clubs = [], onUp
     if (removePlatformAdmin(id)) {
       await savePlatformAdminsAsync(loadPlatformAdmins())
       refreshPlatform()
+      setEditingPlatformId(null)
     }
+  }
+
+  const handleEditPlatform = async (e) => {
+    e.preventDefault()
+    if (!editingPlatformId) return
+    setError('')
+    const admin = admins.find(a => a.id === editingPlatformId)
+    if (!admin || admin.role === 'owner') return
+    const updates = { email: form.email.trim().toLowerCase() }
+    if (form.password && form.password.length >= 6) updates.password = form.password
+    updates.permissions = form.permissions
+    const updated = updatePlatformAdmin(editingPlatformId, updates)
+    if (updated) {
+      await savePlatformAdminsAsync(loadPlatformAdmins())
+      refreshPlatform()
+      setEditingPlatformId(null)
+      setForm({ email: '', password: '', permissions: [] })
+    } else {
+      setError(t('Could not update admin.', 'تعذر تحديث المدير.', language))
+    }
+  }
+
+  const openEditPlatform = (admin) => {
+    if (admin.role === 'owner') return
+    setEditingPlatformId(admin.id)
+    setForm({ email: admin.email, password: '', permissions: admin.permissions || [] })
+    setError('')
   }
 
   const togglePerm = (id) => {
@@ -117,6 +148,42 @@ export default function AdminUsersManagement({ language = 'en', clubs = [], onUp
     if (!window.confirm(t('Remove this user?', 'إزالة هذا المستخدم؟', language))) return
     const users = clubAdminUsers.filter(u => u.id !== id)
     onUpdateClub(selectedClub.id, { adminUsers: users })
+    setEditingClubUserId(null)
+  }
+
+  const handleEditClubUser = (e) => {
+    e.preventDefault()
+    if (!selectedClub || !onUpdateClub || !editingClubUserId) return
+    setClubUserError('')
+    const user = clubAdminUsers.find(u => u.id === editingClubUserId)
+    if (!user) return
+    const users = clubAdminUsers.map(u =>
+      u.id === editingClubUserId
+        ? {
+            ...u,
+            email: clubUserForm.email.trim().toLowerCase(),
+            password: clubUserForm.password || u.password,
+            permissions: clubUserForm.permissions
+          }
+        : u
+    )
+    if (clubUserForm.password && clubUserForm.password.length < 6) {
+      setClubUserError(t('Password must be at least 6 characters.', 'كلمة المرور 6 أحرف على الأقل.', language))
+      return
+    }
+    if (users.some(u => u.id !== editingClubUserId && (u.email || '').toLowerCase() === clubUserForm.email.trim().toLowerCase())) {
+      setClubUserError(t('This email is already used.', 'هذا البريد مستخدم مسبقاً.', language))
+      return
+    }
+    onUpdateClub(selectedClub.id, { adminUsers: users })
+    setEditingClubUserId(null)
+    setClubUserForm({ email: '', password: '', permissions: [] })
+  }
+
+  const openEditClubUser = (user) => {
+    setEditingClubUserId(user.id)
+    setClubUserForm({ email: user.email, password: '', permissions: user.permissions || [] })
+    setClubUserError('')
   }
 
   return (
@@ -222,20 +289,59 @@ export default function AdminUsersManagement({ language = 'en', clubs = [], onUp
                         ? t('Full access', 'صلاحية كاملة', language)
                         : (a.permissions || []).map(p => PLATFORM_PERMISSIONS.find(x => x.id === p)?.label[language] || p).join(', ') || '—'}
                     </td>
-                    <td>
-                      {a.role !== 'owner' && (
-                        <button type="button" className="btn-danger btn-small" onClick={() => handleRemovePlatform(a.id)}>
-                          {t('Remove', 'إزالة', language)}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                <td>
+                  {a.role !== 'owner' && (
+                    <div className="action-buttons">
+                      <button type="button" className="btn-secondary btn-small" onClick={() => openEditPlatform(a)}>
+                        {t('Edit', 'تعديل', language)}
+                      </button>
+                      <button type="button" className="btn-danger btn-small" onClick={() => handleRemovePlatform(a.id)}>
+                        {t('Remove', 'إزالة', language)}
+                      </button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {editingPlatformId && (
+        <div className="pending-modal-overlay" onClick={() => { setEditingPlatformId(null); setForm({ email: '', password: '', permissions: [] }) }}>
+          <div className="pending-modal" onClick={e => e.stopPropagation()}>
+            <h3>{t('Edit Platform Admin', 'تعديل مدير المنصة', language)}</h3>
+            <form onSubmit={handleEditPlatform}>
+              {error && <p className="register-error" style={{ marginBottom: 12 }}>{error}</p>}
+              <div className="form-group" style={{ marginBottom: 16 }}>
+                <label>{t('Email', 'البريد')} *</label>
+                <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required />
+              </div>
+              <div className="form-group" style={{ marginBottom: 16 }}>
+                <label>{t('Password', 'كلمة المرور')} (min 6, leave blank to keep)</label>
+                <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" />
+              </div>
+              <div className="form-group" style={{ marginBottom: 16 }}>
+                <label>{t('Pages access', 'صفحات الوصول')}</label>
+                <div className="permissions-checkbox-grid">
+                  {PLATFORM_PERMISSIONS.filter(p => p.id !== 'admin-users').map(p => (
+                    <label key={p.id} className="permission-checkbox-item">
+                      <input type="checkbox" checked={form.permissions.includes(p.id)} onChange={() => togglePerm(p.id)} />
+                      <span>{p.label[language]}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+                <button type="submit" className="btn-primary">{t('Save', 'حفظ', language)}</button>
+                <button type="button" className="btn-secondary" onClick={() => { setEditingPlatformId(null); setForm({ email: '', password: '', permissions: [] }) }}>{t('Cancel', 'إلغاء', language)}</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
+    </div>
+  )}
 
       {/* Club Admins Tab */}
       {activeTab === 'clubs' && (
@@ -341,15 +447,54 @@ export default function AdminUsersManagement({ language = 'en', clubs = [], onUp
                             <td>{t('Admin', 'مدير', language)}</td>
                             <td>{(u.permissions || []).map(p => CLUB_PERMISSIONS.find(x => x.id === p)?.label[language] || p).join(', ') || '—'}</td>
                             <td>
-                              <button type="button" className="btn-danger btn-small" onClick={() => handleRemoveClubUser(u.id)}>
-                                {t('Remove', 'إزالة', language)}
-                              </button>
+                              <div className="action-buttons">
+                                <button type="button" className="btn-secondary btn-small" onClick={() => openEditClubUser(u)}>
+                                  {t('Edit', 'تعديل', language)}
+                                </button>
+                                <button type="button" className="btn-danger btn-small" onClick={() => handleRemoveClubUser(u.id)}>
+                                  {t('Remove', 'إزالة', language)}
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
+
+                  {editingClubUserId && (
+                    <div className="pending-modal-overlay" onClick={() => { setEditingClubUserId(null); setClubUserForm({ email: '', password: '', permissions: [] }) }}>
+                      <div className="pending-modal" onClick={e => e.stopPropagation()}>
+                        <h3>{t('Edit Club Admin', 'تعديل مدير النادي', language)}</h3>
+                        <form onSubmit={handleEditClubUser}>
+                          {clubUserError && <p className="register-error" style={{ marginBottom: 12 }}>{clubUserError}</p>}
+                          <div className="form-group" style={{ marginBottom: 16 }}>
+                            <label>{t('Email', 'البريد')} *</label>
+                            <input type="email" value={clubUserForm.email} onChange={e => setClubUserForm({ ...clubUserForm, email: e.target.value })} required />
+                          </div>
+                          <div className="form-group" style={{ marginBottom: 16 }}>
+                            <label>{t('Password', 'كلمة المرور')} (min 6, leave blank to keep)</label>
+                            <input type="password" value={clubUserForm.password} onChange={e => setClubUserForm({ ...clubUserForm, password: e.target.value })} placeholder="••••••••" />
+                          </div>
+                          <div className="form-group" style={{ marginBottom: 16 }}>
+                            <label>{t('Pages access', 'صفحات الوصول')}</label>
+                            <div className="permissions-checkbox-grid">
+                              {CLUB_PERMISSIONS.map(p => (
+                                <label key={p.id} className="permission-checkbox-item">
+                                  <input type="checkbox" checked={clubUserForm.permissions.includes(p.id)} onChange={() => toggleClubUserPerm(p.id)} />
+                                  <span>{p.label[language]}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+                            <button type="submit" className="btn-primary">{t('Save', 'حفظ', language)}</button>
+                            <button type="button" className="btn-secondary" onClick={() => { setEditingClubUserId(null); setClubUserForm({ email: '', password: '', permissions: [] }) }}>{t('Cancel', 'إلغاء', language)}</button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </>

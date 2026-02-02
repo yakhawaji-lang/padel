@@ -241,7 +241,7 @@ function App({ currentUser }) {
         const savedMembers = loadFromLocalStorage.members()
         const savedActiveTab = loadFromLocalStorage.activeTab()
         // Load language: app-wide first, then club-specific, then club default
-        const savedLanguage = getAppLanguage() || localStorage.getItem(`club_${clubId}_language`) || club?.settings?.defaultLanguage || loadFromLocalStorage.language() || 'en'
+        const savedLanguage = getAppLanguage()
         const savedContentTab = loadFromLocalStorage.contentTab()
         const savedMemberTab = loadFromLocalStorage.memberTab()
         

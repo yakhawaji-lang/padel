@@ -36,11 +36,18 @@ export default async function handler(req, res) {
     }
 
     const { rows: storeRows } = await query(
-      `SELECT key, value FROM app_store WHERE key IN ('all_members', 'padel_members')`
+      `SELECT key, value FROM app_store WHERE key IN ('all_members', 'padel_members', 'platform_admins', 'admin_clubs')`
     )
+    const getVal = (key) => {
+      const r = storeRows.find(x => x.key === key)?.value
+      if (Array.isArray(r)) return r
+      if (typeof r === 'string') {
+        try { return JSON.parse(r) } catch (_) { return [] }
+      }
+      return []
+    }
     const allMembersRaw = storeRows.find(r => r.key === 'all_members')?.value
     const padelRaw = storeRows.find(r => r.key === 'padel_members')?.value
-
     let members = []
     try {
       const am = Array.isArray(allMembersRaw) ? allMembersRaw : (typeof allMembersRaw === 'string' ? JSON.parse(allMembersRaw) : [])
@@ -55,8 +62,41 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
+    let userType = null
+    let extra = {}
     const member = members.find(m => (m.email || '').toLowerCase() === em)
-    if (!member) {
+    if (member) {
+      userType = 'member'
+    } else {
+      const platformAdmins = getVal('platform_admins')
+      const platformAdmin = platformAdmins.find(a => (a.email || '').toLowerCase() === em)
+      if (platformAdmin) {
+        userType = 'platform_admin'
+        extra = { adminId: platformAdmin.id }
+      } else {
+        const clubsRaw = storeRows.find(r => r.key === 'admin_clubs')?.value
+        let clubs = []
+        try {
+          clubs = Array.isArray(clubsRaw) ? clubsRaw : (typeof clubsRaw === 'string' ? JSON.parse(clubsRaw) : [])
+        } catch (_) {}
+        for (const c of clubs) {
+          if ((c.adminEmail || c.email || '').toLowerCase() === em) {
+            userType = 'club_admin'
+            extra = { clubId: c.id, isOwner: true }
+            break
+          }
+          const users = c.adminUsers || []
+          const u = users.find(au => (au.email || '').toLowerCase() === em)
+          if (u) {
+            userType = 'club_admin'
+            extra = { clubId: c.id, isOwner: false, userId: u.id }
+            break
+          }
+        }
+      }
+    }
+
+    if (!userType) {
       return res.json({ ok: true })
     }
 
@@ -71,7 +111,7 @@ export default async function handler(req, res) {
       const raw = tokenRows[0]?.value
       tokens = raw && typeof raw === 'object' ? raw : (typeof raw === 'string' ? JSON.parse(raw) : {})
     } catch (_) {}
-    tokens[token] = { email: em, expiresAt }
+    tokens[token] = { email: em, expiresAt, userType, ...extra }
     await query(
       `INSERT INTO app_store (key, value, updated_at) VALUES ('password_reset_tokens', $1, NOW())
        ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
@@ -81,7 +121,7 @@ export default async function handler(req, res) {
     const baseUrl = process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
       : (process.env.BASE_URL || 'http://localhost:3000')
-    const resetUrl = `${baseUrl}/reset-password?token=${token}`
+    const resetUrl = `${baseUrl}/reset-password?token=${token}${userType !== 'member' ? '&type=' + userType : ''}`
 
     const emailRes = await fetch(RESEND_API_URL, {
       method: 'POST',

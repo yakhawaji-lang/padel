@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './common.css'
 import './AllClubsDashboard.css'
-import { getAllMembersFromStorage, addMemberToClubs, getClubMembersFromStorage } from '../../storage/adminStorage'
+import { getAllMembersFromStorage, addMemberToClubs, getClubMembersFromStorage, upsertMember, deleteMember } from '../../storage/adminStorage'
 import { getPlatformAdminSession, hasPlatformPermission } from '../../storage/platformAdminAuth'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
@@ -26,6 +26,33 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
   const [addToClubMember, setAddToClubMember] = useState(null)
   const [memberSearch, setMemberSearch] = useState('')
   const [membersRefresh, setMembersRefresh] = useState(0)
+  const [editingMember, setEditingMember] = useState(null)
+  const [editForm, setEditForm] = useState({ name: '', email: '', mobile: '', password: '' })
+
+  const handleEditMember = (member) => {
+    setEditingMember(member)
+    setEditForm({ name: member.name || '', email: member.email || '', mobile: member.mobile || member.phone || '', password: '' })
+  }
+
+  const handleSaveMemberEdit = (e) => {
+    e.preventDefault()
+    if (!editingMember) return
+    const updated = { ...editingMember, name: editForm.name.trim(), email: editForm.email.trim(), mobile: editForm.mobile.trim() }
+    if (editForm.password && editForm.password.length >= 6) updated.password = editForm.password
+    if (upsertMember(updated)) {
+      setMembersRefresh(k => k + 1)
+      setEditingMember(null)
+    }
+  }
+
+  const handleDeleteMember = (member) => {
+    if (!window.confirm(t('Permanently delete this member?', 'حذف هذا العضو نهائياً؟', language))) return
+    if (deleteMember(member.id)) {
+      setMembersRefresh(k => k + 1)
+      setEditingMember(null)
+      setAddToClubMember(null)
+    }
+  }
 
   const approvedClubs = useMemo(() => clubs.filter(c => c.status !== 'pending'), [clubs])
   const allMembers = useMemo(() => getAllMembersFromStorage(), [clubs, membersRefresh])
@@ -437,41 +464,28 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
                           </div>
                         </td>
                         <td>
-                          {clubsNotJoined.length > 0 ? (
-                            <div className="add-to-club-cell">
-                              {addToClubMember?.id === member.id ? (
-                                <div className="add-to-club-dropdown">
-                                  {clubsNotJoined.map(club => (
-                                    <button
-                                      key={club.id}
-                                      type="button"
-                                      className="btn-secondary btn-small"
-                                      onClick={() => handleAddMemberToClub(member.id, club.id)}
-                                    >
-                                      + {getClubName(club.id)}
-                                    </button>
-                                  ))}
-                                  <button
-                                    type="button"
-                                    className="btn-secondary btn-small"
-                                    onClick={() => setAddToClubMember(null)}
-                                  >
-                                    {t('Cancel', 'إلغاء', language)}
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="btn-primary btn-small"
-                                  onClick={() => setAddToClubMember(member)}
-                                >
-                                  {t('Add to club', 'إضافة لنادي', language)}
-                                </button>
-                              )}
+                          <div className="member-actions-cell">
+                            {clubsNotJoined.length > 0 ? (
+                              <div className="add-to-club-cell">
+                                {addToClubMember?.id === member.id ? (
+                                  <div className="add-to-club-dropdown">
+                                    {clubsNotJoined.map(club => (
+                                      <button key={club.id} type="button" className="btn-secondary btn-small" onClick={() => handleAddMemberToClub(member.id, club.id)}>+ {getClubName(club.id)}</button>
+                                    ))}
+                                    <button type="button" className="btn-secondary btn-small" onClick={() => setAddToClubMember(null)}>{t('Cancel', 'إلغاء', language)}</button>
+                                  </div>
+                                ) : (
+                                  <button type="button" className="btn-primary btn-small" onClick={() => setAddToClubMember(member)}>{t('Add to club', 'إضافة لنادي', language)}</button>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="in-all-clubs">{t('In all clubs', 'في جميع الأندية', language)}</span>
+                            )}
+                            <div className="action-buttons">
+                              <button type="button" className="btn-secondary btn-small" onClick={() => handleEditMember(member)}>{t('Edit', 'تعديل', language)}</button>
+                              <button type="button" className="btn-danger btn-small" onClick={() => handleDeleteMember(member)}>{t('Delete', 'حذف', language)}</button>
                             </div>
-                          ) : (
-                            <span className="in-all-clubs">{t('In all clubs', 'في جميع الأندية', language)}</span>
-                          )}
+                          </div>
                         </td>
                       </tr>
                     )
@@ -481,6 +495,36 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
             </div>
           )}
         </div>
+        )}
+
+        {editingMember && (
+          <div className="pending-modal-overlay" onClick={() => setEditingMember(null)}>
+            <div className="pending-modal" onClick={e => e.stopPropagation()}>
+              <h3>{t('Edit Member', 'تعديل العضو', language)}</h3>
+              <form onSubmit={handleSaveMemberEdit}>
+                <div className="form-group" style={{ marginBottom: 16 }}>
+                  <label>{t('Name', 'الاسم')} *</label>
+                  <input type="text" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} required />
+                </div>
+                <div className="form-group" style={{ marginBottom: 16 }}>
+                  <label>{t('Email', 'البريد')}</label>
+                  <input type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} />
+                </div>
+                <div className="form-group" style={{ marginBottom: 16 }}>
+                  <label>{t('Phone', 'الهاتف')}</label>
+                  <input type="text" value={editForm.mobile} onChange={e => setEditForm({ ...editForm, mobile: e.target.value })} />
+                </div>
+                <div className="form-group" style={{ marginBottom: 16 }}>
+                  <label>{t('New password (leave blank to keep)', 'كلمة مرور جديدة (اتركه فارغاً للإبقاء)', language)}</label>
+                  <input type="password" value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} placeholder="••••••••" />
+                </div>
+                <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+                  <button type="submit" className="btn-primary">{t('Save', 'حفظ', language)}</button>
+                  <button type="button" className="btn-secondary" onClick={() => setEditingMember(null)}>{t('Cancel', 'إلغاء', language)}</button>
+                </div>
+              </form>
+            </div>
+          </div>
         )}
 
         {/* Search and Filter */}

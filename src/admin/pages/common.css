@@ -312,3 +312,9 @@
 .permission-checkbox-item span {
   font-size: 0.9rem;
 }
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

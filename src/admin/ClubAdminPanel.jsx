@@ -31,11 +31,8 @@ function ClubAdminPanel() {
     const foundClub = getClubById(clubId)
     if (foundClub) {
       setClub(foundClub)
-        // Load language: club-specific preference first, then club default, then app-wide
-        const clubLang = localStorage.getItem(`club_${clubId}_language`)
-        const clubDefaultLanguage = foundClub.settings?.defaultLanguage || 'en'
-        const appLang = getAppLanguage()
-        setLanguage(clubLang || clubDefaultLanguage || appLang)
+        // Use app-wide language (persists across navigation)
+        setLanguage(getAppLanguage())
     } else {
       navigate('/admin/all-clubs')
     }
@@ -107,7 +104,7 @@ function ClubAdminPanel() {
         <Routes>
           <Route path="/" element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<ClubPageGuard permission="dashboard"><ClubDashboard club={club} /></ClubPageGuard>} />
-          <Route path="members" element={<ClubPageGuard permission="members"><ClubMembersManagement club={club} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
+          <Route path="members" element={<ClubPageGuard permission="members"><ClubMembersManagement club={club} language={language} /></ClubPageGuard>} />
           <Route path="offers" element={<ClubPageGuard permission="offers"><ClubOffersManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
           <Route path="store" element={<ClubPageGuard permission="store"><ClubStoreManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
           <Route path="accounting" element={<ClubPageGuard permission="accounting"><ClubAccountingManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />

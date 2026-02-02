@@ -38,12 +38,14 @@ const ForgotPassword = () => {
   const [status, setStatus] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const resetType = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('type')
 
   React.useEffect(() => {
     setAppLanguage(language)
   }, [language])
 
   const c = t[language]
+  const loginLink = resetType === 'platform' ? '/admin-login' : resetType === 'club' ? '/club-login' : '/login'
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -79,7 +81,7 @@ const ForgotPassword = () => {
           {status === 'success' ? (
             <div className="forgot-password-success">
               <p>{message}</p>
-              <Link to="/login" className="forgot-password-btn">{c.backToLogin}</Link>
+              <Link to={loginLink} className="forgot-password-btn">{c.backToLogin}</Link>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="forgot-password-form">
@@ -102,7 +104,7 @@ const ForgotPassword = () => {
             </form>
           )}
           <p className="forgot-password-login-hint">
-            <Link to="/login">{c.backToLogin}</Link>
+            <Link to={loginLink}>{c.backToLogin}</Link>
           </p>
         </div>
       </main>

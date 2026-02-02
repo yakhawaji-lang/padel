@@ -144,9 +144,12 @@ const PlatformAdminLogin = () => {
                     </button>
                   </div>
                 </div>
-                <button type="submit" className="auth-login-submit" disabled={loading}>
-                  {loading ? (language === 'en' ? 'Please wait...' : 'جاري المعالجة...') : (isSetup ? c.createOwner : c.submit)}
-                </button>
+            <button type="submit" className="auth-login-submit" disabled={loading}>
+              {loading ? (language === 'en' ? 'Please wait...' : 'جاري المعالجة...') : (isSetup ? c.createOwner : c.submit)}
+            </button>
+              <p className="auth-login-hint">
+                <Link to="/forgot-password?type=platform">{language === 'en' ? 'Forgot password?' : 'نسيت كلمة المرور؟'}</Link>
+              </p>
               </form>
             </>
           )}

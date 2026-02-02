@@ -971,3 +971,21 @@ export const removePlatformAdmin = (id) => {
   _savePlatformAdmins(filtered)
   return true
 }
+
+export const updatePlatformAdmin = (id, updates) => {
+  const admins = loadPlatformAdmins()
+  const idx = admins.findIndex(a => a.id === id)
+  if (idx < 0) return null
+  const current = admins[idx]
+  if (current.role === 'owner' && updates.role && updates.role !== 'owner') return null
+  const updated = { ...current, ...updates, updatedAt: new Date().toISOString() }
+  admins[idx] = updated
+  _savePlatformAdmins(admins)
+  return updated
+}
+
+/** Delete member entirely from platform (all_members + padel_members) */
+export function deleteMember(memberId) {
+  const members = getMergedMembersRaw().filter(m => m.id !== memberId)
+  return saveMembers(members)
+}
