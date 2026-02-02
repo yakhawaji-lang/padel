@@ -105,11 +105,13 @@ const RegisterClub = () => {
         return
       }
       if (result?.error === 'SAVE_FAILED') {
+        console.error('[RegisterClub] Save failed: API could not persist data')
         setError(language === 'en' ? 'Server unavailable. Please try again later.' : 'الخادم غير متاح. حاول لاحقاً.')
         return
       }
       setSuccess(true)
     } catch (err) {
+      console.error('[RegisterClub] Registration error:', err)
       const msg = String(err?.message || '')
       const isServer = /fetch|network|failed|504|502|500|connection/i.test(msg)
       setError(isServer

@@ -87,6 +87,7 @@ export async function setStore(key, value) {
     await api.setStore(key, value)
   } catch (e) {
     console.error('setStore failed:', e)
+    throw e
   }
 }
 
