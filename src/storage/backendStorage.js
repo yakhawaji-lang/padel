@@ -120,4 +120,4 @@ export function isBootstrapped() {
 
 export { api }
 
-export default { bootstrap, getCache, setCache, setStore, isBootstrapped, api }
+export default { bootstrap, getCache, setCache, setStore, refreshStoreKeys, isBootstrapped, api }
