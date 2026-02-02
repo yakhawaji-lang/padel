@@ -226,6 +226,24 @@ export async function loadClubsAsync() {
 }
 
 /**
+ * Refresh clubs from API (PostgreSQL). Call periodically so admin sees new pending registrations from other devices.
+ */
+export async function refreshClubsFromApi() {
+  if (!USE_POSTGRES || !_backendStorage) return
+  try {
+    await _backendStorage.refreshStoreKeys([ADMIN_STORAGE_KEYS.CLUBS])
+    const clubs = _backendStorage.getCache(ADMIN_STORAGE_KEYS.CLUBS) || []
+    _clubsCache = deduplicateClubs(clubs)
+    syncMembersToClubs(_clubsCache)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('clubs-synced'))
+    }
+  } catch (e) {
+    console.warn('refreshClubsFromApi failed:', e)
+  }
+}
+
+/**
  * Apply clubs received from another device (real-time sync). Updates cache and storage.
  * No-op when using Postgres (data comes from API).
  */

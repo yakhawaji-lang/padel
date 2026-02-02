@@ -90,6 +90,19 @@ export async function setStore(key, value) {
   }
 }
 
+/** Refresh specific keys from API and update cache. Use for cross-device sync. */
+export async function refreshStoreKeys(keys) {
+  if (!keys?.length) return
+  try {
+    const data = await api.getStoreBatch(keys)
+    Object.entries(data || {}).forEach(([k, v]) => {
+      if (v !== null && v !== undefined) cache.set(k, v)
+    })
+  } catch (e) {
+    console.warn('refreshStoreKeys failed:', e)
+  }
+}
+
 /** Get any key (fetches from API if not in cache) */
 export async function fetchKey(key) {
   try {

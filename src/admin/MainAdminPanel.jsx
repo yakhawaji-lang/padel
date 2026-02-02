@@ -6,7 +6,7 @@ import MainAdminSidebar from './components/MainAdminSidebar'
 import MainAdminHeader from './components/MainAdminHeader'
 import AllClubsDashboard from './pages/AllClubsDashboard'
 import AllClubsManagement from './pages/AllClubsManagement'
-import { loadClubs, saveClubs, approveClub as doApproveClub, rejectClub as doRejectClub, syncMembersToClubsManually } from '../storage/adminStorage'
+import { loadClubs, saveClubs, approveClub as doApproveClub, rejectClub as doRejectClub, syncMembersToClubsManually, refreshClubsFromApi } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 
 function MainAdminPanel() {
@@ -16,7 +16,8 @@ function MainAdminPanel() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
-    const loadData = () => {
+    const loadData = async () => {
+      await refreshClubsFromApi()
       syncMembersToClubsManually()
       const savedClubs = loadClubs()
       setClubs(savedClubs || [])
@@ -26,10 +27,8 @@ function MainAdminPanel() {
       if (savedLanguage) {
         setLanguage(savedLanguage)
       }
-      
-      setIsLoading(false)
     }
-    loadData()
+    loadData().finally(() => setIsLoading(false))
     
     // Update UI when another device adds/edits data (real-time sync)
     const onClubsSynced = () => {
@@ -38,8 +37,9 @@ function MainAdminPanel() {
     }
     window.addEventListener('clubs-synced', onClubsSynced)
     
-    // Sync members periodically (every 5 seconds) to catch new members
-    const syncInterval = setInterval(() => {
+    // Refresh clubs from API periodically (every 5 seconds) to catch pending registrations from other devices
+    const syncInterval = setInterval(async () => {
+      await refreshClubsFromApi()
       const updatedClubs = loadClubs()
       setClubs(updatedClubs || [])
     }, 5000)
