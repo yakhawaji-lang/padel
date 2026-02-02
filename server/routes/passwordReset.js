@@ -85,8 +85,16 @@ async function handleRequest(req, res) {
 
     if (!emailRes.ok) {
       const errText = await emailRes.text()
-      console.error('Resend error:', emailRes.status, errText)
-      return res.status(502).json({ error: 'Failed to send email' })
+      let errJson = {}
+      try { errJson = JSON.parse(errText) } catch (_) {}
+      const msg = errJson?.message || errText || 'Failed to send email'
+      console.error('Resend error:', emailRes.status, msg)
+      if (emailRes.status === 403 && /own email|verify.*domain/i.test(msg)) {
+        return res.status(403).json({
+          error: 'Resend requires a verified domain to send to this email. Add and verify your domain at resend.com/domains'
+        })
+      }
+      return res.status(502).json({ error: msg || 'Failed to send email' })
     }
 
     return res.json({ ok: true })

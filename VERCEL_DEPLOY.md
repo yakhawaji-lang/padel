@@ -248,9 +248,14 @@ npm run sync-from-cloud
 
 لتشغيل ميزة استعادة كلمة المرور للأعضاء:
 
-1. **RESEND_API_KEY** — أضفها في Vercel Environment Variables (من [resend.com](https://resend.com) → API Keys)
-2. **RESEND_FROM** (اختياري) — عنوان المرسل، مثال: `Padel <noreply@yourdomain.com>`. إن لم تُضف، يُستخدم الافتراضي من Resend.
-3. **ملاحظة:** مع Resend المجاني، قد تحتاج التحقق من نطاقك (Domain) لإرسال بريد لأي مستلم.
+1. **RESEND_API_KEY** — أضفها في Vercel (من [resend.com](https://resend.com) → API Keys)
+2. **التحقق من النطاق (ضروري):** عند استخدام `onboarding@resend.dev`، Resend يسمح فقط بإرسال البريد إلى بريدك أنت (حساب Resend). لإرسال بريد لأي عضو:
+   - ادخل إلى [resend.com/domains](https://resend.com/domains)
+   - أضف نطاقك (مثل `yourdomain.com`) وأكمل إعدادات DNS
+   - أضف في Vercel: **RESEND_FROM** = `Padel <noreply@yourdomain.com>`
+3. **RESEND_FROM** (بعد التحقق) — مثال: `Padel <noreply@yourdomain.com>`
+
+**خطأ "Failed to send email" أو 502:** غالباً يعني أن النطاق غير محقق. تحقق من النطاق في Resend.
 
 الصفحات: `/forgot-password` و `/reset-password?token=xxx`
 
