@@ -117,8 +117,6 @@ const HomePage = () => {
     }
   }, [approvedClubs])
 
-  const handleAdminLogin = () => navigate('/admin/all-clubs')
-
   const t = {
     en: {
       siteName: 'Padel Clubs Management',
@@ -130,7 +128,6 @@ const HomePage = () => {
         contact: 'Contact',
         register: 'Register',
         login: 'Login',
-        adminLogin: 'Admin Login',
         language: 'Language'
       },
       hero: {
@@ -222,7 +219,6 @@ const HomePage = () => {
         contact: 'اتصل بنا',
         register: 'تسجيل',
         login: 'تسجيل الدخول',
-        adminLogin: 'تسجيل دخول الإدارة',
         language: 'اللغة'
       },
       hero: {
@@ -337,9 +333,6 @@ const HomePage = () => {
             <a href="/login" className="nav-login">{c.nav.login}</a>
             <button type="button" className="nav-lang" onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')} title={language === 'en' ? 'العربية' : 'English'} aria-label={language === 'en' ? 'Switch to Arabic' : 'التبديل للإنجليزية'}>
               <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={18} />
-            </button>
-            <button type="button" className="nav-admin" onClick={handleAdminLogin}>
-              {c.nav.adminLogin}
             </button>
           </nav>
         </div>

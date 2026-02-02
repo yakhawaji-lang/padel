@@ -24,6 +24,20 @@
   position: relative;
 }
 
+.login-back-link {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  color: white;
+  text-decoration: none;
+  font-size: 14px;
+  opacity: 0.95;
+}
+
+.login-back-link:hover {
+  text-decoration: underline;
+}
+
 .login-lang-wrap {
   position: absolute;
   top: 16px;
@@ -33,6 +47,11 @@
 .login-page.rtl .login-lang-wrap {
   right: auto;
   left: 20px;
+}
+
+.login-page.rtl .login-back-link {
+  left: auto;
+  right: 20px;
 }
 
 .login-lang-btn {
@@ -157,6 +176,23 @@
   font-size: 12px;
   color: #999;
   text-align: center;
+}
+
+.login-register-hint {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 14px;
+  color: #666;
+}
+
+.login-register-hint a {
+  color: #2196f3;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.login-register-hint a:hover {
+  text-decoration: underline;
 }
 
 .login-footer {

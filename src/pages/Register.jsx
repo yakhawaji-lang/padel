@@ -29,7 +29,9 @@ const Register = () => {
   const t = {
     en: {
       title: 'Register on the platform',
-      subtitle: 'Create an account to join clubs, book courts, buy products and participate in tournaments.',
+      subtitle: joinClubId
+        ? 'Create an account to join the club.'
+        : 'Create an account to browse clubs, book courts, buy products and participate in tournaments.',
       googleSignIn: 'Sign in with Google',
       or: 'Or create with email',
       name: 'Full name',
@@ -46,7 +48,9 @@ const Register = () => {
     },
     ar: {
       title: 'التسجيل في المنصة',
-      subtitle: 'أنشئ حساباً للانضمام للنوادي وحجز الملاعب وشراء المنتجات والمشاركة في البطولات.',
+      subtitle: joinClubId
+        ? 'أنشئ حساباً للانضمام للنادي.'
+        : 'أنشئ حساباً لتصفح النوادي وحجز الملاعب وشراء المنتجات والمشاركة في البطولات.',
       googleSignIn: 'تسجيل الدخول بحساب Google',
       or: 'أو إنشاء حساب بالإيميل',
       name: 'الاسم الكامل',
