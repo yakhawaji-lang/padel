@@ -19,6 +19,7 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const RegisterClub = lazy(() => import('./pages/RegisterClub'))
 const ClubLogin = lazy(() => import('./pages/ClubLogin'))
 const PlatformAdminLogin = lazy(() => import('./pages/PlatformAdminLogin'))
+const Logout = lazy(() => import('./pages/Logout'))
 import ClubPublicPage from './pages/ClubPublicPage'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import PlatformAuthGuard from './components/PlatformAuthGuard'
@@ -49,6 +50,7 @@ function Root() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/admin-login" element={<PlatformAdminLogin />} />
+          <Route path="/logout/:type" element={<Logout />} />
           <Route path="/admin/*" element={<PlatformAuthGuard><MainAdminPanel /></PlatformAuthGuard>} />
           <Route path="/admin/club/:clubId/*" element={<ClubAuthGuard><ClubAdminPanel /></ClubAuthGuard>} />
           <Route path="/register" element={<Register />} />

@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import './MainAdminSidebar.css'
 import LanguageIcon from '../../components/LanguageIcon'
-import { getPlatformAdminSession, hasPlatformPermission, clearPlatformAdminSession } from '../../storage/platformAdminAuth'
+import { getPlatformAdminSession, hasPlatformPermission } from '../../storage/platformAdminAuth'
 
 const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) => {
   const session = getPlatformAdminSession()
@@ -137,12 +137,7 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
         <Link to="/" className="back-to-app">
           ← {language === 'en' ? 'Back to Home' : 'العودة للرئيسية'}
         </Link>
-        <Link
-          to="/admin-login"
-          className="back-to-app"
-          onClick={() => clearPlatformAdminSession()}
-          style={{ marginTop: 8, fontSize: '0.85rem', opacity: 0.8 }}
-        >
+        <Link to="/logout/platform" className="back-to-app" style={{ marginTop: 8, fontSize: '0.85rem', opacity: 0.8 }}>
           {language === 'en' ? 'Logout' : 'تسجيل الخروج'}
         </Link>
       </div>

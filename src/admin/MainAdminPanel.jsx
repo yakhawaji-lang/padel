@@ -157,7 +157,7 @@ function MainAdminPanel() {
           <Route path="/" element={<Navigate to="all-clubs" replace />} />
           <Route path="all-clubs" element={<PlatformPageGuard permission="all-clubs"><AllClubsDashboard clubs={clubs} language={language} onUpdateClub={handleClubUpdate} onApproveClub={handleApproveClub} onRejectClub={handleRejectClub} onRefresh={handleRefreshClubs} /></PlatformPageGuard>} />
           <Route path="manage-clubs" element={<PlatformPageGuard permission="manage-clubs"><AllClubsManagement clubs={clubs} language={language} onCreateClub={handleClubCreate} onUpdateClub={handleClubUpdate} onDeleteClub={handleClubDelete} /></PlatformPageGuard>} />
-          <Route path="admin-users" element={<PlatformPageGuard permission="admin-users"><AdminUsersManagement language={language} /></PlatformPageGuard>} />
+          <Route path="admin-users" element={<PlatformPageGuard permission="admin-users"><AdminUsersManagement language={language} clubs={clubs} onUpdateClub={handleClubUpdate} onRefreshClubs={handleRefreshClubs} /></PlatformPageGuard>} />
         </Routes>
       </div>
     </div>

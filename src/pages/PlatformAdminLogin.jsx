@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import LanguageIcon from '../components/LanguageIcon'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import {
@@ -9,7 +9,7 @@ import {
   savePlatformAdminsAsync
 } from '../storage/adminStorage'
 import { setPlatformAdminSession } from '../storage/platformAdminAuth'
-import './PlatformAdminLogin.css'
+import './auth-login.css'
 
 const t = {
   en: {
@@ -40,12 +40,14 @@ const t = {
 
 const PlatformAdminLogin = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const [language, setLanguage] = useState(getAppLanguage())
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [needsSetup, setNeedsSetup] = useState(false)
+  const [needsSetup, setNeedsSetup] = useState(null)
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -66,7 +68,8 @@ const PlatformAdminLogin = () => {
       const admin = getPlatformAdminByCredentials(email.trim(), password)
       if (admin) {
         setPlatformAdminSession(admin)
-        navigate('/admin/all-clubs', { replace: true })
+        const from = location.state?.from?.pathname
+        navigate(from && from.startsWith('/admin') ? from : '/admin/all-clubs', { replace: true, state: {} })
       } else {
         setError(c.error)
       }
@@ -86,44 +89,67 @@ const PlatformAdminLogin = () => {
     try {
       const owner = createPlatformOwner(email.trim(), password)
       if (owner) {
-        const ok = await savePlatformAdminsAsync(loadPlatformAdmins())
-        if (!ok) console.warn('Platform admins may not have synced to cloud')
+        await savePlatformAdminsAsync(loadPlatformAdmins())
         setPlatformAdminSession(owner)
-        navigate('/admin/all-clubs', { replace: true })
+        navigate('/admin/all-clubs', { replace: true, state: {} })
       } else {
-        setError(language === 'en' ? 'Could not create owner.' : 'تعذر إنشاء المالك.')
+        setError(language === 'en' ? 'Owner already exists. Try logging in.' : 'المالك موجود. جرّب تسجيل الدخول.')
       }
     } finally {
       setLoading(false)
     }
   }
 
+  const isSetup = needsSetup === true
+  const isLoading = needsSetup === null
+
   return (
-    <div className={'platform-admin-login ' + (language === 'ar' ? 'rtl' : '')}>
-      <header className="platform-admin-login-header">
-        <Link to="/" className="platform-admin-login-back">{c.backToHome}</Link>
-        <button type="button" className="platform-admin-login-lang" onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}>
+    <div className={'auth-login-page auth-login-platform ' + (language === 'ar' ? 'rtl' : '')}>
+      <header className="auth-login-header">
+        <Link to="/" className="auth-login-back">{c.backToHome}</Link>
+        <button type="button" className="auth-login-lang" onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}>
           <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={20} />
         </button>
       </header>
-      <main className="platform-admin-login-main">
-        <div className="platform-admin-login-card">
-          <h1>{needsSetup ? c.setupTitle : c.title}</h1>
-          <p>{needsSetup ? c.setupSubtitle : c.subtitle}</p>
-          <form onSubmit={needsSetup ? handleCreateOwner : handleLogin} className="platform-admin-login-form">
-            {error && <p className="platform-admin-login-error">{error}</p>}
-            <div className="form-group">
-              <label>{c.email} *</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+      <main className="auth-login-main">
+        <div className="auth-login-card">
+          {isLoading ? (
+            <div className="auth-login-loading">
+              <div className="auth-login-spinner" />
+              <p>{language === 'en' ? 'Loading...' : 'جاري التحميل...'}</p>
             </div>
-            <div className="form-group">
-              <label>{c.password} *</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
-            </div>
-            <button type="submit" className="platform-admin-login-submit" disabled={loading}>
-              {needsSetup ? c.createOwner : c.submit}
-            </button>
-          </form>
+          ) : (
+            <>
+              <h1>{isSetup ? c.setupTitle : c.title}</h1>
+              <p>{isSetup ? c.setupSubtitle : c.subtitle}</p>
+              <form onSubmit={isSetup ? handleCreateOwner : handleLogin} className="auth-login-form">
+                {error && <p className="auth-login-error">{error}</p>}
+                <div className="form-group">
+                  <label>{c.email} *</label>
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+                </div>
+                <div className="form-group auth-password-wrap">
+                  <label>{c.password} *</label>
+                  <div className="auth-password-input">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      autoComplete={isSetup ? 'new-password' : 'current-password'}
+                    />
+                    <button type="button" className="auth-password-toggle" onClick={() => setShowPassword(!showPassword)} title={showPassword ? 'Hide' : 'Show'}>
+                      {showPassword ? '🙈' : '👁'}
+                    </button>
+                  </div>
+                </div>
+                <button type="submit" className="auth-login-submit" disabled={loading}>
+                  {loading ? (language === 'en' ? 'Please wait...' : 'جاري المعالجة...') : (isSetup ? c.createOwner : c.submit)}
+                </button>
+              </form>
+            </>
+          )}
         </div>
       </main>
     </div>

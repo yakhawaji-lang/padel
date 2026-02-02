@@ -1,7 +1,6 @@
 const CLUB_ADMIN_KEY = 'current_club_admin_id'
 const CLUB_SESSION_KEY = 'club_admin_session'
-
-const CLUB_PAGES = ['dashboard', 'members', 'offers', 'store', 'accounting', 'settings', 'users']
+const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 export const getCurrentClubAdmin = () => {
   return localStorage.getItem(CLUB_ADMIN_KEY)
@@ -18,6 +17,10 @@ export function getClubAdminSession() {
     if (!raw) return null
     const s = JSON.parse(raw)
     if (!s?.clubId) return null
+    if (s._ts && Date.now() - s._ts > SESSION_MAX_AGE_MS) {
+      setClubAdminSession(null)
+      return null
+    }
     return s
   } catch (_) {
     return null
@@ -26,7 +29,8 @@ export function getClubAdminSession() {
 
 export function setClubAdminSession(session) {
   if (session) {
-    localStorage.setItem(CLUB_SESSION_KEY, JSON.stringify(session))
+    const withTs = { ...session, _ts: Date.now() }
+    localStorage.setItem(CLUB_SESSION_KEY, JSON.stringify(withTs))
     setCurrentClubAdmin(session.clubId)
   } else {
     localStorage.removeItem(CLUB_SESSION_KEY)

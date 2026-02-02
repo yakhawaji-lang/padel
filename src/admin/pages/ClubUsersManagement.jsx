@@ -1,15 +1,7 @@
 import React, { useState } from 'react'
 import { getClubAdminSession, hasClubPermission } from '../../storage/clubAuth'
+import { CLUB_PERMISSIONS } from '../../config/permissions'
 import './MembersManagement.css'
-
-const CLUB_PAGES = [
-  { id: 'dashboard', label: { en: 'Dashboard', ar: 'لوحة التحكم' } },
-  { id: 'members', label: { en: 'Members', ar: 'الأعضاء' } },
-  { id: 'offers', label: { en: 'Offers', ar: 'العروض' } },
-  { id: 'store', label: { en: 'Store', ar: 'المتجر' } },
-  { id: 'accounting', label: { en: 'Accounting', ar: 'المحاسبة' } },
-  { id: 'settings', label: { en: 'Settings', ar: 'الإعدادات' } }
-]
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
@@ -83,9 +75,9 @@ export default function ClubUsersManagement({ club, onUpdateClub, language = 'en
               </div>
               <div className="form-group">
                 <label>{t('Pages access', 'صفحات الوصول')}</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                  {CLUB_PAGES.map(p => (
-                    <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div className="permissions-checkbox-grid">
+                  {CLUB_PERMISSIONS.map(p => (
+                    <label key={p.id} className="permission-checkbox-item">
                       <input type="checkbox" checked={form.permissions.includes(p.id)} onChange={() => togglePerm(p.id)} />
                       <span>{p.label[language]}</span>
                     </label>
@@ -119,7 +111,7 @@ export default function ClubUsersManagement({ club, onUpdateClub, language = 'en
             {adminUsers.map(u => (
               <tr key={u.id}>
                 <td>{u.email}</td>
-                <td>{(u.permissions || []).map(p => CLUB_PAGES.find(x => x.id === p)?.label[language] || p).join(', ') || '—'}</td>
+                <td>{(u.permissions || []).map(p => CLUB_PERMISSIONS.find(x => x.id === p)?.label[language] || p).join(', ') || '—'}</td>
                 <td>
                   <button type="button" className="btn-danger btn-small" onClick={() => handleRemove(u.id)}>
                     {t('Remove', 'إزالة', language)}

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import LanguageIcon from '../../components/LanguageIcon'
 import { Link, useLocation, useParams } from 'react-router-dom'
-import { getClubAdminSession, hasClubPermission, clearClubAdminSession } from '../../storage/clubAuth'
+import { getClubAdminSession, hasClubPermission } from '../../storage/clubAuth'
 import './ClubAdminSidebar.css'
 
 const ClubAdminSidebar = ({ club, language, onLanguageChange, open, onClose }) => {
@@ -84,7 +84,7 @@ const ClubAdminSidebar = ({ club, language, onLanguageChange, open, onClose }) =
         <Link to="/admin/all-clubs" className="back-to-main-admin">
           ← {language === 'en' ? 'Main Admin' : 'التحكم الرئيسي'}
         </Link>
-        <Link to="/club-login" className="back-to-club" onClick={() => clearClubAdminSession()} style={{ marginTop: 8, fontSize: '0.85rem', opacity: 0.8 }}>
+        <Link to="/logout/club" className="back-to-club" style={{ marginTop: 8, fontSize: '0.85rem', opacity: 0.8 }}>
           {language === 'en' ? 'Logout' : 'تسجيل الخروج'}
         </Link>
       </div>

@@ -4,8 +4,8 @@
  */
 
 const KEY = 'platform_admin_session'
-
-const PLATFORM_PAGES = ['all-clubs', 'manage-clubs', 'all-members', 'admin-users']
+const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
+const PLATFORM_PAGE_IDS = ['all-clubs', 'manage-clubs', 'all-members', 'admin-users']
 
 export function getPlatformAdminSession() {
   try {
@@ -13,6 +13,10 @@ export function getPlatformAdminSession() {
     if (!raw) return null
     const s = JSON.parse(raw)
     if (!s?.id || !s?.email) return null
+    if (s._ts && Date.now() - s._ts > SESSION_MAX_AGE_MS) {
+      localStorage.removeItem(KEY)
+      return null
+    }
     return s
   } catch (_) {
     return null
@@ -25,7 +29,8 @@ export function setPlatformAdminSession(admin) {
       id: admin.id,
       email: admin.email,
       role: admin.role || 'admin',
-      permissions: admin.permissions || PLATFORM_PAGES
+      permissions: admin.permissions || PLATFORM_PAGE_IDS,
+      _ts: Date.now()
     }))
   } else {
     localStorage.removeItem(KEY)

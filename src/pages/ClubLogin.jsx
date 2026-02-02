@@ -4,7 +4,7 @@ import LanguageIcon from '../components/LanguageIcon'
 import { getClubAdminSessionFromCredentials } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import { setClubAdminSession } from '../storage/clubAuth'
-import './ClubLogin.css'
+import './auth-login.css'
 
 const ClubLogin = () => {
   const navigate = useNavigate()
@@ -12,6 +12,8 @@ const ClubLogin = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => setAppLanguage(language), [language])
 
@@ -42,7 +44,9 @@ const ClubLogin = () => {
   const handleSubmit = (e) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
     const sessionInfo = getClubAdminSessionFromCredentials(email.trim(), password)
+    setLoading(false)
     if (sessionInfo) {
       setClubAdminSession({
         clubId: sessionInfo.clubId,
@@ -52,37 +56,50 @@ const ClubLogin = () => {
       })
       navigate(`/admin/club/${sessionInfo.clubId}/dashboard`, { replace: true })
     } else {
-      setError(language === 'en' 
-        ? 'Invalid credentials or club not yet approved.' 
+      setError(language === 'en'
+        ? 'Invalid credentials or club not yet approved.'
         : 'بيانات خاطئة أو النادي لم تتم الموافقة عليه بعد.')
     }
   }
 
   return (
-    <div className="club-login-page">
-      <header className="club-login-header">
-        <Link to="/" className="club-login-back">{c.backToHome}</Link>
-        <button type="button" className="club-login-lang" onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}>
+    <div className={'auth-login-page auth-login-club ' + (language === 'ar' ? 'rtl' : '')}>
+      <header className="auth-login-header">
+        <Link to="/" className="auth-login-back">{c.backToHome}</Link>
+        <button type="button" className="auth-login-lang" onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}>
           <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={20} />
         </button>
       </header>
-      <main className="club-login-main">
-        <div className="club-login-card">
-          <h1 className="club-login-title">{c.title}</h1>
-          <p className="club-login-subtitle">{c.subtitle}</p>
-          <form onSubmit={handleSubmit} className="club-login-form">
-            {error && <p className="club-login-error">{error}</p>}
+      <main className="auth-login-main">
+        <div className="auth-login-card">
+          <h1>{c.title}</h1>
+          <p>{c.subtitle}</p>
+          <form onSubmit={handleSubmit} className="auth-login-form">
+            {error && <p className="auth-login-error">{error}</p>}
             <div className="form-group">
-              <label>{c.email}</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" required />
+              <label>{c.email} *</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" required autoComplete="email" />
             </div>
-            <div className="form-group">
-              <label>{c.password}</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <div className="form-group auth-password-wrap">
+              <label>{c.password} *</label>
+              <div className="auth-password-input">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+                <button type="button" className="auth-password-toggle" onClick={() => setShowPassword(!showPassword)} title={showPassword ? 'Hide' : 'Show'}>
+                  {showPassword ? '🙈' : '👁'}
+                </button>
+              </div>
             </div>
-            <button type="submit" className="club-login-submit">{c.submit}</button>
+            <button type="submit" className="auth-login-submit" disabled={loading}>
+              {loading ? (language === 'en' ? 'Please wait...' : 'جاري المعالجة...') : c.submit}
+            </button>
           </form>
-          <p className="club-login-register-hint">
+          <p className="auth-login-hint">
             <Link to="/register-club">{c.registerClub}</Link>
           </p>
         </div>
