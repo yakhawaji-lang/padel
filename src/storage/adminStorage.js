@@ -646,6 +646,26 @@ export const saveClubs = (clubs) => {
   }
 }
 
+/** Async save for Postgres - awaits API persistence before returning. */
+export async function saveClubsAsync(clubs) {
+  try {
+    if (USE_POSTGRES && _backendStorage) {
+      _backendStorage.setCache(ADMIN_STORAGE_KEYS.CLUBS, clubs)
+      _clubsCache = clubs
+      await _backendStorage.setStore(ADMIN_STORAGE_KEYS.CLUBS, clubs)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('clubs-synced'))
+      }
+      return true
+    }
+    saveClubs(clubs)
+    return true
+  } catch (e) {
+    console.error('saveClubsAsync failed:', e)
+    return false
+  }
+}
+
 export const getClubById = (clubId, forceFromStorage = false) => {
   let clubs
   if (forceFromStorage) {
