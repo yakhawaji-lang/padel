@@ -119,7 +119,7 @@ const HomePage = () => {
 
   const t = {
     en: {
-      siteName: 'Padel Clubs Management',
+      siteName: 'PlayTix',
       nav: {
         home: 'Home',
         services: 'Services',
@@ -132,7 +132,7 @@ const HomePage = () => {
       },
       hero: {
         title: 'Professional management for your padel clubs',
-        subtitle: 'One platform to manage tournaments, bookings, members and accounting. Designed for club owners and managers who demand efficiency and clarity.',
+        subtitle: 'PlayTix — one platform to manage tournaments, bookings, members and accounting. Designed for club owners and managers who demand efficiency and clarity.',
         cta: 'Access management dashboard'
       },
       services: {
@@ -146,7 +146,7 @@ const HomePage = () => {
         ]
       },
       features: {
-        title: 'Why choose our platform',
+        title: 'Why choose PlayTix',
         intro: 'Built for the real needs of club managers.',
         items: [
           'Multi-club support: manage several clubs from one admin panel.',
@@ -156,8 +156,8 @@ const HomePage = () => {
         ]
       },
       about: {
-        title: 'About the platform',
-        text: 'This platform is dedicated to padel club management. It enables organisers to schedule tournaments, assign teams to courts, record matches and maintain standings. Bookings and member management are integrated so that daily operations run smoothly from a single, professional interface.'
+        title: 'About PlayTix',
+        text: 'PlayTix is dedicated to padel club management. It enables organisers to schedule tournaments, assign teams to courts, record matches and maintain standings. Bookings and member management are integrated so that daily operations run smoothly from a single, professional interface.'
       },
       stats: {
         clubs: 'Clubs',
@@ -173,7 +173,7 @@ const HomePage = () => {
         validUntil: 'Valid until'
       },
       clubs: {
-        title: 'Clubs on the platform',
+        title: 'Clubs on PlayTix',
         searchPlaceholder: 'Search by name, address or description...',
         empty: 'No clubs found.',
         address: 'Address',
@@ -190,19 +190,19 @@ const HomePage = () => {
         readMore: 'Read more'
       },
       footer: {
-        tagline: 'Official platform for padel club management.',
+        tagline: 'PlayTix — official platform for padel club management.',
         rights: 'All rights reserved.'
       },
       joinClubs: {
         title: 'Join Padel Clubs',
-        text: 'Register your club on the platform to manage tournaments, bookings, members and accounting professionally. Your club will be reviewed and activated by the platform admin.',
+        text: 'Register your club on PlayTix to manage tournaments, bookings, members and accounting professionally. Your club will be reviewed and activated by the platform admin.',
         cta: 'Register new club',
         login: 'Club Login',
         hint: 'Use email and password to login to club dashboard after approval.'
       },
       joinMembers: {
         title: 'Register as Padel Member',
-        text: 'Create an account to join clubs with fewer steps, book courts, buy club products and participate in tournaments. Use the same account on the main platform and club pages.',
+        text: 'Create a PlayTix account to join clubs with fewer steps, book courts, buy club products and participate in tournaments. Use the same account on the main platform and club pages.',
         cta: 'Register as member',
         or: 'Or',
         googleSignIn: 'Sign in with Google',
@@ -210,7 +210,7 @@ const HomePage = () => {
       }
     },
     ar: {
-      siteName: 'إدارة أندية البادل',
+      siteName: 'PlayTix',
       nav: {
         home: 'الرئيسية',
         services: 'الخدمات',
@@ -223,7 +223,7 @@ const HomePage = () => {
       },
       hero: {
         title: 'إدارة احترافية لأندية البادل',
-        subtitle: 'منصة واحدة لإدارة البطولات والحجوزات والأعضاء والمحاسبة. مصممة لمالكي النوادي والمدراء الذين يطلبون الكفاءة والوضوح.',
+        subtitle: 'PlayTix — منصة واحدة لإدارة البطولات والحجوزات والأعضاء والمحاسبة. مصممة لمالكي النوادي والمدراء الذين يطلبون الكفاءة والوضوح.',
         cta: 'الدخول إلى لوحة الإدارة'
       },
       services: {
@@ -237,7 +237,7 @@ const HomePage = () => {
         ]
       },
       features: {
-        title: 'لماذا منصتنا',
+        title: 'لماذا PlayTix',
         intro: 'مصممة وفق احتياجات مدراء النوادي الفعلية.',
         items: [
           'دعم نوادي متعددة: إدارة عدة نوادي من لوحة تحكم واحدة.',
@@ -247,8 +247,8 @@ const HomePage = () => {
         ]
       },
       about: {
-        title: 'عن المنصة',
-        text: 'هذه المنصة مخصصة لإدارة أندية البادل. تتيح للمنظمين جدولة البطولات وتعيين الفرق على الملاعب وتسجيل المباريات والحفاظ على الترتيب. الحجوزات وإدارة الأعضاء مدمجة بحيث تسير العمليات اليومية بسلاسة من واجهة واحدة واحترافية.'
+        title: 'عن PlayTix',
+        text: 'PlayTix مخصص لإدارة أندية البادل. تتيح للمنظمين جدولة البطولات وتعيين الفرق على الملاعب وتسجيل المباريات والحفاظ على الترتيب. الحجوزات وإدارة الأعضاء مدمجة بحيث تسير العمليات اليومية بسلاسة من واجهة واحدة واحترافية.'
       },
       stats: {
         clubs: 'نادي',
@@ -264,7 +264,7 @@ const HomePage = () => {
         validUntil: 'صالح حتى'
       },
       clubs: {
-        title: 'النوادي على المنصة',
+        title: 'النوادي على PlayTix',
         searchPlaceholder: 'ابحث بالاسم أو العنوان أو الوصف...',
         empty: 'لم يتم العثور على أندية.',
         address: 'العنوان',
@@ -281,19 +281,19 @@ const HomePage = () => {
         readMore: 'اقرأ المزيد'
       },
       footer: {
-        tagline: 'المنصة الرسمية لإدارة أندية البادل.',
+        tagline: 'PlayTix — المنصة الرسمية لإدارة أندية البادل.',
         rights: 'جميع الحقوق محفوظة.'
       },
       joinClubs: {
         title: 'الانظمام إلى أندية بادل',
-        text: 'سجّل ناديك على المنصة لإدارة البطولات والحجوزات والأعضاء والمحاسبة بشكل احترافي. سيتم مراجعة النادي وموافقته من إدارة المنصة.',
+        text: 'سجّل ناديك على PlayTix لإدارة البطولات والحجوزات والأعضاء والمحاسبة بشكل احترافي. سيتم مراجعة النادي وموافقته من إدارة المنصة.',
         cta: 'تسجيل نادي جديد',
         login: 'تسجيل دخول النادي',
         hint: 'استخدم البريد وكلمة المرور للدخول إلى لوحة التحكم بعد الموافقة.'
       },
       joinMembers: {
         title: 'تسجيل أعضاء بادل',
-        text: 'أنشئ حساباً للانضمام للنوادي بخطوات أقل، وحجز الملاعب، وشراء منتجات الأندية، والمشاركة في البطولات. استخدم نفس الحساب في المنصة الرئيسية وصفحات النوادي.',
+        text: 'أنشئ حساب PlayTix للانضمام للنوادي بخطوات أقل، وحجز الملاعب، وشراء منتجات الأندية، والمشاركة في البطولات. استخدم نفس الحساب في المنصة الرئيسية وصفحات النوادي.',
         cta: 'تسجيل كعضو',
         or: 'أو',
         googleSignIn: 'تسجيل الدخول بحساب Google',
@@ -316,7 +316,8 @@ const HomePage = () => {
       <header className="site-header">
         <div className="header-inner">
           <a href="#" className="site-logo" onClick={(e) => { e.preventDefault(); scrollTo('hero') }}>
-            {c.siteName}
+            <img src="/logo-playtix.png" alt="PlayTix" className="site-logo-img" />
+            <span className="site-logo-text">{c.siteName}</span>
           </a>
           <button type="button" className="nav-toggle" aria-label="Menu" onClick={() => setNavOpen(!navOpen)}>
             <span></span><span></span><span></span>
@@ -342,6 +343,7 @@ const HomePage = () => {
         {/* قسم دعائي رئيسي */}
         <section id="hero" className="hero">
           <div className="hero-inner">
+            <img src="/logo-playtix.png" alt="PlayTix" className="hero-logo" />
             <h1 className="hero-title">{c.hero.title}</h1>
             <p className="hero-subtitle">{c.hero.subtitle}</p>
             <button type="button" className="hero-cta" onClick={() => scrollTo('join')}>
@@ -378,7 +380,7 @@ const HomePage = () => {
                     {c.joinClubs.login}
                   </Link>
                   <Link to="/admin-login" className="join-card-cta btn-outline" style={{ fontSize: '0.9rem', marginTop: 8 }}>
-                    {language === 'en' ? 'Platform Admin' : 'إدارة المنصة'}
+                    {language === 'en' ? 'PlayTix Admin' : 'إدارة PlayTix'}
                   </Link>
                 </div>
               </div>
@@ -470,7 +472,7 @@ const HomePage = () => {
         <section id="clubs" className="section section-clubs">
           <div className="section-inner">
             <h2 className="section-title">{c.clubs.title}</h2>
-            <p className="section-intro">{language === 'en' ? 'Clubs registered on the platform. Overview of facilities and activity.' : 'النوادي المسجلة على المنصة. نظرة على المرافق والنشاط.'}</p>
+            <p className="section-intro">{language === 'en' ? 'Clubs registered on PlayTix. Overview of facilities and activity.' : 'النوادي المسجلة على PlayTix. نظرة على المرافق والنشاط.'}</p>
             <div className="clubs-search-wrap">
               <input
                 type="text"

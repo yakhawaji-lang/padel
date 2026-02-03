@@ -47,6 +47,9 @@ const Login = () => {
     <div className={`login-page ${language === 'ar' ? 'rtl' : ''}`}>
       <div className="login-container">
         <div className="login-header">
+          <Link to="/" className="login-logo-link">
+            <img src="/logo-playtix.png" alt="PlayTix" className="login-logo" />
+          </Link>
           <Link to="/" className="login-back-link">{language === 'en' ? 'Back to home' : 'العودة للرئيسية'}</Link>
           <div className="login-lang-wrap">
             <button
@@ -58,7 +61,7 @@ const Login = () => {
               <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={20} />
             </button>
           </div>
-          <h1>{language === 'en' ? 'Member Login' : 'تسجيل دخول الأعضاء'}</h1>
+          <h1>{language === 'en' ? 'PlayTix Member Login' : 'تسجيل دخول أعضاء PlayTix'}</h1>
           <p>{joinClubId
             ? (language === 'en' ? 'Sign in to join the club' : 'سجّل الدخول للانضمام للنادي')
             : (language === 'en' ? 'Sign in to browse clubs, book courts and make purchases' : 'سجّل الدخول لتصفح النوادي وحجز الملاعب وإجراء المشتريات')}</p>

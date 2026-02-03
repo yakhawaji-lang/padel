@@ -28,7 +28,7 @@ const Register = () => {
 
   const t = {
     en: {
-      title: 'Register on the platform',
+      title: 'Register on PlayTix',
       subtitle: joinClubId
         ? 'Create an account to join the club.'
         : 'Create an account to browse clubs, book courts, buy products and participate in tournaments.',
@@ -47,7 +47,7 @@ const Register = () => {
       googleComingSoon: 'Google sign-in will be available soon'
     },
     ar: {
-      title: 'التسجيل في المنصة',
+      title: 'التسجيل في PlayTix',
       subtitle: joinClubId
         ? 'أنشئ حساباً للانضمام للنادي.'
         : 'أنشئ حساباً لتصفح النوادي وحجز الملاعب وشراء المنتجات والمشاركة في البطولات.',
@@ -102,6 +102,9 @@ const Register = () => {
   return (
     <div className="register-page">
       <header className="register-header">
+        <Link to="/" className="register-logo-link">
+          <img src="/logo-playtix.png" alt="PlayTix" className="register-logo" />
+        </Link>
         <Link to="/" className="register-back">{c.backToHome}</Link>
         <button type="button" className="register-lang" onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')} title={language === 'en' ? 'العربية' : 'English'}>
           <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={20} />

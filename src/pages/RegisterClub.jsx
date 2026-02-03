@@ -28,7 +28,7 @@ const RegisterClub = () => {
   const t = {
     en: {
       title: 'Register Your Club',
-      subtitle: 'Join the platform and manage your padel club professionally. Your registration will be reviewed and activated shortly.',
+      subtitle: 'Join PlayTix and manage your padel club professionally. Your registration will be reviewed and activated shortly.',
       name: 'Club name (English) *',
       nameAr: 'Club name (Arabic)',
       location: 'Select location on map',
@@ -50,7 +50,7 @@ const RegisterClub = () => {
     },
     ar: {
       title: 'تسجيل نادٍ جديد',
-      subtitle: 'انضم للمنصة وأدر نادي البادل بشكل احترافي. سيتم مراجعة تسجيلك وتفعيله قريباً.',
+      subtitle: 'انضم إلى PlayTix وأدر نادي البادل بشكل احترافي. سيتم مراجعة تسجيلك وتفعيله قريباً.',
       name: 'اسم النادي (إنجليزي) *',
       nameAr: 'اسم النادي (عربي)',
       location: 'تحديد الموقع على الخريطة',
@@ -65,7 +65,7 @@ const RegisterClub = () => {
       submit: 'تسجيل النادي',
       backToHome: 'العودة للرئيسية',
       successTitle: 'تم إرسال التسجيل',
-      successMsg: 'تم استلام طلب تسجيل النادي. سيتم مراجعته من إدارة المنصة. ستتمكن من الدخول بالبريد وكلمة المرور بعد الموافقة.',
+      successMsg: 'تم استلام طلب تسجيل النادي. سيتم مراجعته من إدارة PlayTix. ستتمكن من الدخول بالبريد وكلمة المرور بعد الموافقة.',
       namePlaceholder: 'مثال: هلا بادل',
       adminEmailPlaceholder: 'بريدك@example.com',
       passwordPlaceholder: '6 أحرف على الأقل'

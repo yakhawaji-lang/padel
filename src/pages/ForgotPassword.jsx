@@ -69,6 +69,9 @@ const ForgotPassword = () => {
   return (
     <div className={'forgot-password-page ' + (language === 'ar' ? 'rtl' : '')}>
       <header className="forgot-password-header">
+        <Link to="/" className="forgot-password-logo-link">
+          <img src="/logo-playtix.png" alt="PlayTix" className="forgot-password-logo" />
+        </Link>
         <Link to="/" className="forgot-password-back">{c.backToHome}</Link>
         <button type="button" className="forgot-password-lang" onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')} title={language === 'en' ? 'العربية' : 'English'}>
           <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={20} />

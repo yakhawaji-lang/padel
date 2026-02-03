@@ -14,8 +14,18 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
   background: rgba(255, 255, 255, 0.8);
   border-bottom: 1px solid #e5e7eb;
+}
+.register-logo-link {
+  flex-shrink: 0;
+}
+.register-logo {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
 }
 
 .register-back {

@@ -20,7 +20,7 @@ const ClubLogin = () => {
   const t = {
     en: {
       title: 'Club Admin Login',
-      subtitle: 'Enter your email and password to access your club dashboard.',
+      subtitle: 'Enter your email and password to access your club dashboard on PlayTix.',
       email: 'Email',
       password: 'Password',
       submit: 'Login',
@@ -30,7 +30,7 @@ const ClubLogin = () => {
     },
     ar: {
       title: 'تسجيل دخول النادي',
-      subtitle: 'أدخل البريد الإلكتروني وكلمة المرور للدخول إلى لوحة تحكم النادي.',
+      subtitle: 'أدخل البريد الإلكتروني وكلمة المرور للدخول إلى لوحة تحكم النادي على PlayTix.',
       email: 'البريد الإلكتروني',
       password: 'كلمة المرور',
       submit: 'دخول',

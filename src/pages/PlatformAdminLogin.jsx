@@ -13,8 +13,8 @@ import './auth-login.css'
 
 const t = {
   en: {
-    title: 'Platform Admin Login',
-    subtitle: 'Sign in to manage all clubs and platform settings.',
+    title: 'PlayTix Admin Login',
+    subtitle: 'Sign in to manage all clubs and PlayTix settings.',
     setupTitle: 'Create Platform Owner',
     setupSubtitle: 'No platform owner exists. Create the first one to get started.',
     email: 'Email',
@@ -25,8 +25,8 @@ const t = {
     error: 'Invalid credentials.'
   },
   ar: {
-    title: 'تسجيل دخول إدارة المنصة',
-    subtitle: 'سجّل الدخول لإدارة جميع الأندية وإعدادات المنصة.',
+    title: 'تسجيل دخول إدارة PlayTix',
+    subtitle: 'سجّل الدخول لإدارة جميع الأندية وإعدادات PlayTix.',
     setupTitle: 'إنشاء مالك المنصة',
     setupSubtitle: 'لا يوجد مالك للمنصة. أنشئ الأول للبدء.',
     email: 'البريد الإلكتروني',

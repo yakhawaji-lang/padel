@@ -36,6 +36,9 @@
 }
 
 .site-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 1.25rem;
   font-weight: 700;
   color: #111827;
@@ -43,8 +46,22 @@
   letter-spacing: -0.02em;
 }
 
+.site-logo-img {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+}
+
+.site-logo-text {
+  font-size: 1.15rem;
+}
+
 .site-logo:hover {
   color: #1d4ed8;
+}
+
+.site-logo:hover .site-logo-img {
+  opacity: 0.9;
 }
 
 .nav-toggle {
@@ -168,6 +185,14 @@
   height: 120%;
   background: radial-gradient(ellipse, rgba(59, 130, 246, 0.06) 0%, transparent 70%);
   pointer-events: none;
+}
+
+.hero-logo {
+  max-width: 180px;
+  width: 100%;
+  height: auto;
+  margin-bottom: 1rem;
+  border-radius: 8px;
 }
 
 .hero-inner {

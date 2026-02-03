@@ -24,6 +24,16 @@
   position: relative;
 }
 
+.login-logo-link {
+  display: block;
+  margin-bottom: 12px;
+}
+.login-logo {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+}
+
 .login-back-link {
   position: absolute;
   top: 16px;
