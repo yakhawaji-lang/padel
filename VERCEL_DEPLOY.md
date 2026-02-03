@@ -261,6 +261,38 @@ npm run sync-from-cloud
 
 ---
 
+## تكوين Webhook واتساب (WhatsApp Business API)
+
+للاستفادة من استقبال الرسائل والإشعارات عبر واتساب:
+
+### 1. إضافة متغيرات البيئة في Vercel
+
+| المتغير | القيمة | ملاحظة |
+|---------|--------|--------|
+| **WHATSAPP_VERIFY_TOKEN** | نص سري تحددّه (مثل: `playtix_whatsapp_verify`) | يجب أن يتطابق مع ما تدخله في Meta |
+| **WHATSAPP_ACCESS_TOKEN** | رمز الوصول من Meta | من لوحة التطبيق → WhatsApp → API Setup |
+| **WHATSAPP_PHONE_NUMBER_ID** | معرف رقم الهاتف | من لوحة التطبيق → WhatsApp → API Setup |
+
+### 2. إنشاء نقطة النهاية (تم تنفيذها)
+
+تم إنشاء المسار `/api/whatsapp-webhook` وهو جاهز لاستقبال طلبات التحقق والأحداث.
+
+### 3. تكوين Webhook في Meta
+
+1. ادخل إلى [developers.facebook.com](https://developers.facebook.com) → تطبيقك (Playtix)
+2. اذهب إلى **WhatsApp** → **التكوين (Configuration)** → **Webhook**
+3. اضغط **تحقق وحفظ** وأدخل:
+
+   | الحقل | القيمة |
+   |-------|--------|
+   | **عنوان URL الاستدعاء** | `https://playtix.app/api/whatsapp-webhook` |
+   | **تحقق من الرمز** | نفس قيمة `WHATSAPP_VERIFY_TOKEN` (مثل: `playtix_whatsapp_verify`) |
+
+4. بعد النجاح، اشترك في الحقول المطلوبة (مثل **messages**)
+5. أعد النشر على Vercel إن لزم لتفعيل المتغيرات الجديدة
+
+---
+
 ## ملخص
 
 | الأمر | الاتجاه | الاستخدام |
