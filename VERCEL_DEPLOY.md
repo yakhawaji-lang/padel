@@ -261,6 +261,18 @@ npm run sync-from-cloud
 
 ---
 
+## سياسة الخصوصية، شروط الخدمة، حذف البيانات
+
+لإعداد تطبيق Meta أو Google أو غيرها، استخدم الروابط التالية:
+
+| الصفحة | الرابط |
+|--------|--------|
+| **سياسة الخصوصية** | `https://playtix.app/privacy-policy` |
+| **شروط الخدمة** | `https://playtix.app/terms-of-service` |
+| **حذف بيانات المستخدم** | `https://playtix.app/data-deletion` |
+
+---
+
 ## تكوين Webhook واتساب (WhatsApp Business API)
 
 للاستفادة من استقبال الرسائل والإشعارات عبر واتساب:

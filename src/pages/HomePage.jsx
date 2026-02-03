@@ -191,7 +191,10 @@ const HomePage = () => {
       },
       footer: {
         tagline: 'PlayTix — official platform for padel club management.',
-        rights: 'All rights reserved.'
+        rights: 'All rights reserved.',
+        privacy: 'Privacy Policy',
+        terms: 'Terms of Service',
+        dataDeletion: 'Data Deletion'
       },
       joinClubs: {
         title: 'Join Padel Clubs',
@@ -282,7 +285,10 @@ const HomePage = () => {
       },
       footer: {
         tagline: 'PlayTix — المنصة الرسمية لإدارة أندية البادل.',
-        rights: 'جميع الحقوق محفوظة.'
+        rights: 'جميع الحقوق محفوظة.',
+        privacy: 'سياسة الخصوصية',
+        terms: 'شروط الخدمة',
+        dataDeletion: 'حذف البيانات'
       },
       joinClubs: {
         title: 'الانظمام إلى أندية بادل',
@@ -571,6 +577,11 @@ const HomePage = () => {
       <footer className="site-footer">
         <div className="footer-inner">
           <p className="footer-tagline">{c.siteName} — {c.footer.tagline}</p>
+          <nav className="footer-links">
+            <Link to="/privacy-policy">{c.footer.privacy}</Link>
+            <Link to="/terms-of-service">{c.footer.terms}</Link>
+            <Link to="/data-deletion">{c.footer.dataDeletion}</Link>
+          </nav>
           <p className="footer-rights">{c.footer.rights}</p>
         </div>
       </footer>
