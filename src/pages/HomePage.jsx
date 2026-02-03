@@ -317,7 +317,6 @@ const HomePage = () => {
         <div className="header-inner">
           <a href="#" className="site-logo" onClick={(e) => { e.preventDefault(); scrollTo('hero') }}>
             <img src="/logo-playtix.png" alt="PlayTix" className="site-logo-img" />
-            <span className="site-logo-text">{c.siteName}</span>
           </a>
           <button type="button" className="nav-toggle" aria-label="Menu" onClick={() => setNavOpen(!navOpen)}>
             <span></span><span></span><span></span>
