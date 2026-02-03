@@ -111,9 +111,28 @@ postgresql://neondb_owner:xxxxxxxx@ep-xxx-xxx.us-east-2.aws.neon.tech/neondb?ssl
 
 ## الخطوة 5: تهيئة الجداول في قاعدة البيانات
 
-**مرة واحدة فقط** بعد النشر الأول.
+**مرة واحدة فقط** بعد إضافة `DATABASE_URL` والنشر.
 
-### 5.1 على Windows (PowerShell)
+### 5.1 الطريقة الأولى: عبر المتصفح أو curl (الأبسط)
+
+بعد أن تضيف `DATABASE_URL` في Vercel وتعيد النشر، افتح:
+
+```
+https://playtix.app/api/init-db
+```
+
+ثم استخدم أداة مثل Postman أو استخدم الأمر (بدون مصادقة):
+
+```bash
+curl -X POST https://playtix.app/api/init-db
+```
+
+إذا رغبت بحماية المسار، أضف في Vercel متغير `INIT_DB_SECRET` ثم أرسل الهيدر:
+```bash
+curl -X POST -H "X-Init-Secret: كلمة_السر" https://playtix.app/api/init-db
+```
+
+### 5.2 الطريقة الثانية: من الجهاز المحلي
 
 1. افتح PowerShell في مجلد المشروع
 2. نفّذ (استبدل الرابط برابط Neon الحقيقي):
@@ -123,8 +142,7 @@ $env:DATABASE_URL = "postgresql://user:pass@ep-xxx.region.aws.neon.tech/neondb?s
 npm run db:init
 ```
 
-### 5.2 على Mac/Linux
-
+على Mac/Linux:
 ```bash
 export DATABASE_URL="postgresql://user:pass@ep-xxx.region.aws.neon.tech/neondb?sslmode=require"
 npm run db:init
@@ -132,7 +150,16 @@ npm run db:init
 
 ### 5.3 التأكد من النجاح
 
-يجب أن تظهر رسالة: **Database initialized successfully**
+1. تأكد من تهيئة قاعدة البيانات: استدعاء `/api/init-db` يرجع `{"ok":true}`
+2. تحقق من الاتصال: افتح `https://playtix.app/api/health` ويجب أن ترى `{"ok":true,"db":true}`
+
+**مهم:** إن لم يتم تهيئة الجداول، ستختفي الأندية بعد التحديث ولن تُحفظ في السحابة.
+
+### لماذا تختفي الأندية بعد التحديث؟
+
+1. **عدم وجود `DATABASE_URL`** في Vercel → أضفه من Neon
+2. **لم تتم تهيئة الجداول** → نفّذ `POST /api/init-db` كما في الخطوة 5.1
+3. **التحقق:** افتح `https://playtix.app/api/health` — إن ظهر `"db":false` فقاعدة البيانات غير متصلة
 
 ---
 

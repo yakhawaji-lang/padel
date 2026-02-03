@@ -30,6 +30,9 @@ export async function bootstrap() {
     bootstrapped = true
   } catch (e) {
     console.warn('Backend bootstrap failed, using empty cache:', e.message)
+    // Ensure minimal cache so app loads; data will not persist until DATABASE_URL is configured
+    const hala = createHalaPadel()
+    cache.set('admin_clubs', [hala])
     bootstrapped = true
   }
 }
