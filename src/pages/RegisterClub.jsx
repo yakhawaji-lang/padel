@@ -19,6 +19,7 @@ const RegisterClub = () => {
     commercialRegister: '',
     commercialRegisterImage: ''
   })
+  const [agreeToTerms, setAgreeToTerms] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -46,7 +47,11 @@ const RegisterClub = () => {
       successMsg: 'Your club registration has been submitted. It will be reviewed by the platform admin. You will be able to login with your email and password once approved.',
       namePlaceholder: 'e.g. Hala Padel',
       adminEmailPlaceholder: 'your@email.com',
-      passwordPlaceholder: 'Min. 6 characters'
+      passwordPlaceholder: 'Min. 6 characters',
+      agreeTerms: 'I agree to the',
+      privacyPolicy: 'Privacy Policy',
+      and: 'and',
+      termsOfService: 'Terms of Service'
     },
     ar: {
       title: 'تسجيل نادٍ جديد',
@@ -68,7 +73,11 @@ const RegisterClub = () => {
       successMsg: 'تم استلام طلب تسجيل النادي. سيتم مراجعته من إدارة PlayTix. ستتمكن من الدخول بالبريد وكلمة المرور بعد الموافقة.',
       namePlaceholder: 'مثال: هلا بادل',
       adminEmailPlaceholder: 'بريدك@example.com',
-      passwordPlaceholder: '6 أحرف على الأقل'
+      passwordPlaceholder: '6 أحرف على الأقل',
+      agreeTerms: 'أوافق على',
+      privacyPolicy: 'سياسة الخصوصية',
+      and: 'و',
+      termsOfService: 'شروط الخدمة'
     }
   }
   const c = t[language]
@@ -77,6 +86,10 @@ const RegisterClub = () => {
     e.preventDefault()
     setError('')
     const adminEmail = formData.adminEmail || formData.email
+    if (!agreeToTerms) {
+      setError(language === 'en' ? 'You must agree to the Privacy Policy and Terms of Service.' : 'يجب الموافقة على سياسة الخصوصية وشروط الخدمة.')
+      return
+    }
     if (!formData.name.trim()) {
       setError(language === 'en' ? 'Club name is required.' : 'اسم النادي مطلوب.')
       return
@@ -225,6 +238,17 @@ const RegisterClub = () => {
                 placeholder={language === 'en' ? 'Loading address...' : 'جاري تحميل العنوان...'}
                 useMyLocationLabel={language === 'en' ? 'Use my location' : 'تحديد موقعي'}
               />
+            </div>
+            <div className="form-group form-group-checkbox">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={agreeToTerms}
+                  onChange={(e) => setAgreeToTerms(e.target.checked)}
+                  className="agree-checkbox"
+                />
+                <span>{c.agreeTerms} <Link to="/privacy-policy" target="_blank" rel="noopener noreferrer">{c.privacyPolicy}</Link> {c.and} <Link to="/terms-of-service" target="_blank" rel="noopener noreferrer">{c.termsOfService}</Link></span>
+              </label>
             </div>
             <div className="form-row">
               <div className="form-group">

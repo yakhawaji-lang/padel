@@ -12,6 +12,7 @@ const Register = () => {
   const joinClubId = searchParams.get('join')
   const [language, setLanguage] = useState(getAppLanguage())
   const [formData, setFormData] = useState({ name: '', email: '', password: '' })
+  const [agreeToTerms, setAgreeToTerms] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -44,6 +45,10 @@ const Register = () => {
       namePlaceholder: 'Enter your name',
       emailPlaceholder: 'Enter your email',
       passwordPlaceholder: 'Choose a password',
+      agreeTerms: 'I agree to the',
+      privacyPolicy: 'Privacy Policy',
+      and: 'and',
+      termsOfService: 'Terms of Service',
       googleComingSoon: 'Google sign-in will be available soon'
     },
     ar: {
@@ -63,6 +68,10 @@ const Register = () => {
       namePlaceholder: 'أدخل اسمك',
       emailPlaceholder: 'أدخل بريدك الإلكتروني',
       passwordPlaceholder: 'اختر كلمة مرور',
+      agreeTerms: 'أوافق على',
+      privacyPolicy: 'سياسة الخصوصية',
+      and: 'و',
+      termsOfService: 'شروط الخدمة',
       googleComingSoon: 'تسجيل الدخول بـ Google قريباً'
     }
   }
@@ -71,6 +80,10 @@ const Register = () => {
   const handleSubmit = (e) => {
     e.preventDefault()
     setError('')
+    if (!agreeToTerms) {
+      setError(language === 'en' ? 'You must agree to the Privacy Policy and Terms of Service.' : 'يجب الموافقة على سياسة الخصوصية وشروط الخدمة.')
+      return
+    }
     if (!formData.name || !formData.email || !formData.password) {
       setError(language === 'en' ? 'Please fill all fields.' : 'يرجى تعبئة جميع الحقول.')
       return
@@ -148,6 +161,17 @@ const Register = () => {
                 required
                 autoComplete="email"
               />
+            </div>
+            <div className="form-group form-group-checkbox">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={agreeToTerms}
+                  onChange={(e) => setAgreeToTerms(e.target.checked)}
+                  className="agree-checkbox"
+                />
+                <span>{c.agreeTerms} <Link to="/privacy-policy" target="_blank" rel="noopener noreferrer">{c.privacyPolicy}</Link> {c.and} <Link to="/terms-of-service" target="_blank" rel="noopener noreferrer">{c.termsOfService}</Link></span>
+              </label>
             </div>
             <div className="form-group">
               <label htmlFor="password">{c.password} *</label>
