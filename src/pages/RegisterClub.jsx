@@ -34,7 +34,8 @@ const RegisterClub = () => {
       nameAr: 'Club name (Arabic)',
       location: 'Select location on map',
       locationHint: 'Click on the map to set your club location',
-      phone: 'Phone',
+      phone: 'Club phone / Mobile',
+      phonePlaceholder: 'e.g. 05xxxxxxxx',
       email: 'Club email',
       adminEmail: 'Admin login email *',
       adminPassword: 'Password for admin panel *',
@@ -60,7 +61,8 @@ const RegisterClub = () => {
       nameAr: 'اسم النادي (عربي)',
       location: 'تحديد الموقع على الخريطة',
       locationHint: 'انقر على الخريطة لتحديد موقع النادي',
-      phone: 'الهاتف',
+      phone: 'رقم الجوال / هاتف النادي',
+      phonePlaceholder: 'مثال: 05xxxxxxxx',
       email: 'بريد النادي',
       adminEmail: 'البريد الإلكتروني لتسجيل الدخول *',
       adminPassword: 'كلمة المرور للوحة التحكم *',
@@ -253,7 +255,7 @@ const RegisterClub = () => {
             <div className="form-row">
               <div className="form-group">
                 <label>{c.phone}</label>
-                <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+                <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder={c.phonePlaceholder} />
               </div>
               <div className="form-group">
                 <label>{c.email}</label>

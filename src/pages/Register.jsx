@@ -11,7 +11,7 @@ const Register = () => {
   const [searchParams] = useSearchParams()
   const joinClubId = searchParams.get('join')
   const [language, setLanguage] = useState(getAppLanguage())
-  const [formData, setFormData] = useState({ name: '', email: '', password: '' })
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '' })
   const [agreeToTerms, setAgreeToTerms] = useState(false)
   const [error, setError] = useState('')
 
@@ -37,6 +37,7 @@ const Register = () => {
       or: 'Or create with email',
       name: 'Full name',
       email: 'Email',
+      phone: 'Mobile number',
       password: 'Password',
       submit: 'Register',
       backToHome: 'Back to home',
@@ -44,6 +45,7 @@ const Register = () => {
       login: 'Log in',
       namePlaceholder: 'Enter your name',
       emailPlaceholder: 'Enter your email',
+      phonePlaceholder: 'e.g. 05xxxxxxxx',
       passwordPlaceholder: 'Choose a password',
       agreeTerms: 'I agree to the',
       privacyPolicy: 'Privacy Policy',
@@ -60,6 +62,7 @@ const Register = () => {
       or: 'أو إنشاء حساب بالإيميل',
       name: 'الاسم الكامل',
       email: 'البريد الإلكتروني',
+      phone: 'رقم الجوال',
       password: 'كلمة المرور',
       submit: 'تسجيل',
       backToHome: 'العودة للرئيسية',
@@ -67,6 +70,7 @@ const Register = () => {
       login: 'تسجيل الدخول',
       namePlaceholder: 'أدخل اسمك',
       emailPlaceholder: 'أدخل بريدك الإلكتروني',
+      phonePlaceholder: 'مثال: 05xxxxxxxx',
       passwordPlaceholder: 'اختر كلمة مرور',
       agreeTerms: 'أوافق على',
       privacyPolicy: 'سياسة الخصوصية',
@@ -98,6 +102,8 @@ const Register = () => {
       id: Date.now().toString(),
       name: formData.name.trim(),
       email: formData.email.trim(),
+      phone: formData.phone?.trim() || '',
+      mobile: formData.phone?.trim() || '',
       password: formData.password,
       clubIds: [],
       role: 'member',
@@ -160,6 +166,17 @@ const Register = () => {
                 placeholder={c.emailPlaceholder}
                 required
                 autoComplete="email"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="phone">{c.phone}</label>
+              <input
+                id="phone"
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder={c.phonePlaceholder}
+                autoComplete="tel"
               />
             </div>
             <div className="form-group form-group-checkbox">
