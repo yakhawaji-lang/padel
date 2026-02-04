@@ -24,9 +24,7 @@ if (process.env.DO_BUILD === '1' && !existsSync(distIndex)) {
   console.log('[server.js] No dist/, starting API only. Set DO_BUILD=1 to build.')
 }
 
-try {
-  await import('./server/index.js')
-} catch (err) {
+import('./server/index.js').catch(err => {
   console.error('[server.js] Failed to start:', err)
   process.exit(1)
-}
+})
