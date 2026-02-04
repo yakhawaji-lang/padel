@@ -39,6 +39,18 @@ app.get('/api/health', (req, res) => {
 app.get('/api/ping', (req, res) => {
   res.json({ pong: true })
 })
+// Debug: verify DATABASE_URL reaches the app (no secrets exposed)
+app.get('/api/db-check', (req, res) => {
+  const url = process.env.DATABASE_URL || process.env.MYSQL_URL || ''
+  const hasUrl = !!url.trim()
+  const looksMysql = url.trim().startsWith('mysql')
+  res.json({
+    hasUrl,
+    looksMysql,
+    db: isConnected(),
+    hint: !hasUrl ? 'DATABASE_URL not set in env' : !looksMysql ? 'URL should start with mysql://' : 'Check Remote MySQL + credentials'
+  })
+})
 
 // Redirect / to /app when request reaches Node
 app.get('/', (req, res) => res.redirect(302, '/app/'))
