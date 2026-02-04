@@ -24,8 +24,14 @@ import mysql from 'mysql2/promise'
 const connectionString = (process.env.DATABASE_URL || process.env.MYSQL_URL || '').trim()
 const isMySQL = connectionString.startsWith('mysql')
 
+// Detect placeholder HOST - user must replace with actual MySQL host (e.g. srv2069.hstgr.io or localhost)
+const hasPlaceholderHost = /@HOST(\/|$)/i.test(connectionString)
+if (connectionString && hasPlaceholderHost) {
+  console.error('[pool] DATABASE_URL contains placeholder HOST. Replace with actual MySQL host from hPanel (e.g. srv2069.hstgr.io or localhost)')
+}
+
 let pool = null
-if (connectionString && isMySQL) {
+if (connectionString && isMySQL && !hasPlaceholderHost) {
   try {
     pool = mysql.createPool({
       uri: connectionString,

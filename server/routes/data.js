@@ -7,6 +7,14 @@ import { query } from '../db/pool.js'
 
 const router = Router()
 
+function dbErrorMsg(e) {
+  const msg = e?.message || 'Database error'
+  if (msg.includes('ENOTFOUND') || msg.includes('getaddrinfo')) {
+    return 'Database host not found. In Hostinger Environment Variables, set DATABASE_URL with the actual MySQL host (e.g. srv2069.hstgr.io or localhost) — do NOT use the placeholder HOST.'
+  }
+  return msg
+}
+
 const ENTITY_KEYS = ['admin_clubs', 'all_members', 'padel_members', 'platform_admins']
 const ENTITY_TYPE_MAP = {
   admin_clubs: 'club',
@@ -46,7 +54,7 @@ router.get('/', async (req, res) => {
     res.json(result)
   } catch (e) {
     console.error('data get error:', e)
-    res.status(500).json({ error: e.message })
+    res.status(500).json({ error: dbErrorMsg(e) })
   }
 })
 
@@ -69,7 +77,7 @@ router.get('/:key', async (req, res) => {
     res.json(val)
   } catch (e) {
     console.error('data get single error:', e)
-    res.status(500).json({ error: e.message })
+    res.status(500).json({ error: dbErrorMsg(e) })
   }
 })
 
@@ -109,7 +117,7 @@ router.post('/', async (req, res) => {
     res.json({ ok: true })
   } catch (e) {
     console.error('data post error:', e)
-    res.status(500).json({ error: e.message })
+    res.status(500).json({ error: dbErrorMsg(e) })
   }
 })
 
