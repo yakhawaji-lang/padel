@@ -27,9 +27,9 @@
 2. **Import Git repository** → **Connect with GitHub**
 3. اختر المستودع `yakhawaji-lang/padel` والفرع `main`
 4. إعدادات البناء:
-   - Framework: **Vite**
+   - Framework: **Express**
+   - Entry file: **server.js**
    - Node: **18.x**
-   - **Build command:** `npm run build`
    - **Start command:** `npm start`
 5. **Environment variables** → Add:
    - **Name:** `DATABASE_URL`
@@ -60,8 +60,14 @@ curl -X POST https://khaki-yak-622008.hostingersite.com/api/init-db
 
 ---
 
+## استكشاف الأخطاء (503)
+
+إذا ظهر خطأ 503:
+1. **Deployments** → انقر على أحدث نشر → **See details** → **Logs**
+2. تحقق من رسائل مثل `[server.js]` أو أخطاء الاتصال بقاعدة البيانات
+3. تأكد من **DATABASE_URL** صحيح ومضاف في Environment variables
+
 ## ملاحظات
 
-- **Build:** `npm run build` يبني الواجهة إلى `dist/`
-- **Start:** `npm start` يشغّل Express (API + ملفات `dist/`)
+- **Start:** `npm start` يشغّل `server.js` (يبني الواجهة إن لم تكن موجودة، ثم يشغّل Express)
 - التطبيق يعمل مع **MySQL** فقط على Hostinger

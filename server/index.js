@@ -1,4 +1,5 @@
 import { config } from 'dotenv'
+import { existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
@@ -37,10 +38,16 @@ app.get('/api/health', (req, res) => {
 
 // Serve React static build (for Hostinger deployment)
 const distPath = join(__dirname, '..', 'dist')
-app.use(express.static(distPath, { index: false }))
+const distIndex = join(distPath, 'index.html')
+if (existsSync(distIndex)) {
+  app.use(express.static(distPath, { index: false }))
+}
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) return next()
-  res.sendFile(join(distPath, 'index.html'))
+  if (existsSync(distIndex)) {
+    return res.sendFile(distIndex)
+  }
+  res.status(503).send('Frontend not built. Run: npm run build')
 })
 
 app.listen(PORT, () => {
