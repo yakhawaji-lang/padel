@@ -63,9 +63,14 @@ curl -X POST https://khaki-yak-622008.hostingersite.com/api/init-db
 ## استكشاف الأخطاء (503)
 
 إذا ظهر خطأ 503:
-1. **Deployments** → انقر على أحدث نشر → **See details** → **Logs**
-2. تحقق من رسائل مثل `[server.js]` أو أخطاء الاتصال بقاعدة البيانات
-3. تأكد من **DATABASE_URL** صحيح ومضاف في Environment variables
+1. **Deployments** → انقر على أحدث نشر → **See details**
+2. افتح **Build logs** وابحث عن:
+   - `[server.js] Starting...` = التطبيق بدأ
+   - `Padel API running on` = السيرفر يعمل
+   - أي رسالة **ERROR** أو **Failed**
+3. راجع **File manager** → `public_html/stderr.log` لأخطاء التشغيل
+4. تأكد من **DATABASE_URL** مضاف وصحيح في Environment variables
+5. إذا استمرت المشكلة: راسل دعم Hostinger مع نسخة من Build logs
 
 ## ملاحظات
 

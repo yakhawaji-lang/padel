@@ -16,14 +16,19 @@ import mysql from 'mysql2/promise'
 const connectionString = (process.env.DATABASE_URL || process.env.MYSQL_URL || '').trim()
 const isMySQL = connectionString.startsWith('mysql')
 
-const pool = connectionString && isMySQL
-  ? mysql.createPool({
+let pool = null
+if (connectionString && isMySQL) {
+  try {
+    pool = mysql.createPool({
       uri: connectionString,
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0
     })
-  : null
+  } catch (err) {
+    console.error('[pool] MySQL pool init failed:', err.message)
+  }
+}
 
 /** Query wrapper - returns { rows, insertId } for compatibility with pg-style code */
 export async function query(text, params = []) {
