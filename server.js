@@ -2,7 +2,7 @@
  * Hostinger entry point. Builds frontend if needed, then starts Express.
  */
 import { execSync } from 'child_process'
-import { existsSync } from 'fs'
+import { existsSync, copyFileSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -19,6 +19,15 @@ if (!existsSync(distIndex)) {
   } catch (err) {
     console.error('[server.js] Build failed:', err.message)
     console.log('[server.js] Starting API only (no frontend)')
+  }
+}
+// Copy built index to root so Hostinger/Nginx serves correct file for /
+if (existsSync(distIndex)) {
+  try {
+    copyFileSync(distIndex, join(__dirname, 'index.html'))
+    console.log('[server.js] Copied dist/index.html to root for static serving')
+  } catch (e) {
+    console.warn('[server.js] Could not copy index:', e.message)
   }
 }
 
