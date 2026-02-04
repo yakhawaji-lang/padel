@@ -29,7 +29,8 @@
 4. إعدادات البناء:
    - Framework: **Express**
    - Entry file: **server.js**
-   - Node: **18.x**
+   - Node: **20.x**
+   - **Build command:** `npm run build` (إن وُجد — لإنتاج مجلد dist/)
    - **Start command:** `npm start`
 5. **Environment variables** → Add:
    - **Name:** `DATABASE_URL`
