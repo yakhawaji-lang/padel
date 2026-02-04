@@ -98,4 +98,7 @@ app.listen(PORT, HOST, () => {
   if (!isConnected()) {
     console.warn('Database not configured. Set DATABASE_URL (mysql://...).')
   }
+}).on('error', (err) => {
+  console.error('[Express] listen error:', err.message)
+  process.exit(1)
 })

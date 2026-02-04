@@ -111,10 +111,12 @@ Invoke-RestMethod -Uri "https://your-site.hostingersite.com/api/init-db/seed-pla
 
 ## استكشاف الأخطاء
 
-### 503 أو الصفحة بيضاء
-1. **Deployments** → أحدث نشر → **Build logs**: تأكد من `[server.js] Starting...` و `Padel API running on`
-2. **File manager** → `public_html/stderr.log` لأخطاء التشغيل
-3. تأكد من **Environment variables** ووجود `DATABASE_URL` الصحيح
+### 503 Service Unavailable (الخادم غير متاح)
+1. **Application logs** في لوحة Node.js — ابحث عن `[server.js] Starting...` و `Padel API running on`
+2. **Build logs** — البناء ناجح (✓ built) لكن 503 يعني أن العملية تتوقف بعد البناء. راجع آخر أسطر في السجلات
+3. **مسار الملفات:** تأكد أن **Entry file** = `server.js` و **Start command** = `npm start`
+4. **نوع الاستضافة:** Node.js يعمل على **Cloud Hosting** و **VPS** — إذا كان الموقع على استضافة مشتركة قديمة قد لا يدعم Node.js. تحقق من خطة الاستضافة
+5. **File manager** → ابحث عن `stderr.log` أو `error.log` في مجلد التطبيق
 
 ### قاعدة البيانات لا تتصل — أو خطأ `getaddrinfo ENOTFOUND HOST`
 ```powershell

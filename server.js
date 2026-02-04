@@ -11,7 +11,7 @@ const distPath = join(__dirname, 'dist')
 const distIndex = join(distPath, 'index.html')
 const root = __dirname
 
-console.log('[server.js] Starting...')
+console.log('[server.js] Starting... cwd=%s', process.cwd())
 
 if (!existsSync(distIndex)) {
   try {
@@ -62,7 +62,10 @@ if (existsSync(distIndex) && deployTargets.length > 0) {
   }
 }
 
-import('./server/index.js').catch(err => {
-  console.error('[server.js] Failed to start:', err)
+import('./server/index.js').then(() => {
+  console.log('[server.js] Express app loaded successfully')
+}).catch(err => {
+  console.error('[server.js] Failed to start:', err?.message || err)
+  console.error('[server.js] Stack:', err?.stack)
   process.exit(1)
 })
