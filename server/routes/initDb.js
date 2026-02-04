@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { query } from '../db/pool.js'
+import { query, isConnected } from '../db/pool.js'
 import { getEntities, setEntities } from '../db/dataHelpers.js'
 
 const router = Router()
@@ -22,7 +22,7 @@ const STMTS = [
 ]
 
 router.get('/', async (req, res) => {
-  const hasDb = !!process.env.DATABASE_URL
+  const hasDb = isConnected() || !!process.env.DATABASE_URL
   // GET /api/init-db?init=1 — تهيئة من المتصفح (بديل لـ POST عند صعوبة تنفيذ الأوامر)
   if (req.query.init === '1' && hasDb) {
     try {
@@ -111,7 +111,7 @@ router.get('/', async (req, res) => {
   }
   res.json({
     configured: hasDb,
-    hint: !hasDb ? 'Add DATABASE_URL in Hostinger Environment Variables' : 'Add ?init=1 to URL to initialize tables from browser, or use POST'
+    hint: !hasDb ? 'Add database.config.json or DATABASE_URL' : 'Add ?init=1 to URL to initialize tables from browser, or use POST'
   })
 })
 
