@@ -22,7 +22,7 @@ if (!existsSync(distIndex)) {
     console.log('[server.js] Starting API only (no frontend)')
   }
 }
-// Copy redirect to root so Nginx serves it for /. SPA is at /app/ served by Node.
+// Copy redirect to root so Nginx serves it for /. SPA is at /app/.
 const redirectPath = join(root, 'index.redirect.html')
 const targets = [root, process.cwd()]
 if (existsSync(join(process.cwd(), '..', 'public_html'))) targets.push(join(process.cwd(), '..', 'public_html'))
@@ -33,6 +33,32 @@ if (existsSync(redirectPath)) {
       copyFileSync(redirectPath, join(dir, 'index.html'))
       console.log('[server.js] Redirect index ->', dir)
     } catch (e) {}
+  }
+}
+
+// Copy dist to /app subdir so Nginx can serve SPA directly (avoids redirect loop).
+// When user visits /app/, Nginx finds /app/index.html instead of falling back to root redirect.
+if (existsSync(distIndex)) {
+  function copyDistToAppDir(baseDir) {
+    const appDir = join(baseDir, 'app')
+    const appAssets = join(appDir, 'assets')
+    try {
+      mkdirSync(appAssets, { recursive: true })
+      copyFileSync(distIndex, join(appDir, 'index.html'))
+      for (const f of readdirSync(join(distPath, 'assets'))) {
+        copyFileSync(join(distPath, 'assets', f), join(appAssets, f))
+      }
+      const logo = join(distPath, 'logo-playtix.png')
+      if (existsSync(logo)) copyFileSync(logo, join(appDir, 'logo-playtix.png'))
+      console.log('[server.js] SPA copied to', appDir)
+      return true
+    } catch (e) {
+      console.warn('[server.js] Could not copy to app dir:', e.message)
+      return false
+    }
+  }
+  for (const dir of targets) {
+    copyDistToAppDir(dir)
   }
 }
 

@@ -5,6 +5,7 @@ node_modules/
 dist/
 dist-ssr/
 /assets/
+/app/
 *.local
 
 # Editor directories and files
