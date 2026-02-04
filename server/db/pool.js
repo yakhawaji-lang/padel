@@ -29,7 +29,8 @@ function loadFromConfigFile() {
     join(cwd, '..', '..', 'database.config.json'),
     join(cwd, '..', '..', '..', 'database.config.json'),
     join(root, '..', 'database.config.json'),
-    join(root, '..', '..', 'database.config.json')
+    join(root, '..', '..', 'database.config.json'),
+    join(root, '..', '..', '..', 'database.config.json')
   ]
   for (const p of paths) {
     if (existsSync(p)) {
@@ -87,4 +88,41 @@ export function getPool() {
 
 export function isConnected() {
   return !!pool
+}
+
+/** للتشخيص: أين يُقرأ الاتصال من؟ */
+export function getDbDiagnostics() {
+  const cwd = process.cwd()
+  const configPaths = [
+    join(root, 'database.config.json'),
+    join(cwd, 'database.config.json'),
+    join(cwd, '..', 'database.config.json'),
+    join(cwd, '..', '..', 'database.config.json'),
+    join(cwd, '..', '..', '..', 'database.config.json'),
+    join(root, '..', 'database.config.json'),
+    join(root, '..', '..', 'database.config.json'),
+    join(root, '..', '..', '..', 'database.config.json')
+  ]
+  const found = configPaths.find(p => existsSync(p))
+  let fromFile = ''
+  if (found) {
+    try {
+      const data = JSON.parse(readFileSync(found, 'utf8'))
+      fromFile = (data.url || data.DATABASE_URL || data.connectionString || '').trim()
+    } catch (e) {
+      fromFile = '(parse error: ' + e.message + ')'
+    }
+  }
+  const fromEnv = (process.env.DATABASE_URL || process.env.MYSQL_URL || '').trim()
+  const used = fromEnv || fromFile
+  return {
+    cwd,
+    root,
+    fromEnv: !!fromEnv,
+    configFileFound: found || null,
+    configPaths: configPaths.map(p => ({ path: p, exists: existsSync(p) })),
+    hasConnectionString: !!used,
+    connectionHost: used ? (used.match(/@([^\/]+)\//) || [])[1] : null,
+    poolExists: !!pool
+  }
 }

@@ -24,7 +24,7 @@ import passwordResetRouter from './routes/passwordReset.js'
 import whatsappWebhookRouter from './routes/whatsappWebhook.js'
 import initDbRouter from './routes/initDb.js'
 import dataRouter from './routes/data.js'
-import { isConnected } from './db/pool.js'
+import { isConnected, getDbDiagnostics } from './db/pool.js'
 
 const app = express()
 const PORT = process.env.PORT || 4000
@@ -49,23 +49,28 @@ app.get('/api/ping', (req, res) => {
   res.json({ pong: true })
 })
 // Debug: verify DATABASE_URL reaches the app (no secrets exposed)
-app.get('/api/db-check', (req, res) => {
-  const url = process.env.DATABASE_URL || process.env.MYSQL_URL || ''
-  const hasUrl = !!url.trim()
-  const looksMysql = url.trim().startsWith('mysql')
-  const paths = [
-    join(root, '.env'),
-    join(cwd, '.env'),
-    join(cwd, '..', '.env'),  // parent of public_html - survives deploy
-  ]
-  const envFiles = paths.map((p) => ({ path: p, exists: existsSync(p) }))
+app.get('/api/db-check', async (req, res) => {
+  const diag = getDbDiagnostics()
+  let testError = null
+  if (isConnected()) {
+    try {
+      const { query } = await import('./db/pool.js')
+      await query('SELECT 1')
+    } catch (e) {
+      testError = e.message
+    }
+  }
   res.json({
-    hasUrl,
-    looksMysql,
-    db: isConnected(),
-    cwd,
-    envFiles,
-    hint: !hasUrl ? 'Add .env with DATABASE_URL to one of the paths above' : !looksMysql ? 'URL should start with mysql://' : 'Check Remote MySQL + credentials'
+    ...diag,
+    db: isConnected() && !testError,
+    testError: testError || null,
+    hint: !diag.hasConnectionString
+      ? 'Create database.config.json in public_html or set DATABASE_URL'
+      : testError
+        ? 'Connection string found but MySQL rejected: ' + testError
+        : diag.db
+          ? 'OK'
+          : 'Check config file path or MySQL host/credentials'
   })
 })
 
