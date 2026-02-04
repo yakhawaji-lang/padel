@@ -58,7 +58,13 @@
 
 بعد اكتمال النشر بنجاح:
 
-### PowerShell (Windows):
+### من المتصفح (الأسهل):
+افتح الرابط في المتصفح:
+```
+https://your-site.hostingersite.com/api/init-db?init=1
+```
+
+### PowerShell:
 ```powershell
 Invoke-RestMethod -Uri "https://your-site.hostingersite.com/api/init-db" -Method POST
 ```
