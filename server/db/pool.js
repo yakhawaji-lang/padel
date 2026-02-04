@@ -3,13 +3,22 @@
  * Uses DATABASE_URL (mysql://user:pass@host/db)
  */
 import { config } from 'dotenv'
+import { existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..', '..')
-config({ path: join(root, '.env.local') })
-config({ path: join(root, '.env') })
+const cwd = process.cwd()
+
+// Load from multiple paths (Hostinger cwd may differ from __dirname)
+;[
+  join(root, '.env.local'),
+  join(root, '.env'),
+  join(cwd, '.env.local'),
+  join(cwd, '.env'),
+  join(cwd, '..', '.env'),
+].forEach((p) => { if (existsSync(p)) config({ path: p }) })
 
 import mysql from 'mysql2/promise'
 

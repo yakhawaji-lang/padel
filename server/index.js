@@ -4,8 +4,15 @@ import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-config({ path: join(__dirname, '..', '.env.local') })
-config({ path: join(__dirname, '..', '.env') })
+const root = join(__dirname, '..')
+const cwd = process.cwd()
+;[
+  join(root, '.env.local'),
+  join(root, '.env'),
+  join(cwd, '.env.local'),
+  join(cwd, '.env'),
+  join(cwd, '..', '.env'),
+].forEach((p) => { if (existsSync(p)) config({ path: p }) })
 
 import express from 'express'
 import cors from 'cors'
@@ -44,11 +51,15 @@ app.get('/api/db-check', (req, res) => {
   const url = process.env.DATABASE_URL || process.env.MYSQL_URL || ''
   const hasUrl = !!url.trim()
   const looksMysql = url.trim().startsWith('mysql')
+  const paths = [join(root, '.env'), join(cwd, '.env')]
+  const envFiles = paths.map((p) => ({ path: p, exists: existsSync(p) }))
   res.json({
     hasUrl,
     looksMysql,
     db: isConnected(),
-    hint: !hasUrl ? 'DATABASE_URL not set in env' : !looksMysql ? 'URL should start with mysql://' : 'Check Remote MySQL + credentials'
+    cwd,
+    envFiles,
+    hint: !hasUrl ? 'Add .env with DATABASE_URL to one of the paths above' : !looksMysql ? 'URL should start with mysql://' : 'Check Remote MySQL + credentials'
   })
 })
 
