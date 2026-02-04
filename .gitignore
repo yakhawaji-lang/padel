@@ -32,3 +32,6 @@ lerna-debug.log*
 .env
 .env.local
 .env.production
+
+# Database config (contains credentials)
+database.config.json

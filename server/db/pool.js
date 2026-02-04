@@ -1,9 +1,9 @@
 /**
  * MySQL connection pool.
- * Uses DATABASE_URL (mysql://user:pass@host/db)
+ * Uses DATABASE_URL (mysql://user:pass@host/db) or database.config.json
  */
 import { config } from 'dotenv'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
@@ -19,9 +19,35 @@ config() // load from cwd (default)
   join(process.cwd(), '..', '.env'),
 ].forEach((p) => { if (existsSync(p)) config({ path: p }) })
 
+// Fallback: قراءة من ملف (عند فشل Environment Variables على Hostinger)
+function loadFromConfigFile() {
+  const cwd = process.cwd()
+  const paths = [
+    join(root, 'database.config.json'),
+    join(cwd, 'database.config.json'),
+    join(cwd, '..', 'database.config.json'),
+    join(cwd, '..', '..', 'database.config.json'),
+    join(cwd, '..', '..', '..', 'database.config.json'),
+    join(root, '..', 'database.config.json'),
+    join(root, '..', '..', 'database.config.json')
+  ]
+  for (const p of paths) {
+    if (existsSync(p)) {
+      try {
+        const data = JSON.parse(readFileSync(p, 'utf8'))
+        return (data.url || data.DATABASE_URL || data.connectionString || '').trim()
+      } catch (e) {
+        console.warn('[pool] Could not parse', p, e.message)
+      }
+    }
+  }
+  return ''
+}
+
 import mysql from 'mysql2/promise'
 
-const connectionString = (process.env.DATABASE_URL || process.env.MYSQL_URL || '').trim()
+let connectionString = (process.env.DATABASE_URL || process.env.MYSQL_URL || '').trim()
+if (!connectionString) connectionString = loadFromConfigFile()
 const isMySQL = connectionString.startsWith('mysql')
 
 // Detect placeholder HOST - user must replace with actual MySQL host (e.g. srv2069.hstgr.io or localhost)

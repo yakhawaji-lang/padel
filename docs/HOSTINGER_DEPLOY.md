@@ -63,6 +63,7 @@
 ```
 https://your-site.hostingersite.com/api/init-db?init=1
 ```
+مثال للموقع الحالي: `https://palegreen-armadillo-385480.hostingersite.com/api/init-db?init=1`
 
 ### PowerShell:
 ```powershell
@@ -134,7 +135,21 @@ Invoke-RestMethod -Uri "https://your-site.hostingersite.com/api/db-check"
 - **Access denied @'::1'** = استخدم `127.0.0.1` بدلاً من `localhost` في DATABASE_URL (لتفادي IPv6)
 
 ### ملف .env يُحذف
-لا تعتمد على ملف `.env` في Hostinger. استخدم **Environment variables** من إعدادات تطبيق Node.js فقط.
+لا تعتمد على ملف `.env` في Hostinger. استخدم **Environment variables** أو **الطريقة البديلة** أدناه.
+
+### الحل البديل: ملف database.config.json
+إذا لم تُقرأ Environment Variables:
+
+1. hPanel → **File Manager** → ادخل إلى `public_html`
+2. أنشئ ملفاً جديداً باسم `database.config.json` (في جذر `public_html`)
+3. ضع المحتوى:
+   ```json
+   {"url": "mysql://u502561206_padel_user:كلمة_المرور@127.0.0.1/u502561206_padel_db"}
+   ```
+4. استبدل `كلمة_المرور` بكلمة المرور الفعلية
+5. احفظ الملف ثم **Restart** للتطبيق
+
+ملاحظة: `public_html` غالباً يبقى بعد كل نشر، بخلاف مجلد الكود.
 
 ---
 
