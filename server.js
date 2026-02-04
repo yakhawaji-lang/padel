@@ -22,23 +22,17 @@ if (!existsSync(distIndex)) {
     console.log('[server.js] Starting API only (no frontend)')
   }
 }
-// Copy built files to root so Hostinger/Nginx serves them (index + assets + logo)
-if (existsSync(distIndex)) {
-  try {
-    copyFileSync(distIndex, join(root, 'index.html'))
-    const assetsSrc = join(distPath, 'assets')
-    const assetsDst = join(root, 'assets')
-    if (existsSync(assetsSrc)) {
-      mkdirSync(assetsDst, { recursive: true })
-      for (const f of readdirSync(assetsSrc)) {
-        copyFileSync(join(assetsSrc, f), join(assetsDst, f))
-      }
-    }
-    const logo = join(distPath, 'logo-playtix.png')
-    if (existsSync(logo)) copyFileSync(logo, join(root, 'logo-playtix.png'))
-    console.log('[server.js] Copied dist/ to root for Nginx static serving')
-  } catch (e) {
-    console.warn('[server.js] Could not copy to root:', e.message)
+// Copy redirect to root so Nginx serves it for /. SPA is at /app/ served by Node.
+const redirectPath = join(root, 'index.redirect.html')
+const targets = [root, process.cwd()]
+if (existsSync(join(process.cwd(), '..', 'public_html'))) targets.push(join(process.cwd(), '..', 'public_html'))
+else if (existsSync(join(process.cwd(), 'public_html'))) targets.push(join(process.cwd(), 'public_html'))
+if (existsSync(redirectPath)) {
+  for (const dir of targets) {
+    try {
+      copyFileSync(redirectPath, join(dir, 'index.html'))
+      console.log('[server.js] Redirect index ->', dir)
+    } catch (e) {}
   }
 }
 

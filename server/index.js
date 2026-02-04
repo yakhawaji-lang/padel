@@ -40,38 +40,27 @@ app.get('/api/ping', (req, res) => {
   res.json({ pong: true })
 })
 
-// Serve React static build (for Hostinger deployment)
+// Redirect / to /app when request reaches Node
+app.get('/', (req, res) => res.redirect(302, '/app/'))
+
+// Serve SPA at /app (base path for Hostinger when Nginx serves root)
 const distPath = join(__dirname, '..', 'dist')
 const distIndex = join(distPath, 'index.html')
 if (existsSync(distIndex)) {
-  app.use(express.static(distPath, {
-    index: false,
+  app.use('/app', express.static(distPath, {
+    index: 'index.html',
     setHeaders: (res, path) => {
       if (path.endsWith('.js') || path.endsWith('.mjs')) {
         res.setHeader('Content-Type', 'application/javascript')
       }
     }
   }))
+  app.get('/app', (req, res) => res.sendFile(distIndex))
+  app.get('/app/*', (req, res, next) => {
+    if (/\.(js|mjs|css|ico|png|jpg|jpeg|gif|svg|woff2?|ttf|eot)(\?.*)?$/i.test(req.path)) return next()
+    res.sendFile(distIndex)
+  })
 }
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api')) return next()
-  // Don't serve index.html for asset requests
-  if (/\.(js|mjs|css|ico|png|jpg|jpeg|gif|svg|woff2?|ttf|eot)(\?.*)?$/i.test(req.path)) {
-    return next()
-  }
-  if (existsSync(distIndex)) {
-    return res.sendFile(distIndex)
-  }
-  res.status(503).type('html').send('<h1>Frontend not built</h1><p>Run: npm run build</p>')
-})
-
-// Custom 404: ensure asset requests get correct MIME (fixes "Expected a JavaScript module" error)
-app.use((req, res) => {
-  if (/\.(js|mjs)(\?.*)?$/i.test(req.path)) {
-    res.type('application/javascript')
-  }
-  res.status(404).send('Not found')
-})
 
 app.listen(PORT, HOST, () => {
   console.log(`Padel API running on http://${HOST}:${PORT}`)

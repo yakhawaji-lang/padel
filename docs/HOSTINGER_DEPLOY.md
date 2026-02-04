@@ -75,5 +75,6 @@ curl -X POST https://khaki-yak-622008.hostingersite.com/api/init-db
 
 ## ملاحظات
 
+- التطبيق الرئيسي عند: **`/app/`** (البث من `/` يُوجّه إلى `/app/`)
 - **Start:** `npm start` يشغّل `server.js` (يبني الواجهة إن لم تكن موجودة، ثم يشغّل Express)
 - التطبيق يعمل مع **MySQL** فقط على Hostinger
