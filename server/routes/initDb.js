@@ -4,17 +4,11 @@ import { query } from '../db/pool.js'
 const router = Router()
 
 const STMTS = [
-  `CREATE TABLE IF NOT EXISTS app_store (key TEXT PRIMARY KEY, value JSONB NOT NULL DEFAULT '[]'::jsonb, updated_at TIMESTAMPTZ DEFAULT NOW())`,
-  `CREATE TABLE IF NOT EXISTS matches (id SERIAL PRIMARY KEY, club_id TEXT NOT NULL, tournament_type TEXT NOT NULL, tournament_id INTEGER NOT NULL, data JSONB NOT NULL, saved_at BIGINT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW())`,
-  `CREATE INDEX IF NOT EXISTS idx_matches_club ON matches(club_id)`,
-  `CREATE INDEX IF NOT EXISTS idx_matches_tournament ON matches(club_id, tournament_type, tournament_id)`,
-  `CREATE INDEX IF NOT EXISTS idx_matches_saved_at ON matches(saved_at)`,
-  `CREATE TABLE IF NOT EXISTS member_stats (id SERIAL PRIMARY KEY, club_id TEXT NOT NULL, member_id TEXT NOT NULL, tournament_id INTEGER NOT NULL, data JSONB NOT NULL, saved_at BIGINT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW())`,
-  `CREATE INDEX IF NOT EXISTS idx_member_stats_club ON member_stats(club_id)`,
-  `CREATE INDEX IF NOT EXISTS idx_member_stats_member ON member_stats(member_id)`,
-  `CREATE TABLE IF NOT EXISTS tournament_summaries (id SERIAL PRIMARY KEY, club_id TEXT NOT NULL, data JSONB NOT NULL, saved_at BIGINT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW())`,
-  `CREATE INDEX IF NOT EXISTS idx_tournament_summaries_club ON tournament_summaries(club_id)`,
-  `INSERT INTO app_store (key, value) VALUES ('admin_clubs', '[]'::jsonb) ON CONFLICT (key) DO NOTHING`
+  `CREATE TABLE IF NOT EXISTS app_store (\`key\` VARCHAR(255) PRIMARY KEY, value JSON NOT NULL, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`,
+  `CREATE TABLE IF NOT EXISTS matches (id INT AUTO_INCREMENT PRIMARY KEY, club_id VARCHAR(255) NOT NULL, tournament_type VARCHAR(255) NOT NULL, tournament_id INT NOT NULL, data JSON NOT NULL, saved_at BIGINT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, INDEX idx_matches_club (club_id), INDEX idx_matches_tournament (club_id, tournament_type, tournament_id), INDEX idx_matches_saved_at (saved_at))`,
+  `CREATE TABLE IF NOT EXISTS member_stats (id INT AUTO_INCREMENT PRIMARY KEY, club_id VARCHAR(255) NOT NULL, member_id VARCHAR(255) NOT NULL, tournament_id INT NOT NULL, data JSON NOT NULL, saved_at BIGINT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, INDEX idx_member_stats_club (club_id), INDEX idx_member_stats_member (member_id))`,
+  `CREATE TABLE IF NOT EXISTS tournament_summaries (id INT AUTO_INCREMENT PRIMARY KEY, club_id VARCHAR(255) NOT NULL, data JSON NOT NULL, saved_at BIGINT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, INDEX idx_tournament_summaries_club (club_id))`,
+  `INSERT INTO app_store (\`key\`, value) VALUES ('admin_clubs', '[]') ON DUPLICATE KEY UPDATE \`key\` = \`key\``
 ]
 
 router.post('/', async (req, res) => {

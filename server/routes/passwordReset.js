@@ -24,7 +24,7 @@ async function handleRequest(req, res) {
     }
 
     const { rows: storeRows } = await query(
-      `SELECT key, value FROM app_store WHERE key IN ('all_members', 'padel_members', 'platform_admins', 'admin_clubs')`
+      `SELECT key, value FROM app_store WHERE \`key\` IN ('all_members', 'padel_members', 'platform_admins', 'admin_clubs')`
     )
     const getVal = (key) => {
       const r = storeRows.find(x => x.key === key)?.value
@@ -92,7 +92,7 @@ async function handleRequest(req, res) {
     const expiresAt = Date.now() + 60 * 60 * 1000
 
     const { rows: tokenRows } = await query(
-      `SELECT value FROM app_store WHERE key = 'password_reset_tokens'`
+      `SELECT value FROM app_store WHERE \`key\` = 'password_reset_tokens'`
     )
     let tokens = {}
     try {
@@ -101,9 +101,9 @@ async function handleRequest(req, res) {
     } catch (_) {}
     tokens[token] = { email: em, expiresAt, userType, ...extra }
     await query(
-      `INSERT INTO app_store (key, value, updated_at) VALUES ('password_reset_tokens', $1, NOW())
-       ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
-      [JSON.stringify(tokens)]
+      `INSERT INTO app_store (\`key\`, value, updated_at) VALUES ('password_reset_tokens', ?, NOW())
+       ON DUPLICATE KEY UPDATE value = ?, updated_at = NOW()`,
+      [JSON.stringify(tokens), JSON.stringify(tokens)]
     )
 
     const baseUrl = process.env.BASE_URL || 'http://localhost:3000'
@@ -154,7 +154,7 @@ async function handleConfirm(req, res) {
     }
 
     const { rows: tokenRows } = await query(
-      `SELECT value FROM app_store WHERE key = 'password_reset_tokens'`
+      `SELECT value FROM app_store WHERE \`key\` = 'password_reset_tokens'`
     )
     let tokens = {}
     try {
@@ -170,7 +170,7 @@ async function handleConfirm(req, res) {
     const userType = entry.userType || 'member'
 
     const { rows: storeRows } = await query(
-      `SELECT key, value FROM app_store WHERE key IN ('all_members', 'padel_members', 'platform_admins', 'admin_clubs')`
+      `SELECT key, value FROM app_store WHERE \`key\` IN ('all_members', 'padel_members', 'platform_admins', 'admin_clubs')`
     )
     const allMembersRaw = storeRows.find(r => r.key === 'all_members')?.value
     const padelRaw = storeRows.find(r => r.key === 'padel_members')?.value
@@ -198,11 +198,11 @@ async function handleConfirm(req, res) {
       const admin = platformAdmins.find(a => (a.email || '').toLowerCase() === email)
       if (!admin) {
         delete tokens[t]
-        await query(`INSERT INTO app_store (key, value, updated_at) VALUES ('password_reset_tokens', $1, NOW()) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`, [JSON.stringify(tokens)])
+        await query(`INSERT INTO app_store (\`key\`, value, updated_at) VALUES ('password_reset_tokens', ?, NOW()) ON DUPLICATE KEY UPDATE value = ?, updated_at = NOW()`, [JSON.stringify(tokens), JSON.stringify(tokens)])
         return res.status(400).json({ error: 'Admin not found' })
       }
       admin.password = pw
-      await query(`INSERT INTO app_store (key, value, updated_at) VALUES ('platform_admins', $1, NOW()) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`, [JSON.stringify(platformAdmins)])
+      await query(`INSERT INTO app_store (\`key\`, value, updated_at) VALUES ('platform_admins', ?, NOW()) ON DUPLICATE KEY UPDATE value = ?, updated_at = NOW()`, [JSON.stringify(platformAdmins), JSON.stringify(platformAdmins)])
     } else if (userType === 'club_admin') {
       const clubsRaw = storeRows.find(r => r.key === 'admin_clubs')?.value
       let clubs = []
@@ -215,7 +215,7 @@ async function handleConfirm(req, res) {
       const club = clubs.find(c => c.id === clubId)
       if (!club) {
         delete tokens[t]
-        await query(`INSERT INTO app_store (key, value, updated_at) VALUES ('password_reset_tokens', $1, NOW()) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`, [JSON.stringify(tokens)])
+        await query(`INSERT INTO app_store (\`key\`, value, updated_at) VALUES ('password_reset_tokens', ?, NOW()) ON DUPLICATE KEY UPDATE value = ?, updated_at = NOW()`, [JSON.stringify(tokens), JSON.stringify(tokens)])
         return res.status(400).json({ error: 'Club not found' })
       }
       if (isOwner) {
@@ -225,7 +225,7 @@ async function handleConfirm(req, res) {
         const u = users.find(au => au.id === userId)
         if (u) u.password = pw
       }
-      await query(`INSERT INTO app_store (key, value, updated_at) VALUES ('admin_clubs', $1, NOW()) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`, [JSON.stringify(clubs)])
+      await query(`INSERT INTO app_store (\`key\`, value, updated_at) VALUES ('admin_clubs', ?, NOW()) ON DUPLICATE KEY UPDATE value = ?, updated_at = NOW()`, [JSON.stringify(clubs), JSON.stringify(clubs)])
     } else {
       const member = members.find(m => (m.email || '').toLowerCase() === email)
       if (!member) {
@@ -233,22 +233,22 @@ async function handleConfirm(req, res) {
         await query(
           `INSERT INTO app_store (key, value, updated_at) VALUES ('password_reset_tokens', $1, NOW())
            ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
-          [JSON.stringify(tokens)]
+          [JSON.stringify(tokens), JSON.stringify(tokens)]
         )
         return res.status(400).json({ error: 'Member not found' })
       }
       member.password = pw
       const updated = members.map(m => (m.id === member.id ? member : m))
       const json = JSON.stringify(updated)
-      await query(`INSERT INTO app_store (key, value, updated_at) VALUES ('all_members', $1, NOW()) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`, [json])
-      await query(`INSERT INTO app_store (key, value, updated_at) VALUES ('padel_members', $1, NOW()) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`, [json])
+      await query(`INSERT INTO app_store (\`key\`, value, updated_at) VALUES ('all_members', ?, NOW()) ON DUPLICATE KEY UPDATE value = ?, updated_at = NOW()`, [json, json])
+      await query(`INSERT INTO app_store (\`key\`, value, updated_at) VALUES ('padel_members', ?, NOW()) ON DUPLICATE KEY UPDATE value = ?, updated_at = NOW()`, [json, json])
     }
 
     delete tokens[t]
     await query(
-      `INSERT INTO app_store (key, value, updated_at) VALUES ('password_reset_tokens', $1, NOW())
-       ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
-      [JSON.stringify(tokens)]
+      `INSERT INTO app_store (\`key\`, value, updated_at) VALUES ('password_reset_tokens', ?, NOW())
+       ON DUPLICATE KEY UPDATE value = ?, updated_at = NOW()`,
+      [JSON.stringify(tokens), JSON.stringify(tokens)]
     )
 
     return res.json({ ok: true })

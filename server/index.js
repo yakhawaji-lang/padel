@@ -35,9 +35,17 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, db: isConnected() })
 })
 
+// Serve React static build (for Hostinger deployment)
+const distPath = join(__dirname, '..', 'dist')
+app.use(express.static(distPath, { index: false }))
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next()
+  res.sendFile(join(distPath, 'index.html'))
+})
+
 app.listen(PORT, () => {
   console.log(`Padel API running on http://localhost:${PORT}`)
   if (!isConnected()) {
-    console.warn('Database not configured. Set DATABASE_URL or POSTGRES_URL.')
+    console.warn('Database not configured. Set DATABASE_URL (mysql://...).')
   }
 })

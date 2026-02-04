@@ -9,7 +9,7 @@ router.get('/', async (req, res) => {
     const { clubId } = req.query
     if (!clubId) return res.status(400).json({ error: 'Missing clubId' })
     const { rows } = await query(
-      'SELECT id, data, saved_at FROM tournament_summaries WHERE club_id = $1 ORDER BY saved_at DESC',
+      'SELECT id, data, saved_at FROM tournament_summaries WHERE club_id = ? ORDER BY saved_at DESC',
       [clubId]
     )
     res.json(rows.map(r => ({ ...r.data, id: r.id })))
@@ -25,11 +25,11 @@ router.post('/', async (req, res) => {
     const { clubId, ...data } = req.body
     if (!clubId) return res.status(400).json({ error: 'Missing clubId' })
     const savedAt = Date.now()
-    const { rows } = await query(
-      'INSERT INTO tournament_summaries (club_id, data, saved_at) VALUES ($1, $2, $3) RETURNING id',
+    const { insertId } = await query(
+      'INSERT INTO tournament_summaries (club_id, data, saved_at) VALUES (?, ?, ?)',
       [clubId, JSON.stringify(data), savedAt]
     )
-    res.json({ id: rows[0].id })
+    res.json({ id: insertId })
   } catch (e) {
     console.error('tournament-summaries post error:', e)
     res.status(500).json({ error: e.message })

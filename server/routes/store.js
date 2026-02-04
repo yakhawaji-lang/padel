@@ -7,7 +7,7 @@ const router = Router()
 router.get('/:key', async (req, res) => {
   try {
     const { rows } = await query(
-      'SELECT value FROM app_store WHERE key = $1',
+      'SELECT value FROM app_store WHERE `key` = ?',
       [req.params.key]
     )
     if (rows.length === 0) {
@@ -29,9 +29,9 @@ router.get('/', async (req, res) => {
     }
     const keys = keysParam.split(',').map(k => k.trim()).filter(Boolean)
     if (keys.length === 0) return res.json({})
-    const placeholders = keys.map((_, i) => `$${i + 1}`).join(',')
+    const placeholders = keys.map(() => '?').join(',')
     const { rows } = await query(
-      `SELECT key, value FROM app_store WHERE key IN (${placeholders})`,
+      `SELECT \`key\`, value FROM app_store WHERE \`key\` IN (${placeholders})`,
       keys
     )
     const result = {}
@@ -49,9 +49,9 @@ router.post('/', async (req, res) => {
     const { key, value } = req.body
     if (!key) return res.status(400).json({ error: 'Missing key' })
     await query(
-      `INSERT INTO app_store (key, value, updated_at) VALUES ($1, $2, NOW())
-       ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()`,
-      [key, JSON.stringify(value ?? null)]
+      `INSERT INTO app_store (\`key\`, value, updated_at) VALUES (?, ?, NOW())
+       ON DUPLICATE KEY UPDATE value = ?, updated_at = NOW()`,
+      [key, JSON.stringify(value ?? null), JSON.stringify(value ?? null)]
     )
     res.json({ ok: true })
   } catch (e) {
@@ -70,9 +70,9 @@ router.post('/batch', async (req, res) => {
     for (const { key, value } of items) {
       if (!key) continue
       await query(
-        `INSERT INTO app_store (key, value, updated_at) VALUES ($1, $2, NOW())
-         ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()`,
-        [key, JSON.stringify(value ?? null)]
+        `INSERT INTO app_store (\`key\`, value, updated_at) VALUES (?, ?, NOW())
+         ON DUPLICATE KEY UPDATE value = ?, updated_at = NOW()`,
+        [key, JSON.stringify(value ?? null), JSON.stringify(value ?? null)]
       )
     }
     res.json({ ok: true })

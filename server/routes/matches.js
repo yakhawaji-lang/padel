@@ -9,10 +9,9 @@ router.get('/', async (req, res) => {
     const { clubId, tournamentType, tournamentId } = req.query
     let q = 'SELECT id, club_id, tournament_type, tournament_id, data, saved_at FROM matches WHERE 1=1'
     const params = []
-    let i = 1
-    if (clubId) { q += ` AND club_id = $${i++}`; params.push(clubId) }
-    if (tournamentType) { q += ` AND tournament_type = $${i++}`; params.push(tournamentType) }
-    if (tournamentId != null) { q += ` AND tournament_id = $${i++}`; params.push(parseInt(tournamentId, 10)) }
+    if (clubId) { q += ' AND club_id = ?'; params.push(clubId) }
+    if (tournamentType) { q += ' AND tournament_type = ?'; params.push(tournamentType) }
+    if (tournamentId != null) { q += ' AND tournament_id = ?'; params.push(parseInt(tournamentId, 10)) }
     q += ' ORDER BY saved_at ASC'
     const { rows } = await query(q, params)
     const result = rows.map(r => ({
@@ -39,12 +38,12 @@ router.post('/', async (req, res) => {
     }
     const savedAt = Date.now()
     const data = { ...rest }
-    const { rows } = await query(
+    const { insertId } = await query(
       `INSERT INTO matches (club_id, tournament_type, tournament_id, data, saved_at)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+       VALUES (?, ?, ?, ?, ?)`,
       [clubId, tournamentType, parseInt(tournamentId, 10), JSON.stringify(data), savedAt]
     )
-    res.json({ id: rows[0].id, savedAt })
+    res.json({ id: insertId, savedAt })
   } catch (e) {
     console.error('matches post error:', e)
     res.status(500).json({ error: e.message })
@@ -59,7 +58,7 @@ router.delete('/', async (req, res) => {
       return res.status(400).json({ error: 'Missing clubId, tournamentId or tournamentType' })
     }
     await query(
-      'DELETE FROM matches WHERE club_id = $1 AND tournament_id = $2 AND tournament_type = $3',
+      'DELETE FROM matches WHERE club_id = ? AND tournament_id = ? AND tournament_type = ?',
       [clubId, parseInt(tournamentId, 10), tournamentType]
     )
     res.json({ ok: true })
@@ -80,7 +79,7 @@ router.delete('/by-date', async (req, res) => {
     const start = d.setHours(0, 0, 0, 0)
     const end = d.setHours(23, 59, 59, 999)
     await query(
-      'DELETE FROM matches WHERE club_id = $1 AND tournament_type = $2 AND saved_at >= $3 AND saved_at <= $4',
+      'DELETE FROM matches WHERE club_id = ? AND tournament_type = ? AND saved_at >= ? AND saved_at <= ?',
       [clubId, tournamentType, start, end]
     )
     res.json({ ok: true })
