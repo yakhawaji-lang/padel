@@ -12,16 +12,14 @@ const distIndex = join(distPath, 'index.html')
 
 console.log('[server.js] Starting...')
 
-// Only build if DO_BUILD=1 (Hostinger may run build separately). Skip by default for fast startup.
-if (process.env.DO_BUILD === '1' && !existsSync(distIndex)) {
+if (!existsSync(distIndex)) {
   try {
     console.log('[server.js] Building frontend...')
     execSync('npm run build', { stdio: 'inherit', cwd: __dirname })
   } catch (err) {
     console.error('[server.js] Build failed:', err.message)
+    console.log('[server.js] Starting API only (no frontend)')
   }
-} else if (!existsSync(distIndex)) {
-  console.log('[server.js] No dist/, starting API only. Set DO_BUILD=1 to build.')
 }
 
 import('./server/index.js').catch(err => {
