@@ -28,9 +28,11 @@ function loadFromConfigFile() {
     join(cwd, '..', 'database.config.json'),
     join(cwd, '..', '..', 'database.config.json'),
     join(cwd, '..', '..', '..', 'database.config.json'),
+    join(cwd, '..', '..', '..', '..', 'database.config.json'),
     join(root, '..', 'database.config.json'),
     join(root, '..', '..', 'database.config.json'),
-    join(root, '..', '..', '..', 'database.config.json')
+    join(root, '..', '..', '..', 'database.config.json'),
+    join(root, '..', '..', '..', '..', 'database.config.json')
   ]
   for (const p of paths) {
     if (existsSync(p)) {
@@ -99,9 +101,11 @@ export function getDbDiagnostics() {
     join(cwd, '..', 'database.config.json'),
     join(cwd, '..', '..', 'database.config.json'),
     join(cwd, '..', '..', '..', 'database.config.json'),
+    join(cwd, '..', '..', '..', '..', 'database.config.json'),
     join(root, '..', 'database.config.json'),
     join(root, '..', '..', 'database.config.json'),
-    join(root, '..', '..', '..', 'database.config.json')
+    join(root, '..', '..', '..', 'database.config.json'),
+    join(root, '..', '..', '..', '..', 'database.config.json')
   ]
   const found = configPaths.find(p => existsSync(p))
   let fromFile = ''

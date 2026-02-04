@@ -140,16 +140,19 @@ Invoke-RestMethod -Uri "https://your-site.hostingersite.com/api/db-check"
 ### الحل البديل: ملف database.config.json
 إذا لم تُقرأ Environment Variables:
 
-1. hPanel → **File Manager** → ادخل إلى `public_html`
-2. أنشئ ملفاً جديداً باسم `database.config.json` (في جذر `public_html`)
-3. ضع المحتوى:
+**مهم:** الملف يجب أن يكون خارج مجلد النشر حتى لا يُحذف عند كل نشر من GitHub.
+
+1. hPanel → **File Manager** → ادخل إلى مجلد الدومين (مثل `domains/palegreen-armadillo-385480.hostingersite.com`)
+2. **لا تدخل** إلى `public_html` — أنشئ الملف في مجلد الدومين نفسه (فوق `public_html`)
+3. أنشئ ملفاً باسم `database.config.json`
+4. ضع المحتوى:
    ```json
    {"url": "mysql://u502561206_padel_user:كلمة_المرور@127.0.0.1/u502561206_padel_db"}
    ```
-4. استبدل `كلمة_المرور` بكلمة المرور الفعلية
-5. احفظ الملف ثم **Restart** للتطبيق
+5. استبدل `كلمة_المرور` بكلمة المرور الفعلية
+6. احفظ ثم **Restart** للتطبيق
 
-ملاحظة: `public_html` غالباً يبقى بعد كل نشر، بخلاف مجلد الكود.
+**مسار بديل:** إن لم يتوفّر، جرّب `public_html/database.config.json` — قد يُستبدل عند النشر.
 
 ---
 
