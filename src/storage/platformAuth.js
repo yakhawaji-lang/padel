@@ -21,7 +21,7 @@ export const setCurrentPlatformUser = (memberId) => {
 }
 
 /** Update platform member profile (name, email, avatar) - uses centralized save */
-export const updatePlatformMember = (memberId, updates) => {
+export const updatePlatformMember = async (memberId, updates) => {
   try {
     const members = getMergedMembersRaw()
     const member = members.find(m => m.id === memberId)
@@ -29,7 +29,7 @@ export const updatePlatformMember = (memberId, updates) => {
     const merged = { ...member, ...updates }
     const idx = members.findIndex(m => m.id === memberId)
     if (idx >= 0) members[idx] = merged
-    const ok = saveMembers(members)
+    const ok = await saveMembers(members)
     if (ok && typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('member-updated', { detail: { memberId } }))
     }

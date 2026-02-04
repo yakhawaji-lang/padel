@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
+import './club-pages-common.css'
 import '../pages/common.css'
 import './ClubStoreManagement.css'
 import BarcodeDisplay from '../components/BarcodeDisplay'

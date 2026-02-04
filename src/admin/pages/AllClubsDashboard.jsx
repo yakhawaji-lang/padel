@@ -2,8 +2,8 @@ import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './common.css'
 import './AllClubsDashboard.css'
-import { getAllMembersFromStorage, addMemberToClubs, getClubMembersFromStorage, upsertMember, deleteMember } from '../../storage/adminStorage'
-import { getPlatformAdminSession, hasPlatformPermission } from '../../storage/platformAdminAuth'
+import { useAdminPanel } from '../AdminPanelContext'
+import { getAllMembersFromStorage, getClubMembersFromStorage } from '../../storage/adminStorage'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
@@ -15,301 +15,181 @@ const getDataSourceLabel = () => {
   return { en: 'Cloud', ar: 'سحابي' }
 }
 
-const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub, onRejectClub, onRefresh }) => {
+function Modal({ title, onClose, children }) {
+  return (
+    <div className="acd-modal-backdrop" onClick={onClose} role="presentation">
+      <div className="acd-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="acd-modal-title">
+        <div className="acd-modal-header">
+          <h3 id="acd-modal-title">{title}</h3>
+          <button type="button" className="acd-modal-close" onClick={onClose} aria-label="Close">&times;</button>
+        </div>
+        <div className="acd-modal-body">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+const AllClubsDashboard = () => {
+  const { clubs = [], language = 'en', onUpdateClub, onApproveClub, onRejectClub, onRefresh } = useAdminPanel()
   const navigate = useNavigate()
-  const platformSession = getPlatformAdminSession()
   const dataSource = getDataSourceLabel()
   const [searchQuery, setSearchQuery] = useState('')
   const [viewingPending, setViewingPending] = useState(null)
   const [sortBy, setSortBy] = useState('name')
   const [sortOrder, setSortOrder] = useState('asc')
-  const [addToClubMember, setAddToClubMember] = useState(null)
-  const [memberSearch, setMemberSearch] = useState('')
-  const [membersRefresh, setMembersRefresh] = useState(0)
-  const [editingMember, setEditingMember] = useState(null)
-  const [editForm, setEditForm] = useState({ name: '', email: '', mobile: '', password: '' })
 
-  const handleEditMember = (member) => {
-    setEditingMember(member)
-    setEditForm({ name: member.name || '', email: member.email || '', mobile: member.mobile || member.phone || '', password: '' })
-  }
+  const clubsList = Array.isArray(clubs) ? clubs : []
+  const approvedClubs = useMemo(() => clubsList.filter(c => c.status !== 'pending'), [clubsList])
+  const allMembers = useMemo(() => getAllMembersFromStorage(), [clubs])
+  const pendingClubs = useMemo(() => clubsList.filter(c => c.status === 'pending'), [clubsList])
 
-  const handleSaveMemberEdit = (e) => {
-    e.preventDefault()
-    if (!editingMember) return
-    const updated = { ...editingMember, name: editForm.name.trim(), email: editForm.email.trim(), mobile: editForm.mobile.trim() }
-    if (editForm.password && editForm.password.length >= 6) updated.password = editForm.password
-    if (upsertMember(updated)) {
-      setMembersRefresh(k => k + 1)
-      setEditingMember(null)
-    }
-  }
+  const totalStats = useMemo(() => ({
+    totalClubs: approvedClubs.length,
+    totalMembers: allMembers.length,
+    totalTournaments: approvedClubs.reduce((sum, club) => sum + (club.tournaments?.length || 0), 0),
+    totalBookings: approvedClubs.reduce((sum, club) => sum + (club.bookings?.length || 0), 0),
+    totalRevenue: approvedClubs.reduce((sum, club) =>
+      sum + (club.accounting?.reduce((acc, item) => acc + (parseFloat(item.amount) || 0), 0) || 0), 0
+    ),
+    totalCourts: approvedClubs.reduce((sum, club) => sum + (club.courts?.length || 0), 0),
+    activeClubs: approvedClubs.filter(club =>
+      getClubMembersFromStorage(club.id).length > 0 || (club.tournaments?.length || 0) > 0
+    ).length,
+  }), [approvedClubs, allMembers])
 
-  const handleDeleteMember = (member) => {
-    if (!window.confirm(t('Permanently delete this member?', 'حذف هذا العضو نهائياً؟', language))) return
-    if (deleteMember(member.id)) {
-      setMembersRefresh(k => k + 1)
-      setEditingMember(null)
-      setAddToClubMember(null)
-    }
-  }
-
-  const approvedClubs = useMemo(() => clubs.filter(c => c.status !== 'pending'), [clubs])
-  const allMembers = useMemo(() => getAllMembersFromStorage(), [clubs, membersRefresh])
-  const pendingClubs = useMemo(() => clubs.filter(c => c.status === 'pending'), [clubs])
-
-  // Calculate total statistics (approved only)
-  const totalStats = useMemo(() => {
-    return {
-      totalClubs: approvedClubs.length,
-      totalMembers: allMembers.length,
-      totalTournaments: approvedClubs.reduce((sum, club) => sum + (club.tournaments?.length || 0), 0),
-      totalBookings: approvedClubs.reduce((sum, club) => sum + (club.bookings?.length || 0), 0),
-      totalRevenue: approvedClubs.reduce((sum, club) => 
-        sum + (club.accounting?.reduce((acc, item) => acc + (parseFloat(item.amount) || 0), 0) || 0), 0
-      ),
-      totalCourts: approvedClubs.reduce((sum, club) => sum + (club.courts?.length || 0), 0),
-      activeClubs: approvedClubs.filter(club => 
-        getClubMembersFromStorage(club.id).length > 0 || 
-        (club.tournaments?.length || 0) > 0
-      ).length,
-      storesEnabled: approvedClubs.filter(club => club.storeEnabled).length
-    }
-  }, [approvedClubs, allMembers])
-
-  // Filter and sort clubs (approved only)
   const filteredAndSortedClubs = useMemo(() => {
     let filtered = approvedClubs.filter(club => {
-      const query = searchQuery.toLowerCase()
+      const q = searchQuery.toLowerCase()
       return (
-        club.name?.toLowerCase().includes(query) ||
-        club.nameAr?.toLowerCase().includes(query) ||
-        club.address?.toLowerCase().includes(query) ||
-        club.id?.toLowerCase().includes(query)
+        club.name?.toLowerCase().includes(q) ||
+        club.nameAr?.toLowerCase().includes(q) ||
+        club.address?.toLowerCase().includes(q) ||
+        club.id?.toLowerCase().includes(q)
       )
     })
-
-    // Sort clubs
     filtered.sort((a, b) => {
-      let aValue, bValue
-      
+      let aVal, bVal
       switch (sortBy) {
-        case 'members':
-          aValue = getClubMembersFromStorage(a.id).length
-          bValue = getClubMembersFromStorage(b.id).length
-          break
-        case 'tournaments':
-          aValue = a.tournaments?.length || 0
-          bValue = b.tournaments?.length || 0
-          break
-        case 'revenue':
-          aValue = a.accounting?.reduce((acc, item) => acc + (parseFloat(item.amount) || 0), 0) || 0
-          bValue = b.accounting?.reduce((acc, item) => acc + (parseFloat(item.amount) || 0), 0) || 0
-          break
-        case 'created':
-          aValue = new Date(a.createdAt || 0).getTime()
-          bValue = new Date(b.createdAt || 0).getTime()
-          break
-        default: // 'name'
-          aValue = a.name?.toLowerCase() || ''
-          bValue = b.name?.toLowerCase() || ''
+        case 'members': aVal = getClubMembersFromStorage(a.id).length; bVal = getClubMembersFromStorage(b.id).length; break
+        case 'tournaments': aVal = a.tournaments?.length || 0; bVal = b.tournaments?.length || 0; break
+        case 'revenue': aVal = a.accounting?.reduce((acc, i) => acc + (parseFloat(i.amount) || 0), 0) || 0; bVal = b.accounting?.reduce((acc, i) => acc + (parseFloat(i.amount) || 0), 0) || 0; break
+        case 'created': aVal = new Date(a.createdAt || 0).getTime(); bVal = new Date(b.createdAt || 0).getTime(); break
+        default: aVal = a.name?.toLowerCase() || ''; bVal = b.name?.toLowerCase() || ''
       }
-
-      if (sortOrder === 'asc') {
-        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0
-      } else {
-        return aValue < bValue ? 1 : aValue > bValue ? -1 : 0
-      }
+      const cmp = aVal > bVal ? 1 : aVal < bVal ? -1 : 0
+      return sortOrder === 'asc' ? cmp : -cmp
     })
-
     return filtered
   }, [approvedClubs, searchQuery, sortBy, sortOrder])
 
   const handleSort = (newSortBy) => {
-    if (sortBy === newSortBy) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortBy(newSortBy)
-      setSortOrder('asc')
-    }
+    if (sortBy === newSortBy) setSortOrder(o => o === 'asc' ? 'desc' : 'asc')
+    else { setSortBy(newSortBy); setSortOrder('asc') }
   }
 
-  const getClubRevenue = (club) => {
-    return club.accounting?.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0) || 0
-  }
-
-  const getClubName = (clubId) => {
-    const club = approvedClubs.find(c => c.id === clubId)
-    return club ? (language === 'ar' && club.nameAr ? club.nameAr : club.name) : clubId
-  }
-
-  const handleAddMemberToClub = (memberId, clubId) => {
-    if (addMemberToClubs(memberId, clubId)) {
-      setAddToClubMember(null)
-      setMembersRefresh(k => k + 1)
-      window.dispatchEvent(new CustomEvent('clubs-synced'))
-    }
-  }
-
-  const filteredMembers = useMemo(() => {
-    if (!memberSearch.trim()) return allMembers
-    const q = memberSearch.toLowerCase().trim()
-    return allMembers.filter(m =>
-      m.name?.toLowerCase().includes(q) ||
-      m.email?.toLowerCase().includes(q) ||
-      m.mobile?.toLowerCase().includes(q)
-    )
-  }, [allMembers, memberSearch])
+  const getClubRevenue = (club) =>
+    club.accounting?.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0) || 0
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'N/A'
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    if (!dateString) return '—'
+    return new Date(dateString).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' })
   }
 
   return (
     <div className="main-admin-page">
-      <div className="all-clubs-dashboard">
-        <div className="dashboard-header">
-          <div className="dashboard-header-text">
-            <h2 className="page-title">
-              {t('All Clubs Dashboard', 'لوحة جميع الأندية', language)}
-              <span className="dashboard-data-source" title={language === 'ar' ? 'مصدر البيانات المعروضة' : 'Data source for displayed stats'}>
-                {language === 'ar' ? ` (${dataSource.ar})` : ` (${dataSource.en})`}
-              </span>
-            </h2>
-            <p className="page-subtitle">{t('Overview and statistics for all clubs in the system', 'نظرة عامة وإحصائيات لجميع الأندية في النظام', language)}</p>
+      <div className="acd-page">
+        <header className="acd-header">
+          <div className="acd-header-content">
+            <h1 className="acd-title">{t('All Clubs Dashboard', 'لوحة جميع الأندية', language)}</h1>
+            <p className="acd-subtitle">{t('Overview and statistics for all clubs', 'نظرة عامة وإحصائيات لجميع الأندية', language)}</p>
           </div>
-          <div className="dashboard-header-actions">
+          <div className="acd-actions">
             {onRefresh && (
-              <button
-                type="button"
-                className="btn-secondary dashboard-refresh-btn"
-                onClick={() => onRefresh()}
-                title={t('Refresh from server', 'تحديث من الخادم', language)}
-              >
-                {t('Refresh', 'تحديث', language)}
+              <button type="button" className="acd-btn acd-btn--secondary" onClick={() => onRefresh()} title={t('Refresh from server', 'تحديث من الخادم', language)}>
+                ↻ {t('Refresh', 'تحديث', language)}
               </button>
             )}
-            <button 
-              type="button"
-              className="btn-primary dashboard-add-btn"
-              onClick={() => navigate('/admin/manage-clubs')}
-            >
-              + {t('Add New Club', 'إضافة نادٍ جديد', language)}
+            <button type="button" className="acd-btn acd-btn--primary" onClick={() => navigate('/admin/manage-clubs')}>
+              + {t('Add Club', 'إضافة نادٍ', language)}
             </button>
           </div>
-        </div>
-        
-        {/* Statistics Cards */}
-        <div className="total-stats-grid">
-          <div className="total-stat-card stat-primary">
-            <div className="total-stat-icon">🏢</div>
-            <div className="total-stat-content">
-              <div className="total-stat-value">{totalStats.totalClubs}</div>
-              <div className="total-stat-label">Total Clubs</div>
-              <div className="total-stat-sublabel">{totalStats.activeClubs} active</div>
+        </header>
+
+        {/* Stats */}
+        <div className="acd-stats-grid">
+          <div className="acd-stat acd-stat--primary">
+            <span className="acd-stat-icon">🏢</span>
+            <div className="acd-stat-body">
+              <span className="acd-stat-value">{totalStats.totalClubs}</span>
+              <span className="acd-stat-label">{t('Clubs', 'الأندية', language)}</span>
+              <span className="acd-stat-sublabel">{totalStats.activeClubs} {t('active', 'نشطة', language)}</span>
             </div>
           </div>
-          
-          <div className="total-stat-card stat-success">
-            <div className="total-stat-icon">👥</div>
-            <div className="total-stat-content">
-              <div className="total-stat-value">{totalStats.totalMembers}</div>
-              <div className="total-stat-label">Total Members</div>
-              <div className="total-stat-sublabel">
-                {t('Registered on platform', 'مسجلون في المنصة', language)}
-                <span className="data-source-badge" title={language === 'ar' ? 'مصدر البيانات' : 'Data source'}>
-                  · {language === 'ar' ? dataSource.ar : dataSource.en}
-                </span>
-              </div>
+          <div className="acd-stat acd-stat--success">
+            <span className="acd-stat-icon">👥</span>
+            <div className="acd-stat-body">
+              <span className="acd-stat-value">{totalStats.totalMembers}</span>
+              <span className="acd-stat-label">{t('Members', 'الأعضاء', language)}</span>
+              <span className="acd-stat-sublabel">{language === 'ar' ? dataSource.ar : dataSource.en}</span>
             </div>
           </div>
-          
-          <div className="total-stat-card stat-info">
-            <div className="total-stat-icon">🏆</div>
-            <div className="total-stat-content">
-              <div className="total-stat-value">{totalStats.totalTournaments}</div>
-              <div className="total-stat-label">Total Tournaments</div>
-              <div className="total-stat-sublabel">
-                {totalStats.totalClubs > 0 
-                  ? Math.round(totalStats.totalTournaments / totalStats.totalClubs) 
-                  : 0} avg per club
-              </div>
+          <div className="acd-stat acd-stat--info">
+            <span className="acd-stat-icon">🏆</span>
+            <div className="acd-stat-body">
+              <span className="acd-stat-value">{totalStats.totalTournaments}</span>
+              <span className="acd-stat-label">{t('Tournaments', 'البطولات', language)}</span>
+              <span className="acd-stat-sublabel">{totalStats.totalClubs > 0 ? Math.round(totalStats.totalTournaments / totalStats.totalClubs) : 0} {t('avg', 'متوسط', language)}</span>
             </div>
           </div>
-          
-          <div className="total-stat-card stat-warning">
-            <div className="total-stat-icon">🏟️</div>
-            <div className="total-stat-content">
-              <div className="total-stat-value">{totalStats.totalCourts}</div>
-              <div className="total-stat-label">Total Courts</div>
-              <div className="total-stat-sublabel">
-                {totalStats.totalClubs > 0 
-                  ? (totalStats.totalCourts / totalStats.totalClubs).toFixed(1) 
-                  : 0} avg per club
-              </div>
+          <div className="acd-stat acd-stat--warning">
+            <span className="acd-stat-icon">🏟️</span>
+            <div className="acd-stat-body">
+              <span className="acd-stat-value">{totalStats.totalCourts}</span>
+              <span className="acd-stat-label">{t('Courts', 'الملاعب', language)}</span>
+              <span className="acd-stat-sublabel">{totalStats.totalClubs > 0 ? (totalStats.totalCourts / totalStats.totalClubs).toFixed(1) : 0} {t('avg', 'متوسط', language)}</span>
             </div>
           </div>
-          
-          <div className="total-stat-card stat-danger">
-            <div className="total-stat-icon">💰</div>
-            <div className="total-stat-content">
-              <div className="total-stat-value">{totalStats.totalRevenue.toFixed(0)}</div>
-              <div className="total-stat-label">Total Revenue (SAR)</div>
-              <div className="total-stat-sublabel">
-                {totalStats.totalClubs > 0 
-                  ? (totalStats.totalRevenue / totalStats.totalClubs).toFixed(0) 
-                  : 0} avg per club
-              </div>
+          <div className="acd-stat acd-stat--revenue">
+            <span className="acd-stat-icon">💰</span>
+            <div className="acd-stat-body">
+              <span className="acd-stat-value">{totalStats.totalRevenue.toFixed(0)}</span>
+              <span className="acd-stat-label">SAR</span>
+              <span className="acd-stat-sublabel">{t('Revenue', 'الإيرادات', language)}</span>
             </div>
           </div>
-          
-          <div className="total-stat-card stat-secondary">
-            <div className="total-stat-icon">📅</div>
-            <div className="total-stat-content">
-              <div className="total-stat-value">{totalStats.totalBookings}</div>
-              <div className="total-stat-label">Total Bookings</div>
-              <div className="total-stat-sublabel">All time</div>
+          <div className="acd-stat acd-stat--secondary">
+            <span className="acd-stat-icon">📅</span>
+            <div className="acd-stat-body">
+              <span className="acd-stat-value">{totalStats.totalBookings}</span>
+              <span className="acd-stat-label">{t('Bookings', 'الحجوزات', language)}</span>
+              <span className="acd-stat-sublabel">{t('All time', 'الكل', language)}</span>
             </div>
           </div>
         </div>
 
         {/* Pending Clubs */}
         {pendingClubs.length > 0 && (
-          <div className="pending-clubs-section">
-            <h3>{t('Pending club registrations', 'طلبات تسجيل نوادي قيد المراجعة', language)} ({pendingClubs.length})</h3>
-            <div className="pending-clubs-list">
+          <section className="acd-pending">
+            <h3 className="acd-pending-title">{t('Pending registrations', 'طلبات قيد المراجعة', language)} ({pendingClubs.length})</h3>
+            <div className="acd-pending-grid">
               {pendingClubs.map(club => (
-                <div key={club.id} className="pending-club-card">
-                  <div className="pending-club-info">
+                <div key={club.id} className="acd-pending-card">
+                  <div className="acd-pending-info">
                     <strong>{language === 'ar' && club.nameAr ? club.nameAr : club.name}</strong>
                     <span>{club.adminEmail || club.email}</span>
                     {club.commercialRegister && <span>{t('CR', 'س.ت', language)}: {club.commercialRegister}</span>}
                   </div>
-                  <div className="pending-club-actions">
-                    <button
-                      type="button"
-                      className="btn-secondary btn-small"
-                      onClick={() => setViewingPending(club)}
-                    >
-                      {t('View details', 'عرض البيانات', language)}
+                  <div className="acd-pending-actions">
+                    <button type="button" className="acd-btn acd-btn--small acd-btn--secondary" onClick={() => setViewingPending(club)}>
+                      {t('View', 'عرض', language)}
                     </button>
                     {onApproveClub && (
-                      <button 
-                        type="button" 
-                        className="btn-primary btn-small"
-                        onClick={() => onApproveClub(club.id)}
-                      >
+                      <button type="button" className="acd-btn acd-btn--small acd-btn--primary" onClick={() => { onApproveClub(club.id); setViewingPending(null); }}>
                         {t('Approve', 'موافقة', language)}
                       </button>
                     )}
                     {onRejectClub && (
-                      <button 
-                        type="button" 
-                        className="btn-danger btn-small"
-                        onClick={() => window.confirm(t('Reject this registration?', 'رفض هذا التسجيل؟', language)) && onRejectClub(club.id)}
-                      >
+                      <button type="button" className="acd-btn acd-btn--small acd-btn--danger" onClick={() => window.confirm(t('Reject?', 'رفض؟', language)) && onRejectClub(club.id)}>
                         {t('Reject', 'رفض', language)}
                       </button>
                     )}
@@ -317,402 +197,148 @@ const AllClubsDashboard = ({ clubs, language = 'en', onUpdateClub, onApproveClub
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* Pending club details modal */}
-        {viewingPending && (
-          <div className="pending-modal-overlay" onClick={() => setViewingPending(null)}>
-            <div className="pending-modal" onClick={e => e.stopPropagation()}>
-              <div className="pending-modal-header">
-                <h3>{t('Club registration details', 'بيانات تسجيل النادي', language)}</h3>
-                <button type="button" className="pending-modal-close" onClick={() => setViewingPending(null)} aria-label="Close">&times;</button>
-              </div>
-              <div className="pending-modal-body">
-                <div className="pending-detail-grid">
-                  <div className="pending-detail-row">
-                    <span className="pending-detail-label">{t('Club name (English)', 'اسم النادي (إنجليزي)', language)}</span>
-                    <span className="pending-detail-value">{viewingPending.name || '—'}</span>
-                  </div>
-                  <div className="pending-detail-row">
-                    <span className="pending-detail-label">{t('Club name (Arabic)', 'اسم النادي (عربي)', language)}</span>
-                    <span className="pending-detail-value">{viewingPending.nameAr || '—'}</span>
-                  </div>
-                  <div className="pending-detail-row">
-                    <span className="pending-detail-label">{t('Admin email', 'البريد الإلكتروني للدخول', language)}</span>
-                    <span className="pending-detail-value">{viewingPending.adminEmail || viewingPending.email || '—'}</span>
-                  </div>
-                  <div className="pending-detail-row">
-                    <span className="pending-detail-label">{t('Club email', 'بريد النادي', language)}</span>
-                    <span className="pending-detail-value">{viewingPending.email || '—'}</span>
-                  </div>
-                  <div className="pending-detail-row">
-                    <span className="pending-detail-label">{t('Phone', 'الهاتف', language)}</span>
-                    <span className="pending-detail-value">{viewingPending.phone || '—'}</span>
-                  </div>
-                  <div className="pending-detail-row">
-                    <span className="pending-detail-label">{t('Commercial register', 'السجل التجاري', language)}</span>
-                    <span className="pending-detail-value">{viewingPending.commercialRegister || '—'}</span>
-                  </div>
-                  <div className="pending-detail-row">
-                    <span className="pending-detail-label">{t('Address / Location', 'العنوان / الموقع', language)}</span>
-                    <span className="pending-detail-value">{viewingPending.address || viewingPending.location?.address || '—'}</span>
-                  </div>
-                  {viewingPending.location?.lat != null && (
-                    <div className="pending-detail-row">
-                      <span className="pending-detail-label">{t('Coordinates', 'الإحداثيات', language)}</span>
-                      <span className="pending-detail-value">{viewingPending.location.lat?.toFixed(5)}, {viewingPending.location.lng?.toFixed(5)}</span>
-                    </div>
-                  )}
-                  <div className="pending-detail-row">
-                    <span className="pending-detail-label">{t('Submitted', 'تاريخ التقديم', language)}</span>
-                    <span className="pending-detail-value">{formatDate(viewingPending.createdAt)}</span>
-                  </div>
-                  {viewingPending.commercialRegisterImage && (
-                    <div className="pending-detail-row pending-detail-full">
-                      <span className="pending-detail-label">{t('Commercial register document', 'صورة السجل التجاري', language)}</span>
-                      <div className="pending-cr-image-wrap">
-                        <img src={viewingPending.commercialRegisterImage} alt="CR" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="pending-modal-footer">
-                {onRejectClub && (
-                  <button type="button" className="btn-danger" onClick={() => { if (window.confirm(t('Reject this registration?', 'رفض هذا التسجيل؟', language))) { onRejectClub(viewingPending.id); setViewingPending(null); } }}>
-                    {t('Reject', 'رفض', language)}
-                  </button>
-                )}
-                <div className="pending-modal-footer-right">
-                  <button type="button" className="btn-secondary" onClick={() => setViewingPending(null)}>
-                    {t('Close', 'إغلاق', language)}
-                  </button>
-                  {onApproveClub && (
-                    <button type="button" className="btn-primary" onClick={() => { onApproveClub(viewingPending.id); setViewingPending(null); }}>
-                      {t('Approve', 'موافقة', language)}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* All Members Section - only visible with all-members permission */}
-        {hasPlatformPermission(platformSession, 'all-members') && (
-        <div id="all-members-section" className="all-members-section">
-          <h3>
-            {t('All Members Across Clubs', 'أعضاء كل الأندية', language)} ({allMembers.length})
-            <span className="data-source-inline" title={language === 'ar' ? 'مصدر البيانات' : 'Data source'}>
-              ({language === 'ar' ? dataSource.ar : dataSource.en})
-            </span>
-          </h3>
-          <div className="all-members-search">
+        {/* Search & Sort */}
+        <div className="acd-controls">
+          <div className="acd-search-wrap">
             <input
               type="text"
-              placeholder={t('Search members by name, email...', 'البحث بالأعضاء بالاسم أو البريد...', language)}
-              value={memberSearch}
-              onChange={(e) => setMemberSearch(e.target.value)}
-              className="search-input"
-              style={{ maxWidth: 320 }}
-            />
-          </div>
-          {filteredMembers.length === 0 ? (
-            <div className="empty-state small">
-              <p>{t('No members found.', 'لا يوجد أعضاء.', language)}</p>
-            </div>
-          ) : (
-            <div className="all-members-table-wrap">
-              <table className="all-members-table">
-                <thead>
-                  <tr>
-                    <th>{t('Member', 'العضو', language)}</th>
-                    <th>{t('Email', 'البريد', language)}</th>
-                    <th>{t('Clubs Joined', 'النوادي المنضم لها', language)}</th>
-                    <th>{t('Actions', 'إجراءات', language)}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredMembers.map(member => {
-                    const clubsJoined = (member.clubIds || []).filter(id => approvedClubs.some(c => c.id === id))
-                    const clubsNotJoined = approvedClubs.filter(c => !(member.clubIds || []).includes(c.id))
-                    return (
-                      <tr key={member.id}>
-                        <td>
-                          <div className="member-cell">
-                            {member.avatar ? (
-                              <img src={member.avatar} alt="" className="member-avatar-small" />
-                            ) : (
-                              <span className="member-initial">{member.name?.[0] || '?'}</span>
-                            )}
-                            <span>{member.name || '—'}</span>
-                          </div>
-                        </td>
-                        <td>{member.email || '—'}</td>
-                        <td>
-                          <div className="clubs-joined-cell">
-                            {clubsJoined.length === 0 ? (
-                              <span className="no-clubs">{t('None', 'لا يوجد', language)}</span>
-                            ) : (
-                              clubsJoined.map(clubId => (
-                                <span key={clubId} className="club-badge">
-                                  {getClubName(clubId)}
-                                </span>
-                              ))
-                            )}
-                          </div>
-                        </td>
-                        <td>
-                          <div className="member-actions-cell">
-                            {clubsNotJoined.length > 0 ? (
-                              <div className="add-to-club-cell">
-                                {addToClubMember?.id === member.id ? (
-                                  <div className="add-to-club-dropdown">
-                                    {clubsNotJoined.map(club => (
-                                      <button key={club.id} type="button" className="btn-secondary btn-small" onClick={() => handleAddMemberToClub(member.id, club.id)}>+ {getClubName(club.id)}</button>
-                                    ))}
-                                    <button type="button" className="btn-secondary btn-small" onClick={() => setAddToClubMember(null)}>{t('Cancel', 'إلغاء', language)}</button>
-                                  </div>
-                                ) : (
-                                  <button type="button" className="btn-primary btn-small" onClick={() => setAddToClubMember(member)}>{t('Add to club', 'إضافة لنادي', language)}</button>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="in-all-clubs">{t('In all clubs', 'في جميع الأندية', language)}</span>
-                            )}
-                            <div className="action-buttons">
-                              <button type="button" className="btn-secondary btn-small" onClick={() => handleEditMember(member)}>{t('Edit', 'تعديل', language)}</button>
-                              <button type="button" className="btn-danger btn-small" onClick={() => handleDeleteMember(member)}>{t('Delete', 'حذف', language)}</button>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-        )}
-
-        {editingMember && (
-          <div className="pending-modal-overlay" onClick={() => setEditingMember(null)}>
-            <div className="pending-modal" onClick={e => e.stopPropagation()}>
-              <h3>{t('Edit Member', 'تعديل العضو', language)}</h3>
-              <form onSubmit={handleSaveMemberEdit}>
-                <div className="form-group" style={{ marginBottom: 16 }}>
-                  <label>{t('Name', 'الاسم')} *</label>
-                  <input type="text" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} required />
-                </div>
-                <div className="form-group" style={{ marginBottom: 16 }}>
-                  <label>{t('Email', 'البريد')}</label>
-                  <input type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} />
-                </div>
-                <div className="form-group" style={{ marginBottom: 16 }}>
-                  <label>{t('Phone', 'الهاتف')}</label>
-                  <input type="text" value={editForm.mobile} onChange={e => setEditForm({ ...editForm, mobile: e.target.value })} />
-                </div>
-                <div className="form-group" style={{ marginBottom: 16 }}>
-                  <label>{t('New password (leave blank to keep)', 'كلمة مرور جديدة (اتركه فارغاً للإبقاء)', language)}</label>
-                  <input type="password" value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} placeholder="••••••••" />
-                </div>
-                <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-                  <button type="submit" className="btn-primary">{t('Save', 'حفظ', language)}</button>
-                  <button type="button" className="btn-secondary" onClick={() => setEditingMember(null)}>{t('Cancel', 'إلغاء', language)}</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Search and Filter */}
-        <div className="dashboard-controls">
-          <div className="search-box">
-            <input
-              type="text"
-              placeholder={t('Search clubs by name, address, or ID...', 'البحث بالأندية بالاسم أو العنوان أو المعرّف...', language)}
+              className="acd-search-input"
+              placeholder={t('Search clubs...', 'البحث في الأندية...', language)}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="search-input"
-              aria-label={t('Search clubs', 'البحث في الأندية', language)}
+              onChange={e => setSearchQuery(e.target.value)}
+              aria-label={t('Search', 'بحث', language)}
             />
-            <span className="search-icon" aria-hidden>🔍</span>
+            <span className="acd-search-icon">🔍</span>
           </div>
-          <div className="sort-controls">
-            <label className="sort-label">{t('Sort by:', 'ترتيب حسب:', language)}</label>
-            <select 
-              value={sortBy} 
-              onChange={(e) => handleSort(e.target.value)}
-              className="sort-select"
-              aria-label={t('Sort by', 'ترتيب حسب', language)}
-            >
+          <div className="acd-sort-wrap">
+            <label className="acd-sort-label">{t('Sort:', 'ترتيب:', language)}</label>
+            <select value={sortBy} onChange={e => handleSort(e.target.value)} className="acd-sort-select" aria-label={t('Sort by', 'ترتيب حسب', language)}>
               <option value="name">{t('Name', 'الاسم', language)}</option>
               <option value="members">{t('Members', 'الأعضاء', language)}</option>
               <option value="tournaments">{t('Tournaments', 'البطولات', language)}</option>
               <option value="revenue">{t('Revenue', 'الإيرادات', language)}</option>
-              <option value="created">{t('Created Date', 'تاريخ الإنشاء', language)}</option>
+              <option value="created">{t('Created', 'تاريخ الإنشاء', language)}</option>
             </select>
-            <button 
-              type="button"
-              className="sort-order-btn"
-              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-              title={sortOrder === 'asc' ? (language === 'ar' ? 'تصاعدي' : 'Ascending') : (language === 'ar' ? 'تنازلي' : 'Descending')}
-              aria-label={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-            >
+            <button type="button" className="acd-sort-order" onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')} title={sortOrder === 'asc' ? '↑' : '↓'}>
               {sortOrder === 'asc' ? '↑' : '↓'}
             </button>
           </div>
         </div>
 
-        {/* Clubs List */}
-        <div className="clubs-overview-section">
-          <div className="section-header">
-            <h3>
-              {t('All Clubs', 'جميع الأندية', language)} ({filteredAndSortedClubs.length})
-              {searchQuery && <span className="search-results"> – {t('Search results', 'نتائج البحث', language)}</span>}
-            </h3>
-          </div>
-          
-          {clubs.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon" aria-hidden>🏢</div>
-              <p>{t('No clubs found. Create your first club!', 'لا توجد أندية. أنشئ ناديك الأول!', language)}</p>
-              <button 
-                type="button"
-                className="btn-primary"
-                onClick={() => navigate('/admin/manage-clubs')}
-              >
+        {/* Clubs Grid */}
+        <section className="acd-clubs-section">
+          <h3 className="acd-section-title">
+            {t('All Clubs', 'جميع الأندية', language)} ({filteredAndSortedClubs.length})
+            {searchQuery && <span className="acd-search-hint"> — {t('Search results', 'نتائج البحث', language)}</span>}
+          </h3>
+
+          {approvedClubs.length === 0 && pendingClubs.length === 0 ? (
+            <div className="acd-empty">
+              <span className="acd-empty-icon">🏢</span>
+              <h4>{t('No clubs yet', 'لا توجد أندية بعد', language)}</h4>
+              <p>{t('Create your first club to get started.', 'أنشئ ناديك الأول للبدء.', language)}</p>
+              <button type="button" className="acd-btn acd-btn--primary" onClick={() => navigate('/admin/manage-clubs')}>
                 + {t('Create First Club', 'إنشاء أول نادٍ', language)}
               </button>
             </div>
           ) : filteredAndSortedClubs.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon" aria-hidden>🔍</div>
-              <p>{t('No clubs match your search criteria.', 'لا توجد أندية تطابق معايير البحث.', language)}</p>
-              <button 
-                type="button"
-                className="btn-secondary"
-                onClick={() => setSearchQuery('')}
-              >
-                {t('Clear Search', 'مسح البحث', language)}
+            <div className="acd-empty">
+              <span className="acd-empty-icon">🔍</span>
+              <h4>{t('No results', 'لا توجد نتائج', language)}</h4>
+              <p>{t('Try a different search.', 'جرب بحثاً آخر.', language)}</p>
+              <button type="button" className="acd-btn acd-btn--secondary" onClick={() => setSearchQuery('')}>
+                {t('Clear', 'مسح', language)}
               </button>
             </div>
           ) : (
-            <div className="clubs-overview-grid">
+            <div className="acd-clubs-grid">
               {filteredAndSortedClubs.map(club => {
                 const clubRevenue = getClubRevenue(club)
+                const memberCount = getClubMembersFromStorage(club.id).length
                 const hasPlaytomic = !!(club.playtomicVenueId && club.playtomicApiKey)
-                
                 return (
-                  <div key={club.id} className="club-overview-card">
-                    <div className="club-card-header">
-                      {club.logo && <img src={club.logo} alt="" className="club-card-logo" />}
-                      <div className="club-header-info">
-                        <h4 className="club-name">{club.name}</h4>
-                        {club.nameAr && (
-                          <p className="club-name-ar">{club.nameAr}</p>
-                        )}
-                        {club.address && (
-                          <p className="club-address">📍 {club.address}</p>
-                        )}
+                  <div key={club.id} className="acd-club-card">
+                    <div className="acd-club-main">
+                      <div className="acd-club-logo">
+                        {club.logo ? <img src={club.logo} alt="" /> : <span>◇</span>}
                       </div>
-                      <div className="club-card-badges">
-                        {hasPlaytomic && (
-                          <span className="playtomic-badge" title="Playtomic Integration">P</span>
-                        )}
-                        {onUpdateClub && (
-                          <label className="store-toggle-wrap" title={club.storeEnabled ? 'Store enabled – click to disable' : 'Store disabled – click to enable'}>
-                            <span className="store-toggle-label">🛒</span>
-                            <input
-                              type="checkbox"
-                              checked={!!club.storeEnabled}
-                              onChange={() => onUpdateClub(club.id, { storeEnabled: !club.storeEnabled })}
-                              className="store-toggle"
-                            />
-                            <span className="store-toggle-text">{club.storeEnabled ? 'On' : 'Off'}</span>
-                          </label>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="club-card-stats">
-                      <div className="club-stat-item">
-                        <span className="stat-icon">🏟️</span>
-                        <div className="stat-details">
-                          <span className="stat-value">{club.courts?.length || 0}</span>
-                          <span className="stat-label">Courts</span>
-                        </div>
-                      </div>
-                      <div className="club-stat-item">
-                        <span className="stat-icon">👥</span>
-                        <div className="stat-details">
-                          <span className="stat-value">{getClubMembersFromStorage(club.id).length}</span>
-                          <span className="stat-label">Members</span>
-                        </div>
-                      </div>
-                      <div className="club-stat-item">
-                        <span className="stat-icon">🏆</span>
-                        <div className="stat-details">
-                          <span className="stat-value">{club.tournaments?.length || 0}</span>
-                          <span className="stat-label">Tournaments</span>
-                        </div>
-                      </div>
-                      <div className="club-stat-item">
-                        <span className="stat-icon">💰</span>
-                        <div className="stat-details">
-                          <span className="stat-value">{clubRevenue.toFixed(0)}</span>
-                          <span className="stat-label">Revenue (SAR)</span>
+                      <div className="acd-club-info">
+                        <h4 className="acd-club-name">{club.name || t('Unnamed', 'بدون اسم', language)}</h4>
+                        {club.nameAr && <p className="acd-club-name-ar">{club.nameAr}</p>}
+                        {club.address && <p className="acd-club-address">{club.address}</p>}
+                        <div className="acd-club-badges">
+                          {hasPlaytomic && <span className="acd-badge acd-badge--playtomic">P</span>}
+                          {onUpdateClub && (
+                            <label className="acd-store-toggle" title={club.storeEnabled ? 'Store on' : 'Store off'}>
+                              🛒
+                              <input type="checkbox" checked={!!club.storeEnabled} onChange={() => onUpdateClub(club.id, { storeEnabled: !club.storeEnabled })} />
+                              <span>{club.storeEnabled ? t('On', 'تفعيل', language) : t('Off', 'إيقاف', language)}</span>
+                            </label>
+                          )}
                         </div>
                       </div>
                     </div>
-
+                    <div className="acd-club-stats">
+                      <span><strong>{club.courts?.length || 0}</strong> {t('courts', 'ملاعب', language)}</span>
+                      <span><strong>{memberCount}</strong> {t('members', 'أعضاء', language)}</span>
+                      <span><strong>{club.tournaments?.length || 0}</strong> {t('tournaments', 'بطولات', language)}</span>
+                      <span><strong>{clubRevenue.toFixed(0)}</strong> SAR</span>
+                    </div>
                     {club.createdAt && (
-                      <div className="club-meta">
-                        <span className="meta-item">
-                          Created: {formatDate(club.createdAt)}
-                        </span>
-                        {club.updatedAt && club.updatedAt !== club.createdAt && (
-                          <span className="meta-item">
-                            Updated: {formatDate(club.updatedAt)}
-                          </span>
-                        )}
-                      </div>
+                      <p className="acd-club-meta">{t('Created', 'تاريخ الإنشاء', language)}: {formatDate(club.createdAt)}</p>
                     )}
-
-                    <div className="club-card-actions">
-                      <button 
-                        type="button"
-                        className="btn-primary btn-small btn-full"
-                        onClick={() => navigate(`/club/${club.id}`)}
-                        title={t('Open Club Main Page', 'فتح الصفحة الرئيسية للنادي', language)}
-                      >
-                        🏠 {t('Club Page', 'صفحة النادي', language)}
-                      </button>
-                      <button 
-                        type="button"
-                        className="btn-secondary btn-small btn-full"
-                        onClick={() => navigate(`/admin/club/${club.id}`)}
-                        title={t('Open Club Admin Panel', 'فتح لوحة تحكم النادي', language)}
-                      >
-                        ⚙️ {t('Admin Panel', 'لوحة التحكم', language)}
-                      </button>
-                      <button 
-                        type="button"
-                        className="btn-secondary btn-small btn-full"
-                        onClick={() => navigate(`/admin/manage-clubs`)}
-                        title={t('Edit Club Details', 'تعديل تفاصيل النادي', language)}
-                      >
-                        ✏️ {t('Edit', 'تعديل', language)}
-                      </button>
+                    <div className="acd-club-actions">
+                      <button type="button" className="acd-btn-icon" onClick={() => navigate(`/club/${club.id}`)} title={t('Club page', 'صفحة النادي', language)}>◉</button>
+                      <button type="button" className="acd-btn-icon" onClick={() => navigate(`/admin/club/${club.id}`)} title={t('Admin', 'إدارة', language)}>⚙</button>
+                      <button type="button" className="acd-btn-icon" onClick={() => navigate('/admin/manage-clubs')} title={t('Edit', 'تعديل', language)}>✎</button>
                     </div>
                   </div>
                 )
               })}
             </div>
           )}
-        </div>
+        </section>
+
+        {/* Pending Details Modal */}
+        {viewingPending && (
+          <Modal title={t('Registration details', 'بيانات التسجيل', language)} onClose={() => setViewingPending(null)}>
+            <div className="acd-modal-details">
+              <div className="acd-detail-row"><span>{t('Name (EN)', 'الاسم (إنجليزي)', language)}</span><span>{viewingPending.name || '—'}</span></div>
+              <div className="acd-detail-row"><span>{t('Name (AR)', 'الاسم (عربي)', language)}</span><span>{viewingPending.nameAr || '—'}</span></div>
+              <div className="acd-detail-row"><span>{t('Admin email', 'البريد الإداري', language)}</span><span>{viewingPending.adminEmail || viewingPending.email || '—'}</span></div>
+              <div className="acd-detail-row"><span>{t('Email', 'البريد', language)}</span><span>{viewingPending.email || '—'}</span></div>
+              <div className="acd-detail-row"><span>{t('Phone', 'الهاتف', language)}</span><span>{viewingPending.phone || '—'}</span></div>
+              <div className="acd-detail-row"><span>{t('CR', 'السجل التجاري', language)}</span><span>{viewingPending.commercialRegister || '—'}</span></div>
+              <div className="acd-detail-row"><span>{t('Address', 'العنوان', language)}</span><span>{viewingPending.address || viewingPending.location?.address || '—'}</span></div>
+              {viewingPending.location?.lat != null && (
+                <div className="acd-detail-row"><span>{t('Coordinates', 'الإحداثيات', language)}</span><span>{viewingPending.location.lat?.toFixed(5)}, {viewingPending.location.lng?.toFixed(5)}</span></div>
+              )}
+              <div className="acd-detail-row"><span>{t('Submitted', 'تاريخ التقديم', language)}</span><span>{formatDate(viewingPending.createdAt)}</span></div>
+              {viewingPending.commercialRegisterImage && (
+                <div className="acd-detail-full">
+                  <span>{t('CR document', 'صورة السجل', language)}</span>
+                  <img src={viewingPending.commercialRegisterImage} alt="CR" className="acd-cr-img" />
+                </div>
+              )}
+            </div>
+            <div className="acd-modal-footer">
+              <button type="button" className="acd-btn acd-btn--secondary" onClick={() => setViewingPending(null)}>{t('Close', 'إغلاق', language)}</button>
+              {onRejectClub && (
+                <button type="button" className="acd-btn acd-btn--danger" onClick={() => { if (window.confirm(t('Reject?', 'رفض؟', language))) { onRejectClub(viewingPending.id); setViewingPending(null); } }}>
+                  {t('Reject', 'رفض', language)}
+                </button>
+              )}
+              {onApproveClub && (
+                <button type="button" className="acd-btn acd-btn--primary" onClick={() => { onApproveClub(viewingPending.id); setViewingPending(null); }}>
+                  {t('Approve', 'موافقة', language)}
+                </button>
+              )}
+            </div>
+          </Modal>
+        )}
       </div>
     </div>
   )

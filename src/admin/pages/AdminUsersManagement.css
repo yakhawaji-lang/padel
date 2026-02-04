@@ -1,60 +1,96 @@
-/* Admin Users Management - Tabs & Club Admins */
+/* Admin Users Management - Professional Design */
 
-.admin-users-management {
-  max-width: 1400px;
-  width: 100%;
+.au-page {
+  max-width: 960px;
+  margin: 0 auto;
 }
 
-.admin-users-tabs {
+/* ─── Header ─── */
+.au-header {
+  margin-bottom: 28px;
+}
+
+.au-title {
+  margin: 0 0 6px 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.au-subtitle {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+/* ─── Tabs ─── */
+.au-tabs {
   display: flex;
-  gap: 4px;
-  margin-bottom: 24px;
+  gap: 2px;
+  margin-bottom: 28px;
   padding: 4px;
-  background: #f1f5f9;
+  background: #e2e8f0;
   border-radius: 12px;
   width: fit-content;
 }
 
-.admin-users-tab {
-  display: flex;
+.au-tab {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 12px 20px;
   border: none;
   background: transparent;
   border-radius: 10px;
-  font-size: 0.95rem;
+  font-size: 0.9375rem;
   font-weight: 500;
-  color: #64748b;
+  color: #475569;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
-.admin-users-tab:hover {
-  color: #334155;
-  background: rgba(255,255,255,0.7);
+.au-tab:hover {
+  color: #1e293b;
+  background: rgba(255, 255, 255, 0.6);
 }
 
-.admin-users-tab.active {
-  background: white;
-  color: #1e3a5f;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+.au-tab--active {
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.admin-users-tab .tab-icon {
+.au-tab-icon {
   font-size: 1.1rem;
 }
 
-.admin-users-panel {
-  animation: admin-users-fade 0.2s ease;
+.au-tab-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #cbd5e1;
+  color: #475569;
 }
 
-@keyframes admin-users-fade {
-  from { opacity: 0.6; }
-  to { opacity: 1; }
+.au-tab--active .au-tab-badge {
+  background: #1e3a5f;
+  color: #fff;
 }
 
-.admin-users-panel-header {
+/* ─── Section ─── */
+.au-section {
+  animation: au-fade 0.2s ease;
+}
+
+@keyframes au-fade {
+  from { opacity: 0.6; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.au-section-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -63,37 +99,208 @@
   flex-wrap: wrap;
 }
 
-.admin-users-panel-header p {
+.au-section-desc {
   margin: 0;
   color: #64748b;
   font-size: 0.9375rem;
-  max-width: 560px;
+  max-width: 480px;
+  line-height: 1.5;
 }
 
-.admin-users-empty {
-  padding: 60px 24px;
-  text-align: center;
-  background: #f8fafc;
+.au-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.au-club-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* ─── Buttons ─── */
+.au-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 42px;
+}
+
+.au-btn--primary {
+  background: #1e3a5f;
+  color: #fff;
+}
+
+.au-btn--primary:hover:not(:disabled) {
+  background: #152a47;
+  transform: translateY(-1px);
+}
+
+.au-btn--secondary {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.au-btn--secondary:hover:not(:disabled) {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.au-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.au-spinner {
+  animation: au-spin 0.8s linear infinite;
+}
+
+@keyframes au-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Cards (Admin list) ─── */
+.au-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.au-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
-  border: 1px dashed #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s;
 }
 
-.admin-users-empty p {
-  margin: 0 0 8px 0;
+.au-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.au-card--owner {
+  border-color: #bbf7d0;
+  background: linear-gradient(135deg, #f0fdf4 0%, #fff 100%);
+}
+
+.au-card-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.au-card-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #2d4a6f 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.125rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.au-card--owner .au-card-avatar {
+  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
+}
+
+.au-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.au-card-email {
+  font-weight: 500;
+  color: #0f172a;
+  font-size: 0.9375rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.au-card-role {
+  font-size: 0.75rem;
+  font-weight: 600;
   color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.admin-users-empty .hint {
-  font-size: 0.875rem;
+.au-card-role--owner {
+  color: #15803d;
+}
+
+.au-card-perms {
+  font-size: 0.8125rem;
   color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Club selector */
-.club-selector-section {
+.au-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.au-btn-icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #64748b;
+  font-size: 1.125rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.au-btn-icon:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.au-btn-icon--danger:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+/* ─── Club picker ─── */
+.au-club-picker {
   margin-bottom: 28px;
 }
 
-.club-selector-section label {
+.au-club-picker label {
   display: block;
   margin-bottom: 12px;
   font-weight: 600;
@@ -101,131 +308,272 @@
   color: #334155;
 }
 
-.club-selector-cards {
+.au-club-picker-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
 }
 
-.club-selector-card {
-  display: flex;
+.au-club-chip {
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 18px;
-  background: white;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #fff;
   border: 2px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s;
-  min-width: 180px;
+  font-size: 0.9375rem;
 }
 
-.club-selector-card:hover {
+.au-club-chip:hover {
   border-color: #cbd5e1;
   background: #f8fafc;
 }
 
-.club-selector-card.active {
+.au-club-chip--active {
   border-color: #1e3a5f;
   background: #f0f7ff;
   box-shadow: 0 0 0 1px #1e3a5f;
 }
 
-.club-selector-logo {
-  width: 36px;
-  height: 36px;
+.au-club-chip-logo {
+  width: 32px;
+  height: 32px;
   object-fit: contain;
   border-radius: 8px;
 }
 
-.club-selector-icon {
-  font-size: 1.5rem;
-  width: 36px;
+.au-club-chip-icon {
+  width: 32px;
   text-align: center;
+  font-size: 0.9rem;
+  color: #94a3b8;
 }
 
-.club-selector-name {
-  flex: 1;
+.au-club-chip-name {
   font-weight: 500;
   color: #334155;
-  text-align: start;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.club-selector-count {
-  font-size: 0.8rem;
+.au-club-chip-count {
+  font-size: 0.75rem;
   color: #64748b;
   background: #f1f5f9;
   padding: 2px 8px;
   border-radius: 6px;
 }
 
-.club-selector-card.active .club-selector-count {
+.au-club-chip--active .au-club-chip-count {
   background: #1e3a5f;
-  color: white;
+  color: #fff;
 }
 
-/* Club users section */
-.club-users-section {
+.au-club-section {
   margin-top: 8px;
 }
 
-.club-users-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  gap: 12px;
+/* ─── Empty state ─── */
+.au-empty {
+  padding: 48px 32px;
+  text-align: center;
+  background: #f8fafc;
+  border: 2px dashed #e2e8f0;
+  border-radius: 16px;
 }
 
-.club-users-header h3 {
-  margin: 0;
-  font-size: 1.25rem;
+.au-empty-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+.au-empty h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.125rem;
   font-weight: 600;
-  color: #1e293b;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.club-users-badge {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: #64748b;
-  background: #f1f5f9;
-  padding: 4px 10px;
-  border-radius: 6px;
-}
-
-.club-users-table-wrap {
-  overflow-x: auto;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-
-.club-users-table .club-user-email {
-  font-weight: 500;
   color: #334155;
 }
 
-.club-user-role-badge {
-  display: inline-block;
-  margin-left: 8px;
-  font-size: 0.75rem;
-  padding: 2px 8px;
-  border-radius: 6px;
+.au-empty p {
+  margin: 0 0 20px 0;
+  font-size: 0.9375rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.au-empty-error {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.au-empty-error .au-empty-icon { opacity: 0.8; }
+.au-empty-error h3 { color: #991b1b; }
+.au-empty-error p { color: #b91c1c; }
+
+/* ─── Modal ─── */
+.au-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+  animation: au-modal-in 0.2s ease;
+}
+
+@keyframes au-modal-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.au-modal {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: au-modal-slide 0.25s ease;
+}
+
+@keyframes au-modal-slide {
+  from { opacity: 0; transform: scale(0.96) translateY(-8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.au-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.au-modal-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.au-modal-close {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.au-modal-close:hover {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.au-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+}
+
+/* ─── Form ─── */
+.au-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.au-form-group label {
+  display: block;
+  margin-bottom: 8px;
   font-weight: 500;
+  font-size: 0.875rem;
+  color: #334155;
 }
 
-.club-user-role-badge.owner {
-  background: #dcfce7;
-  color: #15803d;
+.au-form-group input[type="email"],
+.au-form-group input[type="password"] {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  transition: border-color 0.2s;
 }
 
-[dir="rtl"] .club-user-role-badge {
-  margin-left: 0;
-  margin-right: 8px;
+.au-form-group input:focus {
+  outline: none;
+  border-color: #1e3a5f;
+  box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.15);
+}
+
+.au-form-error {
+  margin: 0;
+  padding: 12px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  color: #dc2626;
+}
+
+.au-form-hint {
+  margin: 0;
+  padding: 12px 14px;
+  background: #f0f9ff;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  color: #0369a1;
+}
+
+.au-perms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.au-check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.875rem;
+  color: #475569;
+  cursor: pointer;
+}
+
+.au-check-item input {
+  width: 18px;
+  height: 18px;
+  accent-color: #1e3a5f;
+}
+
+.au-form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* ─── RTL ─── */
+[dir="rtl"] .au-card-main,
+[dir="rtl"] .au-card-info {
+  text-align: right;
+}
+
+[dir="rtl"] .au-club-chip-name {
+  text-align: right;
 }

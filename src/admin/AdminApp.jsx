@@ -72,7 +72,7 @@ function AdminApp() {
     setCurrentClub(club)
   }
 
-  const handleClubCreate = (clubData) => {
+  const handleClubCreate = async (clubData) => {
     const newClub = {
       id: Date.now().toString(),
       ...clubData,
@@ -85,26 +85,26 @@ function AdminApp() {
     }
     const updatedClubs = [...clubs, newClub]
     setClubs(updatedClubs)
-    saveClubs(updatedClubs)
+    await saveClubs(updatedClubs)
     setCurrentClub(newClub)
     return newClub
   }
 
-  const handleClubUpdate = (clubId, clubData) => {
+  const handleClubUpdate = async (clubId, clubData) => {
     const updatedClubs = clubs.map(club => 
       club.id === clubId ? { ...club, ...clubData, updatedAt: new Date().toISOString() } : club
     )
     setClubs(updatedClubs)
-    saveClubs(updatedClubs)
+    await saveClubs(updatedClubs)
     if (currentClub?.id === clubId) {
       setCurrentClub(updatedClubs.find(c => c.id === clubId))
     }
   }
 
-  const handleClubDelete = (clubId) => {
+  const handleClubDelete = async (clubId) => {
     const updatedClubs = clubs.filter(club => club.id !== clubId)
     setClubs(updatedClubs)
-    saveClubs(updatedClubs)
+    await saveClubs(updatedClubs)
     if (currentClub?.id === clubId) {
       setCurrentClub(updatedClubs.length > 0 ? updatedClubs[0] : null)
     }

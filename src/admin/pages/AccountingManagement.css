@@ -93,6 +93,46 @@
   margin-right: 5px;
 }
 
+/* ClubAccountingManagement table */
+.accounting-table-content {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.accounting-table-content thead {
+  background: #f8fafc;
+}
+
+.accounting-table-content th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.accounting-table-content td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #0f172a;
+}
+
+.accounting-table-content tbody tr:hover {
+  background: #f8fafc;
+}
+
+.accounting-table-content .positive {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.accounting-table-content .negative {
+  color: #dc2626;
+  font-weight: 600;
+}
+
 /* جوال - عرض احترافي */
 @media (max-width: 768px) {
   .accounting-management {

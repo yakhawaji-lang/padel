@@ -39,6 +39,16 @@ function _write(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)) } catch (_) {}
 }
 
+/** Persist to backend and await completion - use for critical data */
+async function _writeAwait(key, value) {
+  if (USE_POSTGRES && _backendStorage) {
+    _backendStorage.setCache(key, value)
+    await _backendStorage.setStore(key, value)
+    return
+  }
+  _write(key, value)
+}
+
 /**
  * Load and merge members from both all_members and padel_members.
  * all_members takes precedence for platform registrations.
@@ -64,13 +74,19 @@ export function getMergedMembersRaw() {
  * Save members to BOTH all_members and padel_members. Single source of truth.
  * Call after any member add/update. Triggers clubs sync and clubs-synced event.
  */
-export function saveMembers(members) {
+export async function saveMembers(members) {
   if (!Array.isArray(members)) return false
   try {
-    _write(MEMBER_STORAGE_KEYS.ALL, members)
-    _write(MEMBER_STORAGE_KEYS.PADEL, members)
+    if (USE_POSTGRES && _backendStorage) {
+      await _writeAwait(MEMBER_STORAGE_KEYS.ALL, members)
+      await _writeAwait(MEMBER_STORAGE_KEYS.PADEL, members)
+    } else {
+      _write(MEMBER_STORAGE_KEYS.ALL, members)
+      _write(MEMBER_STORAGE_KEYS.PADEL, members)
+    }
     const clubs = loadClubs()
     syncMembersToClubs(clubs)
+    if (clubs?.length) await saveClubs(clubs)
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('clubs-synced'))
     }
@@ -87,20 +103,21 @@ export function saveMembers(members) {
 /**
  * Add or update a member. Merges with existing. Saves to both storages.
  */
-export function upsertMember(member) {
+export async function upsertMember(member) {
   if (!member || !member.id) return null
   const members = getMergedMembersRaw()
   const idx = members.findIndex(m => m.id === member.id)
   const merged = { ...(idx >= 0 ? members[idx] : {}), ...member }
   if (idx >= 0) members[idx] = merged
   else members.push(merged)
-  return saveMembers(members) ? merged : null
+  const ok = await saveMembers(members)
+  return ok ? merged : null
 }
 
 /**
  * Add a member to one or more clubs. Saves to both storages; syncMembersToClubs updates clubs.
  */
-export function addMemberToClub(memberId, clubIdOrIds) {
+export async function addMemberToClub(memberId, clubIdOrIds) {
   const clubIds = Array.isArray(clubIdOrIds) ? clubIdOrIds : [clubIdOrIds]
   const members = getMergedMembersRaw()
   const member = members.find(m => m.id === memberId)
@@ -124,7 +141,7 @@ export function addMemberToClub(memberId, clubIdOrIds) {
  * and for approved clubs keep only one per adminEmail (prefer by name match)
  */
 function deduplicateClubs(clubs) {
-  if (!Array.isArray(clubs)) return clubs
+  if (!Array.isArray(clubs)) return []
   const byId = new Map()
   const approvedEmails = new Set()
   const seenApprovedEmails = new Map()
@@ -193,8 +210,8 @@ export async function loadClubsAsync() {
   if (USE_POSTGRES && _backendStorage) {
     try {
       await _backendStorage.bootstrap()
-      const clubs = _backendStorage.getCache(ADMIN_STORAGE_KEYS.CLUBS) || []
-      _clubsCache = deduplicateClubs(clubs)
+      const clubs = _backendStorage.getCache(ADMIN_STORAGE_KEYS.CLUBS)
+      _clubsCache = deduplicateClubs(Array.isArray(clubs) ? clubs : [])
       syncMembersToClubs(_clubsCache)
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('clubs-synced'))
@@ -233,8 +250,8 @@ export async function refreshClubsFromApi() {
   if (!USE_POSTGRES || !_backendStorage) return
   try {
     await _backendStorage.refreshStoreKeys([ADMIN_STORAGE_KEYS.CLUBS])
-    const clubs = _backendStorage.getCache(ADMIN_STORAGE_KEYS.CLUBS) || []
-    _clubsCache = deduplicateClubs(clubs)
+    const clubs = _backendStorage.getCache(ADMIN_STORAGE_KEYS.CLUBS)
+    _clubsCache = deduplicateClubs(Array.isArray(clubs) ? clubs : [])
     syncMembersToClubs(_clubsCache)
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('clubs-synced'))
@@ -274,22 +291,27 @@ export function applyRemoteClubs(clubs) {
 export const loadClubs = () => {
   try {
     if (_clubsCache != null) {
-      syncMembersToClubs(_clubsCache)
-      return deduplicateClubs(_clubsCache)
+      if (!Array.isArray(_clubsCache)) _clubsCache = null
+      else {
+        syncMembersToClubs(_clubsCache)
+        return deduplicateClubs(_clubsCache)
+      }
     }
-    const clubs = _read(ADMIN_STORAGE_KEYS.CLUBS)
+    let clubs = _read(ADMIN_STORAGE_KEYS.CLUBS)
+    if (!Array.isArray(clubs)) {
+      clubs = (clubs && typeof clubs === 'object' && Array.isArray(clubs.value)) ? clubs.value : []
+    }
     if (clubs && Array.isArray(clubs)) {
       // Ensure Hala Padel exists if clubs array is empty or doesn't contain it
       if (clubs.length === 0 || !clubs.some(c => c.id === 'hala-padel')) {
         const halaPadel = createExampleHalaPadel()
         if (clubs.length === 0) {
-          saveClubs([halaPadel])
+          saveClubs([halaPadel]).catch(e => console.error('saveClubs:', e))
           _clubsCache = [halaPadel]
           return [halaPadel]
         } else {
-          // Add Hala Padel at the beginning if it doesn't exist
           clubs.unshift(halaPadel)
-          saveClubs(clubs)
+          saveClubs(clubs).catch(e => console.error('saveClubs:', e))
           _clubsCache = clubs
           return clubs
         }
@@ -344,14 +366,14 @@ export const loadClubs = () => {
           storeMigration = true
         }
       })
-      if (storeMigration) saveClubs(clubs)
+      if (storeMigration) saveClubs(clubs).catch(e => console.error('saveClubs:', e))
       const deduped = deduplicateClubs(clubs)
-      if (deduped.length !== clubs.length) saveClubs(deduped)
+      if (deduped.length !== clubs.length) saveClubs(deduped).catch(e => console.error('saveClubs:', e))
       _clubsCache = deduped
       return deduped
     }
     const halaPadel = createExampleHalaPadel()
-    saveClubs([halaPadel])
+    saveClubs([halaPadel]).catch(e => console.error('saveClubs:', e))
     _clubsCache = [halaPadel]
     return [halaPadel]
   } catch (error) {
@@ -359,7 +381,7 @@ export const loadClubs = () => {
     // Even on error, try to create Hala Padel
     try {
       const halaPadel = createExampleHalaPadel()
-      saveClubs([halaPadel])
+      saveClubs([halaPadel]).catch(e => console.error('saveClubs:', e))
       _clubsCache = [halaPadel]
       return [halaPadel]
     } catch (e) {
@@ -371,6 +393,7 @@ export const loadClubs = () => {
 // Sync members from localStorage to clubs
 export const syncMembersToClubs = (clubs) => {
   try {
+    if (!Array.isArray(clubs)) return
     const mergedMembers = getMergedMembersRaw()
     // For each club, sync members
     let hasChanges = false
@@ -458,8 +481,15 @@ export const syncMembersToClubs = (clubs) => {
         
         const updatedMembers = Array.from(updatedMembersMap.values())
         try {
-          _write(MEMBER_STORAGE_KEYS.ALL, updatedMembers)
-          _write(MEMBER_STORAGE_KEYS.PADEL, updatedMembers)
+          if (USE_POSTGRES && _backendStorage) {
+            // Ensure DB persistence when using backend
+            _writeAwait(MEMBER_STORAGE_KEYS.ALL, updatedMembers)
+              .then(() => _writeAwait(MEMBER_STORAGE_KEYS.PADEL, updatedMembers))
+              .catch(e => console.error('syncMembersToClubs save error:', e))
+          } else {
+            _write(MEMBER_STORAGE_KEYS.ALL, updatedMembers)
+            _write(MEMBER_STORAGE_KEYS.PADEL, updatedMembers)
+          }
         } catch (e) {
           console.error('syncMembersToClubs save error:', e)
         }
@@ -468,10 +498,9 @@ export const syncMembersToClubs = (clubs) => {
       }
     }
     
-    // Save if there were changes
     if (hasChanges) {
-      saveClubs(clubs)
-      console.log('Synced members to clubs:', clubs.map(c => ({ name: c.name, members: c.members.length })))
+      saveClubs(clubs).catch(e => console.error('saveClubs:', e))
+      console.log('Synced members to clubs:', clubs.map(c => ({ name: c.name, members: c.members?.length || 0 })))
     }
   } catch (error) {
     console.error('Error syncing members to clubs:', error)
@@ -629,11 +658,13 @@ export const createExampleClub = () => {
   }
 }
 
-export const saveClubs = (clubs) => {
+export async function saveClubs(clubs) {
   try {
-    _write(ADMIN_STORAGE_KEYS.CLUBS, clubs)
     _clubsCache = clubs
-    if (!USE_POSTGRES) {
+    if (USE_POSTGRES && _backendStorage) {
+      await _writeAwait(ADMIN_STORAGE_KEYS.CLUBS, clubs)
+    } else {
+      _write(ADMIN_STORAGE_KEYS.CLUBS, clubs)
       import('./supabaseSync.js').then(({ setRemoteClubs }) => setRemoteClubs(clubs)).catch(() => {})
     }
     if (typeof window !== 'undefined') {
@@ -647,25 +678,8 @@ export const saveClubs = (clubs) => {
   }
 }
 
-/** Async save for Postgres - awaits API persistence before returning. */
-export async function saveClubsAsync(clubs) {
-  try {
-    if (USE_POSTGRES && _backendStorage) {
-      _backendStorage.setCache(ADMIN_STORAGE_KEYS.CLUBS, clubs)
-      _clubsCache = clubs
-      await _backendStorage.setStore(ADMIN_STORAGE_KEYS.CLUBS, clubs)
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('clubs-synced'))
-      }
-      return true
-    }
-    saveClubs(clubs)
-    return true
-  } catch (e) {
-    console.error('saveClubsAsync failed:', e)
-    return false
-  }
-}
+/** Alias for saveClubs - kept for compatibility */
+export const saveClubsAsync = saveClubs
 
 export const getClubById = (clubId, forceFromStorage = false) => {
   let clubs
@@ -678,14 +692,14 @@ export const getClubById = (clubId, forceFromStorage = false) => {
   return clubs?.find(club => club.id === clubId)
 }
 
-export const updateClub = (clubId, updates) => {
+export const updateClub = async (clubId, updates) => {
   const clubs = loadClubs()
   const updatedClubs = clubs.map(club => 
     club.id === clubId 
       ? { ...club, ...updates, updatedAt: new Date().toISOString() }
       : club
   )
-  saveClubs(updatedClubs)
+  await saveClubs(updatedClubs)
   return updatedClubs.find(club => club.id === clubId)
 }
 
@@ -732,17 +746,12 @@ export async function addPendingClub(clubData) {
     updatedAt: new Date().toISOString()
   }
   clubs.push(newClub)
-  if (USE_POSTGRES && _backendStorage) {
-    const ok = await saveClubsAsync(clubs)
-    if (!ok) return { error: 'SAVE_FAILED' }
-  } else {
-    saveClubs(clubs)
-  }
+  await saveClubs(clubs)
   return { club: newClub }
 }
 
 /** Approve a pending club - sets status to approved and assigns proper id */
-export const approveClub = (clubId) => {
+export const approveClub = async (clubId) => {
   const clubs = loadClubs()
   const club = clubs.find(c => c.id === clubId)
   if (!club || club.status !== 'pending') return null
@@ -751,17 +760,17 @@ export const approveClub = (clubId) => {
   const newId = `${slug}-${Date.now()}`
   const updatedClub = { ...club, id: newId, status: 'approved', updatedAt: new Date().toISOString() }
   const updatedClubs = clubs.map(c => c.id === clubId ? updatedClub : c)
-  saveClubs(updatedClubs)
+  await saveClubs(updatedClubs)
   return updatedClub
 }
 
 /** Reject/remove a pending club */
-export const rejectClub = (clubId) => {
+export const rejectClub = async (clubId) => {
   const clubs = loadClubs()
   const club = clubs.find(c => c.id === clubId)
   if (!club || club.status !== 'pending') return false
   const updatedClubs = clubs.filter(c => c.id !== clubId)
-  saveClubs(updatedClubs)
+  await saveClubs(updatedClubs)
   return true
 }
 
@@ -859,7 +868,7 @@ export const addMemberToClubs = (memberId, clubIds) => {
 }
 
 /** Remove member from club(s). Uses centralized saveMembers; sync updates clubs. */
-export const removeMemberFromClubs = (memberId, clubIds) => {
+export const removeMemberFromClubs = async (memberId, clubIds) => {
   try {
     const members = getMergedMembersRaw()
     const member = members.find(m => m.id === memberId)
@@ -886,9 +895,13 @@ export const loadAdminSettings = () => {
   }
 }
 
-export const saveAdminSettings = (settings) => {
+export const saveAdminSettings = async (settings) => {
   try {
-    _write(ADMIN_STORAGE_KEYS.SETTINGS, settings)
+    if (USE_POSTGRES && _backendStorage) {
+      await _writeAwait(ADMIN_STORAGE_KEYS.SETTINGS, settings)
+    } else {
+      _write(ADMIN_STORAGE_KEYS.SETTINGS, settings)
+    }
   } catch (error) {
     console.error('Error saving admin settings:', error)
   }
@@ -903,8 +916,12 @@ export const loadPlatformAdmins = () => {
   } catch (_) { return [] }
 }
 
-function _savePlatformAdmins(admins) {
-  _write(ADMIN_STORAGE_KEYS.PLATFORM_ADMINS, admins)
+async function _savePlatformAdmins(admins) {
+  if (USE_POSTGRES && _backendStorage) {
+    await _writeAwait(ADMIN_STORAGE_KEYS.PLATFORM_ADMINS, admins)
+  } else {
+    _write(ADMIN_STORAGE_KEYS.PLATFORM_ADMINS, admins)
+  }
 }
 
 export async function savePlatformAdminsAsync(admins) {
@@ -915,7 +932,7 @@ export async function savePlatformAdminsAsync(admins) {
       await _backendStorage.setStore(ADMIN_STORAGE_KEYS.PLATFORM_ADMINS, admins)
       return true
     }
-    _savePlatformAdmins(admins)
+    await _savePlatformAdmins(admins)
     return true
   } catch (e) {
     console.error('savePlatformAdminsAsync failed:', e)
@@ -923,7 +940,7 @@ export async function savePlatformAdminsAsync(admins) {
   }
 }
 
-export const createPlatformOwner = (email, password) => {
+export const createPlatformOwner = async (email, password) => {
   const admins = loadPlatformAdmins()
   if (admins.some(a => a.role === 'owner')) return null
   const owner = {
@@ -935,7 +952,7 @@ export const createPlatformOwner = (email, password) => {
     createdAt: new Date().toISOString()
   }
   admins.push(owner)
-  _savePlatformAdmins(admins)
+  await _savePlatformAdmins(admins)
   return owner
 }
 
@@ -947,7 +964,7 @@ export const getPlatformAdminByCredentials = (email, password) => {
   ) || null
 }
 
-export const addPlatformAdmin = (email, password, permissions = []) => {
+export const addPlatformAdmin = async (email, password, permissions = []) => {
   const admins = loadPlatformAdmins()
   const em = (email || '').trim().toLowerCase()
   if (admins.some(a => (a.email || '').toLowerCase() === em)) return { error: 'EMAIL_EXISTS' }
@@ -960,32 +977,37 @@ export const addPlatformAdmin = (email, password, permissions = []) => {
     createdAt: new Date().toISOString()
   }
   admins.push(admin)
-  _savePlatformAdmins(admins)
+  await _savePlatformAdmins(admins)
   return { admin }
 }
 
-export const removePlatformAdmin = (id) => {
+export const removePlatformAdmin = async (id) => {
   const admins = loadPlatformAdmins()
   const filtered = admins.filter(a => a.id !== id)
   if (filtered.length === admins.length) return false
-  _savePlatformAdmins(filtered)
+  await _savePlatformAdmins(filtered)
   return true
 }
 
-export const updatePlatformAdmin = (id, updates) => {
+export const updatePlatformAdmin = async (id, updates) => {
   const admins = loadPlatformAdmins()
   const idx = admins.findIndex(a => a.id === id)
   if (idx < 0) return null
   const current = admins[idx]
   if (current.role === 'owner' && updates.role && updates.role !== 'owner') return null
-  const updated = { ...current, ...updates, updatedAt: new Date().toISOString() }
+  const filtered = { ...updates }
+  if (current.role === 'owner') {
+    delete filtered.role
+    delete filtered.permissions
+  }
+  const updated = { ...current, ...filtered, updatedAt: new Date().toISOString() }
   admins[idx] = updated
-  _savePlatformAdmins(admins)
+  await _savePlatformAdmins(admins)
   return updated
 }
 
 /** Delete member entirely from platform (all_members + padel_members) */
-export function deleteMember(memberId) {
+export async function deleteMember(memberId) {
   const members = getMergedMembersRaw().filter(m => m.id !== memberId)
   return saveMembers(members)
 }

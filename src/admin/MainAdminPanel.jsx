@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import React, { useState, useEffect, useMemo } from 'react'
+import { useLocation } from 'react-router-dom'
 import './MainAdminPanel.css'
 import './admin-rtl.css'
 import MainAdminSidebar from './components/MainAdminSidebar'
@@ -7,7 +7,10 @@ import MainAdminHeader from './components/MainAdminHeader'
 import AllClubsDashboard from './pages/AllClubsDashboard'
 import AllClubsManagement from './pages/AllClubsManagement'
 import AdminUsersManagement from './pages/AdminUsersManagement'
+import AllMembersManagement from './pages/AllMembersManagement'
 import PlatformPageGuard from '../components/PlatformPageGuard'
+import { ErrorBoundary } from '../components/ErrorBoundary'
+import { AdminPanelProvider } from './AdminPanelContext'
 import { loadClubs, saveClubs, approveClub as doApproveClub, rejectClub as doRejectClub, syncMembersToClubsManually, refreshClubsFromApi } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 
@@ -22,7 +25,7 @@ function MainAdminPanel() {
       await refreshClubsFromApi()
       syncMembersToClubsManually()
       const savedClubs = loadClubs()
-      setClubs(savedClubs || [])
+      setClubs(Array.isArray(savedClubs) ? savedClubs : [])
       
       // Load saved language preference
       const savedLanguage = getAppLanguage()
@@ -42,7 +45,8 @@ function MainAdminPanel() {
     // Refresh clubs from API every 3 seconds to catch pending registrations from other devices
     const doRefresh = async () => {
       await refreshClubsFromApi()
-      setClubs(loadClubs() || [])
+      const c = loadClubs()
+      setClubs(Array.isArray(c) ? c : [])
     }
     const syncInterval = setInterval(doRefresh, 3000)
     // Refresh when user returns to the tab
@@ -65,7 +69,7 @@ function MainAdminPanel() {
     }
   }, [language])
 
-  const handleClubCreate = (clubData) => {
+  const handleClubCreate = async (clubData) => {
     const newClub = {
       id: Date.now().toString(),
       ...clubData,
@@ -85,38 +89,38 @@ function MainAdminPanel() {
     }
     const updatedClubs = [...clubs, newClub]
     setClubs(updatedClubs)
-    saveClubs(updatedClubs)
+    await saveClubs(updatedClubs)
     return newClub
   }
 
-  const handleClubUpdate = (clubId, clubData) => {
+  const handleClubUpdate = async (clubId, clubData) => {
     const updatedClubs = clubs.map(club => 
       club.id === clubId 
         ? { ...club, ...clubData, updatedAt: new Date().toISOString() }
         : club
     )
     setClubs(updatedClubs)
-    saveClubs(updatedClubs)
+    await saveClubs(updatedClubs)
   }
 
-  const handleClubDelete = (clubId) => {
+  const handleClubDelete = async (clubId) => {
     const updatedClubs = clubs.filter(club => club.id !== clubId)
     setClubs(updatedClubs)
-    saveClubs(updatedClubs)
+    await saveClubs(updatedClubs)
   }
 
-  const handleApproveClub = (clubId) => {
-    const approved = doApproveClub(clubId)
+  const handleApproveClub = async (clubId) => {
+    const approved = await doApproveClub(clubId)
     if (approved) {
       const updatedClubs = loadClubs()
-      setClubs(updatedClubs)
+      setClubs(Array.isArray(updatedClubs) ? updatedClubs : [])
     }
   }
 
-  const handleRejectClub = (clubId) => {
-    if (doRejectClub(clubId)) {
+  const handleRejectClub = async (clubId) => {
+    if (await doRejectClub(clubId)) {
       const updatedClubs = loadClubs()
-      setClubs(updatedClubs)
+      setClubs(Array.isArray(updatedClubs) ? updatedClubs : [])
     }
   }
 
@@ -124,6 +128,20 @@ function MainAdminPanel() {
     await refreshClubsFromApi()
     setClubs(loadClubs() || [])
   }
+
+  const ctxValue = useMemo(() => ({
+    clubs,
+    language,
+    onUpdateClub: handleClubUpdate,
+    onApproveClub: handleApproveClub,
+    onRejectClub: handleRejectClub,
+    onRefresh: handleRefreshClubs,
+    onCreateClub: handleClubCreate,
+    onDeleteClub: handleClubDelete
+  }), [clubs, language])
+
+  const location = useLocation()
+  const path = (location.pathname.replace(/^\/app\/admin\/?/, '').replace(/^\/admin\/?/, '') || 'all-clubs').split('/')[0] || 'all-clubs'
 
   if (isLoading) {
     return (
@@ -133,34 +151,48 @@ function MainAdminPanel() {
     )
   }
 
+  const renderPage = () => {
+    if (path === 'admin-users') {
+      return <PlatformPageGuard permission="admin-users"><AdminUsersManagement /></PlatformPageGuard>
+    }
+    if (path === 'manage-clubs') {
+      return <PlatformPageGuard permission="manage-clubs"><AllClubsManagement /></PlatformPageGuard>
+    }
+    if (path === 'all-members') {
+      return <PlatformPageGuard permission="all-members"><AllMembersManagement /></PlatformPageGuard>
+    }
+    return <AllClubsDashboard />
+  }
+
   return (
-    <div className={`main-admin-panel ${sidebarOpen ? 'sidebar-open' : ''} ${language === 'ar' ? 'rtl' : ''}`}>
-      <div
-        className="main-admin-sidebar-backdrop"
-        aria-hidden={!sidebarOpen}
-        onClick={() => setSidebarOpen(false)}
-      />
-      <MainAdminSidebar 
-        clubs={clubs}
-        language={language}
-        onLanguageChange={setLanguage}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
-      <div className="main-admin-content" onClick={() => setSidebarOpen(false)}>
-        <MainAdminHeader 
+    <AdminPanelProvider value={ctxValue}>
+      <div className={`main-admin-panel ${sidebarOpen ? 'sidebar-open' : ''} ${language === 'ar' ? 'rtl' : ''}`}>
+        <div
+          className="main-admin-sidebar-backdrop"
+          aria-hidden={!sidebarOpen}
+          onClick={() => setSidebarOpen(false)}
+        />
+        <MainAdminSidebar 
+          clubs={clubs}
           language={language}
           onLanguageChange={setLanguage}
-          onMenuToggle={() => setSidebarOpen(true)}
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
         />
-        <Routes>
-          <Route path="/" element={<Navigate to="all-clubs" replace />} />
-          <Route path="all-clubs" element={<PlatformPageGuard permission="all-clubs"><AllClubsDashboard clubs={clubs} language={language} onUpdateClub={handleClubUpdate} onApproveClub={handleApproveClub} onRejectClub={handleRejectClub} onRefresh={handleRefreshClubs} /></PlatformPageGuard>} />
-          <Route path="manage-clubs" element={<PlatformPageGuard permission="manage-clubs"><AllClubsManagement clubs={clubs} language={language} onCreateClub={handleClubCreate} onUpdateClub={handleClubUpdate} onDeleteClub={handleClubDelete} /></PlatformPageGuard>} />
-          <Route path="admin-users" element={<PlatformPageGuard permission="admin-users"><AdminUsersManagement language={language} clubs={clubs} onUpdateClub={handleClubUpdate} onRefreshClubs={handleRefreshClubs} /></PlatformPageGuard>} />
-        </Routes>
+        <div className="main-admin-content" onClick={() => setSidebarOpen(false)}>
+          <MainAdminHeader 
+            language={language}
+            onLanguageChange={setLanguage}
+            onMenuToggle={() => setSidebarOpen(true)}
+          />
+          <div className="main-admin-page-wrap">
+            <ErrorBoundary fallback={<div className="main-admin-page" style={{ padding: 24 }}><p>خطأ في تحميل الصفحة. <a href="/app/admin/all-clubs">تحديث</a></p></div>}>
+              {renderPage()}
+            </ErrorBoundary>
+          </div>
+        </div>
       </div>
-    </div>
+    </AdminPanelProvider>
   )
 }
 

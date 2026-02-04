@@ -1,0 +1,340 @@
+/* Club Admin Pages - Shared Professional Styles (cxp-) */
+
+/* Page wrapper */
+.club-admin-page {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
+  background: #f8fafc;
+}
+
+/* Header */
+.cxp-header {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cxp-title {
+  margin: 0 0 6px 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cxp-subtitle {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: #64748b;
+}
+
+/* Stats grid */
+.cxp-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.cxp-stat {
+  padding: 18px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+.cxp-stat-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.cxp-stat-label {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Cards grid */
+.cxp-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.cxp-card {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  padding: 18px;
+  transition: all 0.2s;
+}
+
+.cxp-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+/* Buttons */
+.cxp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cxp-btn--primary {
+  background: #1e3a5f;
+  color: #fff;
+}
+
+.cxp-btn--primary:hover {
+  background: #152a47;
+}
+
+.cxp-btn--secondary {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.cxp-btn--secondary:hover {
+  background: #cbd5e1;
+}
+
+.cxp-btn--danger {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.cxp-btn--danger:hover {
+  background: #fee2e2;
+}
+
+.cxp-btn-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cxp-btn-icon:hover {
+  background: #e2e8f0;
+  color: #1e3a5f;
+}
+
+.cxp-btn-icon--danger:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* Modal */
+.cxp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.cxp-modal {
+  width: 100%;
+  max-width: 440px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.15);
+}
+
+.cxp-modal-header {
+  padding: 18px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cxp-modal-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.cxp-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.cxp-modal-close {
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: #f1f5f9;
+  border-radius: 8px;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: #64748b;
+}
+
+.cxp-modal-close:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* Form */
+.cxp-form-group {
+  margin-bottom: 16px;
+}
+
+.cxp-form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #334155;
+}
+
+.cxp-form-group input,
+.cxp-form-group select,
+.cxp-form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+}
+
+.cxp-form-group input:focus,
+.cxp-form-group select:focus,
+.cxp-form-group textarea:focus {
+  outline: none;
+  border-color: #1e3a5f;
+}
+
+.cxp-form-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+
+/* Empty state */
+.cxp-empty {
+  text-align: center;
+  padding: 48px 24px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 2px dashed #e2e8f0;
+}
+
+.cxp-empty-icon {
+  font-size: 3rem;
+  opacity: 0.5;
+  margin-bottom: 12px;
+}
+
+.cxp-empty h4 {
+  margin: 0 0 8px 0;
+  font-size: 1.125rem;
+  color: #0f172a;
+}
+
+.cxp-empty p {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: #64748b;
+}
+
+/* Search */
+.cxp-search-wrap {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.cxp-search-input {
+  width: 100%;
+  padding: 10px 14px 10px 40px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+}
+
+.cxp-search-input:focus {
+  outline: none;
+  border-color: #1e3a5f;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .club-admin-page {
+    padding: 12px 14px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .cxp-title {
+    font-size: 1.25rem;
+  }
+
+  .cxp-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .cxp-stat {
+    padding: 14px;
+  }
+
+  .cxp-stat-value {
+    font-size: 1.25rem;
+  }
+
+  .cxp-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .cxp-modal {
+    max-height: 95vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .club-admin-page {
+    padding: 10px 12px;
+  }
+
+  .cxp-stats {
+    grid-template-columns: 1fr;
+  }
+}

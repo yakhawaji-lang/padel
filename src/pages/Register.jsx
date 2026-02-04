@@ -81,7 +81,7 @@ const Register = () => {
   }
   const c = t[language]
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     if (!agreeToTerms) {
@@ -109,7 +109,8 @@ const Register = () => {
       role: 'member',
       createdAt: new Date().toISOString()
     }
-    if (!upsertMember(newMember)) {
+    const ok = await upsertMember(newMember)
+    if (!ok) {
       setError(language === 'en' ? 'Registration failed.' : 'فشل التسجيل.')
       return
     }

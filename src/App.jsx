@@ -383,7 +383,7 @@ function App({ currentUser }) {
       club.tournamentData.kingStateByTournamentId = kingStateByTournamentId
       club.tournamentData.socialStateByTournamentId = socialStateByTournamentId
       club.tournamentData.currentTournamentId = currentTournamentId
-      saveClubs(clubs)
+      saveClubs(clubs).catch(e => console.error('saveClubs:', e))
     }
     
     setTimeout(() => {
@@ -3682,7 +3682,7 @@ function App({ currentUser }) {
         const club = clubs.find(c => c.id === clubId)
         if (club) {
           const acc = (club.accounting || []).filter(a => a.bookingId !== bookingId)
-          saveClubs(clubs.map(c => c.id === clubId ? { ...c, accounting: acc } : c))
+          saveClubs(clubs.map(c => c.id === clubId ? { ...c, accounting: acc } : c)).catch(e => console.error('saveClubs:', e)).catch(e => console.error('saveClubs:', e))
         }
       }
     } else {
@@ -3701,7 +3701,7 @@ function App({ currentUser }) {
         if (club) {
           const removeIds = new Set(toRemove.map(b => b.id).filter(Boolean))
           const acc = (club.accounting || []).filter(a => !removeIds.has(a.bookingId))
-          saveClubs(clubs.map(c => c.id === clubId ? { ...c, accounting: acc } : c))
+          saveClubs(clubs.map(c => c.id === clubId ? { ...c, accounting: acc } : c)).catch(e => console.error('saveClubs:', e)).catch(e => console.error('saveClubs:', e))
         }
       }
     }
@@ -4216,7 +4216,7 @@ function App({ currentUser }) {
             type: 'revenue',
             status: amount > 0 ? 'pending' : 'n/a'
           }
-          saveClubs(clubs.map(c => c.id === clubId ? { ...c, accounting: [...without, entry] } : c))
+          saveClubs(clubs.map(c => c.id === clubId ? { ...c, accounting: [...without, entry] } : c)).catch(e => console.error('saveClubs:', e))
         }
       }
     }
@@ -4235,7 +4235,7 @@ function App({ currentUser }) {
       const club = clubs.find(c => c.id === clubId)
       if (club) {
         const acc = (club.accounting || []).filter(a => a.bookingId !== bookingId)
-        saveClubs(clubs.map(c => c.id === clubId ? { ...c, accounting: acc } : c))
+        saveClubs(clubs.map(c => c.id === clubId ? { ...c, accounting: acc } : c)).catch(e => console.error('saveClubs:', e))
       }
     }
     setShowBookingModal(false)
@@ -5790,134 +5790,75 @@ function App({ currentUser }) {
               </div>
 
               {bookingView === 'weekly' ? (
-                <div className="section">
-                  <div className="section-header">
-                    <h2>{t.bookings} - Hala Padel</h2>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <button 
-                        className="btn-primary"
-                        onClick={() => loadPlaytomicBookings(true)}
-                        disabled={isLoadingPlaytomic}
-                        style={{ 
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                          backgroundColor: isLoadingPlaytomic ? '#95a5a6' : undefined
-                        }}
-                        title={language === 'en' ? 'Refresh bookings from Playtomic' : 'تحديث الحجوزات من Playtomic'}
-                      >
-                        {isLoadingPlaytomic ? (
-                          <span>{language === 'en' ? 'Loading...' : 'جاري التحميل...'}</span>
-                        ) : (
-                          <>
-                            <span>🔄</span>
-                            <span>{language === 'en' ? 'Refresh Playtomic' : 'تحديث Playtomic'}</span>
-                          </>
-                        )}
-                      </button>
-                      {playtomicLastSync && (
-                        <span style={{ fontSize: '12px', color: '#7f8c8d' }}>
-                          {language === 'en' 
-                            ? `Last sync: ${new Date(playtomicLastSync).toLocaleTimeString()}`
-                            : `آخر تحديث: ${new Date(playtomicLastSync).toLocaleTimeString('ar-SA')}`
-                          }
-                        </span>
-                      )}
-                      <button 
-                        className="btn-secondary"
-                        onClick={() => {
-                          const newWeek = new Date(currentWeek)
-                          newWeek.setDate(newWeek.getDate() - selectedDays.length)
-                          setCurrentWeek(newWeek)
-                        }}
-                        style={{ 
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '5px'
-                        }}
-                      >
-                        <span>{isRTL ? '→' : '←'}</span>
-                        <span>{language === 'en' ? `Previous ${selectedDays.length === 1 ? 'Day' : `${selectedDays.length} Days`}` : `${selectedDays.length === 1 ? 'اليوم السابق' : `${selectedDays.length} أيام سابقة`}`}</span>
-                      </button>
-                      <button 
-                        className="btn-secondary"
-                        onClick={() => {
-                          // Set currentWeek to today, which will be the first day shown
-                          setCurrentWeek(new Date())
-                        }}
-                        style={{ 
-                          fontWeight: '600',
-                          backgroundColor: '#2196f3',
-                          color: 'white',
-                          borderColor: '#2196f3'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = '#1976d2'
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = '#2196f3'
-                        }}
-                      >
-                        {language === 'en' ? 'Today' : 'اليوم'}
-                      </button>
-                      <button 
-                        className="btn-secondary"
-                        onClick={() => {
-                          const newWeek = new Date(currentWeek)
-                          newWeek.setDate(newWeek.getDate() + selectedDays.length)
-                          setCurrentWeek(newWeek)
-                        }}
-                        style={{ 
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '5px'
-                        }}
-                      >
-                        <span>{language === 'en' ? `Next ${selectedDays.length === 1 ? 'Day' : `${selectedDays.length} Days`}` : `${selectedDays.length === 1 ? 'اليوم التالي' : `${selectedDays.length} أيام قادمة`}`}</span>
-                        <span>{isRTL ? '←' : '→'}</span>
-                      </button>
-                      <div style={{ 
-                        display: 'flex', 
-                        gap: '5px', 
-                        alignItems: 'center',
-                        marginLeft: '15px',
-                        padding: '5px 10px',
-                        backgroundColor: '#f8f9fa',
-                        borderRadius: '6px',
-                        border: '1px solid #dee2e6'
-                      }}>
-                        <span style={{ 
-                          fontSize: '12px', 
-                          color: '#6c757d',
-                          marginRight: '5px',
-                          fontWeight: '500'
-                        }}>
-                          {language === 'en' ? 'Days:' : 'الأيام:'}
-                        </span>
+                <div className="section section-bookings">
+                  <div className="section-header bookings-section-header">
+                    <h2 className="bookings-title">{t.bookings} - {currentClub?.nameAr || currentClub?.name || 'Hala Padel'}</h2>
+                    <div className="bookings-header-actions">
+                      <div className="bookings-sync-row">
                         <button 
-                          className="btn-secondary"
+                          className="btn-primary btn-refresh-playtomic"
+                          onClick={() => loadPlaytomicBookings(true)}
+                          disabled={isLoadingPlaytomic}
+                          title={language === 'en' ? 'Refresh bookings from Playtomic' : 'تحديث الحجوزات من Playtomic'}
+                        >
+                          <span>🔄</span>
+                          <span className="btn-label">{isLoadingPlaytomic ? (language === 'en' ? 'Loading...' : 'جاري التحميل...') : (language === 'en' ? 'Refresh Playtomic' : 'تحديث Playtomic')}</span>
+                        </button>
+                        {playtomicLastSync && (
+                          <span className="bookings-last-sync">
+                            {language === 'en' 
+                              ? `Last sync: ${new Date(playtomicLastSync).toLocaleTimeString()}`
+                              : `آخر تحديث: ${new Date(playtomicLastSync).toLocaleTimeString('ar-SA')}`
+                            }
+                          </span>
+                        )}
+                      </div>
+                      <div className="bookings-nav-row">
+                        <button 
+                          className="btn-secondary btn-nav-prev"
+                          onClick={() => {
+                            const newWeek = new Date(currentWeek)
+                            newWeek.setDate(newWeek.getDate() - selectedDays.length)
+                            setCurrentWeek(newWeek)
+                          }}
+                          title={language === 'en' ? `Previous ${selectedDays.length} days` : `${selectedDays.length} أيام سابقة`}
+                        >
+                          <span>{isRTL ? '→' : '←'}</span>
+                          <span className="nav-label-full">{language === 'en' ? `Previous ${selectedDays.length === 1 ? 'Day' : `${selectedDays.length} Days`}` : `${selectedDays.length === 1 ? 'اليوم السابق' : `${selectedDays.length} أيام سابقة`}`}</span>
+                        </button>
+                        <button 
+                          className="btn-secondary btn-nav-today"
+                          onClick={() => setCurrentWeek(new Date())}
+                        >
+                          {language === 'en' ? 'Today' : 'اليوم'}
+                        </button>
+                        <button 
+                          className="btn-secondary btn-nav-next"
+                          onClick={() => {
+                            const newWeek = new Date(currentWeek)
+                            newWeek.setDate(newWeek.getDate() + selectedDays.length)
+                            setCurrentWeek(newWeek)
+                          }}
+                          title={language === 'en' ? `Next ${selectedDays.length} days` : `${selectedDays.length} أيام قادمة`}
+                        >
+                          <span className="nav-label-full">{language === 'en' ? `Next ${selectedDays.length === 1 ? 'Day' : `${selectedDays.length} Days`}` : `${selectedDays.length === 1 ? 'اليوم التالي' : `${selectedDays.length} أيام قادمة`}`}</span>
+                          <span>{isRTL ? '←' : '→'}</span>
+                        </button>
+                      </div>
+                      <div className="bookings-days-row">
+                        <span className="bookings-days-label">{language === 'en' ? 'Days:' : 'الأيام:'}</span>
+                        <button 
+                          className="btn-secondary btn-days-value"
                           onClick={toggleWeeklyViewDays}
                           title={language === 'en' ? `Reduce to ${selectedDays.length > 1 ? selectedDays.length - 1 : 7} days` : `تقليل إلى ${selectedDays.length > 1 ? selectedDays.length - 1 : 7} أيام`}
-                          style={{ 
-                            minWidth: '60px',
-                            padding: '4px 8px',
-                            fontSize: '12px',
-                            fontWeight: '600'
-                          }}
                         >
                           {selectedDays.length}
                         </button>
                         {selectedDays.length < 7 && (
                           <button 
-                            className="btn-secondary"
+                            className="btn-secondary btn-days-all"
                             onClick={maximizeWeeklyView}
                             title={language === 'en' ? 'Show all 7 days' : 'عرض جميع الأيام'}
-                            style={{ 
-                              minWidth: '60px',
-                              padding: '4px 8px',
-                              fontSize: '12px',
-                              fontWeight: '600'
-                            }}
                           >
                             {language === 'en' ? 'All' : 'الكل'}
                           </button>
@@ -6163,97 +6104,57 @@ function App({ currentUser }) {
                 </div>
               </div>
               ) : (
-                <div className="section">
-                  <div className="section-header">
-                    <h2>{t.bookings} - Hala Padel</h2>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <button 
-                        className="btn-primary"
-                        onClick={() => loadPlaytomicBookings(true)}
-                        disabled={isLoadingPlaytomic}
-                        style={{ 
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                          backgroundColor: isLoadingPlaytomic ? '#95a5a6' : undefined
-                        }}
-                        title={language === 'en' ? 'Refresh bookings from Playtomic' : 'تحديث الحجوزات من Playtomic'}
-                      >
-                        {isLoadingPlaytomic ? (
-                          <span>{language === 'en' ? 'Loading...' : 'جاري التحميل...'}</span>
-                        ) : (
-                          <>
-                            <span>🔄</span>
-                            <span>{language === 'en' ? 'Refresh Playtomic' : 'تحديث Playtomic'}</span>
-                          </>
+                <div className="section section-bookings">
+                  <div className="section-header bookings-section-header">
+                    <h2 className="bookings-title">{t.bookings} - {currentClub?.nameAr || currentClub?.name || 'Hala Padel'}</h2>
+                    <div className="bookings-header-actions bookings-court-actions">
+                      <div className="bookings-sync-row">
+                        <button 
+                          className="btn-primary btn-refresh-playtomic"
+                          onClick={() => loadPlaytomicBookings(true)}
+                          disabled={isLoadingPlaytomic}
+                          title={language === 'en' ? 'Refresh bookings from Playtomic' : 'تحديث الحجوزات من Playtomic'}
+                        >
+                          <span>🔄</span>
+                          <span className="btn-label">{isLoadingPlaytomic ? (language === 'en' ? 'Loading...' : 'جاري التحميل...') : (language === 'en' ? 'Refresh Playtomic' : 'تحديث Playtomic')}</span>
+                        </button>
+                        {playtomicLastSync && (
+                          <span className="bookings-last-sync">
+                            {language === 'en' 
+                              ? `Last sync: ${new Date(playtomicLastSync).toLocaleTimeString()}`
+                              : `آخر تحديث: ${new Date(playtomicLastSync).toLocaleTimeString('ar-SA')}`
+                            }
+                          </span>
                         )}
-                      </button>
-                      {playtomicLastSync && (
-                        <span style={{ fontSize: '12px', color: '#7f8c8d' }}>
-                          {language === 'en' 
-                            ? `Last sync: ${new Date(playtomicLastSync).toLocaleTimeString()}`
-                            : `آخر تحديث: ${new Date(playtomicLastSync).toLocaleTimeString('ar-SA')}`
-                          }
-                        </span>
-                      )}
-                      <button
-                        className="btn-secondary"
-                        onClick={() => navigateCourtViewDate('prev')}
-                        style={{ 
-                          padding: '6px 10px',
-                          minWidth: '36px',
-                          fontSize: '16px',
-                          lineHeight: '1',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                        title={language === 'en' ? 'Previous Day' : 'اليوم السابق'}
-                      >
-                        {isRTL ? '→' : '←'}
-                      </button>
-                      <button 
-                        className="btn-secondary"
-                        onClick={() => setSelectedDateForCourtView(new Date().toISOString().split('T')[0])}
-                        style={{ 
-                          fontWeight: '600',
-                          backgroundColor: '#2196f3',
-                          color: 'white',
-                          borderColor: '#2196f3',
-                          padding: '6px 12px'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = '#1976d2'
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = '#2196f3'
-                        }}
-                      >
-                        {language === 'en' ? 'Today' : 'اليوم'}
-                      </button>
-                      <input
-                        type="date"
-                        value={selectedDateForCourtView}
-                        onChange={(e) => setSelectedDateForCourtView(e.target.value)}
-                        className="search-input"
-                        style={{ width: 'auto' }}
-                      />
-                      <button
-                        className="btn-secondary"
-                        onClick={() => navigateCourtViewDate('next')}
-                        style={{ 
-                          padding: '6px 10px',
-                          minWidth: '36px',
-                          fontSize: '16px',
-                          lineHeight: '1',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                        title={language === 'en' ? 'Next Day' : 'اليوم التالي'}
-                      >
-                        {isRTL ? '←' : '→'}
-                      </button>
+                      </div>
+                      <div className="bookings-nav-row bookings-court-nav">
+                        <button
+                          className="btn-secondary btn-nav-prev"
+                          onClick={() => navigateCourtViewDate('prev')}
+                          title={language === 'en' ? 'Previous Day' : 'اليوم السابق'}
+                        >
+                          {isRTL ? '→' : '←'}
+                        </button>
+                        <button 
+                          className="btn-secondary btn-nav-today"
+                          onClick={() => setSelectedDateForCourtView(new Date().toISOString().split('T')[0])}
+                        >
+                          {language === 'en' ? 'Today' : 'اليوم'}
+                        </button>
+                        <button
+                          className="btn-secondary btn-nav-next"
+                          onClick={() => navigateCourtViewDate('next')}
+                          title={language === 'en' ? 'Next Day' : 'اليوم التالي'}
+                        >
+                          {isRTL ? '←' : '→'}
+                        </button>
+                        <input
+                          type="date"
+                          value={selectedDateForCourtView}
+                          onChange={(e) => setSelectedDateForCourtView(e.target.value)}
+                          className="search-input bookings-date-input"
+                        />
+                      </div>
                     </div>
                   </div>
                   

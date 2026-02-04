@@ -22,13 +22,13 @@ if (!existsSync(distIndex)) {
     console.log('[server.js] Starting API only (no frontend)')
   }
 }
-// Copy redirect to root so Nginx serves it for /. SPA is at /app/.
+// Copy redirect only to public_html (Hostinger). Do NOT overwrite project root index.html (needed for Vite build).
 const redirectPath = join(root, 'index.redirect.html')
-const targets = [root, process.cwd()]
-if (existsSync(join(process.cwd(), '..', 'public_html'))) targets.push(join(process.cwd(), '..', 'public_html'))
-else if (existsSync(join(process.cwd(), 'public_html'))) targets.push(join(process.cwd(), 'public_html'))
-if (existsSync(redirectPath)) {
-  for (const dir of targets) {
+const deployTargets = []
+if (existsSync(join(process.cwd(), '..', 'public_html'))) deployTargets.push(join(process.cwd(), '..', 'public_html'))
+else if (existsSync(join(process.cwd(), 'public_html'))) deployTargets.push(join(process.cwd(), 'public_html'))
+if (existsSync(redirectPath) && deployTargets.length > 0) {
+  for (const dir of deployTargets) {
     try {
       copyFileSync(redirectPath, join(dir, 'index.html'))
       console.log('[server.js] Redirect index ->', dir)
@@ -36,9 +36,9 @@ if (existsSync(redirectPath)) {
   }
 }
 
-// Copy dist to /app subdir so Nginx can serve SPA directly (avoids redirect loop).
-// When user visits /app/, Nginx finds /app/index.html instead of falling back to root redirect.
-if (existsSync(distIndex)) {
+// Copy dist to /app subdir for Hostinger/Nginx (when deployTargets exist).
+// For local, Express serves directly from dist - no copy needed.
+if (existsSync(distIndex) && deployTargets.length > 0) {
   function copyDistToAppDir(baseDir) {
     const appDir = join(baseDir, 'app')
     const appAssets = join(appDir, 'assets')
@@ -57,7 +57,7 @@ if (existsSync(distIndex)) {
       return false
     }
   }
-  for (const dir of targets) {
+  for (const dir of deployTargets) {
     copyDistToAppDir(dir)
   }
 }

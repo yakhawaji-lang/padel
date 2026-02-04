@@ -1,80 +1,141 @@
 # نشر PlayTix على Hostinger Business
 
+## الخطوة الثانية: رفع النظام مع قواعد البيانات إلى Hostinger عبر GitHub
+
+---
+
 ## المتطلبات
 - Hostinger Business (يدعم Node.js)
-- مستودع GitHub
+- مستودع GitHub متصل
 - قاعدة بيانات MySQL (من Hostinger)
 
 ---
 
-## الخطوة 1: إنشاء قاعدة بيانات MySQL
+## 1️⃣ إنشاء قاعدة بيانات MySQL
 
-1. hPanel → **Databases** → **Management**
-2. **Create Database**
+1. ادخل إلى **hPanel** → **Databases** → **Databases** أو **MySQL Databases**
+2. **Create New Database**
 3. أدخل:
-   - Database name: `padel_db`
-   - Username: `padel_user`
-   - Password: كلمة مرور قوية
-4. احفظ: اسم القاعدة، المستخدم، كلمة المرور
-5. **DATABASE_URL:** `mysql://username:password@localhost/database_name`  
-   (عدّل حسب بياناتك. رمّز الأحرف الخاصة في كلمة المرور: `@` → `%40`, `%` → `%25`)
+   - **Database name:** مثلاً `u502561206_padel_db` (Hostinger يضيف بادئة تلقائياً)
+   - **Username:** مثلاً `u502561206_padel_user`
+   - **Password:** كلمة مرور قوية واحفظها
+4. من **Remote MySQL** أو **Manage** انسخ:
+   - **Host:** غالباً `srv2069.hstgr.io` أو `localhost` (استخدم الهوست البعيد إن وُجد)
+   - اسم القاعدة والمستخدم
+5. صيغة **DATABASE_URL:**
+   ```
+   mysql://USERNAME:PASSWORD@HOST/DATABASE_NAME
+   ```
+   - مثال: `mysql://u502561206_padel_user:كلمة_المرور@srv2069.hstgr.io/u502561206_padel_db`
+   - **مهم:** على Hostinger استخدم **Host البعيد** (مثل `srv2069.hstgr.io`) وليس `localhost` إلا إن تبيّن العكس في لوحة MySQL
+   - رمّز الأحرف الخاصة في كلمة المرور: `@` → `%40` و `%` → `%25`
 
 ---
 
-## الخطوة 2: نشر تطبيق Node.js
+## 2️⃣ ربط GitHub والنشر
 
-1. hPanel → **Websites** → **Add Website** → **Node.js Web App**
-2. **Import Git repository** → **Connect with GitHub**
-3. اختر المستودع `yakhawaji-lang/padel` والفرع `main`
+1. hPanel → **Websites** → موقعك → **Node.js** (أو **Add Website** → **Node.js Web App**)
+2. **Deploy from Git** / **Import Git repository**
+3. **Connect with GitHub** واختر المستودع والفرع (مثلاً `main`)
 4. إعدادات البناء:
-   - Framework: **Express**
-   - Entry file: **server.js**
-   - Node: **20.x**
-   - **Build command:** `npm run build` (إن وُجد — لإنتاج مجلد dist/)
-   - **Start command:** `npm start`
+   | الإعداد | القيمة |
+   |---------|--------|
+   | **Framework preset** | Express |
+   | **Entry file** | `server.js` |
+   | **Node version** | 20.x |
+   | **Build command** | `npm run build` |
+   | **Start command** | `npm start` |
 5. **Environment variables** → Add:
-   - **Name:** `DATABASE_URL`
-   - **Value:** رابط MySQL من الخطوة 1
+   | Name | Value |
+   |------|-------|
+   | `DATABASE_URL` | `mysql://user:pass@host/db` (من الخطوة 1) |
+   | `VITE_USE_POSTGRES` | `true` (لتفعيل الاتصال بالـ API بدل localStorage) |
 6. **Deploy**
 
 ---
 
-## الخطوة 3: تهيئة الجداول
+## 3️⃣ تهيئة جداول قاعدة البيانات
 
-بعد النشر، استدعِ:
+بعد اكتمال النشر بنجاح:
 
+### PowerShell (Windows):
+```powershell
+Invoke-RestMethod -Uri "https://your-site.hostingersite.com/api/init-db" -Method POST
 ```
-POST https://your-site.hostingersite.com/api/init-db
-```
 
-مثال عبر curl:
+### curl:
 ```bash
-curl -X POST https://khaki-yak-622008.hostingersite.com/api/init-db
+curl -X POST https://your-site.hostingersite.com/api/init-db
 ```
 
+### التحقق من الاتصال:
+```powershell
+Invoke-RestMethod -Uri "https://your-site.hostingersite.com/api/health"
+```
+يجب أن يعيد: `{"ok":true,"db":true}`
+
+### التحقق من الجداول:
+```powershell
+Invoke-RestMethod -Uri "https://your-site.hostingersite.com/api/init-db/tables"
+```
+يعرض حالة كل جدول (entities, app_settings, matches, ...). إذا ظهر `exists: false` لأي جدول، أعد تنفيذ `POST /api/init-db`.
+
+### إنشاء مدير المنصة الافتراضي (إن لم يوجد):
+```powershell
+Invoke-RestMethod -Uri "https://your-site.hostingersite.com/api/init-db/seed-platform-owner" -Method POST
+```
+- البريد: `2@2.com`
+- كلمة المرور: `123456`
+
 ---
 
-## الخطوة 4: ربط الدومين
+## 4️⃣ الجداول التي يتم إنشاؤها
 
-1. إعدادات التطبيق → **Domains** → أضف `playtix.app`
-2. في Vercel (أو مسجّل الدومين): **Configure** → عدّل DNS ليشير إلى Hostinger
+| الجدول | الوظيفة |
+|--------|---------|
+| `entities` | الأندية، الأعضاء، مدراء المنصة |
+| `app_settings` | الإعدادات، اللغة، الجلسات |
+| `app_store` | ترحيل من نسخ قديمة |
+| `matches` | مباريات البطولات |
+| `member_stats` | إحصائيات الأعضاء |
+| `tournament_summaries` | ملخصات البطولات |
 
 ---
 
-## استكشاف الأخطاء (503)
+## 5️⃣ ربط الدومين (اختياري)
 
-إذا ظهر خطأ 503:
-1. **Deployments** → انقر على أحدث نشر → **See details**
-2. افتح **Build logs** وابحث عن:
-   - `[server.js] Starting...` = التطبيق بدأ
-   - `Padel API running on` = السيرفر يعمل
-   - أي رسالة **ERROR** أو **Failed**
-3. راجع **File manager** → `public_html/stderr.log` لأخطاء التشغيل
-4. تأكد من **DATABASE_URL** مضاف وصحيح في Environment variables
-5. إذا استمرت المشكلة: راسل دعم Hostinger مع نسخة من Build logs
+1. إعدادات التطبيق → **Domains** → أضف دومينك (مثلاً `playtix.app`)
+2. عند مسجّل الدومين عدّل **DNS** ليشير إلى Hostinger
 
-## ملاحظات
+---
 
-- التطبيق الرئيسي عند: **`/app/`** (البث من `/` يُوجّه إلى `/app/`)
-- **Start:** `npm start` يشغّل `server.js` (يبني الواجهة إن لم تكن موجودة، ثم يشغّل Express)
-- التطبيق يعمل مع **MySQL** فقط على Hostinger
+## استكشاف الأخطاء
+
+### 503 أو الصفحة بيضاء
+1. **Deployments** → أحدث نشر → **Build logs**: تأكد من `[server.js] Starting...` و `Padel API running on`
+2. **File manager** → `public_html/stderr.log` لأخطاء التشغيل
+3. تأكد من **Environment variables** ووجود `DATABASE_URL` الصحيح
+
+### قاعدة البيانات لا تتصل
+```powershell
+Invoke-RestMethod -Uri "https://your-site.hostingersite.com/api/db-check"
+```
+- `hasUrl: false` → أضف `DATABASE_URL` في Environment variables
+- `looksMysql: false` → الرابط يجب أن يبدأ بـ `mysql://`
+- استخدم **Host البعيد** من لوحة MySQL وليس `localhost`
+
+### ملف .env يُحذف
+لا تعتمد على ملف `.env` في Hostinger. استخدم **Environment variables** من إعدادات تطبيق Node.js فقط.
+
+---
+
+## ملخص الروابط
+
+| الروابط | الوصف |
+|---------|-------|
+| `/` | يُحوّل إلى `/app/` |
+| `/app/` | التطبيق الرئيسي |
+| `/api/health` | فحص الحالة وقاعدة البيانات |
+| `/api/init-db` | تهيئة الجداول (POST) |
+| `/api/init-db/seed-platform-owner` | إنشاء المدير الافتراضي (POST) |
+| `/api/init-db/tables` | التحقق من وجود الجداول (GET) |

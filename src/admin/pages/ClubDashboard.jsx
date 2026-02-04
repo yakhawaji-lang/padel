@@ -199,8 +199,6 @@ const ClubDashboard = ({ club }) => {
     )
   }
 
-  console.log('ClubDashboard - Rendering with club:', club.name, 'Stats:', stats)
-
   return (
     <div className="club-admin-page">
       <div className="club-dashboard">

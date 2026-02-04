@@ -1,0 +1,6 @@
+{
+  "framework": "express",
+  "entryFile": "server.js",
+  "startCommand": "npm start",
+  "buildCommand": "npm run build"
+}

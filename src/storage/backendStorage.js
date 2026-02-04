@@ -17,11 +17,17 @@ export async function bootstrap() {
     ]
     const data = await api.getStoreBatch(keys)
     if (data && typeof data === 'object') {
-      Object.entries(data).forEach(([k, v]) => cache.set(k, v))
+      Object.entries(data).forEach(([k, v]) => {
+        if ((k === 'admin_clubs' || k === 'all_members' || k === 'padel_members' || k === 'platform_admins' || k === 'bookings') && !Array.isArray(v)) {
+          v = (typeof v === 'string' ? (() => { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } })() : [])
+        }
+        if (v !== null && v !== undefined) cache.set(k, v)
+      })
     }
-    // Ensure admin_clubs exists
+    // Ensure admin_clubs exists and is always an array
     let clubs = cache.get('admin_clubs')
-    if (!Array.isArray(clubs) || clubs.length === 0) {
+    if (!Array.isArray(clubs)) clubs = []
+    if (clubs.length === 0) {
       const hala = createHalaPadel()
       clubs = [hala]
       cache.set('admin_clubs', clubs)
@@ -102,7 +108,11 @@ export async function refreshStoreKeys(keys) {
   try {
     const data = await api.getStoreBatch(keys)
     Object.entries(data || {}).forEach(([k, v]) => {
-      if (v !== null && v !== undefined) cache.set(k, v)
+      if (v === null || v === undefined) return
+      if ((k === 'admin_clubs' || k === 'all_members' || k === 'padel_members') && !Array.isArray(v)) {
+        v = (typeof v === 'string' ? (() => { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } })() : [])
+      }
+      cache.set(k, v)
     })
   } catch (e) {
     console.warn('refreshStoreKeys failed:', e)

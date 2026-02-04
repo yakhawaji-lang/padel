@@ -1,5 +1,5 @@
 /**
- * MySQL connection pool for Hostinger.
+ * MySQL connection pool.
  * Uses DATABASE_URL (mysql://user:pass@host/db)
  */
 import { config } from 'dotenv'
@@ -7,17 +7,16 @@ import { existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
+// Load .env FIRST (before any other logic)
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..', '..')
-const cwd = process.cwd()
-
-// Load from multiple paths (Hostinger cwd may differ from __dirname)
+config() // load from cwd (default)
 ;[
   join(root, '.env.local'),
   join(root, '.env'),
-  join(cwd, '.env.local'),
-  join(cwd, '.env'),
-  join(cwd, '..', '.env'),
+  join(process.cwd(), '.env.local'),
+  join(process.cwd(), '.env'),
+  join(process.cwd(), '..', '.env'),
 ].forEach((p) => { if (existsSync(p)) config({ path: p }) })
 
 import mysql from 'mysql2/promise'

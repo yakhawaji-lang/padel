@@ -6,8 +6,8 @@ import {
   loadPlatformAdmins,
   getPlatformAdminByCredentials,
   createPlatformOwner,
-  savePlatformAdminsAsync
 } from '../storage/adminStorage'
+import { refreshStoreKeys } from '../storage/backendStorage'
 import { setPlatformAdminSession } from '../storage/platformAdminAuth'
 import './auth-login.css'
 
@@ -54,8 +54,18 @@ const PlatformAdminLogin = () => {
   }, [language])
 
   useEffect(() => {
-    const admins = loadPlatformAdmins()
-    setNeedsSetup(admins.length === 0)
+    let cancelled = false
+    ;(async () => {
+      try {
+        await refreshStoreKeys(['platform_admins'])
+        if (cancelled) return
+        const admins = loadPlatformAdmins()
+        setNeedsSetup(Array.isArray(admins) ? admins.length === 0 : true)
+      } catch {
+        if (!cancelled) setNeedsSetup(true)
+      }
+    })()
+    return () => { cancelled = true }
   }, [])
 
   const c = t[language]
@@ -87,14 +97,18 @@ const PlatformAdminLogin = () => {
     }
     setLoading(true)
     try {
-      const owner = createPlatformOwner(email.trim(), password)
+      const owner = await createPlatformOwner(email.trim(), password)
       if (owner) {
-        await savePlatformAdminsAsync(loadPlatformAdmins())
         setPlatformAdminSession(owner)
         navigate('/admin/all-clubs', { replace: true, state: {} })
       } else {
-        setError(language === 'en' ? 'Owner already exists. Try logging in.' : 'المالك موجود. جرّب تسجيل الدخول.')
+        await refreshStoreKeys(['platform_admins'])
+        setNeedsSetup(false)
+        setError(language === 'en' ? 'Owner already exists. Use the form below to log in.' : 'المالك موجود. استخدم النموذج أدناه لتسجيل الدخول.')
       }
+    } catch (err) {
+      console.error('Create owner failed:', err)
+      setError((language === 'en' ? 'Save failed: ' : 'فشل الحفظ: ') + (err?.message || 'API error'))
     } finally {
       setLoading(false)
     }

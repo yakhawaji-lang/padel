@@ -2,75 +2,55 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './AllClubsManagement.css'
 import './common.css'
-import { syncMembersToClubsManually, loadClubs } from '../../storage/adminStorage'
+import { useAdminPanel } from '../AdminPanelContext'
+import { syncMembersToClubsManually, getClubMembersFromStorage } from '../../storage/adminStorage'
 
-const AllClubsManagement = ({ clubs, language = 'en', onCreateClub, onUpdateClub, onDeleteClub }) => {
+const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
+
+function Modal({ title, onClose, children }) {
+  return (
+    <div className="acm-modal-backdrop" onClick={onClose} role="presentation">
+      <div className="acm-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="acm-modal-title">
+        <div className="acm-modal-header">
+          <h3 id="acm-modal-title">{title}</h3>
+          <button type="button" className="acm-modal-close" onClick={onClose} aria-label="Close">&times;</button>
+        </div>
+        <div className="acm-modal-body">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+const emptyForm = {
+  name: '',
+  nameAr: '',
+  address: '',
+  addressAr: '',
+  phone: '',
+  email: '',
+  website: '',
+  playtomicVenueId: '',
+  playtomicApiKey: ''
+}
+
+export default function AllClubsManagement() {
+  const { clubs = [], language = 'en', onCreateClub, onUpdateClub, onDeleteClub } = useAdminPanel()
   const navigate = useNavigate()
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  
-  // Debug: Log clubs data
-  React.useEffect(() => {
-    console.log('AllClubsManagement - clubs prop:', clubs)
-    console.log('AllClubsManagement - clubs type:', typeof clubs)
-    console.log('AllClubsManagement - clubs is array:', Array.isArray(clubs))
-    console.log('AllClubsManagement - clubs length:', clubs?.length)
-    if (clubs && clubs.length > 0) {
-      console.log('AllClubsManagement - First club:', clubs[0])
-    }
-  }, [clubs])
-  
+  const [showModal, setShowModal] = useState(false)
   const [editingClub, setEditingClub] = useState(null)
-  const [formData, setFormData] = useState({
-    name: '',
-    nameAr: '',
-    address: '',
-    addressAr: '',
-    phone: '',
-    email: '',
-    website: '',
-    playtomicVenueId: '',
-    playtomicApiKey: ''
-  })
+  const [formData, setFormData] = useState(emptyForm)
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState(null)
 
-  const handleCreate = () => {
-    if (!formData.name.trim()) {
-      alert('Club name is required')
-      return
-    }
-    
-    const newClub = onCreateClub({
-      ...formData,
-      courts: [
-        { id: 'court-1', name: 'Court 1', nameAr: 'الملعب 1', type: 'indoor' },
-        { id: 'court-2', name: 'Court 2', nameAr: 'الملعب 2', type: 'indoor' },
-        { id: 'court-3', name: 'Court 3', nameAr: 'الملعب 3', type: 'indoor' },
-        { id: 'court-4', name: 'Court 4', nameAr: 'الملعب 4', type: 'indoor' }
-      ],
-      settings: {
-        defaultLanguage: 'en',
-        timezone: 'Asia/Riyadh',
-        currency: 'SAR',
-        bookingDuration: 60,
-        maxBookingAdvance: 30,
-        cancellationPolicy: 24
-      }
-    })
-    
-    setFormData({
-      name: '',
-      nameAr: '',
-      address: '',
-      addressAr: '',
-      phone: '',
-      email: '',
-      website: '',
-      playtomicVenueId: '',
-      playtomicApiKey: ''
-    })
-    setShowCreateModal(false)
+  const safeClubs = Array.isArray(clubs) ? clubs.filter(c => c && c.id) : []
+
+  const openCreate = () => {
+    setEditingClub(null)
+    setFormData(emptyForm)
+    setShowModal(true)
   }
 
-  const handleEdit = (club) => {
+  const openEdit = (club) => {
     setEditingClub(club)
     setFormData({
       name: club.name || '',
@@ -83,306 +63,208 @@ const AllClubsManagement = ({ clubs, language = 'en', onCreateClub, onUpdateClub
       playtomicVenueId: club.playtomicVenueId || '',
       playtomicApiKey: club.playtomicApiKey || ''
     })
-    setShowCreateModal(true)
+    setShowModal(true)
   }
 
-  const handleUpdate = () => {
-    if (!formData.name.trim()) {
-      alert('Club name is required')
-      return
-    }
-    
-    onUpdateClub(editingClub.id, formData)
-    setShowCreateModal(false)
+  const closeModal = () => {
+    setShowModal(false)
     setEditingClub(null)
-    setFormData({
-      name: '',
-      nameAr: '',
-      address: '',
-      addressAr: '',
-      phone: '',
-      email: '',
-      website: '',
-      playtomicVenueId: '',
-      playtomicApiKey: ''
-    })
+    setFormData(emptyForm)
+  }
+
+  const handleCreate = async () => {
+    if (!formData.name.trim()) return
+    try {
+      await onCreateClub({
+        ...formData,
+        courts: [
+          { id: 'court-1', name: 'Court 1', nameAr: 'الملعب 1', type: 'indoor' },
+          { id: 'court-2', name: 'Court 2', nameAr: 'الملعب 2', type: 'indoor' },
+          { id: 'court-3', name: 'Court 3', nameAr: 'الملعب 3', type: 'indoor' },
+          { id: 'court-4', name: 'Court 4', nameAr: 'الملعب 4', type: 'indoor' }
+        ],
+        settings: {
+          defaultLanguage: 'en',
+          timezone: 'Asia/Riyadh',
+          currency: 'SAR',
+          bookingDuration: 60,
+          maxBookingAdvance: 30,
+          cancellationPolicy: 24
+        }
+      })
+      closeModal()
+    } catch (e) {
+      console.error('Create club failed:', e)
+    }
+  }
+
+  const handleUpdate = async () => {
+    if (!editingClub || !formData.name.trim()) return
+    try {
+      await onUpdateClub(editingClub.id, formData)
+      closeModal()
+    } catch (e) {
+      console.error('Update club failed:', e)
+    }
   }
 
   const handleDelete = (clubId) => {
-    if (window.confirm('Are you sure you want to delete this club? This action cannot be undone.')) {
-      onDeleteClub(clubId)
+    if (!window.confirm(t('Delete this club? This cannot be undone.', 'حذف هذا النادي؟ لا يمكن التراجع.', language))) return
+    onDeleteClub(clubId)
+  }
+
+  const handleSyncMembers = async () => {
+    setSyncing(true)
+    setSyncResult(null)
+    try {
+      const updatedClubs = syncMembersToClubsManually()
+      const total = updatedClubs.reduce((sum, c) => sum + (getClubMembersFromStorage(c.id)?.length || 0), 0)
+      setSyncResult({ count: total })
+      window.dispatchEvent(new CustomEvent('clubs-synced'))
+    } catch (e) {
+      setSyncResult({ error: true })
+    } finally {
+      setSyncing(false)
+      setTimeout(() => setSyncResult(null), 4000)
     }
   }
 
-  // Ensure clubs is always an array
-  const safeClubs = Array.isArray(clubs) ? clubs : []
-  
-  console.log('AllClubsManagement Render - safeClubs:', safeClubs)
-  console.log('AllClubsManagement Render - safeClubs.length:', safeClubs.length)
-
   return (
     <div className="main-admin-page">
-      <div className="all-clubs-management">
-        <div className="page-header">
-          <div>
-            <h2 className="page-title">{language === 'ar' ? 'إدارة جميع الأندية' : 'Manage All Clubs'}</h2>
-            <p style={{ margin: '5px 0 0 0', fontSize: '13px', color: '#666' }}>
-              {language === 'ar' ? 'مزامنة الأعضاء لتحديث العدد' : 'Sync members from localStorage to update member counts'}
-            </p>
+      <div className="acm-page">
+        <header className="acm-header">
+          <div className="acm-header-content">
+            <h1 className="acm-title">{t('Manage All Clubs', 'إدارة جميع الأندية', language)}</h1>
+            <p className="acm-subtitle">{t('Create, edit, and manage club details', 'إنشاء وتعديل وإدارة تفاصيل الأندية', language)}</p>
           </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button 
-              className="btn-secondary"
-              onClick={() => {
-                const updatedClubs = syncMembersToClubsManually()
-                alert(`Synced members! Found ${updatedClubs.reduce((sum, c) => sum + (c.members?.length || 0), 0)} total members across all clubs.`)
-                window.location.reload()
-              }}
-              title="Sync members from localStorage to clubs"
-            >
-              {language === 'ar' ? '🔄 مزامنة الأعضاء' : '🔄 Sync Members'}
+          <div className="acm-actions">
+            <button type="button" className="acm-btn acm-btn--secondary" onClick={handleSyncMembers} disabled={syncing} title={t('Sync members from storage', 'مزامنة الأعضاء', language)}>
+              <span className={syncing ? 'acm-spinner' : ''}>{syncing ? '⋯' : '↻'}</span> {t('Sync Members', 'مزامنة الأعضاء', language)}
+              {syncResult && !syncResult.error && <span className="acm-sync-ok">✓ {syncResult.count}</span>}
+              {syncResult?.error && <span className="acm-sync-err">!</span>}
             </button>
-            <button 
-              className="btn-primary"
-              onClick={() => {
-                setEditingClub(null)
-                setFormData({
-                  name: '',
-                  nameAr: '',
-                  address: '',
-                  addressAr: '',
-                  phone: '',
-                  email: '',
-                  website: '',
-                  playtomicVenueId: '',
-                  playtomicApiKey: ''
-                })
-                setShowCreateModal(true)
-              }}
-            >
-              {language === 'ar' ? '+ إضافة نادٍ جديد' : '+ Add New Club'}
+            <button type="button" className="acm-btn acm-btn--primary" onClick={openCreate}>
+              + {t('Add Club', 'إضافة نادٍ', language)}
             </button>
           </div>
-        </div>
+        </header>
 
         {safeClubs.length > 0 && (
-          <div className="total-clubs-section">
-            <div className="total-clubs-card">
-              <span className="total-clubs-icon">🏢</span>
-              <div className="total-clubs-content">
-                <span className="total-clubs-value">{safeClubs.length}</span>
-                <span className="total-clubs-label">{language === 'ar' ? 'إجمالي الأندية' : 'Total Clubs'}</span>
+          <div className="acm-stats">
+            <div className="acm-stat-card">
+              <span className="acm-stat-icon">🏢</span>
+              <div className="acm-stat-content">
+                <span className="acm-stat-value">{safeClubs.length}</span>
+                <span className="acm-stat-label">{t('Total Clubs', 'إجمالي الأندية', language)}</span>
               </div>
             </div>
           </div>
         )}
-        <div className="clubs-table-container">
-          <table className="clubs-table">
-            <thead>
-              <tr>
-                <th>{language === 'ar' ? 'اسم النادي' : 'Club Name'}</th>
-                <th>{language === 'ar' ? 'العنوان' : 'Address'}</th>
-                <th>{language === 'ar' ? 'الملاعب' : 'Courts'}</th>
-                <th>{language === 'ar' ? 'الأعضاء' : 'Members'}</th>
-                <th>{language === 'ar' ? 'البطولات' : 'Tournaments'}</th>
-                <th>{language === 'ar' ? 'الإجراءات' : 'Actions'}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {safeClubs.length === 0 ? (
-                <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
-                      <div style={{ fontSize: '48px', opacity: 0.5 }}>🏢</div>
-                      <p style={{ margin: 0, fontSize: '16px', color: '#666' }}>
-                        {language === 'ar' ? 'لا توجد أندية. أنشئ ناديك الأول!' : 'No clubs found. Create your first club!'}
-                      </p>
-                      <button 
-                        className="btn-primary"
-                        onClick={() => {
-                          setEditingClub(null)
-                          setFormData({
-                            name: '',
-                            nameAr: '',
-                            address: '',
-                            addressAr: '',
-                            phone: '',
-                            email: '',
-                            website: '',
-                            playtomicVenueId: '',
-                            playtomicApiKey: ''
-                          })
-                          setShowCreateModal(true)
-                        }}
-                      >
-                        {language === 'ar' ? '+ إنشاء أول نادٍ' : '+ Create First Club'}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                safeClubs.map(club => {
-                  if (!club || !club.id) {
-                    console.warn('Invalid club data:', club)
-                    return null
-                  }
-                  return (
-                  <tr key={club.id}>
-                    <td>
-                      <span className="club-name-cell">
-                        {club.logo && <img src={club.logo} alt="" className="club-logo-table" />}
-                        <span>
-                          <strong style={{ fontSize: '15px', color: '#333' }}>{club.name || 'Unnamed Club'}</strong>
-                          {club.nameAr && (
-                            <div style={{ fontSize: '12px', color: '#999', marginTop: '4px', fontStyle: 'italic' }}>
-                              {club.nameAr}
-                            </div>
-                          )}
-                        </span>
-                      </span>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '13px' }}>{club.address || '-'}</span>
-                    </td>
-                    <td>
-                      <span style={{ fontWeight: '600', color: '#2196f3' }}>{club.courts?.length || 0}</span>
-                    </td>
-                    <td>
-                      <span style={{ fontWeight: '600', color: '#4caf50' }}>{club.members?.length || 0}</span>
-                    </td>
-                    <td>
-                      <span style={{ fontWeight: '600', color: '#ff9800' }}>{club.tournaments?.length || 0}</span>
-                    </td>
-                    <td>
-                      <div className="table-actions">
-                        <button 
-                          className="btn-primary btn-small"
-                          onClick={() => navigate(`/club/${club.id}`)}
-                          title="Open Club Page"
-                        >
-                          🏠
-                        </button>
-                        <button 
-                          className="btn-secondary btn-small"
-                          onClick={() => navigate(`/admin/club/${club.id}`)}
-                          title="Club Admin Panel"
-                        >
-                          ⚙️
-                        </button>
-                        <button 
-                          className="btn-secondary btn-small"
-                          onClick={() => handleEdit(club)}
-                          title="Edit"
-                        >
-                          ✏️
-                        </button>
-                        <button 
-                          className="btn-danger btn-small"
-                          onClick={() => handleDelete(club.id)}
-                          title="Delete"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
 
-        {showCreateModal && (
-          <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-              <h3>{editingClub ? (language === 'ar' ? 'تعديل النادي' : 'Edit Club') : (language === 'ar' ? 'إنشاء نادٍ جديد' : 'Create New Club')}</h3>
-              <div className="form-group">
-                <label>Club Name (English) *</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Enter club name"
-                />
-              </div>
-              <div className="form-group">
-                <label>Club Name (Arabic)</label>
-                <input
-                  type="text"
-                  value={formData.nameAr}
-                  onChange={(e) => setFormData({ ...formData, nameAr: e.target.value })}
-                  placeholder="أدخل اسم النادي"
-                />
-              </div>
-              <div className="form-group">
-                <label>Address</label>
-                <input
-                  type="text"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Enter address"
-                />
-              </div>
-              <div className="form-group">
-                <label>Phone</label>
-                <input
-                  type="text"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="Enter phone number"
-                />
-              </div>
-              <div className="form-group">
-                <label>Email</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="Enter email"
-                />
-              </div>
-              <div className="form-group">
-                <label>Website</label>
-                <input
-                  type="url"
-                  value={formData.website}
-                  onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                  placeholder="https://..."
-                />
-              </div>
-              <div className="form-group">
-                <label>Playtomic Venue ID</label>
-                <input
-                  type="text"
-                  value={formData.playtomicVenueId}
-                  onChange={(e) => setFormData({ ...formData, playtomicVenueId: e.target.value })}
-                  placeholder="Enter Playtomic venue ID"
-                />
-              </div>
-              <div className="modal-actions">
-                <button 
-                  className="btn-secondary"
-                  onClick={() => {
-                    setShowCreateModal(false)
-                    setEditingClub(null)
-                  }}
-                >
-                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                </button>
-                <button 
-                  className="btn-primary"
-                  onClick={editingClub ? handleUpdate : handleCreate}
-                >
-                  {editingClub ? (language === 'ar' ? 'تحديث' : 'Update') : (language === 'ar' ? 'إنشاء' : 'Create')}
-                </button>
-              </div>
-            </div>
+        {safeClubs.length === 0 ? (
+          <div className="acm-empty">
+            <span className="acm-empty-icon">🏢</span>
+            <h3>{t('No clubs yet', 'لا توجد أندية بعد', language)}</h3>
+            <p>{t('Create your first club to get started.', 'أنشئ ناديك الأول للبدء.', language)}</p>
+            <button type="button" className="acm-btn acm-btn--primary" onClick={openCreate}>
+              + {t('Create First Club', 'إنشاء أول نادٍ', language)}
+            </button>
           </div>
+        ) : (
+          <div className="acm-grid">
+            {safeClubs.map(club => {
+              const memberCount = getClubMembersFromStorage(club.id)?.length || 0
+              return (
+                <div key={club.id} className="acm-card">
+                  <div className="acm-card-main">
+                    <div className="acm-card-logo">
+                      {club.logo ? <img src={club.logo} alt="" /> : <span>◇</span>}
+                    </div>
+                    <div className="acm-card-info">
+                      <h3 className="acm-card-name">{club.name || t('Unnamed', 'بدون اسم', language)}</h3>
+                      {club.nameAr && <p className="acm-card-name-ar">{club.nameAr}</p>}
+                      {club.address && <p className="acm-card-address">{club.address}</p>}
+                      <div className="acm-card-meta">
+                        <span>{club.courts?.length || 0} {t('courts', 'ملاعب', language)}</span>
+                        <span>{memberCount} {t('members', 'أعضاء', language)}</span>
+                        <span>{club.tournaments?.length || 0} {t('tournaments', 'بطولات', language)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="acm-card-actions">
+                    <button type="button" className="acm-btn-icon" onClick={() => navigate(`/club/${club.id}`)} title={t('View', 'عرض', language)}>◉</button>
+                    <button type="button" className="acm-btn-icon" onClick={() => navigate(`/admin/club/${club.id}`)} title={t('Admin', 'إدارة', language)}>⚙</button>
+                    <button type="button" className="acm-btn-icon" onClick={() => openEdit(club)} title={t('Edit', 'تعديل', language)}>✎</button>
+                    <button type="button" className="acm-btn-icon acm-btn-icon--danger" onClick={() => handleDelete(club.id)} title={t('Delete', 'حذف', language)}>×</button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {showModal && (
+          <Modal
+            title={editingClub ? t('Edit Club', 'تعديل النادي', language) : t('Create Club', 'إنشاء نادٍ جديد', language)}
+            onClose={closeModal}
+          >
+            <form className="acm-form" onSubmit={e => { e.preventDefault(); editingClub ? handleUpdate() : handleCreate() }}>
+              <div className="acm-form-row">
+                <div className="acm-form-group">
+                  <label>{t('Club Name (English)', 'اسم النادي (إنجليزي)', language)} *</label>
+                  <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Club name" required />
+                </div>
+                <div className="acm-form-group">
+                  <label>{t('Club Name (Arabic)', 'اسم النادي (عربي)', language)}</label>
+                  <input type="text" value={formData.nameAr} onChange={e => setFormData({ ...formData, nameAr: e.target.value })} placeholder="اسم النادي" dir="rtl" />
+                </div>
+              </div>
+              <div className="acm-form-row">
+                <div className="acm-form-group acm-form-group--full">
+                  <label>{t('Address', 'العنوان', language)}</label>
+                  <input type="text" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} placeholder="Street, city" />
+                </div>
+              </div>
+              <div className="acm-form-row">
+                <div className="acm-form-group">
+                  <label>{t('Address (Arabic)', 'العنوان (عربي)', language)}</label>
+                  <input type="text" value={formData.addressAr} onChange={e => setFormData({ ...formData, addressAr: e.target.value })} placeholder="الشارع، المدينة" dir="rtl" />
+                </div>
+              </div>
+              <div className="acm-form-row">
+                <div className="acm-form-group">
+                  <label>{t('Phone', 'الهاتف', language)}</label>
+                  <input type="tel" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} placeholder="+966..." />
+                </div>
+                <div className="acm-form-group">
+                  <label>{t('Email', 'البريد', language)}</label>
+                  <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} placeholder="club@example.com" />
+                </div>
+              </div>
+              <div className="acm-form-row">
+                <div className="acm-form-group acm-form-group--full">
+                  <label>{t('Website', 'الموقع', language)}</label>
+                  <input type="url" value={formData.website} onChange={e => setFormData({ ...formData, website: e.target.value })} placeholder="https://..." />
+                </div>
+              </div>
+              <div className="acm-form-row">
+                <div className="acm-form-group">
+                  <label>{t('Playtomic Venue ID', 'معرف Playtomic', language)}</label>
+                  <input type="text" value={formData.playtomicVenueId} onChange={e => setFormData({ ...formData, playtomicVenueId: e.target.value })} placeholder="venue-id" />
+                </div>
+                <div className="acm-form-group">
+                  <label>{t('Playtomic API Key', 'مفتاح Playtomic', language)}</label>
+                  <input type="text" value={formData.playtomicApiKey} onChange={e => setFormData({ ...formData, playtomicApiKey: e.target.value })} placeholder="Optional" />
+                </div>
+              </div>
+              <div className="acm-form-actions">
+                <button type="button" className="acm-btn acm-btn--secondary" onClick={closeModal}>{t('Cancel', 'إلغاء', language)}</button>
+                <button type="submit" className="acm-btn acm-btn--primary">{editingClub ? t('Update', 'تحديث', language) : t('Create', 'إنشاء', language)}</button>
+              </div>
+            </form>
+          </Modal>
         )}
       </div>
     </div>
   )
 }
-
-export default AllClubsManagement

@@ -48,14 +48,14 @@ function LoadingFallback() {
 
 function Root() {
   return (
-    <BrowserRouter basename={import.meta.env.BASE_URL || '/'}>
+    <BrowserRouter basename={import.meta.env.BASE_URL || '/'} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/admin-login" element={<PlatformAdminLogin />} />
           <Route path="/logout/:type" element={<Logout />} />
-          <Route path="/admin/*" element={<PlatformAuthGuard><MainAdminPanel /></PlatformAuthGuard>} />
-          <Route path="/admin/club/:clubId/*" element={<ClubAuthGuard><ClubAdminPanel /></ClubAuthGuard>} />
+          <Route path="admin/club/:clubId/*" element={<ClubAuthGuard><ClubAdminPanel /></ClubAuthGuard>} />
+          <Route path="admin/*" element={<PlatformAuthGuard><MainAdminPanel /></PlatformAuthGuard>} />
           <Route path="/register" element={<Register />} />
           <Route path="/register-club" element={<RegisterClub />} />
           <Route path="/club-login" element={<ClubLogin />} />

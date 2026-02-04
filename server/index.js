@@ -23,6 +23,7 @@ import tournamentSummariesRouter from './routes/tournamentSummaries.js'
 import passwordResetRouter from './routes/passwordReset.js'
 import whatsappWebhookRouter from './routes/whatsappWebhook.js'
 import initDbRouter from './routes/initDb.js'
+import dataRouter from './routes/data.js'
 import { isConnected } from './db/pool.js'
 
 const app = express()
@@ -39,6 +40,7 @@ app.use('/api/tournament-summaries', tournamentSummariesRouter)
 app.use('/api/password-reset', passwordResetRouter)
 app.use('/api/whatsapp-webhook', whatsappWebhookRouter)
 app.use('/api/init-db', initDbRouter)
+app.use('/api/data', dataRouter)
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, db: isConnected() })
@@ -51,7 +53,11 @@ app.get('/api/db-check', (req, res) => {
   const url = process.env.DATABASE_URL || process.env.MYSQL_URL || ''
   const hasUrl = !!url.trim()
   const looksMysql = url.trim().startsWith('mysql')
-  const paths = [join(root, '.env'), join(cwd, '.env')]
+  const paths = [
+    join(root, '.env'),
+    join(cwd, '.env'),
+    join(cwd, '..', '.env'),  // parent of public_html - survives deploy
+  ]
   const envFiles = paths.map((p) => ({ path: p, exists: existsSync(p) }))
   res.json({
     hasUrl,
@@ -70,17 +76,19 @@ app.get('/', (req, res) => res.redirect(302, '/app/'))
 const distPath = join(__dirname, '..', 'dist')
 const distIndex = join(distPath, 'index.html')
 if (existsSync(distIndex)) {
-  app.use('/app', express.static(distPath, {
-    index: 'index.html',
-    setHeaders: (res, path) => {
-      if (path.endsWith('.js') || path.endsWith('.mjs')) {
+  const staticOpts = {
+    index: false,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
         res.setHeader('Content-Type', 'application/javascript')
       }
     }
-  }))
-  app.get('/app', (req, res) => res.sendFile(distIndex))
-  app.get('/app/*', (req, res, next) => {
-    if (/\.(js|mjs|css|ico|png|jpg|jpeg|gif|svg|woff2?|ttf|eot)(\?.*)?$/i.test(req.path)) return next()
+  }
+  app.use('/app', express.static(distPath, staticOpts))
+  app.get(/^\/app(\/.*)?$/, (req, res, next) => {
+    const p = req.path || ''
+    if (/\.(js|mjs|css|ico|png|jpg|jpeg|gif|svg|woff2?|ttf|eot)(\?.*)?$/i.test(p)) return next()
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
     res.sendFile(distIndex)
   })
 }

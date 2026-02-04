@@ -56,8 +56,8 @@ export const ensureHalaPadelExists = () => {
       updatedAt: new Date().toISOString()
     }
     
-    clubs.unshift(halaPadel) // Add at the beginning
-    saveClubs(clubs)
+    clubs.unshift(halaPadel)
+    saveClubs(clubs).catch(e => console.error('saveClubs:', e))
     return true
   }
   

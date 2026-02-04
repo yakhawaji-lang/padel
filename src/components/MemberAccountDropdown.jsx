@@ -19,10 +19,10 @@ const MemberAccountDropdown = ({ member, onUpdate, language = 'en', children, cl
     }
   }, [open])
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault()
     if (!member?.id) return
-    updatePlatformMember(member.id, { name: editForm.name.trim(), email: editForm.email.trim(), avatar: editForm.avatar || undefined })
+    await updatePlatformMember(member.id, { name: editForm.name.trim(), email: editForm.email.trim(), avatar: editForm.avatar || undefined })
     setEditOpen(false)
     if (onUpdate) onUpdate()
   }

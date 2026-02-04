@@ -2488,6 +2488,120 @@ button:active {
   }
 }
 
+/* Bookings header - responsive */
+.bookings-section-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bookings-title {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.bookings-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.bookings-sync-row,
+.bookings-nav-row,
+.bookings-days-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-refresh-playtomic {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+}
+
+.bookings-last-sync {
+  font-size: 12px;
+  color: #7f8c8d;
+}
+
+.btn-nav-prev, .btn-nav-next, .btn-nav-today {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.bookings-days-row {
+  padding: 6px 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.bookings-days-label {
+  font-size: 12px;
+  color: #6c757d;
+  font-weight: 500;
+  margin-inline-end: 6px;
+}
+
+.bookings-date-input {
+  min-width: 140px;
+}
+
+@media (max-width: 768px) {
+  .section-bookings {
+    padding: 16px;
+  }
+
+  .bookings-header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .bookings-sync-row {
+    flex-wrap: wrap;
+  }
+
+  .bookings-nav-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+
+  .bookings-nav-row.bookings-court-nav {
+    grid-template-columns: auto auto 1fr;
+  }
+
+  .bookings-nav-row.bookings-court-nav .bookings-date-input {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
+
+  .nav-label-full {
+    display: none;
+  }
+
+  .btn-refresh-playtomic .btn-label {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 480px) {
+  .bookings-nav-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .bookings-nav-row .btn-nav-next {
+    grid-column: 2;
+  }
+}
+
 /* Booking Calendar Styles */
 .booking-calendar-container {
   overflow-x: auto;

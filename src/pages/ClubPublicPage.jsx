@@ -376,7 +376,7 @@ const ClubPublicPage = () => {
 
   const tournamentTypeName = (type) => type === 'social' ? c.socialTournament : c.kingOfCourt
 
-  const handleJoinClub = () => {
+  const handleJoinClub = async () => {
     if (isMember) {
       setJoinStatus('already')
       return
@@ -386,7 +386,7 @@ const ClubPublicPage = () => {
       return
     }
     try {
-      const ok = addMemberToClub(platformUser.id, club.id)
+      const ok = await addMemberToClub(platformUser.id, club.id)
       if (ok) {
         setJoinStatus('success')
         setPlatformUser(getCurrentPlatformUser())

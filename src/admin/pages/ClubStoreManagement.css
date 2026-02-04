@@ -22,6 +22,19 @@
   margin-bottom: 24px;
   border-bottom: 2px solid #e2e8f0;
   padding-bottom: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.store-tabs::-webkit-scrollbar {
+  height: 4px;
+}
+
+.store-tabs::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
 }
 
 .store-tabs button {
@@ -35,6 +48,8 @@
   border-bottom: 3px solid transparent;
   margin-bottom: -2px;
   transition: color 0.2s, border-color 0.2s;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .store-tabs button:hover {
@@ -74,13 +89,31 @@
   }
 
   .store-tabs {
-    flex-wrap: wrap;
-    gap: 6px;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding-bottom: 8px;
+    margin-inline: -14px;
+    padding-inline: 14px;
   }
 
   .store-tabs button {
     padding: 10px 14px;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: fit-content;
+  }
+
+  .store-tabs .tab-icon {
+    margin-inline-end: 0;
+    font-size: 1.125rem;
+  }
+
+  .store-tabs .tab-label {
+    font-size: 0.6875rem;
+    line-height: 1.2;
   }
 
   .store-form-card,
@@ -90,9 +123,20 @@
 }
 
 @media (max-width: 480px) {
+  .store-tabs {
+    margin-inline: -12px;
+    padding-inline: 12px;
+  }
+
   .store-tabs button {
-    flex: 1;
-    min-width: 0;
+    padding: 8px 10px;
+  }
+
+  .store-tabs .tab-label {
+    max-width: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 

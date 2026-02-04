@@ -5,9 +5,9 @@
 
 const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ??
   (typeof window !== 'undefined'
-    ? (window.location?.port === '3000' || !/localhost|127\.0\.0\.1/.test(window.location?.hostname || ''))
-      ? ''
-      : 'http://localhost:4000'
+    ? (/localhost|127\.0\.0\.1/.test(window.location?.hostname || '') && ['3000', '5173', '5174'].includes(window.location?.port || ''))
+      ? 'http://localhost:4000'
+      : ''
     : 'http://localhost:4000')
 
 async function fetchJson(path, options = {}) {
@@ -22,33 +22,54 @@ async function fetchJson(path, options = {}) {
   return res.json()
 }
 
-// ---- App Store (key-value, replaces localStorage) ----
+// ---- Data API (reads from entities + app_settings tables, DB-only) ----
 
 export async function getStore(key) {
   try {
-    const v = await fetchJson(`/api/store/${encodeURIComponent(key)}`)
-    return v
+    return await fetchJson(`/api/data/${encodeURIComponent(key)}`)
   } catch (e) {
-    if (e.message?.includes('fetch') || e.message?.includes('Failed')) return null
-    throw e
+    if (e.message?.includes('Not Found') || e.message?.includes('404') || e.message?.includes('fetch') || e.message?.includes('Failed')) {
+      try {
+        return await fetchJson(`/api/store/${encodeURIComponent(key)}`)
+      } catch (_) {
+        return null
+      }
+    }
+    return null
   }
 }
 
 export async function getStoreBatch(keys) {
   if (!keys?.length) return {}
   try {
-    return await fetchJson(`/api/store?keys=${keys.map(k => encodeURIComponent(k)).join(',')}`)
+    return await fetchJson(`/api/data?keys=${keys.map(k => encodeURIComponent(k)).join(',')}`)
   } catch (e) {
-    if (e.message?.includes('fetch') || e.message?.includes('Failed')) return {}
-    throw e
+    if (e.message?.includes('Not Found') || e.message?.includes('404') || e.message?.includes('fetch') || e.message?.includes('Failed')) {
+      try {
+        return await fetchJson(`/api/store?keys=${keys.map(k => encodeURIComponent(k)).join(',')}`)
+      } catch (_) {
+        return {}
+      }
+    }
+    return {}
   }
 }
 
 export async function setStore(key, value) {
-  return fetchJson('/api/store', {
-    method: 'POST',
-    body: JSON.stringify({ key, value })
-  })
+  try {
+    return await fetchJson('/api/data', {
+      method: 'POST',
+      body: JSON.stringify({ key, value })
+    })
+  } catch (e) {
+    if (e.message?.includes('Not Found') || e.message?.includes('404')) {
+      return fetchJson('/api/store', {
+        method: 'POST',
+        body: JSON.stringify({ key, value })
+      })
+    }
+    throw e
+  }
 }
 
 export async function setStoreBatch(items) {

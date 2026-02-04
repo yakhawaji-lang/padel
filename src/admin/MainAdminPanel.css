@@ -40,6 +40,14 @@
   min-height: 0;
 }
 
+.main-admin-page-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
 .main-admin-sidebar-backdrop[aria-hidden="true"] {
   pointer-events: none;
 }

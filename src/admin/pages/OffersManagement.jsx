@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import './club-pages-common.css'
 import './OffersManagement.css'
 import '../pages/common.css'
 import { getAppLanguage } from '../../storage/languageStorage'

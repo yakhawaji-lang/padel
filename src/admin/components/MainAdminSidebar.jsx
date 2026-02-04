@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import './MainAdminSidebar.css'
 import LanguageIcon from '../../components/LanguageIcon'
 import { getPlatformAdminSession, hasPlatformPermission } from '../../storage/platformAdminAuth'
@@ -7,8 +7,7 @@ import { getPlatformAdminSession, hasPlatformPermission } from '../../storage/pl
 const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) => {
   const session = getPlatformAdminSession()
   const location = useLocation()
-  const navigate = useNavigate()
-  const displayClubs = clubs.filter(c => c.status !== 'pending')
+  const displayClubs = (Array.isArray(clubs) ? clubs : []).filter(c => c.status !== 'pending')
   useEffect(() => {
     if (open && typeof onClose === 'function') onClose()
   }, [location.pathname])
@@ -52,6 +51,17 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
             </span>
           </Link>
         )}
+        {session && (
+          <Link
+            to="/admin/admin-users"
+            className={`main-admin-nav-item ${isActive('/admin/admin-users') ? 'active' : ''}`}
+          >
+            <span className="nav-icon">👤</span>
+            <span className="nav-label">
+              {language === 'en' ? 'Admin Users' : 'مدراء المنصة والأندية'}
+            </span>
+          </Link>
+        )}
         {hasPlatformPermission(session, 'manage-clubs') && (
           <Link
             to="/admin/manage-clubs"
@@ -64,33 +74,13 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
           </Link>
         )}
         {hasPlatformPermission(session, 'all-members') && (
-          <a
-            href="#all-members-section"
-            className="main-admin-nav-item"
-            onClick={(e) => {
-              e.preventDefault()
-              if (location.pathname !== '/admin/all-clubs') {
-                navigate('/admin/all-clubs')
-                setTimeout(() => document.getElementById('all-members-section')?.scrollIntoView({ behavior: 'smooth' }), 300)
-              } else {
-                document.getElementById('all-members-section')?.scrollIntoView({ behavior: 'smooth' })
-              }
-            }}
+          <Link
+            to="/admin/all-members"
+            className={`main-admin-nav-item ${isActive('/admin/all-members') ? 'active' : ''}`}
           >
             <span className="nav-icon">👥</span>
             <span className="nav-label">
               {language === 'en' ? 'All Members' : 'أعضاء كل الأندية'}
-            </span>
-          </a>
-        )}
-        {hasPlatformPermission(session, 'admin-users') && (
-          <Link
-            to="/admin/admin-users"
-            className={`main-admin-nav-item ${isActive('/admin/admin-users') ? 'active' : ''}`}
-          >
-            <span className="nav-icon">👤</span>
-            <span className="nav-label">
-              {language === 'en' ? 'Admin Users' : 'مدراء المنصة'}
             </span>
           </Link>
         )}

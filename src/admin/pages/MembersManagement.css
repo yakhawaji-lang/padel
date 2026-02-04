@@ -79,3 +79,83 @@
     min-height: 40px;
   }
 }
+
+/* Club Members - Card layout (cxp-) */
+.cxp-member-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cxp-member-main {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.cxp-member-avatar {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #2d4a6f 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.cxp-member-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cxp-member-avatar span {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.cxp-member-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cxp-member-name {
+  margin: 0 0 4px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.cxp-member-email,
+.cxp-member-phone {
+  margin: 0 0 2px 0;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.cxp-member-games {
+  font-size: 0.75rem;
+  color: #475569;
+  font-weight: 500;
+}
+
+.cxp-member-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+[dir="rtl"] .cxp-search-input {
+  padding-left: 14px;
+  padding-right: 40px;
+}
+
+[dir="rtl"] .cxp-search-wrap span {
+  left: auto;
+  right: 12px;
+}

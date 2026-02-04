@@ -25,11 +25,12 @@ export function getPlatformAdminSession() {
 
 export function setPlatformAdminSession(admin) {
   if (admin) {
+    const perms = admin.role === 'owner' ? PLATFORM_PAGE_IDS : (admin.permissions || PLATFORM_PAGE_IDS)
     localStorage.setItem(KEY, JSON.stringify({
       id: admin.id,
       email: admin.email,
       role: admin.role || 'admin',
-      permissions: admin.permissions || PLATFORM_PAGE_IDS,
+      permissions: perms,
       _ts: Date.now()
     }))
   } else {

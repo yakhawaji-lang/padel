@@ -65,7 +65,7 @@ export const saveToLocalStorage = {
       const byId = new Map()
       existing.forEach(m => { if (m?.id) byId.set(String(m.id), m) })
       members.forEach(m => { if (m?.id) byId.set(String(m.id), { ...byId.get(m.id), ...m }) })
-      saveMembers(Array.from(byId.values()))
+      saveMembers(Array.from(byId.values())).catch(e => console.error('saveMembers:', e))
     } catch (error) {
       console.error('Error saving members:', error)
     }

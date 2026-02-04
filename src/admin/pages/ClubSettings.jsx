@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react'
+import './club-pages-common.css'
 import './ClubSettings.css'
 import '../pages/common.css'
 import SocialIcon, { PLATFORMS } from '../../components/SocialIcon'
 
-const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
+const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageChange }) => {
+  const lang = language || 'en'
   const [formData, setFormData] = useState({
     name: '',
     nameAr: '',
@@ -135,7 +137,10 @@ const ClubSettings = ({ club, onUpdateClub, onDefaultLanguageChange }) => {
     if (typeof onDefaultLanguageChange === 'function' && updates.settings?.defaultLanguage) {
       onDefaultLanguageChange(updates.settings.defaultLanguage)
     }
-    alert('Settings saved successfully!')
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('clubs-synced'))
+    }
+    alert(lang === 'ar' ? 'تم حفظ الإعدادات بنجاح!' : 'Settings saved successfully!')
   }
 
   const handleAddCourt = () => {

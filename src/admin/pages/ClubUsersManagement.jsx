@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { getClubAdminSession, hasClubPermission } from '../../storage/clubAuth'
 import { CLUB_PERMISSIONS } from '../../config/permissions'
+import './club-pages-common.css'
 import './MembersManagement.css'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
@@ -89,10 +90,13 @@ export default function ClubUsersManagement({ club, onUpdateClub, language = 'en
   }
 
   return (
-    <div className="club-members-management">
-      <div className="section-header">
-        <h2>{t('Club Admin Users', 'مدراء النادي', language)}</h2>
-        <button type="button" className="btn-primary" onClick={() => { setShowAdd(true); setForm({ email: '', password: '', permissions: [] }) }}>
+    <div className="club-admin-page club-members-management">
+      <header className="cxp-header">
+        <h1 className="cxp-title">{t('Club Admin Users', 'مدراء النادي', language)}</h1>
+        <p className="cxp-subtitle">{t('Manage users who can access this club admin', 'إدارة المستخدمين الذين يمكنهم الوصول لتحكم النادي', language)}</p>
+      </header>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
+        <button type="button" className="cxp-btn cxp-btn--primary" onClick={() => { setShowAdd(true); setForm({ email: '', password: '', permissions: [] }); setError('') }}>
           + {t('Add User', 'إضافة مستخدم', language)}
         </button>
       </div>
