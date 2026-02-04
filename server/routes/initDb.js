@@ -115,6 +115,40 @@ router.post('/', async (req, res) => {
         await query('INSERT IGNORE INTO app_settings (`key`, value) VALUES (?, ?)', [r.key, JSON.stringify(r.value)])
       }
     }
+    // If no clubs exist, insert default Hala Padel
+    const { rows: clubCountRows } = await query('SELECT COUNT(*) as n FROM entities WHERE entity_type = ?', ['club'])
+    if (clubCountRows[0]?.n === 0) {
+      const halaPadel = {
+        id: 'hala-padel',
+        name: 'Hala Padel',
+        nameAr: 'هلا بادل',
+        tagline: 'Indoor courts • King of the Court & Social tournaments • For all levels',
+        taglineAr: 'ملاعب داخلية • بطولات ملك الملعب وسوشيال • لجميع المستويات',
+        address: 'Arid District, 11234, Riyadh',
+        addressAr: 'حي العارض، 11234، الرياض',
+        phone: '', email: '', website: 'https://playtomic.com/clubs/hala-padel',
+        playtomicVenueId: 'hala-padel', playtomicApiKey: '',
+        courts: [
+          { id: 'court-1', name: 'Court 1', nameAr: 'الملعب 1', type: 'indoor' },
+          { id: 'court-2', name: 'Court 2', nameAr: 'الملعب 2', type: 'indoor' },
+          { id: 'court-3', name: 'Court 3', nameAr: 'الملعب 3', type: 'indoor' },
+          { id: 'court-4', name: 'Court 4', nameAr: 'الملعب 4', type: 'indoor' }
+        ],
+        settings: { defaultLanguage: 'en', timezone: 'Asia/Riyadh', currency: 'SAR', bookingDuration: 60, maxBookingAdvance: 30, cancellationPolicy: 24, openingTime: '06:00', closingTime: '23:00' },
+        tournaments: [], members: [], bookings: [], offers: [], accounting: [],
+        tournamentTypes: [
+          { id: 'king-of-court', name: 'King of the Court', nameAr: 'ملك الملعب', description: 'Winners stay on court', descriptionAr: 'الفائزون يبقون على الملعب' },
+          { id: 'social', name: 'Social Tournament', nameAr: 'بطولة سوشيال', description: 'Round-robin format', descriptionAr: 'نظام دوري' }
+        ],
+        storeEnabled: false,
+        store: { name: '', nameAr: '', categories: [], products: [], sales: [], inventoryMovements: [], offers: [], coupons: [], minStockAlert: 5 },
+        tournamentData: { kingState: null, socialState: null, currentTournamentId: 1 },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+      await query('INSERT IGNORE INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?)', ['club', 'hala-padel', JSON.stringify(halaPadel)])
+      console.log('[init-db] Inserted default Hala Padel club')
+    }
     // Ensure default platform owner 2@2.com / 123456 exists for admin login
     const { rows: paRows } = await query('SELECT COUNT(*) as n FROM entities WHERE entity_type = ?', ['platform_admin'])
     if (paRows[0]?.n === 0) {

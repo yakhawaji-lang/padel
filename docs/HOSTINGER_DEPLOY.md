@@ -27,7 +27,7 @@
    mysql://USERNAME:PASSWORD@HOST_FACTUAL/DATABASE_NAME
    ```
    - **مثال صحيح:** `mysql://u502561206_padel_user:كلمة_المرور@srv2069.hstgr.io/u502561206_padel_db`
-   - **تحذير:** لا تضع كلمة `HOST` حرفياً! استبدلها بعنوان MySQL الفعلي من hPanel (مثل `srv2069.hstgr.io` أو `localhost`)
+   - **إذا ظهر Access denied @'::1':** استخدم `127.0.0.1` بدلاً من `localhost` (لتفادي IPv6)
    - رمّز الأحرف الخاصة في كلمة المرور: `@` → `%40` و `%` → `%25`
 
 ---
@@ -124,10 +124,8 @@ Invoke-RestMethod -Uri "https://your-site.hostingersite.com/api/db-check"
 ```
 - `hasUrl: false` → أضف `DATABASE_URL` في Environment variables
 - `looksMysql: false` → الرابط يجب أن يبدأ بـ `mysql://`
-- **ENOTFOUND HOST** = استخدمت كلمة `HOST` حرفياً في الرابط. غيّرها إلى العنوان الفعلي من hPanel:
-  - غالباً: `srv2069.hstgr.io` أو `localhost`
-  - من hPanel → Databases → Manage → انسخ Host
-  - مثال صحيح: `mysql://u502561206_padel_user:YAkhawaji1978@srv2069.hstgr.io/u502561206_padel_db`
+- **ENOTFOUND HOST** = استخدمت كلمة `HOST` حرفياً في الرابط. غيّرها إلى العنوان الفعلي من hPanel
+- **Access denied @'::1'** = استخدم `127.0.0.1` بدلاً من `localhost` في DATABASE_URL (لتفادي IPv6)
 
 ### ملف .env يُحذف
 لا تعتمد على ملف `.env` في Hostinger. استخدم **Environment variables** من إعدادات تطبيق Node.js فقط.
