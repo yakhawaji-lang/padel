@@ -3996,7 +3996,8 @@ function App({ currentUser }) {
   const handleGridMouseDown = (e, day, timeSlot) => {
     if (e.target.closest('.booking-event')) return // Don't start drag on existing booking
     const startCell = { day, timeSlot }
-    setDragSelection({ startCell, endCell: null, startTime: timeSlot, endTime: null })
+    // endCell: startCell so single tap/click opens modal (mobile + desktop)
+    setDragSelection({ startCell, endCell: startCell, startTime: timeSlot, endTime: timeSlot })
   }
 
   const handleGridMouseMove = (e, day, timeSlot) => {
@@ -4037,7 +4038,8 @@ function App({ currentUser }) {
   const handleCourtGridMouseDown = (e, court, timeSlot, date) => {
     if (e.target.closest('.booking-event')) return
     const startCell = { court, timeSlot, date }
-    setDragSelection({ startCell, endCell: null, startTime: timeSlot, endTime: null })
+    // endCell: startCell so single tap/click opens modal (mobile + desktop)
+    setDragSelection({ startCell, endCell: startCell, startTime: timeSlot, endTime: timeSlot })
   }
 
   const handleCourtGridMouseMove = (e, court, timeSlot, date) => {
@@ -5920,19 +5922,28 @@ function App({ currentUser }) {
                           return (
                             <div
                               key={`${dayIdx}-${timeIdx}`}
-                              className={`calendar-cell ${isInDragSelection ? 'drag-selection' : ''}`}
+                              className={`calendar-cell calendar-cell-weekly ${isInDragSelection ? 'drag-selection' : ''}`}
+                              data-date={day.toISOString().split('T')[0]}
+                              data-time={timeSlot}
                               onMouseDown={(e) => handleGridMouseDown(e, day, timeSlot)}
                               onMouseMove={(e) => handleGridMouseMove(e, day, timeSlot)}
                               onMouseUp={handleGridMouseUp}
+                              onTouchStart={(e) => { if (!e.target.closest('.booking-event')) handleGridMouseDown(e, day, timeSlot) }}
+                              onTouchMove={(e) => {
+                                if (!dragSelection?.startCell || !e.touches?.[0]) return
+                                const el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY)
+                                const cell = el?.closest('.calendar-cell-weekly')
+                                if (!cell?.dataset?.date || !cell?.dataset?.time) return
+                                const dayStr = cell.dataset.date
+                                const startDay = dragSelection.startCell?.day
+                                if (!startDay || startDay.toISOString().split('T')[0] !== dayStr) return
+                                handleGridMouseMove(e, new Date(dayStr + 'T12:00:00'), cell.dataset.time)
+                              }}
+                              onTouchEnd={(e) => { handleGridMouseUp(); e.preventDefault() }}
                               onMouseLeave={() => {
-                                // Clear drag selection if mouse leaves grid
-                                if (dragSelection && !dragSelection.endCell) {
-                                  setDragSelection(null)
-                                }
+                                if (dragSelection && !dragSelection.endCell) setDragSelection(null)
                               }}
-                              style={{
-                                position: 'relative'
-                              }}
+                              style={{ position: 'relative', touchAction: 'manipulation' }}
                             >
                               {slotBookings.map((booking, bookingIdx) => {
                                 const rowSpan = getBookingRowSpan(booking)
@@ -6197,18 +6208,29 @@ function App({ currentUser }) {
                             return (
                               <div
                                 key={`${courtIdx}-${timeIdx}`}
-                                className={`calendar-cell ${isInDragSelection ? 'drag-selection' : ''}`}
+                                className={`calendar-cell calendar-cell-court ${isInDragSelection ? 'drag-selection' : ''}`}
+                                data-court={court}
+                                data-date={selectedDateForCourtView}
+                                data-time={timeSlot}
                                 onMouseDown={(e) => handleCourtGridMouseDown(e, court, timeSlot, selectedDateForCourtView)}
                                 onMouseMove={(e) => handleCourtGridMouseMove(e, court, timeSlot, selectedDateForCourtView)}
                                 onMouseUp={handleCourtGridMouseUp}
+                                onTouchStart={(e) => { if (!e.target.closest('.booking-event')) handleCourtGridMouseDown(e, court, timeSlot, selectedDateForCourtView) }}
+                                onTouchMove={(e) => {
+                                  if (!dragSelection?.startCell || !e.touches?.[0]) return
+                                  const el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY)
+                                  const cell = el?.closest('.calendar-cell-court')
+                                  if (!cell?.dataset?.court || !cell?.dataset?.date || !cell?.dataset?.time) return
+                                  const startCourt = dragSelection.startCell?.court
+                                  const startDate = dragSelection.startCell?.date
+                                  if (startCourt !== cell.dataset.court || startDate !== cell.dataset.date) return
+                                  handleCourtGridMouseMove(e, cell.dataset.court, cell.dataset.time, cell.dataset.date)
+                                }}
+                                onTouchEnd={(e) => { handleCourtGridMouseUp(); e.preventDefault() }}
                                 onMouseLeave={() => {
-                                  if (dragSelection && !dragSelection.endCell) {
-                                    setDragSelection(null)
-                                  }
+                                  if (dragSelection && !dragSelection.endCell) setDragSelection(null)
                                 }}
-                                style={{
-                                  position: 'relative'
-                                }}
+                                style={{ position: 'relative', touchAction: 'manipulation' }}
                               >
                                 {slotBookings.map(booking => {
                                   const rowSpan = getBookingRowSpan(booking)

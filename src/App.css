@@ -2682,6 +2682,8 @@ button:active {
   cursor: crosshair;
   background: white;
   overflow: visible;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .calendar-cell:hover {
@@ -2705,6 +2707,9 @@ button:active {
   cursor: pointer;
   overflow: visible;
   z-index: 3;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 28px; /* touch target */
   border-left: 3px solid #28a745;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   display: flex;
