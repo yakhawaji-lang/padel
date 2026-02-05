@@ -157,8 +157,10 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
       maintenance: courtForm.maintenance || false,
       image: courtForm.image || undefined
     }
-    setCourts([...courts, newCourt])
+    const nextCourts = [...courts, newCourt]
+    setCourts(nextCourts)
     setCourtForm({ name: '', nameAr: '', type: 'indoor', maintenance: false, image: '' })
+    onUpdateClub({ courts: nextCourts })
   }
 
   const handleEditCourt = (court) => {
@@ -185,11 +187,14 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
     setCourts(updatedCourts)
     setEditingCourt(null)
     setCourtForm({ name: '', nameAr: '', type: 'indoor', maintenance: false, image: '' })
+    onUpdateClub({ courts: updatedCourts })
   }
 
   const handleDeleteCourt = (courtId) => {
     if (window.confirm('Are you sure you want to delete this court?')) {
-      setCourts(courts.filter(c => c.id !== courtId))
+      const nextCourts = courts.filter(c => c.id !== courtId)
+      setCourts(nextCourts)
+      onUpdateClub({ courts: nextCourts })
     }
   }
 
