@@ -52,6 +52,21 @@ function ClubAdminPanel() {
     window.addEventListener('clubs-synced', onSynced)
     return () => window.removeEventListener('clubs-synced', onSynced)
   }, [clubId])
+
+  // Refresh from DB when tab becomes visible or periodically (to see updates from other devices)
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') loadData()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') loadData()
+    }, 4000)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      clearInterval(interval)
+    }
+  }, [clubId])
   
   // Save language preference when it changes
   useEffect(() => {
