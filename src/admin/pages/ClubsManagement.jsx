@@ -208,7 +208,7 @@ const ClubsManagement = ({ clubs, currentClub, onCreateClub, onUpdateClub, onDel
                     <button 
                       className="btn-primary btn-full"
                       onClick={() => {
-                        localStorage.setItem('admin_current_club_id', club.id)
+                        import('../../storage/appSettingsStorage').then(({ setAdminCurrentClubId }) => setAdminCurrentClubId(club.id))
                         onSelectClub(club)
                         window.open(`/app?club=${club.id}`, '_blank')
                       }}

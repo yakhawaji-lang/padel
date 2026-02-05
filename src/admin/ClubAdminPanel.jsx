@@ -6,6 +6,7 @@ import './pages/club-pages-common.css'
 import ClubAdminSidebar from './components/ClubAdminSidebar'
 import ClubAdminHeader from './components/ClubAdminHeader'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
+import { setClubLanguage } from '../storage/appSettingsStorage'
 import ClubDashboard from './pages/ClubDashboard'
 import ClubMembersManagement from './pages/ClubMembersManagement'
 import ClubOffersManagement from './pages/ClubOffersManagement'
@@ -56,9 +57,7 @@ function ClubAdminPanel() {
   useEffect(() => {
     if (language) {
       setAppLanguage(language)
-      if (clubId) {
-        localStorage.setItem(`club_${clubId}_language`, language)
-      }
+      if (clubId) setClubLanguage(clubId, language)
     }
   }, [clubId, language])
 
@@ -111,7 +110,7 @@ function ClubAdminPanel() {
           <Route path="offers" element={<ClubPageGuard permission="offers"><ClubOffersManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
           <Route path="store" element={<ClubPageGuard permission="store"><ClubStoreManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
           <Route path="accounting" element={<ClubPageGuard permission="accounting"><ClubAccountingManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
-          <Route path="settings" element={<ClubPageGuard permission="settings"><ClubSettings club={club} language={language} onUpdateClub={handleClubUpdate} onDefaultLanguageChange={(lang) => { setLanguage(lang); setAppLanguage(lang); if (clubId) localStorage.setItem(`club_${clubId}_language`, lang) }} /></ClubPageGuard>} />
+          <Route path="settings" element={<ClubPageGuard permission="settings"><ClubSettings club={club} language={language} onUpdateClub={handleClubUpdate} onDefaultLanguageChange={(lang) => { setLanguage(lang); setAppLanguage(lang); if (clubId) setClubLanguage(clubId, lang) }} /></ClubPageGuard>} />
           <Route path="users" element={<ClubPageGuard permission="users"><ClubUsersManagement club={club} onUpdateClub={handleClubUpdate} language={language} /></ClubPageGuard>} />
         </Routes>
       </div>

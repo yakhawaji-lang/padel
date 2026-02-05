@@ -27,16 +27,7 @@ const getClubTournamentStats = (club) => {
 }
 
 const getClubBookingsCount = (club) => {
-  let list = club?.bookings || []
-  if (list.length === 0) {
-    try {
-      const raw = localStorage.getItem(`club_${club?.id}_bookings`) || localStorage.getItem('bookings')
-      if (raw) {
-        const arr = JSON.parse(raw)
-        list = Array.isArray(arr) ? arr.filter(b => !b.clubId || b.clubId === club?.id) : []
-      }
-    } catch (e) {}
-  }
+  const list = club?.bookings && Array.isArray(club.bookings) ? club.bookings : []
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const upcoming = list.filter(b => new Date(b.date || b.startDate || 0) >= today)

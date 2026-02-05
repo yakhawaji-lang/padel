@@ -146,6 +146,12 @@ https://playtix.app/api/db-check
 https://playtix.app/api/init-db?init=1
 ```
 
+**إعادة تهيئة كاملة (حذف كل البيانات وإعادة الإنشاء):**
+```
+https://playtix.app/api/init-db?reset=1
+```
+⚠️ يحذف جميع البيانات في `u502561206_padel_db` ويعيد إنشاء الجداول والبيانات الافتراضية.
+
 **من PowerShell:**
 ```powershell
 Invoke-RestMethod -Uri "https://playtix.app/api/init-db?init=1"
@@ -245,6 +251,7 @@ domains/
 | `https://playtix.app/api/health` | فحص الحالة وقاعدة البيانات |
 | `https://playtix.app/api/db-check` | تشخيص قاعدة البيانات |
 | `https://playtix.app/api/init-db?init=1` | تهيئة الجداول (من المتصفح) |
+| `https://playtix.app/api/init-db?reset=1` | إعادة تهيئة كاملة (حذف وإعادة إنشاء) |
 | `https://playtix.app/api/init-db/tables` | التحقق من وجود الجداول |
 | `https://playtix.app/api/init-db/migrate-club-settings` | ترحيل إعدادات الأندية (POST) |
 

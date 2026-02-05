@@ -82,6 +82,42 @@ const STMTS = [
 
 router.get('/', async (req, res) => {
   const hasDb = isConnected() || !!process.env.DATABASE_URL
+  // GET /api/init-db?reset=1 — إعادة تهيئة كاملة: حذف البيانات وإعادة الإنشاء (لـ u502561206_padel_db)
+  if (req.query.reset === '1' && hasDb) {
+    try {
+      await query('SET FOREIGN_KEY_CHECKS = 0')
+      await query('TRUNCATE TABLE matches')
+      await query('TRUNCATE TABLE member_stats')
+      await query('TRUNCATE TABLE tournament_summaries')
+      await query('DELETE FROM entities')
+      await query('DELETE FROM app_settings')
+      await query('TRUNCATE TABLE app_store')
+      await query('SET FOREIGN_KEY_CHECKS = 1')
+      // Run normal init
+      for (let i = 0; i < STMTS.length; i++) {
+        try {
+          await query(STMTS[i])
+        } catch (stmtErr) {
+          console.error('init-db reset stmt', i, 'failed:', stmtErr.message)
+        }
+      }
+      const halaPadel = getDefaultHalaPadel()
+      await query('INSERT IGNORE INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?)', ['club', 'hala-padel', JSON.stringify(halaPadel)])
+      const defaultOwner = {
+        id: 'platform-owner-default',
+        email: '2@2.com',
+        password: '123456',
+        role: 'owner',
+        permissions: ['all-clubs', 'manage-clubs', 'all-members', 'admin-users'],
+        createdAt: new Date().toISOString()
+      }
+      await query('INSERT IGNORE INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?)', ['platform_admin', defaultOwner.id, JSON.stringify(defaultOwner)])
+      return res.json({ ok: true, message: 'Database reset and reinitialized successfully' })
+    } catch (e) {
+      console.error('init-db reset error:', e)
+      return res.status(500).json({ error: e.message })
+    }
+  }
   // GET /api/init-db?init=1 — تهيئة من المتصفح (بديل لـ POST عند صعوبة تنفيذ الأوامر)
   if (req.query.init === '1' && hasDb) {
     try {

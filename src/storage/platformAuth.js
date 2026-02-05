@@ -1,12 +1,11 @@
-// Platform user (visitor who registered on the site) - used for "Join club" flow
+// Platform user (visitor who registered on the site) - uses database via appSettingsStorage
 
 import { getMergedMembersRaw, saveMembers } from './adminStorage.js'
-
-const CURRENT_MEMBER_KEY = 'current_member_id'
+import { getCurrentMemberId, setCurrentMemberId } from './appSettingsStorage.js'
 
 export const getCurrentPlatformUser = () => {
   try {
-    const id = localStorage.getItem(CURRENT_MEMBER_KEY)
+    const id = getCurrentMemberId()
     if (!id) return null
     const members = getMergedMembersRaw()
     return members.find(m => m.id === id) || null
@@ -16,11 +15,10 @@ export const getCurrentPlatformUser = () => {
 }
 
 export const setCurrentPlatformUser = (memberId) => {
-  if (memberId) localStorage.setItem(CURRENT_MEMBER_KEY, memberId)
-  else localStorage.removeItem(CURRENT_MEMBER_KEY)
+  setCurrentMemberId(memberId)
 }
 
-/** Update platform member profile (name, email, avatar) - uses centralized save */
+/** Update platform member profile - uses centralized save */
 export const updatePlatformMember = async (memberId, updates) => {
   try {
     const members = getMergedMembersRaw()

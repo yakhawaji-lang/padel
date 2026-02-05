@@ -1,7 +1,7 @@
 // Admin Storage - Multi-club management
-// Uses PostgreSQL (via API) when VITE_USE_POSTGRES=true, else localStorage
+// Always uses database (u502561206_padel_db) via API - no localStorage for data
 
-const USE_POSTGRES = (typeof import.meta === 'undefined' || import.meta.env?.VITE_USE_POSTGRES !== 'false')
+const USE_POSTGRES = true
 
 const ADMIN_STORAGE_KEYS = {
   CLUBS: 'admin_clubs',

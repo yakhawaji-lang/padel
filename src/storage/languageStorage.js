@@ -1,24 +1,31 @@
 /**
- * تخزين اللغة الموحدة للمشروع
- * Language persistence across the entire project
+ * Language storage - uses database via appSettingsStorage.
+ * No localStorage.
  */
-const APP_LANGUAGE_KEY = 'app_language'
+
+import { getAppLanguage as getFromDb, setAppLanguage as setToDb, getCached } from './appSettingsStorage.js'
 
 export const getAppLanguage = () => {
-  return localStorage.getItem(APP_LANGUAGE_KEY) || 'en'
+  const cached = getCached('app_language')
+  if (cached === 'ar' || cached === 'en') return cached
+  return 'en'
 }
 
 export const setAppLanguage = (lang) => {
   if (lang === 'en' || lang === 'ar') {
-    localStorage.setItem(APP_LANGUAGE_KEY, lang)
-    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
-    document.documentElement.lang = lang
+    setToDb(lang)
+    if (typeof document !== 'undefined') {
+      document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
+      document.documentElement.lang = lang
+    }
   }
 }
 
 export const applyAppLanguage = () => {
   const lang = getAppLanguage()
-  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
-  document.documentElement.lang = lang
+  if (typeof document !== 'undefined') {
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
+    document.documentElement.lang = lang
+  }
   return lang
 }

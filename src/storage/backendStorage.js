@@ -13,7 +13,8 @@ export async function bootstrap() {
   try {
     const keys = [
       'admin_clubs', 'all_members', 'padel_members', 'admin_settings', 'platform_admins',
-      'app_language', 'current_member_id', 'admin_current_club_id', 'bookings'
+      'app_language', 'current_member_id', 'admin_current_club_id', 'bookings',
+      'platform_admin_session', 'club_admin_session', 'current_club_admin_id'
     ]
     const data = await api.getStoreBatch(keys)
     if (data && typeof data === 'object') {

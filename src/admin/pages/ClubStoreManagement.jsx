@@ -3,6 +3,7 @@ import './club-pages-common.css'
 import '../pages/common.css'
 import './ClubStoreManagement.css'
 import BarcodeDisplay from '../components/BarcodeDisplay'
+import { getClubLanguageCached } from '../../storage/appSettingsStorage'
 
 const defaultStore = () => ({ name: '', nameAr: '', categories: [], products: [], sales: [], inventoryMovements: [], offers: [], coupons: [], minStockAlert: 5 })
 
@@ -28,7 +29,7 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
   const [editingOffer, setEditingOffer] = useState(null)
   const [editingCoupon, setEditingCoupon] = useState(null)
   const [movementFilter, setMovementFilter] = useState('all') // 'all' | 'in' | 'out' | 'sale'
-  const language = langProp || localStorage.getItem(`club_${club?.id}_language`) || 'en'
+  const language = langProp || getClubLanguageCached(club?.id) || 'en'
 
   useEffect(() => {
     setStore(club?.store ? { ...defaultStore(), ...club.store, categories: club.store.categories || [], products: club.store.products || [], sales: club.store.sales || [], inventoryMovements: club.store.inventoryMovements || [], offers: club.store.offers || [], coupons: club.store.coupons || [], minStockAlert: club.store.minStockAlert ?? 5 } : defaultStore())

@@ -14,6 +14,7 @@ import OffersManagement from './pages/OffersManagement'
 import AccountingManagement from './pages/AccountingManagement'
 import ClubDetails from './pages/ClubDetails'
 import { loadClubs, saveClubs } from '../storage/adminStorage'
+import { getAdminCurrentClubId, setAdminCurrentClubId } from '../storage/appSettingsStorage'
 
 function AdminApp() {
   const [currentClub, setCurrentClub] = useState(null)
@@ -46,14 +47,14 @@ function AdminApp() {
         }
         
         if (!club) {
-          const savedCurrentClubId = localStorage.getItem('admin_current_club_id')
+          const savedCurrentClubId = getAdminCurrentClubId()
           club = savedCurrentClubId 
             ? savedClubs.find(c => c.id === savedCurrentClubId) || savedClubs[0]
             : savedClubs[0]
         }
         
         setCurrentClub(club)
-        localStorage.setItem('admin_current_club_id', club.id)
+        setAdminCurrentClubId(club.id)
       }
       
       setIsLoading(false)
@@ -64,7 +65,7 @@ function AdminApp() {
   // Save current club selection
   useEffect(() => {
     if (currentClub) {
-      localStorage.setItem('admin_current_club_id', currentClub.id)
+      setAdminCurrentClubId(currentClub.id)
     }
   }, [currentClub])
 

@@ -239,11 +239,10 @@ function App({ currentUser }) {
         }
         
         const savedMembers = loadFromLocalStorage.members()
-        const savedActiveTab = loadFromLocalStorage.activeTab()
-        // Load language: app-wide first, then club-specific, then club default
+        const savedActiveTab = club?.tournamentData?.activeTab || loadFromLocalStorage.activeTab()
         const savedLanguage = getAppLanguage()
-        const savedContentTab = loadFromLocalStorage.contentTab()
-        const savedMemberTab = loadFromLocalStorage.memberTab()
+        const savedContentTab = club?.tournamentData?.contentTab || loadFromLocalStorage.contentTab()
+        const savedMemberTab = club?.tournamentData?.memberTab || loadFromLocalStorage.memberTab()
         
         // Members: prefer club.members (synced from platform joins) merged with savedMembers
         const clubMembers = club?.members && Array.isArray(club.members) ? club.members : []
@@ -279,6 +278,22 @@ function App({ currentUser }) {
         if (savedMemberTab) {
           setMemberTab(savedMemberTab)
         }
+
+        // Load bookings from club (DB)
+        const clubBookings = club?.bookings && Array.isArray(club.bookings) ? club.bookings : []
+        const localOnly = clubBookings.filter(b => !b.source || b.source !== 'playtomic')
+        let maxId = 0
+        const withIds = localOnly.map(b => {
+          if (b.isTournament && b.id != null) return b
+          if (b.id != null && b.id > 0 && !String(b.id).startsWith('playtomic_')) {
+            maxId = Math.max(maxId, typeof b.id === 'number' ? b.id : 0)
+            return b
+          }
+          maxId += 1
+          return { ...b, id: maxId, source: 'local' }
+        })
+        setLocalBookings(withIds)
+        mergeBookings(withIds, playtomicBookings)
         
         isInitialMount.current = false
       } catch (error) {
@@ -370,12 +385,11 @@ function App({ currentUser }) {
     saveToLocalStorage.currentTournamentId(currentTournamentId, clubId)
     saveToLocalStorage.activeTab(activeTab)
     saveToLocalStorage.language(language)
-    // Save language preference for this club
-    localStorage.setItem(`club_${clubId}_language`, language)
+    import('./storage/appSettingsStorage.js').then(({ setClubLanguage }) => setClubLanguage(clubId, language))
     saveToLocalStorage.contentTab(contentTab)
     saveToLocalStorage.memberTab(memberTab)
     
-    // Also save to club data in adminStorage
+    // Save to club data in adminStorage (DB)
     const clubs = loadClubs()
     const club = clubs.find(c => c.id === clubId)
     if (club) {
@@ -383,6 +397,9 @@ function App({ currentUser }) {
       club.tournamentData.kingStateByTournamentId = kingStateByTournamentId
       club.tournamentData.socialStateByTournamentId = socialStateByTournamentId
       club.tournamentData.currentTournamentId = currentTournamentId
+      club.tournamentData.activeTab = activeTab
+      club.tournamentData.contentTab = contentTab
+      club.tournamentData.memberTab = memberTab
       saveClubs(clubs).catch(e => console.error('saveClubs:', e))
     }
     
@@ -3642,7 +3659,7 @@ function App({ currentUser }) {
 
     const updatedLocalBookings = [...localBookings, tournamentBooking]
     setLocalBookings(updatedLocalBookings)
-    localStorage.setItem('bookings', JSON.stringify(updatedLocalBookings))
+    saveBookingsToClub(updatedLocalBookings)
     mergeBookings(updatedLocalBookings, playtomicBookings)
     setShowTournamentBookingModal(false)
     const today = new Date().toISOString().split('T')[0]
@@ -3706,7 +3723,7 @@ function App({ currentUser }) {
       }
     }
     setLocalBookings(updatedLocalBookings)
-    localStorage.setItem('bookings', JSON.stringify(updatedLocalBookings))
+    saveBookingsToClub(updatedLocalBookings)
     mergeBookings(updatedLocalBookings, playtomicBookings)
   }
 
@@ -4190,9 +4207,7 @@ function App({ currentUser }) {
     })
     
     setLocalBookings(updatedLocalBookings)
-    // Save to localStorage (only local bookings)
-    localStorage.setItem('bookings', JSON.stringify(updatedLocalBookings))
-    // Merge with Playtomic bookings
+    saveBookingsToClub(updatedLocalBookings)
     mergeBookings(updatedLocalBookings, playtomicBookings)
     // Sync accounting: add/update invoice for this booking
     if (currentClub?.id && clubId) {
@@ -4230,7 +4245,7 @@ function App({ currentUser }) {
     if (!bookingId) return
     const updatedLocalBookings = localBookings.filter(b => b.id !== bookingId)
     setLocalBookings(updatedLocalBookings)
-    localStorage.setItem('bookings', JSON.stringify(updatedLocalBookings))
+    saveBookingsToClub(updatedLocalBookings)
     mergeBookings(updatedLocalBookings, playtomicBookings)
     if (currentClub?.id && clubId) {
       const clubs = loadClubs()
@@ -4436,49 +4451,19 @@ function App({ currentUser }) {
     document.body.removeChild(link)
   }
 
-  // Load local bookings from localStorage on mount
-  useEffect(() => {
-    const savedBookings = localStorage.getItem('bookings')
-    if (savedBookings) {
-      try {
-        const parsed = JSON.parse(savedBookings)
-        // Filter out Playtomic bookings (keep only local ones)
-        const localOnly = parsed.filter(b => !b.source || b.source !== 'playtomic')
-        // Ensure all bookings have IDs - keep tournament ids as-is; assign numeric IDs to others that don't have one
-        let maxId = 0
-        const bookingsWithIds = localOnly.map(b => {
-          // Tournament bookings: keep their id (e.g. tournament_123) so multiple tournaments are preserved
-          if (b.isTournament && b.id != null) {
-            return b
-          }
-          if (b.id != null && b.id > 0 && !b.id.toString().startsWith('playtomic_')) {
-            maxId = Math.max(maxId, typeof b.id === 'number' ? b.id : 0)
-            return b
-          }
-          // Assign a new ID to bookings without one
-          maxId += 1
-          return { ...b, id: maxId, source: 'local' }
-        })
-        // Convert date strings back to Date objects
-        const bookingsWithDates = bookingsWithIds.map(b => ({
-          ...b,
-          date: b.date, // Keep as string for now
-          source: b.source || 'local'
-        }))
-        setLocalBookings(bookingsWithDates)
-        // Merge with Playtomic bookings
-        mergeBookings(bookingsWithDates, playtomicBookings)
-        // Save back to localStorage if we fixed any IDs
-        if (bookingsWithIds.some((b, idx) => !parsed[idx].id || parsed[idx].id !== b.id)) {
-          localStorage.setItem('bookings', JSON.stringify(bookingsWithDates))
-        }
-      } catch (e) {
-        console.error('Error loading bookings:', e)
-      }
-    }
-  }, [])
+  // Bookings are loaded from club.bookings (DB) in loadSavedData
 
   // Merge local and Playtomic bookings
+  const saveBookingsToClub = (bookings) => {
+    if (!clubId) return
+    const clubs = loadClubs()
+    const club = clubs.find(c => c.id === clubId)
+    if (club) {
+      club.bookings = Array.isArray(bookings) ? bookings : []
+      saveClubs(clubs).catch(e => console.error('saveClubs:', e))
+    }
+  }
+
   const mergeBookings = (local, playtomic) => {
     // Combine both arrays, Playtomic bookings take priority for conflicts
     const merged = [...local, ...playtomic]
@@ -5981,8 +5966,10 @@ function App({ currentUser }) {
                                             ? { ...b, id: newId }
                                             : b
                                         )
-                                        setBookings(updatedBookings)
-                                        localStorage.setItem('bookings', JSON.stringify(updatedBookings))
+                                        const localOnly = updatedBookings.filter(b => !b.source || b.source !== 'playtomic')
+                                        setLocalBookings(localOnly)
+                                        saveBookingsToClub(localOnly)
+                                        mergeBookings(localOnly, playtomicBookings)
                                       }
                                       setBookingFormData(bookingToEdit)
                                       setShowBookingModal(true)
@@ -6264,8 +6251,10 @@ function App({ currentUser }) {
                                               ? { ...b, id: newId }
                                               : b
                                           )
-                                          setBookings(updatedBookings)
-                                          localStorage.setItem('bookings', JSON.stringify(updatedBookings))
+                                          const localOnly = updatedBookings.filter(b => !b.source || b.source !== 'playtomic')
+                                          setLocalBookings(localOnly)
+                                          saveBookingsToClub(localOnly)
+                                          mergeBookings(localOnly, playtomicBookings)
                                         }
                                         setBookingFormData(bookingToEdit)
                                         setShowBookingModal(true)

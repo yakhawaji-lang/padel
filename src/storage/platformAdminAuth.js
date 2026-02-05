@@ -1,45 +1,23 @@
 /**
- * Platform admin authentication - for Main Admin Panel (all-clubs, manage-clubs).
- * Separate from club auth (club owners/admins).
+ * Platform admin authentication - uses database via appSettingsStorage.
+ * No localStorage.
  */
 
-const KEY = 'platform_admin_session'
-const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
+import * as appSettings from './appSettingsStorage.js'
+
 const PLATFORM_PAGE_IDS = ['all-clubs', 'manage-clubs', 'all-members', 'admin-users']
 
 export function getPlatformAdminSession() {
-  try {
-    const raw = localStorage.getItem(KEY)
-    if (!raw) return null
-    const s = JSON.parse(raw)
-    if (!s?.id || !s?.email) return null
-    if (s._ts && Date.now() - s._ts > SESSION_MAX_AGE_MS) {
-      localStorage.removeItem(KEY)
-      return null
-    }
-    return s
-  } catch (_) {
-    return null
-  }
+  return appSettings.getPlatformAdminSession()
 }
 
 export function setPlatformAdminSession(admin) {
-  if (admin) {
-    const perms = admin.role === 'owner' ? PLATFORM_PAGE_IDS : (admin.permissions || PLATFORM_PAGE_IDS)
-    localStorage.setItem(KEY, JSON.stringify({
-      id: admin.id,
-      email: admin.email,
-      role: admin.role || 'admin',
-      permissions: perms,
-      _ts: Date.now()
-    }))
-  } else {
-    localStorage.removeItem(KEY)
-  }
+  const perms = admin?.role === 'owner' ? PLATFORM_PAGE_IDS : (admin?.permissions || PLATFORM_PAGE_IDS)
+  return appSettings.setPlatformAdminSession(admin ? { ...admin, permissions: perms } : null)
 }
 
 export function clearPlatformAdminSession() {
-  localStorage.removeItem(KEY)
+  return appSettings.setPlatformAdminSession(null)
 }
 
 export function hasPlatformPermission(session, page) {
@@ -49,5 +27,5 @@ export function hasPlatformPermission(session, page) {
 }
 
 export function canAccessPlatformAdmin() {
-  return !!getPlatformAdminSession()
+  return !!appSettings.getPlatformAdminSession()
 }

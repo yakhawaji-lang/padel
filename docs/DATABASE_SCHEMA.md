@@ -72,8 +72,14 @@
 
 ## تهيئة قاعدة البيانات
 
+**التهيئة الأولى:**
 ```powershell
 Invoke-RestMethod -Uri "https://playtix.app/api/init-db?init=1"
+```
+
+**إعادة تهيئة كاملة (حذف جميع البيانات وإعادة الإنشاء):**
+```powershell
+Invoke-RestMethod -Uri "https://playtix.app/api/init-db?reset=1"
 ```
 
 أو POST:

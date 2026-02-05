@@ -2,13 +2,10 @@ import React, { lazy, Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { loadClubsAsync, loadClubs, initBackendStorage } from './storage/adminStorage.js'
-import { applyAppLanguage } from './storage/languageStorage.js'
+import { initAppSettingsStorage } from './storage/appSettingsStorage.js'
 import './index.css'
 
-const USE_POSTGRES = (typeof import.meta === 'undefined' || import.meta.env?.VITE_USE_POSTGRES !== 'false')
-
-// تطبيق اللغة المحفوظة عند بدء التطبيق
-applyAppLanguage()
+const USE_POSTGRES = true
 
 /* Code-splitting: load route components on demand */
 const HomePage = lazy(() => import('./pages/HomePage'))
@@ -82,40 +79,41 @@ function mountApp() {
 }
 
 async function bootstrap() {
-  if (USE_POSTGRES) {
-    const backendStorage = (await import('./storage/backendStorage.js')).default
-    initBackendStorage(backendStorage)
-    try {
-      await Promise.race([
-        backendStorage.bootstrap(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Bootstrap timeout')), 15000))
-      ])
-      await loadClubsAsync()
-    } catch (e) {
-      console.warn('Bootstrap failed, using fallback:', e?.message || e)
+  const backendStorage = (await import('./storage/backendStorage.js')).default
+  initBackendStorage(backendStorage)
+  initAppSettingsStorage(backendStorage)
+  try {
+    await Promise.race([
+      backendStorage.bootstrap(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Bootstrap timeout')), 15000))
+    ])
+    await loadClubsAsync()
+    // Apply saved language after bootstrap (DB is source of truth)
+    const { getAppLanguage } = await import('./storage/appSettingsStorage.js')
+    const lang = getAppLanguage()
+    if (typeof document !== 'undefined') {
+      document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
+      document.documentElement.lang = lang
     }
-  } else {
-    loadClubs()
-    const { subscribeToClubs } = await import('./storage/supabaseSync.js')
-    const { applyRemoteClubs } = await import('./storage/adminStorage.js')
-    subscribeToClubs((clubs) => applyRemoteClubs(clubs))
-    await loadClubsAsync().catch((e) => console.warn('loadClubsAsync failed:', e))
+  } catch (e) {
+    console.warn('Bootstrap failed:', e?.message || e)
   }
 }
 
 async function initAndMount() {
-  if (USE_POSTGRES) {
-    try {
-      const backendStorage = (await import('./storage/backendStorage.js')).default
-      initBackendStorage(backendStorage)
-    } catch (e) {
-      console.error('Init backend failed:', e)
-    }
+  try {
+    const backendStorage = (await import('./storage/backendStorage.js')).default
+    initBackendStorage(backendStorage)
+    initAppSettingsStorage(backendStorage)
+  } catch (e) {
+    console.error('Init backend failed:', e)
+  }
+  try {
+    await bootstrap()
+  } catch (e) {
+    console.error('Bootstrap failed:', e)
   }
   mountApp()
-  bootstrap().catch((e) => {
-    console.error('Bootstrap failed:', e)
-  })
 }
 
 initAndMount()

@@ -1,9 +1,9 @@
-// Storage utility for hybrid localStorage + IndexedDB approach
-// Uses PostgreSQL API when VITE_USE_POSTGRES=true
+// Storage utility - always uses database (no localStorage for data)
 
 import { saveMembers, getMergedMembersRaw } from './storage/adminStorage.js'
+import { getAppLanguage } from './storage/languageStorage.js'
 
-const USE_POSTGRES = (typeof import.meta === 'undefined' || import.meta.env?.VITE_USE_POSTGRES !== 'false')
+const USE_POSTGRES = true
 
 // ==================== LOCALSTORAGE (Current State) ====================
 
@@ -20,44 +20,12 @@ const STORAGE_KEYS = {
   MEMBER_TAB: 'padel_member_tab'
 }
 
-// Save current state to localStorage
+// Save current state - persisted via club.tournamentData (DB) or appSettingsStorage
 export const saveToLocalStorage = {
-  kingState: (state, clubId = null) => {
-    try {
-      const key = clubId ? `${STORAGE_KEYS.KING_STATE}_${clubId}` : STORAGE_KEYS.KING_STATE
-      localStorage.setItem(key, JSON.stringify(state))
-    } catch (error) {
-      console.error('Error saving king state:', error)
-    }
-  },
-
-  kingStateByTournament: (stateByTournament, clubId = null) => {
-    try {
-      const key = clubId ? `${STORAGE_KEYS.KING_STATE_BY_TOURNAMENT}_${clubId}` : STORAGE_KEYS.KING_STATE_BY_TOURNAMENT
-      localStorage.setItem(key, JSON.stringify(stateByTournament))
-    } catch (error) {
-      console.error('Error saving king state by tournament:', error)
-    }
-  },
-  
-  socialState: (state, clubId = null) => {
-    try {
-      const key = clubId ? `${STORAGE_KEYS.SOCIAL_STATE}_${clubId}` : STORAGE_KEYS.SOCIAL_STATE
-      localStorage.setItem(key, JSON.stringify(state))
-    } catch (error) {
-      console.error('Error saving social state:', error)
-    }
-  },
-
-  socialStateByTournament: (stateByTournament, clubId = null) => {
-    try {
-      const key = clubId ? `${STORAGE_KEYS.SOCIAL_STATE_BY_TOURNAMENT}_${clubId}` : STORAGE_KEYS.SOCIAL_STATE_BY_TOURNAMENT
-      localStorage.setItem(key, JSON.stringify(stateByTournament))
-    } catch (error) {
-      console.error('Error saving social state by tournament:', error)
-    }
-  },
-  
+  kingState: (_state, _clubId = null) => { /* Saved in club.tournamentData via App */ },
+  kingStateByTournament: (_stateByTournament, _clubId = null) => { /* Saved in club.tournamentData via App */ },
+  socialState: (_state, _clubId = null) => { /* Saved in club.tournamentData via App */ },
+  socialStateByTournament: (_stateByTournament, _clubId = null) => { /* Saved in club.tournamentData via App */ },
   members: (members) => {
     try {
       if (!Array.isArray(members)) return
@@ -70,104 +38,25 @@ export const saveToLocalStorage = {
       console.error('Error saving members:', error)
     }
   },
-  
-  currentTournamentId: (id, clubId = null) => {
-    try {
-      const key = clubId ? `${STORAGE_KEYS.CURRENT_TOURNAMENT_ID}_${clubId}` : STORAGE_KEYS.CURRENT_TOURNAMENT_ID
-      localStorage.setItem(key, JSON.stringify(id))
-      // Also save to club data (will be handled by App.jsx)
-    } catch (error) {
-      console.error('Error saving tournament ID:', error)
-    }
-  },
-  
-  activeTab: (tab) => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, tab)
-    } catch (error) {
-      console.error('Error saving active tab:', error)
-    }
-  },
-  
+  currentTournamentId: (_id, _clubId = null) => { /* Saved in club.tournamentData via App */ },
+  activeTab: (_tab) => { /* Saved in club.tournamentData via App */ },
   language: (lang) => {
     try {
-      localStorage.setItem(STORAGE_KEYS.LANGUAGE, lang)
+      import('./storage/appSettingsStorage.js').then(({ setAppLanguage }) => setAppLanguage(lang))
     } catch (error) {
       console.error('Error saving language:', error)
     }
   },
-  
-  contentTab: (tab) => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.CONTENT_TAB, tab)
-    } catch (error) {
-      console.error('Error saving content tab:', error)
-    }
-  },
-  
-  memberTab: (tab) => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.MEMBER_TAB, tab)
-    } catch (error) {
-      console.error('Error saving member tab:', error)
-    }
-  }
+  contentTab: (_tab) => { /* Saved in club.tournamentData via App */ },
+  memberTab: (_tab) => { /* Saved in club.tournamentData via App */ }
 }
 
-// Load current state from localStorage
+// Load current state - from club.tournamentData (DB) or defaults (no localStorage)
 export const loadFromLocalStorage = {
-  kingState: (clubId = null) => {
-    try {
-      if (clubId) {
-        const clubKey = `${STORAGE_KEYS.KING_STATE}_${clubId}`
-        const clubData = localStorage.getItem(clubKey)
-        if (clubData) return JSON.parse(clubData)
-      }
-      const data = localStorage.getItem(STORAGE_KEYS.KING_STATE)
-      return data ? JSON.parse(data) : null
-    } catch (error) {
-      console.error('Error loading king state:', error)
-      return null
-    }
-  },
-
-  kingStateByTournament: (clubId = null) => {
-    try {
-      const key = clubId ? `${STORAGE_KEYS.KING_STATE_BY_TOURNAMENT}_${clubId}` : STORAGE_KEYS.KING_STATE_BY_TOURNAMENT
-      const data = localStorage.getItem(key)
-      return data ? JSON.parse(data) : null
-    } catch (error) {
-      console.error('Error loading king state by tournament:', error)
-      return null
-    }
-  },
-  
-  socialState: (clubId = null) => {
-    try {
-      if (clubId) {
-        const clubKey = `${STORAGE_KEYS.SOCIAL_STATE}_${clubId}`
-        const clubData = localStorage.getItem(clubKey)
-        if (clubData) return JSON.parse(clubData)
-      }
-      const data = localStorage.getItem(STORAGE_KEYS.SOCIAL_STATE)
-      return data ? JSON.parse(data) : null
-    } catch (error) {
-      console.error('Error loading social state:', error)
-      return null
-    }
-  },
-
-  socialStateByTournament: (clubId = null) => {
-    try {
-      const key = clubId ? `${STORAGE_KEYS.SOCIAL_STATE_BY_TOURNAMENT}_${clubId}` : STORAGE_KEYS.SOCIAL_STATE_BY_TOURNAMENT
-      const data = localStorage.getItem(key)
-      return data ? JSON.parse(data) : null
-    } catch (error) {
-      console.error('Error loading social state by tournament:', error)
-      return null
-    }
-  },
-  
+  kingState: () => null,
+  kingStateByTournament: () => null,
+  socialState: () => null,
+  socialStateByTournament: () => null,
   members: () => {
     try {
       const merged = getMergedMembersRaw()
@@ -177,62 +66,11 @@ export const loadFromLocalStorage = {
       return null
     }
   },
-  
-  currentTournamentId: (clubId = null) => {
-    try {
-      // Try club-specific first
-      if (clubId) {
-        // Try from localStorage with club key
-        const clubKey = `${STORAGE_KEYS.CURRENT_TOURNAMENT_ID}_${clubId}`
-        const clubData = localStorage.getItem(clubKey)
-        if (clubData) {
-          return JSON.parse(clubData)
-        }
-      }
-      // Fallback to global (for backward compatibility)
-      const data = localStorage.getItem(STORAGE_KEYS.CURRENT_TOURNAMENT_ID)
-      return data ? JSON.parse(data) : 1
-    } catch (error) {
-      console.error('Error loading tournament ID:', error)
-      return 1
-    }
-  },
-  
-  activeTab: () => {
-    try {
-      return localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB) || 'king'
-    } catch (error) {
-      console.error('Error loading active tab:', error)
-      return 'king'
-    }
-  },
-  
-  language: () => {
-    try {
-      return localStorage.getItem(STORAGE_KEYS.LANGUAGE) || 'en'
-    } catch (error) {
-      console.error('Error loading language:', error)
-      return 'en'
-    }
-  },
-  
-  contentTab: () => {
-    try {
-      return localStorage.getItem(STORAGE_KEYS.CONTENT_TAB) || 'standings'
-    } catch (error) {
-      console.error('Error loading content tab:', error)
-      return 'standings'
-    }
-  },
-  
-  memberTab: () => {
-    try {
-      return localStorage.getItem(STORAGE_KEYS.MEMBER_TAB) || 'members'
-    } catch (error) {
-      console.error('Error loading member tab:', error)
-      return 'members'
-    }
-  }
+  currentTournamentId: () => 1,
+  activeTab: () => 'king',
+  language: () => getAppLanguage(),
+  contentTab: () => 'standings',
+  memberTab: () => 'members'
 }
 
 // ==================== INDEXEDDB (Historical Records) ====================
@@ -625,13 +463,10 @@ export const getTournamentById = async (tournamentId) => {
   }
 }
 
-// Clear all data (for testing/reset)
+// Clear all data (for testing/reset) - DB is source of truth; this clears IndexedDB only if used
 export const clearAllData = async () => {
   try {
-    // Clear localStorage
-    Object.values(STORAGE_KEYS).forEach(key => {
-      localStorage.removeItem(key)
-    })
+    // No localStorage - data is in DB
 
     // Clear IndexedDB
     const db = await initIndexedDB()

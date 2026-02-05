@@ -11,21 +11,7 @@ import './ClubPublicPage.css'
 const getClubBookings = (clubId) => {
   try {
     const club = getClubById(clubId)
-    let list = club?.bookings || []
-    if (list.length === 0) {
-      const raw = localStorage.getItem(`club_${clubId}_bookings`) || localStorage.getItem('bookings')
-      if (raw) {
-        try {
-          const arr = JSON.parse(raw)
-          list = Array.isArray(arr)
-            ? arr.filter(b => !b.clubId || b.clubId === clubId)
-            : []
-        } catch (_) {
-          list = []
-        }
-      }
-    }
-    return list
+    return club?.bookings && Array.isArray(club.bookings) ? club.bookings : []
   } catch (e) {
     return []
   }
@@ -95,7 +81,7 @@ const ClubPublicPage = () => {
   const navigate = useNavigate()
   const [club, setClub] = useState(null)
   const [language, setLanguage] = useState(() => {
-    const appLang = localStorage.getItem('app_language')
+    const appLang = getAppLanguage()
     if (appLang) return appLang
     const c = getClubById(clubId)
     return c?.settings?.defaultLanguage || 'en'

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import './ClubDashboard.css'
 import { loadFromLocalStorage } from '../../storage'
 import { getClubMembersFromStorage } from '../../storage/adminStorage'
+import { getClubLanguageCached, setClubLanguage } from '../../storage/appSettingsStorage'
 import LanguageIcon from '../../components/LanguageIcon'
 
 const ClubDashboard = ({ club }) => {
@@ -14,8 +15,8 @@ const ClubDashboard = ({ club }) => {
   useEffect(() => {
     if (!club || !clubId) return
     
-    // Load language preference
-    const savedLanguage = localStorage.getItem(`club_${clubId}_language`) || club?.settings?.defaultLanguage || 'en'
+    // Load language preference from DB
+    const savedLanguage = getClubLanguageCached(clubId) || club?.settings?.defaultLanguage || 'en'
     setLanguage(savedLanguage)
     
     // Load tournament data for this club (دعم بيانات كل بطولة)
@@ -217,7 +218,7 @@ const ClubDashboard = ({ club }) => {
             onClick={() => {
               const newLang = language === 'en' ? 'ar' : 'en'
               setLanguage(newLang)
-              localStorage.setItem(`club_${clubId}_language`, newLang)
+              setClubLanguage(clubId, newLang)
             }}
           >
             <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={18} />
