@@ -1,7 +1,7 @@
 // Admin Storage - Multi-club management
-// Always uses database (u502561206_padel_db) via API - no localStorage for data
+// All data from u502561206_padel_db via API only - no localStorage
 
-const USE_POSTGRES = true
+const USE_POSTGRES = true // Keep for compatibility in saveClubs etc
 
 const ADMIN_STORAGE_KEYS = {
   CLUBS: 'admin_clubs',
@@ -23,30 +23,21 @@ export function initBackendStorage(backend) {
 }
 
 function _read(key) {
-  if (USE_POSTGRES && _backendStorage) return _backendStorage.getCache(key) ?? null
-  try {
-    const v = localStorage.getItem(key)
-    return v != null ? JSON.parse(v) : null
-  } catch (_) { return null }
+  if (!_backendStorage) return null
+  return _backendStorage.getCache(key) ?? null
 }
 
 function _write(key, value) {
-  if (USE_POSTGRES && _backendStorage) {
-    _backendStorage.setCache(key, value)
-    _backendStorage.setStore(key, value).catch(e => console.error('_write:', e))
-    return
-  }
-  try { localStorage.setItem(key, JSON.stringify(value)) } catch (_) {}
+  if (!_backendStorage) return
+  _backendStorage.setCache(key, value)
+  _backendStorage.setStore(key, value).catch(e => console.error('_write:', e))
 }
 
 /** Persist to backend and await completion - use for critical data */
 async function _writeAwait(key, value) {
-  if (USE_POSTGRES && _backendStorage) {
-    _backendStorage.setCache(key, value)
-    await _backendStorage.setStore(key, value)
-    return
-  }
-  _write(key, value)
+  if (!_backendStorage) return
+  _backendStorage.setCache(key, value)
+  await _backendStorage.setStore(key, value)
 }
 
 /**
@@ -317,7 +308,7 @@ export const loadClubs = () => {
         }
       }
       
-      // Sync members from localStorage to clubs
+      // Sync members from DB into clubs
       syncMembersToClubs(clubs)
       // Migrate: ensure store/storeEnabled and club hours exist
       let storeMigration = false
@@ -390,7 +381,7 @@ export const loadClubs = () => {
   }
 }
 
-// Sync members from localStorage to clubs
+// Sync members from DB into clubs
 export const syncMembersToClubs = (clubs) => {
   try {
     if (!Array.isArray(clubs)) return
@@ -460,10 +451,10 @@ export const syncMembersToClubs = (clubs) => {
       }
     })
     
-    // Save updated members back to localStorage with clubIds format
+    // Save updated members back to DB with clubIds format
     if (hasChanges) {
       try {
-        // Update members in localStorage to include clubIds
+        // Update members in DB to include clubIds
         const updatedMembersMap = new Map()
         mergedMembers.forEach(member => {
           if (member.id) {

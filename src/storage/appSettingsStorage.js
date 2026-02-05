@@ -49,7 +49,7 @@ export async function getAppLanguageAsync() {
 
 export function getAppLanguage() {
   const v = getCached('app_language')
-  return (v === 'ar' || v === 'en') ? v : (typeof localStorage !== 'undefined' ? localStorage.getItem('app_language') || 'en' : 'en')
+  return (v === 'ar' || v === 'en') ? v : 'en'
 }
 
 export async function setAppLanguage(lang) {

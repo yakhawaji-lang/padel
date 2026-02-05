@@ -76,9 +76,9 @@ src/admin/
 
 ## التخزين
 
-جميع البيانات تُحفظ في `localStorage` باستخدام:
-- `admin_clubs` - قائمة الأندية
-- `admin_settings` - إعدادات البوابة
+جميع البيانات تُحفظ في قاعدة البيانات `u502561206_padel_db` عبر API:
+- `admin_clubs` (entities) - قائمة الأندية والملاعب
+- `admin_settings` (app_settings) - إعدادات النظام
 
 ## التطوير المستقبلي
 
