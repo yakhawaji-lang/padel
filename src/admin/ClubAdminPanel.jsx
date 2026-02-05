@@ -26,21 +26,23 @@ function ClubAdminPanel() {
   const [isLoading, setIsLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const loadData = async () => {
-    setIsLoading(true)
-    // جلب أحدث البيانات من قاعدة البيانات (ليس من الكاش/المتصفح) حتى تظهر التحديثات من أجهزة أخرى
-    await refreshClubsFromApi()
-    syncMembersToClubsManually()
-    const allClubs = loadClubs()
-    setClubs(allClubs)
-    const foundClub = getClubById(clubId)
-    if (foundClub) {
-      setClub(foundClub)
-      setLanguage(getAppLanguage())
-    } else {
-      navigate('/admin/all-clubs')
+  const loadData = async (silent = false) => {
+    if (!silent) setIsLoading(true)
+    try {
+      await refreshClubsFromApi()
+      syncMembersToClubsManually()
+      const allClubs = loadClubs()
+      setClubs(allClubs)
+      const foundClub = getClubById(clubId)
+      if (foundClub) {
+        setClub(foundClub)
+        if (!silent) setLanguage(getAppLanguage())
+      } else {
+        navigate('/admin/all-clubs')
+      }
+    } finally {
+      if (!silent) setIsLoading(false)
     }
-    setIsLoading(false)
   }
 
   useEffect(() => {
@@ -48,24 +50,18 @@ function ClubAdminPanel() {
   }, [clubId, navigate])
 
   useEffect(() => {
-    const onSynced = () => loadData()
+    const onSynced = () => loadData(true)
     window.addEventListener('clubs-synced', onSynced)
     return () => window.removeEventListener('clubs-synced', onSynced)
   }, [clubId])
 
-  // Refresh from DB when tab becomes visible or periodically (to see updates from other devices)
+  // Refresh silently when tab becomes visible (to see updates from other devices, without full reload)
   useEffect(() => {
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') loadData()
+      if (document.visibilityState === 'visible') loadData(true)
     }
     document.addEventListener('visibilitychange', onVisibilityChange)
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') loadData()
-    }, 4000)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange)
-      clearInterval(interval)
-    }
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
   }, [clubId])
   
   // Save language preference when it changes
