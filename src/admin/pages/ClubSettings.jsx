@@ -210,6 +210,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
         : c
     )
     setCourts(updatedCourts)
+    onUpdateClub({ courts: updatedCourts })
   }
 
   return (

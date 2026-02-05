@@ -112,7 +112,7 @@
 | offers | العروض | club.offers |
 | store | المتجر، المنتجات، المبيعات | club.store (categories, products, sales, inventoryMovements, offers, coupons) |
 | accounting | المحاسبة | club.accounting |
-| settings | الإعدادات، الملاعب، الساعات، السوشيال | club.* (name, nameAr, logo, banner, courts, settings: defaultLanguage, timezone, currency, bookingDuration, maxBookingAdvance, cancellationPolicy, openingTime, closingTime, headerBgColor, headerTextColor, heroBgColor, heroBgOpacity, heroTitleColor, heroTextColor, heroStatsColor, socialLinks) |
+| settings | الإعدادات، الملاعب، الساعات، السوشيال | club.* (name, nameAr, logo, banner, courts, settings: defaultLanguage, timezone, currency, bookingDuration, maxBookingAdvance, cancellationPolicy, openingTime, closingTime, headerBgColor, headerTextColor, heroBgColor, heroBgOpacity, heroTitleColor, heroTextColor, heroStatsColor, socialLinks) — **الملاعب**: حفظ فوري عند إضافة/تعديل/حذف/تبديل صيانة |
 | users | مدراء النادي | club.adminUsers, club.owner |
 
 ---

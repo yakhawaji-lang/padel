@@ -82,7 +82,8 @@ const STMTS = [
   `INSERT IGNORE INTO app_settings (\`key\`, value) VALUES ('admin_current_club_id', 'null')`,
   `INSERT IGNORE INTO app_settings (\`key\`, value) VALUES ('platform_admin_session', 'null')`,
   `INSERT IGNORE INTO app_settings (\`key\`, value) VALUES ('club_admin_session', 'null')`,
-  `INSERT IGNORE INTO app_settings (\`key\`, value) VALUES ('current_club_admin_id', 'null')`
+  `INSERT IGNORE INTO app_settings (\`key\`, value) VALUES ('current_club_admin_id', 'null')`,
+  `INSERT IGNORE INTO app_settings (\`key\`, value) VALUES ('password_reset_tokens', '{}')`
 ]
 
 router.get('/', async (req, res) => {

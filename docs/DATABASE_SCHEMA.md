@@ -17,29 +17,29 @@
 | created_at | DATETIME     | تاريخ الإنشاء                  |
 | updated_at | DATETIME     | تاريخ آخر تحديث                |
 
-#### entity_type = 'club' — كل مدخلات الأندية
-| الحقل | الجدول/الحقل | القسم/الصفحة |
-|-------|--------------|---------------|
-| id, name, nameAr | entities.data | الإعدادات الأساسية |
-| logo, banner | entities.data | الإعدادات الأساسية |
-| tagline, taglineAr, address, addressAr | entities.data | الإعدادات الأساسية |
-| phone, email, website | entities.data | الإعدادات الأساسية |
-| playtomicVenueId, playtomicApiKey | entities.data | Playtomic |
-| courts | entities.data | الملاعب |
-| settings.defaultLanguage, timezone, currency | entities.data | الإعدادات العامة |
-| settings.bookingDuration, maxBookingAdvance, cancellationPolicy | entities.data | الحجز |
-| settings.openingTime, closingTime | entities.data | ساعات العمل |
-| settings.headerBgColor, headerTextColor | entities.data | ألوان الهيدر |
-| settings.heroBgColor, heroBgOpacity, heroTitleColor, heroTextColor, heroStatsColor | entities.data | ألوان البطاقة |
-| settings.socialLinks | entities.data | السوشيال ميديا |
-| members | entities.data | الأعضاء |
-| bookings | entities.data | الحجوزات |
-| offers | entities.data | العروض |
-| accounting | entities.data | المحاسبة |
-| adminUsers | entities.data | مدراء النادي |
-| tournamentTypes | entities.data | أنواع البطولات |
-| storeEnabled, store | entities.data | المتجر (categories, products, sales, inventoryMovements, offers, coupons) |
-| tournamentData | entities.data | بيانات البطولة (kingState, socialState, currentTournamentId, activeTab, contentTab, memberTab) |
+#### entity_type = 'club' — كل مدخلات الأندية (حفظ فوري للملاعب)
+| الحقل | الجدول/الحقل | القسم/الصفحة | ملاحظة الحفظ |
+|-------|--------------|---------------|---------------|
+| id, name, nameAr | entities.data | الإعدادات الأساسية | Save Settings (زر الحفظ) |
+| logo, banner | entities.data | الإعدادات الأساسية | Save Settings |
+| tagline, taglineAr, address, addressAr | entities.data | الإعدادات الأساسية | Save Settings |
+| phone, email, website | entities.data | الإعدادات الأساسية | Save Settings |
+| playtomicVenueId, playtomicApiKey | entities.data | Playtomic | Save Settings |
+| courts | entities.data | الملاعب | **فوري** (إضافة/تعديل/حذف/صيانة) |
+| settings.defaultLanguage, timezone, currency | entities.data | الإعدادات العامة | Save Settings |
+| settings.bookingDuration, maxBookingAdvance, cancellationPolicy | entities.data | الحجز | Save Settings |
+| settings.openingTime, closingTime | entities.data | ساعات العمل | Save Settings |
+| settings.headerBgColor, headerTextColor | entities.data | ألوان الهيدر | Save Settings |
+| settings.heroBgColor, heroBgOpacity, heroTitleColor, heroTextColor, heroStatsColor | entities.data | ألوان البطاقة | Save Settings |
+| settings.socialLinks | entities.data | السوشيال ميديا | Save Settings |
+| members | entities.data | الأعضاء | saveMembers (فوري) |
+| bookings | entities.data | الحجوزات | onUpdateClub |
+| offers | entities.data | العروض | onUpdateClub (فوري) |
+| accounting | entities.data | المحاسبة | onUpdateClub (فوري) |
+| adminUsers | entities.data | مدراء النادي | onUpdateClub (فوري) |
+| tournamentTypes | entities.data | أنواع البطولات | onUpdateClub |
+| storeEnabled, store | entities.data | المتجر (categories, products, sales, inventoryMovements, offers, coupons) | onUpdateClub (فوري) |
+| tournamentData | entities.data | بيانات البطولة (kingState, socialState, currentTournamentId, activeTab, contentTab, memberTab) | حفظ تلقائي |
 
 #### entity_type = 'member'
 | الحقل | الوصف |
