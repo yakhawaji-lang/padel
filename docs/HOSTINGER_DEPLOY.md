@@ -168,8 +168,12 @@ https://playtix.app/api/init-db/tables
 ```
 تأكد أن كل الجداول تظهر `exists: true`.
 
-### 3.5 ترحيل إعدادات الأندية (إن وُجدت أندية قديمة)
-إذا كان لديك أندية من نسخة سابقة، أضف الحقول الناقصة لـ Club Settings:
+### 3.5 ترحيل إعدادات الأندية وإضافة الملاعب الناقصة
+إذا كان لديك أندية من نسخة سابقة أو ناقصة ملاعب (مثل الملعب 4)، شغّل الترحيل:
+```
+https://playtix.app/api/init-db/migrate-club-settings
+```
+أو من PowerShell:
 ```powershell
 Invoke-RestMethod -Uri "https://playtix.app/api/init-db/migrate-club-settings" -Method POST
 ```
@@ -253,7 +257,7 @@ domains/
 | `https://playtix.app/api/init-db?init=1` | تهيئة الجداول (من المتصفح) |
 | `https://playtix.app/api/init-db?reset=1` | إعادة تهيئة كاملة (حذف وإعادة إنشاء) |
 | `https://playtix.app/api/init-db/tables` | التحقق من وجود الجداول |
-| `https://playtix.app/api/init-db/migrate-club-settings` | ترحيل إعدادات الأندية (POST) |
+| `https://playtix.app/api/init-db/migrate-club-settings` | ترحيل إعدادات الأندية + إضافة الملاعب الناقصة (GET/POST) |
 
 ---
 

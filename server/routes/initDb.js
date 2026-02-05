@@ -206,8 +206,7 @@ router.get('/tables', async (req, res) => {
   }
 })
 
-/** POST /api/init-db/migrate-club-settings - Add missing Club Settings fields to existing clubs */
-router.post('/migrate-club-settings', async (req, res) => {
+const migrateClubSettingsHandler = async (req, res) => {
   try {
     if (!isConnected()) {
       return res.status(503).json({ error: 'Database not connected' })
@@ -239,7 +238,21 @@ router.post('/migrate-club-settings', async (req, res) => {
       for (const [k, v] of Object.entries(settingsDefaults)) {
         if (merged.settings[k] === undefined) { merged.settings[k] = v; changed = true }
       }
-      if (merged.courts && Array.isArray(merged.courts)) {
+      const defaultCourts = [
+        { id: 'court-1', name: 'Court 1', nameAr: 'الملعب 1', type: 'indoor', maintenance: false, image: '' },
+        { id: 'court-2', name: 'Court 2', nameAr: 'الملعب 2', type: 'indoor', maintenance: false, image: '' },
+        { id: 'court-3', name: 'Court 3', nameAr: 'الملعب 3', type: 'indoor', maintenance: false, image: '' },
+        { id: 'court-4', name: 'Court 4', nameAr: 'الملعب 4', type: 'indoor', maintenance: false, image: '' }
+      ]
+      merged.courts = merged.courts && Array.isArray(merged.courts) ? merged.courts : []
+      const existingIds = new Set(merged.courts.map(c => c.id))
+      defaultCourts.forEach(dc => {
+        if (!existingIds.has(dc.id)) {
+          merged.courts.push({ ...dc })
+          changed = true
+        }
+      })
+      if (merged.courts.length > 0) {
         const needsCourtUpdate = merged.courts.some(c => c.maintenance === undefined || c.image === undefined)
         if (needsCourtUpdate) {
           merged.courts = merged.courts.map(c => ({
@@ -258,12 +271,16 @@ router.post('/migrate-club-settings', async (req, res) => {
         updated++
       }
     }
-    res.json({ ok: true, message: `Migrated ${updated} club(s)` })
+    res.json({ ok: true, message: `Migrated ${updated} club(s) - added missing courts (e.g. Court 4) and settings` })
   } catch (e) {
     console.error('migrate-club-settings:', e)
     res.status(500).json({ error: e.message })
   }
-})
+}
+
+/** GET/POST /api/init-db/migrate-club-settings - Add missing courts (e.g. Court 4) and Club Settings to existing clubs */
+router.get('/migrate-club-settings', migrateClubSettingsHandler)
+router.post('/migrate-club-settings', migrateClubSettingsHandler)
 
 /** POST /api/init-db/seed-platform-owner - Create default 2@2.com / 123456 when no admins */
 router.post('/seed-platform-owner', async (req, res) => {
