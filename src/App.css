@@ -422,6 +422,13 @@
   color: inherit;
 }
 
+/* Header language toggle — white text (العربية / English) */
+.app-header .language-toggle-btn,
+.app-header .language-toggle-btn .language-icon-label,
+.app-header .language-toggle-btn .language-icon-wrap {
+  color: #fff !important;
+}
+
 .language-toggle:hover,
 .language-toggle-btn:hover {
   opacity: 0.85;
@@ -2516,6 +2523,53 @@ button:active {
   flex-wrap: wrap;
 }
 
+.bookings-nav-wrap {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.bookings-nav-today-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Mobile: narrow arrows, Today in center */
+@media (max-width: 768px) {
+  .bookings-nav-wrap {
+    flex-wrap: nowrap;
+  }
+
+  .btn-nav-prev,
+  .btn-nav-next {
+    min-width: 40px;
+    width: 40px;
+    padding: 8px;
+  }
+
+  .btn-nav-prev .nav-label-full,
+  .btn-nav-next .nav-label-full {
+    display: none;
+  }
+
+  .btn-nav-today {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .btn-nav-prev,
+  .btn-nav-next {
+    min-width: 36px;
+    width: 36px;
+  }
+}
+
 .btn-refresh-playtomic {
   display: inline-flex !important;
   align-items: center;
@@ -2566,19 +2620,13 @@ button:active {
     flex-wrap: wrap;
   }
 
-  .bookings-nav-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 8px;
+  .bookings-court-nav-wrap .bookings-nav-today-group {
+    flex: 1;
+    justify-content: center;
   }
 
-  .bookings-nav-row.bookings-court-nav {
-    grid-template-columns: auto auto 1fr;
-  }
-
-  .bookings-nav-row.bookings-court-nav .bookings-date-input {
-    grid-column: 1 / -1;
-    justify-self: stretch;
+  .bookings-court-nav-wrap .bookings-date-input {
+    min-width: 120px;
   }
 
   .nav-label-full {
@@ -2592,15 +2640,6 @@ button:active {
   }
 }
 
-@media (max-width: 480px) {
-  .bookings-nav-row {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .bookings-nav-row .btn-nav-next {
-    grid-column: 2;
-  }
-}
 
 /* Booking Calendar Styles */
 .booking-calendar-container {

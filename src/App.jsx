@@ -5815,7 +5815,7 @@ function App({ currentUser }) {
                           </span>
                         )}
                       </div>
-                      <div className="bookings-nav-row">
+                      <div className="bookings-nav-wrap">
                         <button 
                           className="btn-secondary btn-nav-prev"
                           onClick={() => {
@@ -6138,7 +6138,7 @@ function App({ currentUser }) {
                           </span>
                         )}
                       </div>
-                      <div className="bookings-nav-row bookings-court-nav">
+                      <div className="bookings-nav-wrap bookings-court-nav-wrap">
                         <button
                           className="btn-secondary btn-nav-prev"
                           onClick={() => navigateCourtViewDate('prev')}
@@ -6146,12 +6146,20 @@ function App({ currentUser }) {
                         >
                           {isRTL ? '→' : '←'}
                         </button>
-                        <button 
-                          className="btn-secondary btn-nav-today"
-                          onClick={() => setSelectedDateForCourtView(new Date().toISOString().split('T')[0])}
-                        >
-                          {language === 'en' ? 'Today' : 'اليوم'}
-                        </button>
+                        <div className="bookings-nav-today-group">
+                          <button 
+                            className="btn-secondary btn-nav-today"
+                            onClick={() => setSelectedDateForCourtView(new Date().toISOString().split('T')[0])}
+                          >
+                            {language === 'en' ? 'Today' : 'اليوم'}
+                          </button>
+                          <input
+                            type="date"
+                            value={selectedDateForCourtView}
+                            onChange={(e) => setSelectedDateForCourtView(e.target.value)}
+                            className="search-input bookings-date-input"
+                          />
+                        </div>
                         <button
                           className="btn-secondary btn-nav-next"
                           onClick={() => navigateCourtViewDate('next')}
@@ -6159,12 +6167,6 @@ function App({ currentUser }) {
                         >
                           {isRTL ? '←' : '→'}
                         </button>
-                        <input
-                          type="date"
-                          value={selectedDateForCourtView}
-                          onChange={(e) => setSelectedDateForCourtView(e.target.value)}
-                          className="search-input bookings-date-input"
-                        />
                       </div>
                     </div>
                   </div>

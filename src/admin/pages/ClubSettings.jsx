@@ -48,7 +48,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
     image: ''
   })
 
-  // Sync from club only when switching clubs (clubId). Avoid overwriting local edits when clubs-synced fires.
+  // Sync from club only when switching clubs (club?.id). Avoid overwriting local edits when clubs-synced fires.
   useEffect(() => {
     if (club) {
       setFormData({
@@ -84,7 +84,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
       setCourts(club?.courts || [])
       setSocialLinks(club?.settings?.socialLinks || [])
     }
-  }, [clubId, club?.id])
+  }, [club?.id])
 
   if (!club) {
     return (
