@@ -69,15 +69,16 @@ export async function saveMembers(members) {
   if (!Array.isArray(members)) return false
   try {
     if (USE_POSTGRES && _backendStorage) {
+      _backendStorage.setCache(MEMBER_STORAGE_KEYS.ALL, members)
+      _backendStorage.setCache(MEMBER_STORAGE_KEYS.PADEL, members)
       await _writeAwait(MEMBER_STORAGE_KEYS.ALL, members)
-      await _writeAwait(MEMBER_STORAGE_KEYS.PADEL, members)
     } else {
       _write(MEMBER_STORAGE_KEYS.ALL, members)
       _write(MEMBER_STORAGE_KEYS.PADEL, members)
     }
     const clubs = loadClubs()
     syncMembersToClubs(clubs)
-    if (clubs?.length) await saveClubs(clubs)
+    if (clubs?.length) saveClubs(clubs).catch(e => console.error('saveClubs after saveMembers:', e))
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('clubs-synced'))
     }
@@ -473,10 +474,9 @@ export const syncMembersToClubs = (clubs) => {
         const updatedMembers = Array.from(updatedMembersMap.values())
         try {
           if (USE_POSTGRES && _backendStorage) {
-            // Ensure DB persistence when using backend
-            _writeAwait(MEMBER_STORAGE_KEYS.ALL, updatedMembers)
-              .then(() => _writeAwait(MEMBER_STORAGE_KEYS.PADEL, updatedMembers))
-              .catch(e => console.error('syncMembersToClubs save error:', e))
+            _backendStorage.setCache(MEMBER_STORAGE_KEYS.ALL, updatedMembers)
+            _backendStorage.setCache(MEMBER_STORAGE_KEYS.PADEL, updatedMembers)
+            _writeAwait(MEMBER_STORAGE_KEYS.ALL, updatedMembers).catch(e => console.error('syncMembersToClubs save error:', e))
           } else {
             _write(MEMBER_STORAGE_KEYS.ALL, updatedMembers)
             _write(MEMBER_STORAGE_KEYS.PADEL, updatedMembers)
