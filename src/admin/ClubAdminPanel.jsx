@@ -14,7 +14,7 @@ import ClubAccountingManagement from './pages/ClubAccountingManagement'
 import ClubSettings from './pages/ClubSettings'
 import ClubUsersManagement from './pages/ClubUsersManagement'
 import ClubPageGuard from '../components/ClubPageGuard'
-import { loadClubs, saveClubs, getClubById, syncMembersToClubsManually } from '../storage/adminStorage'
+import { loadClubs, saveClubs, getClubById, syncMembersToClubsManually, refreshClubsFromApi } from '../storage/adminStorage'
 
 function ClubAdminPanel() {
   const { clubId } = useParams()
@@ -25,15 +25,17 @@ function ClubAdminPanel() {
   const [isLoading, setIsLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const loadData = () => {
+  const loadData = async () => {
+    setIsLoading(true)
+    // جلب أحدث البيانات من قاعدة البيانات (ليس من الكاش/المتصفح) حتى تظهر التحديثات من أجهزة أخرى
+    await refreshClubsFromApi()
     syncMembersToClubsManually()
     const allClubs = loadClubs()
     setClubs(allClubs)
     const foundClub = getClubById(clubId)
     if (foundClub) {
       setClub(foundClub)
-        // Use app-wide language (persists across navigation)
-        setLanguage(getAppLanguage())
+      setLanguage(getAppLanguage())
     } else {
       navigate('/admin/all-clubs')
     }
