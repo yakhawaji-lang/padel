@@ -37,6 +37,8 @@ export default function AllMembersManagement() {
   const [editingMember, setEditingMember] = useState(null)
   const [editForm, setEditForm] = useState(emptyEditForm)
   const [addToClubMember, setAddToClubMember] = useState(null)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [addForm, setAddForm] = useState(emptyEditForm)
 
   const approvedClubs = useMemo(() => (Array.isArray(clubs) ? clubs : []).filter(c => c.status !== 'pending' && c.status !== 'rejected'), [clubs])
   const allMembers = useMemo(() => getAllMembersFromStorage(), [clubs, membersRefresh])
@@ -105,6 +107,29 @@ export default function AllMembersManagement() {
     }
   }
 
+  const handleAddNewMember = async (e) => {
+    e.preventDefault()
+    if (!addForm.name?.trim() || !addForm.email?.trim()) return
+    const newMember = {
+      id: 'member-' + Date.now(),
+      name: addForm.name.trim(),
+      email: addForm.email.trim(),
+      mobile: (addForm.mobile || '').trim(),
+      phone: (addForm.mobile || '').trim(),
+      password: addForm.password || '',
+      clubIds: [],
+      role: 'member',
+      createdAt: new Date().toISOString()
+    }
+    const result = await upsertMember(newMember)
+    if (result) {
+      setMembersRefresh(k => k + 1)
+      setShowAddModal(false)
+      setAddForm(emptyEditForm)
+      window.dispatchEvent(new CustomEvent('clubs-synced'))
+    }
+  }
+
   if (!hasPlatformPermission(session, 'all-members')) {
     return (
       <div className="main-admin-page">
@@ -136,6 +161,9 @@ export default function AllMembersManagement() {
             />
             <span className="amm-search-icon" aria-hidden>🔍</span>
           </div>
+          <button type="button" className="amm-btn amm-btn--primary" onClick={() => setShowAddModal(true)}>
+            + {t('Add Member', 'إضافة عضو', language)}
+          </button>
         </header>
 
         {allMembers.length > 0 && (
@@ -233,6 +261,35 @@ export default function AllMembersManagement() {
               )
             })}
           </div>
+        )}
+
+        {showAddModal && (
+          <Modal title={t('Add Member', 'إضافة عضو', language)} onClose={() => { setShowAddModal(false); setAddForm(emptyEditForm) }}>
+            <form className="amm-form" onSubmit={handleAddNewMember}>
+              <div className="amm-form-group">
+                <label>{t('Name', 'الاسم', language)} *</label>
+                <input type="text" value={addForm.name} onChange={e => setAddForm({ ...addForm, name: e.target.value })} required />
+              </div>
+              <div className="amm-form-group">
+                <label>{t('Email', 'البريد', language)} *</label>
+                <input type="email" value={addForm.email} onChange={e => setAddForm({ ...addForm, email: e.target.value })} required />
+              </div>
+              <div className="amm-form-group">
+                <label>{t('Phone', 'الهاتف', language)}</label>
+                <input type="text" value={addForm.mobile} onChange={e => setAddForm({ ...addForm, mobile: e.target.value })} placeholder="+966..." />
+              </div>
+              <div className="amm-form-group">
+                <label>{t('Password', 'كلمة المرور', language)}</label>
+                <input type="password" value={addForm.password} onChange={e => setAddForm({ ...addForm, password: e.target.value })} placeholder="••••••••" minLength={6} />
+              </div>
+              <div className="amm-form-actions">
+                <button type="button" className="amm-btn amm-btn--secondary" onClick={() => { setShowAddModal(false); setAddForm(emptyEditForm) }}>
+                  {t('Cancel', 'إلغاء', language)}
+                </button>
+                <button type="submit" className="amm-btn amm-btn--primary">{t('Save', 'حفظ', language)}</button>
+              </div>
+            </form>
+          </Modal>
         )}
 
         {editingMember && (

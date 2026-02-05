@@ -15,7 +15,7 @@ import {
   deleteMatchesByTournament,
   deleteMatchesByDateAndType
 } from './storage'
-import { loadClubs, getClubById, saveClubs } from './storage/adminStorage'
+import { loadClubs, getClubById, saveClubs, upsertMember, addMemberToClub, deleteMember } from './storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import LanguageIcon from './components/LanguageIcon'
 import playtomicApi from './services/playtomicApi'
@@ -7809,14 +7809,16 @@ function App({ currentUser }) {
                 <div className="modal-body">
                   <MemberForm
                     member={memberFormModal === 'add' ? null : memberFormModal}
-                    onSave={(memberData) => {
-                      if (memberFormModal === 'add') {
+                    onSave={async (memberData) => {
+                      if (memberFormModal === 'add' && currentClub?.id) {
                         const newMember = {
-                          id: members.length > 0 ? Math.max(...members.map(m => m.id)) + 1 : 1,
+                          id: 'member-' + Date.now(),
                           name: memberData.name || '',
                           mobile: memberData.mobile || '',
+                          phone: memberData.mobile || '',
                           dateOfBirth: memberData.dateOfBirth || '',
                           email: memberData.email || '',
+                          clubIds: [currentClub.id],
                           totalGames: 0,
                           totalWins: 0,
                           totalLosses: 0,
@@ -7827,13 +7829,18 @@ function App({ currentUser }) {
                           lastTournamentId: undefined,
                           pointsHistory: []
                         }
-                        setMembers([...members, newMember])
-                      } else {
-                        setMembers(members.map(m => 
-                          m.id === memberFormModal.id 
-                            ? { ...m, ...memberData }
-                            : m
-                        ))
+                        const saved = await upsertMember(newMember)
+                        if (saved) {
+                          setMembers(prev => [...prev, saved])
+                          window.dispatchEvent(new CustomEvent('clubs-synced'))
+                        }
+                      } else if (memberFormModal !== 'add' && memberFormModal?.id) {
+                        const updated = { ...memberFormModal, ...memberData }
+                        const saved = await upsertMember(updated)
+                        if (saved) {
+                          setMembers(members.map(m => m.id === memberFormModal.id ? saved : m))
+                          window.dispatchEvent(new CustomEvent('clubs-synced'))
+                        }
                       }
                       setMemberFormModal(null)
                     }}
@@ -7871,11 +7878,8 @@ function App({ currentUser }) {
                     <button 
                       className="btn-danger"
                       onClick={() => {
-                        // Store deleted member for undo
                         setDeletedMember(memberToDelete)
-                        // Remove member from list
                         setMembers(members.filter(m => m.id !== memberToDelete.id))
-                        // Also remove from all teams
                         updateCurrentState(state => ({
                           ...state,
                           teams: (state.teams || []).map(team => ({
@@ -7884,9 +7888,8 @@ function App({ currentUser }) {
                           }))
                         }))
                         setMemberToDelete(null)
-                        
-                        // Set undo timeout (5 seconds)
                         const timeout = setTimeout(() => {
+                          deleteMember(memberToDelete.id).then(() => window.dispatchEvent(new CustomEvent('clubs-synced')))
                           setDeletedMember(null)
                         }, 5000)
                         setUndoTimeout(timeout)
@@ -7976,14 +7979,13 @@ function App({ currentUser }) {
                 </span>
                 <button
                   className="btn-secondary btn-small"
-                  onClick={() => {
-                    // Restore member
-                    setMembers([...members, deletedMember])
-                    // Clear undo state
-                    if (undoTimeout) {
-                      clearTimeout(undoTimeout)
-                      setUndoTimeout(null)
+                  onClick={async () => {
+                    const restored = await upsertMember(deletedMember)
+                    if (restored) {
+                      setMembers([...members, restored])
+                      window.dispatchEvent(new CustomEvent('clubs-synced'))
                     }
+                    if (undoTimeout) { clearTimeout(undoTimeout); setUndoTimeout(null) }
                     setDeletedMember(null)
                   }}
                   style={{ marginLeft: '15px' }}
