@@ -118,8 +118,8 @@ router.get('/', async (req, res) => {
 /** GET /api/init-db/tables - Verify all required tables exist */
 router.get('/tables', async (req, res) => {
   try {
-    if (!process.env.DATABASE_URL?.trim()) {
-      return res.json({ ok: false, tables: [], hint: 'DATABASE_URL not set' })
+    if (!isConnected()) {
+      return res.json({ ok: false, tables: [], hint: 'Database not connected. Set DATABASE_URL or database.config.json' })
     }
     const required = ['entities', 'app_settings', 'app_store', 'matches', 'member_stats', 'tournament_summaries']
     const results = []

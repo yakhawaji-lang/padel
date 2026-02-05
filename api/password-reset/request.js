@@ -120,7 +120,7 @@ export default async function handler(req, res) {
 
     const baseUrl = process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
-      : (process.env.BASE_URL || 'http://localhost:3000')
+      : (process.env.BASE_URL || 'https://playtix.app/app')
     const resetUrl = `${baseUrl}/reset-password?token=${token}${userType !== 'member' ? '&type=' + userType : ''}`
 
     const emailRes = await fetch(RESEND_API_URL, {

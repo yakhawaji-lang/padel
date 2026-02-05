@@ -72,7 +72,7 @@ async function handleRequest(req, res) {
     tokens[token] = { email: em, expiresAt, userType, ...extra }
     await setSetting('password_reset_tokens', tokens)
 
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3000'
+    const baseUrl = process.env.BASE_URL || 'https://playtix.app/app'
     const resetUrl = `${baseUrl}/reset-password?token=${token}${userType !== 'member' ? '&type=' + userType : ''}`
 
     const emailRes = await fetch(RESEND_API_URL, {

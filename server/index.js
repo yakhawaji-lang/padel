@@ -65,7 +65,7 @@ app.get('/api/db-check', async (req, res) => {
     db: isConnected() && !testError,
     testError: testError || null,
     hint: !diag.hasConnectionString
-      ? 'Create database.config.json in public_html or set DATABASE_URL'
+      ? 'Create database.config.json in domains/playtix.app (outside public_html) or set DATABASE_URL'
       : testError
         ? 'Connection string found but MySQL rejected: ' + testError
         : diag.db

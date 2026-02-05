@@ -20,6 +20,7 @@ config() // load from cwd (default)
 ].forEach((p) => { if (existsSync(p)) config({ path: p }) })
 
 // Fallback: قراءة من ملف (عند فشل Environment Variables على Hostinger)
+// Hostinger: أنشئ database.config.json في domains/playtix.app/ (خارج public_html)
 function loadFromConfigFile() {
   const cwd = process.cwd()
   const paths = [

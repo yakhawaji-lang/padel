@@ -10,6 +10,7 @@ const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 const getDataSourceLabel = () => {
   if (typeof window === 'undefined') return { en: '—', ar: '—' }
   const h = (window.location?.hostname || '').toLowerCase()
+  if (h.includes('playtix.app')) return { en: 'PlayTix', ar: 'بلايتكس' }
   if (h.includes('vercel.app')) return { en: 'Cloud', ar: 'سحابي' }
   if (h.includes('localhost') || h === '127.0.0.1') return { en: 'Local', ar: 'محلي' }
   return { en: 'Cloud', ar: 'سحابي' }
