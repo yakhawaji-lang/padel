@@ -1,11 +1,11 @@
-# هيكل قاعدة البيانات - PlayTix
+# هيكل قاعدة البيانات - PlayTix (u502561206_padel_db)
 
-**كل بيانات النظام تُخزَّن وتُقرأ من قاعدة البيانات `padel_db` (MySQL) فقط.**  
-لا يوجد مصدر بيانات آخر — padel_db هي المصدر الوحيد.
+**كل مدخلات النظام تُخزَّن وتُقرأ من قاعدة البيانات `u502561206_padel_db` (MySQL) فقط.**  
+لا يوجد مصدر بيانات آخر — قاعدة البيانات هي المصدر الوحيد.
 
 ---
 
-## الجداول (داخل padel_db)
+## الجداول والحقول لكل مدخلات النظام
 
 ### 1. `entities` — الأندية، الأعضاء، مدراء المنصة
 | الحقل       | النوع        | الوصف                          |
@@ -17,69 +17,101 @@
 | created_at | DATETIME     | تاريخ الإنشاء                  |
 | updated_at | DATETIME     | تاريخ آخر تحديث                |
 
-#### هيكل كائن النادي (club) في data — Club Settings وجميع الأقسام
+#### entity_type = 'club' — كل مدخلات الأندية
+| الحقل | الجدول/الحقل | القسم/الصفحة |
+|-------|--------------|---------------|
+| id, name, nameAr | entities.data | الإعدادات الأساسية |
+| logo, banner | entities.data | الإعدادات الأساسية |
+| tagline, taglineAr, address, addressAr | entities.data | الإعدادات الأساسية |
+| phone, email, website | entities.data | الإعدادات الأساسية |
+| playtomicVenueId, playtomicApiKey | entities.data | Playtomic |
+| courts | entities.data | الملاعب |
+| settings.defaultLanguage, timezone, currency | entities.data | الإعدادات العامة |
+| settings.bookingDuration, maxBookingAdvance, cancellationPolicy | entities.data | الحجز |
+| settings.openingTime, closingTime | entities.data | ساعات العمل |
+| settings.headerBgColor, headerTextColor | entities.data | ألوان الهيدر |
+| settings.heroBgColor, heroBgOpacity, heroTitleColor, heroTextColor, heroStatsColor | entities.data | ألوان البطاقة |
+| settings.socialLinks | entities.data | السوشيال ميديا |
+| members | entities.data | الأعضاء |
+| bookings | entities.data | الحجوزات |
+| offers | entities.data | العروض |
+| accounting | entities.data | المحاسبة |
+| adminUsers | entities.data | مدراء النادي |
+| tournamentTypes | entities.data | أنواع البطولات |
+| storeEnabled, store | entities.data | المتجر (categories, products, sales, inventoryMovements, offers, coupons) |
+| tournamentData | entities.data | بيانات البطولة (kingState, socialState, currentTournamentId, activeTab, contentTab, memberTab) |
+
+#### entity_type = 'member'
 | الحقل | الوصف |
 |-------|-------|
-| id | معرف النادي |
-| name, nameAr | الاسم (إنجليزي، عربي) |
-| logo, banner | شعار وبنر النادي (URL أو base64) |
-| tagline, taglineAr | وصف قصير |
-| address, addressAr | العنوان |
-| phone, email, website | التواصل |
-| playtomicVenueId, playtomicApiKey | تكامل Playtomic |
-| courts | مصفوفة الملاعب: [{ id, name, nameAr, type, maintenance, image }] |
-| settings | إعدادات النادي (انظر أدناه) |
-| tournaments | البطولات |
-| members | الأعضاء |
-| bookings | الحجوزات |
-| offers | العروض |
-| accounting | المحاسبة |
-| adminUsers | مدراء النادي |
-| tournamentTypes | أنواع البطولات |
-| storeEnabled, store | المتجر (categories, products, sales, ...) |
-| tournamentData | بيانات البطولة الحالية |
+| id, name, nameAr, email, avatar | بيانات العضو |
+| clubIds | الأندية المنضم لها |
+| totalPoints, totalGames, totalWins, pointsHistory | إحصائيات |
 
-#### settings (داخل club.data)
+#### entity_type = 'platform_admin'
 | الحقل | الوصف |
 |-------|-------|
-| defaultLanguage | اللغة الافتراضية |
-| timezone | المنطقة الزمنية |
-| currency | العملة |
-| bookingDuration | مدة الحجز (دقيقة) |
-| maxBookingAdvance | أيام الحجز المسبق |
-| cancellationPolicy | ساعات الإلغاء |
-| openingTime, closingTime | ساعات العمل |
-| headerBgColor, headerTextColor | ألوان الهيدر |
-| heroBgColor, heroBgOpacity | خلفية البطاقة فوق البنر |
-| heroTitleColor, heroTextColor, heroStatsColor | ألوان النص |
-| socialLinks | [{ platform, url }] روابط السوشيال ميديا |
+| id, email, password, role | مدير المنصة |
+| permissions | الصلاحيات |
 
-### 2. `app_settings` — الإعدادات والمتغيرات
-| الحقل     | النوع       | الوصف                |
-|----------|-------------|----------------------|
-| key      | VARCHAR(255)| مفتاح الإعداد        |
-| value    | JSON        | القيمة               |
-| updated_at | DATETIME  | تاريخ آخر تحديث      |
-
-**المفاتيح:** admin_settings, app_language, current_member_id, admin_current_club_id, bookings, password_reset_tokens
+### 2. `app_settings` — الإعدادات العامة والجلسات
+| key | الوصف | الصفحة/القسم |
+|-----|-------|---------------|
+| admin_settings | إعدادات المنصة | لوحة المنصة |
+| app_language | لغة التطبيق | جميع الصفحات |
+| current_member_id | العضو المسجل حالياً | تسجيل الدخول |
+| admin_current_club_id | النادي المختار في لوحة المنصة | AllClubsDashboard |
+| platform_admin_session | جلسة مدير المنصة | PlatformAdminLogin |
+| club_admin_session | جلسة مدير النادي | ClubLogin |
+| current_club_admin_id | النادي الذي يديره المدير | ClubAdminPanel |
+| club_{clubId}_language | لغة واجهة النادي | ClubSettings, ClubDashboard |
+| password_reset_tokens | رموز استعادة كلمة المرور | ForgotPassword |
 
 ### 3. `matches` — مباريات البطولات
+| الحقل | النوع | الوصف |
+|-------|-------|-------|
+| club_id | VARCHAR | معرف النادي |
+| tournament_type | VARCHAR | king / social |
+| tournament_id | INT | معرف البطولة |
+| data | JSON | بيانات المباراة |
+| saved_at | BIGINT | الطابع الزمني |
+
 ### 4. `member_stats` — إحصائيات الأعضاء
+| الحقل | الوصف |
+|-------|-------|
+| club_id, member_id, tournament_id | المفاتيح |
+| data | JSON إحصائيات العضو |
+
 ### 5. `tournament_summaries` — ملخصات البطولات
-### 6. `app_store` — (قديم، للتوافق)
+| الحقل | الوصف |
+|-------|-------|
+| club_id | معرف النادي |
+| data | JSON ملخص البطولة |
+
+### 6. `app_store` — (للمرحمة من نسخ قديمة)
 
 ---
 
-## تهيئة قاعدة البيانات
+## تهيئة قاعدة البيانات u502561206_padel_db
 
-**التهيئة الأولى:**
+**التهيئة الأولى (إنشاء الجداول والقيم الافتراضية):**
+```
+https://playtix.app/api/init-db?init=1
+```
+أو من PowerShell:
 ```powershell
 Invoke-RestMethod -Uri "https://playtix.app/api/init-db?init=1"
 ```
 
 **إعادة تهيئة كاملة (حذف جميع البيانات وإعادة الإنشاء):**
-```powershell
-Invoke-RestMethod -Uri "https://playtix.app/api/init-db?reset=1"
+```
+https://playtix.app/api/init-db?reset=1
+```
+⚠️ يحذف كل البيانات ويُنشئ: entities (hala-padel + platform_admin)، app_store، app_settings
+
+**إضافة الملاعب الناقصة للنوادي الموجودة:**
+```
+https://playtix.app/api/init-db/migrate-club-settings
 ```
 
 أو POST:

@@ -76,13 +76,19 @@
 
 | مفتاح التخزين | الجدول (داخل padel_db) | ملاحظات |
 |---------------|-------------------------|---------|
-| `admin_clubs` | `entities` (entity_type='club') | كل نادٍ = صف واحد |
+| `admin_clubs` | `entities` (entity_type='club') | كل نادٍ = صف واحد، يشمل courts, bookings, offers, store, accounting |
 | `all_members` | `entities` (entity_type='member') | كل عضو = صف واحد |
 | `padel_members` | `entities` (entity_type='member') | نفس بيانات all_members |
 | `platform_admins` | `entities` (entity_type='platform_admin') | كل مدير = صف واحد |
 | `admin_settings` | `app_settings` | إعدادات عامة |
 | `app_language` | `app_settings` | اللغة المختارة |
-| `bookings` | `app_settings` | الحجوزات (إن وُجدت) |
+| `current_member_id` | `app_settings` | العضو المسجل |
+| `admin_current_club_id` | `app_settings` | النادي المختار في لوحة المنصة |
+| `platform_admin_session` | `app_settings` | جلسة مدير المنصة |
+| `club_admin_session` | `app_settings` | جلسة مدير النادي |
+| `current_club_admin_id` | `app_settings` | النادي الذي يديره المدير |
+| `club_{clubId}_language` | `app_settings` | لغة واجهة النادي (مفتاح ديناميكي) |
+| `password_reset_tokens` | `app_settings` | رموز استعادة كلمة المرور |
 
 ---
 

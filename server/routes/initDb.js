@@ -77,7 +77,12 @@ const STMTS = [
   `INSERT IGNORE INTO app_store (\`key\`, value) VALUES ('admin_settings', '{}')`,
   `INSERT IGNORE INTO app_store (\`key\`, value) VALUES ('bookings', '[]')`,
   `INSERT IGNORE INTO app_settings (\`key\`, value) VALUES ('admin_settings', '{}')`,
-  `INSERT IGNORE INTO app_settings (\`key\`, value) VALUES ('app_language', '"en"')`
+  `INSERT IGNORE INTO app_settings (\`key\`, value) VALUES ('app_language', '"en"')`,
+  `INSERT IGNORE INTO app_settings (\`key\`, value) VALUES ('current_member_id', 'null')`,
+  `INSERT IGNORE INTO app_settings (\`key\`, value) VALUES ('admin_current_club_id', 'null')`,
+  `INSERT IGNORE INTO app_settings (\`key\`, value) VALUES ('platform_admin_session', 'null')`,
+  `INSERT IGNORE INTO app_settings (\`key\`, value) VALUES ('club_admin_session', 'null')`,
+  `INSERT IGNORE INTO app_settings (\`key\`, value) VALUES ('current_club_admin_id', 'null')`
 ]
 
 router.get('/', async (req, res) => {
