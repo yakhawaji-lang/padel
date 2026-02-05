@@ -106,7 +106,7 @@
 | offers | العروض | club.offers |
 | store | المتجر، المنتجات، المبيعات | club.store (categories, products, sales, inventoryMovements, offers, coupons) |
 | accounting | المحاسبة | club.accounting |
-| settings | الإعدادات، الملاعب | club.* (name, courts, settings) |
+| settings | الإعدادات، الملاعب، الساعات، السوشيال | club.* (name, nameAr, logo, banner, courts, settings: defaultLanguage, timezone, currency, bookingDuration, maxBookingAdvance, cancellationPolicy, openingTime, closingTime, headerBgColor, headerTextColor, heroBgColor, heroBgOpacity, heroTitleColor, heroTextColor, heroStatsColor, socialLinks) |
 | users | مدراء النادي | club.adminUsers, club.owner |
 
 ---

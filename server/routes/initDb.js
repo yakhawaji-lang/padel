@@ -4,6 +4,65 @@ import { getEntities, setEntities } from '../db/dataHelpers.js'
 
 const router = Router()
 
+/** Default Hala Padel club with full Club Settings structure (entities.data JSON) */
+function getDefaultHalaPadel() {
+  return {
+    id: 'hala-padel',
+    name: 'Hala Padel',
+    nameAr: 'هلا بادل',
+    logo: '',
+    banner: '',
+    tagline: 'Indoor courts • King of the Court & Social tournaments • For all levels',
+    taglineAr: 'ملاعب داخلية • بطولات ملك الملعب وسوشيال • لجميع المستويات',
+    address: 'Arid District, 11234, Riyadh',
+    addressAr: 'حي العارض، 11234، الرياض',
+    phone: '',
+    email: '',
+    website: 'https://playtomic.com/clubs/hala-padel',
+    playtomicVenueId: 'hala-padel',
+    playtomicApiKey: '',
+    courts: [
+      { id: 'court-1', name: 'Court 1', nameAr: 'الملعب 1', type: 'indoor', maintenance: false, image: '' },
+      { id: 'court-2', name: 'Court 2', nameAr: 'الملعب 2', type: 'indoor', maintenance: false, image: '' },
+      { id: 'court-3', name: 'Court 3', nameAr: 'الملعب 3', type: 'indoor', maintenance: false, image: '' },
+      { id: 'court-4', name: 'Court 4', nameAr: 'الملعب 4', type: 'indoor', maintenance: false, image: '' }
+    ],
+    settings: {
+      defaultLanguage: 'en',
+      timezone: 'Asia/Riyadh',
+      currency: 'SAR',
+      bookingDuration: 60,
+      maxBookingAdvance: 30,
+      cancellationPolicy: 24,
+      openingTime: '06:00',
+      closingTime: '23:00',
+      headerBgColor: '#ffffff',
+      headerTextColor: '#0f172a',
+      heroBgColor: '#ffffff',
+      heroBgOpacity: 85,
+      heroTitleColor: '#0f172a',
+      heroTextColor: '#475569',
+      heroStatsColor: '#0f172a',
+      socialLinks: []
+    },
+    tournaments: [],
+    members: [],
+    bookings: [],
+    offers: [],
+    accounting: [],
+    adminUsers: [],
+    tournamentTypes: [
+      { id: 'king-of-court', name: 'King of the Court', nameAr: 'ملك الملعب', description: 'Winners stay on court', descriptionAr: 'الفائزون يبقون على الملعب' },
+      { id: 'social', name: 'Social Tournament', nameAr: 'بطولة سوشيال', description: 'Round-robin format', descriptionAr: 'نظام دوري' }
+    ],
+    storeEnabled: false,
+    store: { name: '', nameAr: '', categories: [], products: [], sales: [], inventoryMovements: [], offers: [], coupons: [], minStockAlert: 5 },
+    tournamentData: { kingState: null, socialState: null, currentTournamentId: 1 },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+}
+
 const STMTS = [
   `CREATE TABLE IF NOT EXISTS app_store (\`key\` VARCHAR(255) PRIMARY KEY, value JSON NOT NULL, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS entities (id INT AUTO_INCREMENT PRIMARY KEY, entity_type VARCHAR(50) NOT NULL, entity_id VARCHAR(255) NOT NULL, data JSON NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uk_entity (entity_type, entity_id), INDEX idx_entity_type (entity_type))`,
@@ -61,34 +120,7 @@ router.get('/', async (req, res) => {
       }
       const { rows: clubCountRows } = await query('SELECT COUNT(*) as n FROM entities WHERE entity_type = ?', ['club'])
       if (clubCountRows[0]?.n === 0) {
-        const halaPadel = {
-          id: 'hala-padel',
-          name: 'Hala Padel',
-          nameAr: 'هلا بادل',
-          tagline: 'Indoor courts • King of the Court & Social tournaments • For all levels',
-          taglineAr: 'ملاعب داخلية • بطولات ملك الملعب وسوشيال • لجميع المستويات',
-          address: 'Arid District, 11234, Riyadh',
-          addressAr: 'حي العارض، 11234، الرياض',
-          phone: '', email: '', website: 'https://playtomic.com/clubs/hala-padel',
-          playtomicVenueId: 'hala-padel', playtomicApiKey: '',
-          courts: [
-            { id: 'court-1', name: 'Court 1', nameAr: 'الملعب 1', type: 'indoor' },
-            { id: 'court-2', name: 'Court 2', nameAr: 'الملعب 2', type: 'indoor' },
-            { id: 'court-3', name: 'Court 3', nameAr: 'الملعب 3', type: 'indoor' },
-            { id: 'court-4', name: 'Court 4', nameAr: 'الملعب 4', type: 'indoor' }
-          ],
-          settings: { defaultLanguage: 'en', timezone: 'Asia/Riyadh', currency: 'SAR', bookingDuration: 60, maxBookingAdvance: 30, cancellationPolicy: 24, openingTime: '06:00', closingTime: '23:00' },
-          tournaments: [], members: [], bookings: [], offers: [], accounting: [],
-          tournamentTypes: [
-            { id: 'king-of-court', name: 'King of the Court', nameAr: 'ملك الملعب', description: 'Winners stay on court', descriptionAr: 'الفائزون يبقون على الملعب' },
-            { id: 'social', name: 'Social Tournament', nameAr: 'بطولة سوشيال', description: 'Round-robin format', descriptionAr: 'نظام دوري' }
-          ],
-          storeEnabled: false,
-          store: { name: '', nameAr: '', categories: [], products: [], sales: [], inventoryMovements: [], offers: [], coupons: [], minStockAlert: 5 },
-          tournamentData: { kingState: null, socialState: null, currentTournamentId: 1 },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
+        const halaPadel = getDefaultHalaPadel()
         await query('INSERT IGNORE INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?)', ['club', 'hala-padel', JSON.stringify(halaPadel)])
       }
       const { rows: paRows } = await query('SELECT COUNT(*) as n FROM entities WHERE entity_type = ?', ['platform_admin'])
@@ -135,6 +167,65 @@ router.get('/tables', async (req, res) => {
     res.json({ ok: allOk, tables: results, hint: allOk ? 'All tables ready' : 'Run POST /api/init-db to create missing tables' })
   } catch (e) {
     res.status(500).json({ ok: false, tables: [], error: e.message })
+  }
+})
+
+/** POST /api/init-db/migrate-club-settings - Add missing Club Settings fields to existing clubs */
+router.post('/migrate-club-settings', async (req, res) => {
+  try {
+    if (!isConnected()) {
+      return res.status(503).json({ error: 'Database not connected' })
+    }
+    const clubs = await getEntities('club')
+    let updated = 0
+    const defaults = {
+      logo: '',
+      banner: '',
+      adminUsers: []
+    }
+    const settingsDefaults = {
+      headerBgColor: '#ffffff',
+      headerTextColor: '#0f172a',
+      heroBgColor: '#ffffff',
+      heroBgOpacity: 85,
+      heroTitleColor: '#0f172a',
+      heroTextColor: '#475569',
+      heroStatsColor: '#0f172a',
+      socialLinks: []
+    }
+    for (const club of clubs) {
+      let changed = false
+      const merged = { ...club }
+      for (const [k, v] of Object.entries(defaults)) {
+        if (merged[k] === undefined) { merged[k] = v; changed = true }
+      }
+      merged.settings = merged.settings || {}
+      for (const [k, v] of Object.entries(settingsDefaults)) {
+        if (merged.settings[k] === undefined) { merged.settings[k] = v; changed = true }
+      }
+      if (merged.courts && Array.isArray(merged.courts)) {
+        const needsCourtUpdate = merged.courts.some(c => c.maintenance === undefined || c.image === undefined)
+        if (needsCourtUpdate) {
+          merged.courts = merged.courts.map(c => ({
+            ...c,
+            maintenance: c.maintenance ?? false,
+            image: c.image ?? ''
+          }))
+          changed = true
+        }
+      }
+      if (changed) {
+        await query(
+          'UPDATE entities SET data = ?, updated_at = NOW() WHERE entity_type = ? AND entity_id = ?',
+          [JSON.stringify(merged), 'club', club.id]
+        )
+        updated++
+      }
+    }
+    res.json({ ok: true, message: `Migrated ${updated} club(s)` })
+  } catch (e) {
+    console.error('migrate-club-settings:', e)
+    res.status(500).json({ error: e.message })
   }
 })
 
@@ -204,34 +295,7 @@ router.post('/', async (req, res) => {
     // If no clubs exist, insert default Hala Padel
     const { rows: clubCountRows } = await query('SELECT COUNT(*) as n FROM entities WHERE entity_type = ?', ['club'])
     if (clubCountRows[0]?.n === 0) {
-      const halaPadel = {
-        id: 'hala-padel',
-        name: 'Hala Padel',
-        nameAr: 'هلا بادل',
-        tagline: 'Indoor courts • King of the Court & Social tournaments • For all levels',
-        taglineAr: 'ملاعب داخلية • بطولات ملك الملعب وسوشيال • لجميع المستويات',
-        address: 'Arid District, 11234, Riyadh',
-        addressAr: 'حي العارض، 11234، الرياض',
-        phone: '', email: '', website: 'https://playtomic.com/clubs/hala-padel',
-        playtomicVenueId: 'hala-padel', playtomicApiKey: '',
-        courts: [
-          { id: 'court-1', name: 'Court 1', nameAr: 'الملعب 1', type: 'indoor' },
-          { id: 'court-2', name: 'Court 2', nameAr: 'الملعب 2', type: 'indoor' },
-          { id: 'court-3', name: 'Court 3', nameAr: 'الملعب 3', type: 'indoor' },
-          { id: 'court-4', name: 'Court 4', nameAr: 'الملعب 4', type: 'indoor' }
-        ],
-        settings: { defaultLanguage: 'en', timezone: 'Asia/Riyadh', currency: 'SAR', bookingDuration: 60, maxBookingAdvance: 30, cancellationPolicy: 24, openingTime: '06:00', closingTime: '23:00' },
-        tournaments: [], members: [], bookings: [], offers: [], accounting: [],
-        tournamentTypes: [
-          { id: 'king-of-court', name: 'King of the Court', nameAr: 'ملك الملعب', description: 'Winners stay on court', descriptionAr: 'الفائزون يبقون على الملعب' },
-          { id: 'social', name: 'Social Tournament', nameAr: 'بطولة سوشيال', description: 'Round-robin format', descriptionAr: 'نظام دوري' }
-        ],
-        storeEnabled: false,
-        store: { name: '', nameAr: '', categories: [], products: [], sales: [], inventoryMovements: [], offers: [], coupons: [], minStockAlert: 5 },
-        tournamentData: { kingState: null, socialState: null, currentTournamentId: 1 },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
+      const halaPadel = getDefaultHalaPadel()
       await query('INSERT IGNORE INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?)', ['club', 'hala-padel', JSON.stringify(halaPadel)])
       console.log('[init-db] Inserted default Hala Padel club')
     }

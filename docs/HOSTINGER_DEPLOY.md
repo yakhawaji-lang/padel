@@ -162,7 +162,13 @@ https://playtix.app/api/init-db/tables
 ```
 تأكد أن كل الجداول تظهر `exists: true`.
 
-### 3.5 تسجيل الدخول كمدير منصة
+### 3.5 ترحيل إعدادات الأندية (إن وُجدت أندية قديمة)
+إذا كان لديك أندية من نسخة سابقة، أضف الحقول الناقصة لـ Club Settings:
+```powershell
+Invoke-RestMethod -Uri "https://playtix.app/api/init-db/migrate-club-settings" -Method POST
+```
+
+### 3.6 تسجيل الدخول كمدير منصة
 - **البريد:** `2@2.com`
 - **كلمة المرور:** `123456`
 - **الرابط:** `https://playtix.app/app/admin-login`
@@ -240,6 +246,7 @@ domains/
 | `https://playtix.app/api/db-check` | تشخيص قاعدة البيانات |
 | `https://playtix.app/api/init-db?init=1` | تهيئة الجداول (من المتصفح) |
 | `https://playtix.app/api/init-db/tables` | التحقق من وجود الجداول |
+| `https://playtix.app/api/init-db/migrate-club-settings` | ترحيل إعدادات الأندية (POST) |
 
 ---
 

@@ -17,6 +17,43 @@
 | created_at | DATETIME     | تاريخ الإنشاء                  |
 | updated_at | DATETIME     | تاريخ آخر تحديث                |
 
+#### هيكل كائن النادي (club) في data — Club Settings وجميع الأقسام
+| الحقل | الوصف |
+|-------|-------|
+| id | معرف النادي |
+| name, nameAr | الاسم (إنجليزي، عربي) |
+| logo, banner | شعار وبنر النادي (URL أو base64) |
+| tagline, taglineAr | وصف قصير |
+| address, addressAr | العنوان |
+| phone, email, website | التواصل |
+| playtomicVenueId, playtomicApiKey | تكامل Playtomic |
+| courts | مصفوفة الملاعب: [{ id, name, nameAr, type, maintenance, image }] |
+| settings | إعدادات النادي (انظر أدناه) |
+| tournaments | البطولات |
+| members | الأعضاء |
+| bookings | الحجوزات |
+| offers | العروض |
+| accounting | المحاسبة |
+| adminUsers | مدراء النادي |
+| tournamentTypes | أنواع البطولات |
+| storeEnabled, store | المتجر (categories, products, sales, ...) |
+| tournamentData | بيانات البطولة الحالية |
+
+#### settings (داخل club.data)
+| الحقل | الوصف |
+|-------|-------|
+| defaultLanguage | اللغة الافتراضية |
+| timezone | المنطقة الزمنية |
+| currency | العملة |
+| bookingDuration | مدة الحجز (دقيقة) |
+| maxBookingAdvance | أيام الحجز المسبق |
+| cancellationPolicy | ساعات الإلغاء |
+| openingTime, closingTime | ساعات العمل |
+| headerBgColor, headerTextColor | ألوان الهيدر |
+| heroBgColor, heroBgOpacity | خلفية البطاقة فوق البنر |
+| heroTitleColor, heroTextColor, heroStatsColor | ألوان النص |
+| socialLinks | [{ platform, url }] روابط السوشيال ميديا |
+
 ### 2. `app_settings` — الإعدادات والمتغيرات
 | الحقل     | النوع       | الوصف                |
 |----------|-------------|----------------------|
@@ -26,52 +63,25 @@
 
 **المفاتيح:** admin_settings, app_language, current_member_id, admin_current_club_id, bookings, password_reset_tokens
 
-**ربط صفحات الإدارة:** راجع `docs/ADMIN_PAGES_DB_MAPPING.md` لتفاصيل ربط كل صفحة إدارة بالجداول.
-
 ### 3. `matches` — مباريات البطولات
-| الحقل          | النوع  | الوصف          |
-|----------------|--------|----------------|
-| club_id        | VARCHAR| معرف النادي    |
-| tournament_type| VARCHAR| نوع البطولة    |
-| tournament_id  | INT    | معرف البطولة   |
-| data           | JSON   | بيانات المباراة|
-| saved_at       | BIGINT | وقت الحفظ      |
-
 ### 4. `member_stats` — إحصائيات الأعضاء
-| الحقل        | النوع  | الوصف       |
-|-------------|--------|-------------|
-| club_id     | VARCHAR| معرف النادي |
-| member_id   | VARCHAR| معرف العضو  |
-| tournament_id| INT   | معرف البطولة|
-| data        | JSON   | الإحصائيات  |
-
 ### 5. `tournament_summaries` — ملخصات البطولات
-| الحقل   | النوع  | الوصف       |
-|--------|--------|-------------|
-| club_id| VARCHAR| معرف النادي |
-| data   | JSON   | الملخص      |
-
 ### 6. `app_store` — (قديم، للتوافق)
-يُستخدم للترحيل من النسخ القديمة. النظام الحالي يعتمد على `entities` و `app_settings`.
-
----
-
-## مسار البيانات
-
-1. **القراءة:** الواجهة الأمامية ← API `/api/data` ← جدولَي `entities` و `app_settings`
-2. **الكتابة:** الواجهة الأمامية ← API `/api/data` ← جدولَي `entities` و `app_settings`
-3. **تهيئة:** `POST /api/init-db` لإنشاء الجداول وترحيل بيانات `app_store` إذا وُجدت
 
 ---
 
 ## تهيئة قاعدة البيانات
 
 ```powershell
-Invoke-RestMethod -Uri "http://localhost:4000/api/init-db" -Method POST
+Invoke-RestMethod -Uri "https://playtix.app/api/init-db?init=1"
 ```
 
-أو على Hostinger:
+أو POST:
 
 ```powershell
-Invoke-RestMethod -Uri "https://your-domain.com/api/init-db" -Method POST
+Invoke-RestMethod -Uri "https://playtix.app/api/init-db" -Method POST
 ```
+
+---
+
+راجع `docs/ADMIN_PAGES_DB_MAPPING.md` لتفاصيل ربط كل صفحة إدارة بالجداول.
