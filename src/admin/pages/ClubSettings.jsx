@@ -102,8 +102,8 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
     const updates = {
       name: formData.name,
       nameAr: formData.nameAr,
-      logo: formData.logo || undefined,
-      banner: formData.banner || undefined,
+      logo: formData.logo || '',
+      banner: formData.banner || '',
       tagline: formData.tagline,
       taglineAr: formData.taglineAr,
       address: formData.address,

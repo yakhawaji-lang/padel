@@ -162,8 +162,8 @@ function deduplicateClubs(clubs) {
 }
 
 /**
- * Merge remote clubs with local, preserving court images and local-only courts
- * (remote may not have images due to size limits, or may be stale)
+ * Merge remote clubs with local, preserving court images, logo, banner, socialLinks
+ * (remote may not have them due to size limits, race conditions, or stale data)
  */
 function mergeClubsPreservingLocalImages(remote, local) {
   if (!Array.isArray(remote)) return remote
@@ -177,19 +177,27 @@ function mergeClubsPreservingLocalImages(remote, local) {
     })
     .map(remoteClub => {
       const localClub = local.find(c => c.id === remoteClub.id)
-      if (!localClub?.courts?.length) return remoteClub
-      const remoteCourts = remoteClub.courts || []
-      const mergedCourts = remoteCourts.map(remoteCourt => {
-        const localCourt = localClub.courts.find(c => c.id === remoteCourt.id)
-        if (localCourt?.image && !remoteCourt?.image) {
-          return { ...remoteCourt, image: localCourt.image }
+      let out = { ...remoteClub }
+      if (localClub) {
+        if ((localClub.logo || '').length > 0 && !(remoteClub.logo || '').length) out.logo = localClub.logo
+        if ((localClub.banner || '').length > 0 && !(remoteClub.banner || '').length) out.banner = localClub.banner
+        const localSocial = localClub.settings?.socialLinks
+        const remoteSocial = remoteClub.settings?.socialLinks
+        if (Array.isArray(localSocial) && localSocial.length > 0 && (!Array.isArray(remoteSocial) || remoteSocial.length === 0)) {
+          out.settings = { ...(out.settings || {}), socialLinks: localSocial }
         }
-        return remoteCourt
-      })
-      const localOnlyCourts = localClub.courts.filter(
-        lc => !mergedCourts.some(mc => mc.id === lc.id)
-      )
-      return { ...remoteClub, courts: [...mergedCourts, ...localOnlyCourts] }
+        if (localClub.courts?.length) {
+          const remoteCourts = remoteClub.courts || []
+          const mergedCourts = remoteCourts.map(remoteCourt => {
+            const localCourt = localClub.courts.find(c => c.id === remoteCourt.id)
+            if (localCourt?.image && !remoteCourt?.image) return { ...remoteCourt, image: localCourt.image }
+            return remoteCourt
+          })
+          const localOnlyCourts = localClub.courts.filter(lc => !mergedCourts.some(mc => mc.id === lc.id))
+          out.courts = [...mergedCourts, ...localOnlyCourts]
+        }
+      }
+      return out
     })
   const localOnlyClubs = local.filter(lc => !remote.some(rc => rc.id === lc.id))
   return deduplicateClubs([...merged, ...localOnlyClubs])
@@ -237,13 +245,18 @@ export async function loadClubsAsync() {
 
 /**
  * Refresh clubs from API (PostgreSQL). Call periodically so admin sees new pending registrations from other devices.
+ * Preserves logo, banner, socialLinks from local cache when remote has empty/missing (avoids overwriting with stale data).
  */
 export async function refreshClubsFromApi() {
   if (!USE_POSTGRES || !_backendStorage) return
   try {
+    const local = _clubsCache && Array.isArray(_clubsCache) ? _clubsCache : []
     await _backendStorage.refreshStoreKeys([ADMIN_STORAGE_KEYS.CLUBS])
-    const clubs = _backendStorage.getCache(ADMIN_STORAGE_KEYS.CLUBS)
-    _clubsCache = deduplicateClubs(Array.isArray(clubs) ? clubs : [])
+    const remote = _backendStorage.getCache(ADMIN_STORAGE_KEYS.CLUBS)
+    const clubs = Array.isArray(remote) && remote.length > 0
+      ? mergeClubsPreservingLocalImages(remote, local)
+      : deduplicateClubs(Array.isArray(remote) ? remote : [])
+    _clubsCache = deduplicateClubs(clubs)
     syncMembersToClubs(_clubsCache)
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('clubs-synced'))
