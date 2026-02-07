@@ -196,7 +196,7 @@ export default function AdminUsersManagement() {
     }))
   }
 
-  const handleAddClubUser = (e) => {
+  const handleAddClubUser = async (e) => {
     e.preventDefault()
     setClubUserError('')
     if (!selectedClub || !onUpdateClub) return
@@ -216,25 +216,47 @@ export default function AdminUsersManagement() {
       permissions: clubUserForm.permissions,
       createdAt: new Date().toISOString()
     })
-    onUpdateClub(selectedClub.id, { adminUsers: users })
-    setShowAddClubUser(false)
-    setClubUserForm({ email: '', password: '', permissions: [] })
+    setSaving(true)
+    try {
+      await onUpdateClub(selectedClub.id, { adminUsers: users })
+      setShowAddClubUser(false)
+      setClubUserForm({ email: '', password: '', permissions: [] })
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+    } catch (err) {
+      setClubUserError(t('Save failed.', 'فشل الحفظ.', language) + (err?.message || ''))
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const handleRemoveClubUser = (id) => {
+  const handleRemoveClubUser = async (id) => {
     if (!selectedClub || !onUpdateClub) return
     if (!window.confirm(t('Remove this user?', 'إزالة هذا المستخدم؟', language))) return
     const users = clubAdminUsers.filter(u => u.id !== id)
-    onUpdateClub(selectedClub.id, { adminUsers: users })
-    setEditingClubUserId(null)
+    setSaving(true)
+    try {
+      await onUpdateClub(selectedClub.id, { adminUsers: users })
+      setEditingClubUserId(null)
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const handleEditClubUser = (e) => {
+  const handleEditClubUser = async (e) => {
     e.preventDefault()
     if (!selectedClub || !onUpdateClub || !editingClubUserId) return
     setClubUserError('')
     const user = clubAdminUsers.find(u => u.id === editingClubUserId)
     if (!user) return
+    if (clubUserForm.password && clubUserForm.password.length < 6) {
+      setClubUserError(t('Password must be at least 6 characters.', 'كلمة المرور 6 أحرف على الأقل.', language))
+      return
+    }
+    if (clubAdminUsers.some(u => u.id !== editingClubUserId && (u.email || '').toLowerCase() === clubUserForm.email.trim().toLowerCase())) {
+      setClubUserError(t('This email is already used.', 'هذا البريد مستخدم مسبقاً.', language))
+      return
+    }
     const users = clubAdminUsers.map(u =>
       u.id === editingClubUserId
         ? {
@@ -245,17 +267,17 @@ export default function AdminUsersManagement() {
           }
         : u
     )
-    if (clubUserForm.password && clubUserForm.password.length < 6) {
-      setClubUserError(t('Password must be at least 6 characters.', 'كلمة المرور 6 أحرف على الأقل.', language))
-      return
+    setSaving(true)
+    try {
+      await onUpdateClub(selectedClub.id, { adminUsers: users })
+      setEditingClubUserId(null)
+      setClubUserForm({ email: '', password: '', permissions: [] })
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+    } catch (err) {
+      setClubUserError(t('Save failed.', 'فشل الحفظ.', language) + (err?.message || ''))
+    } finally {
+      setSaving(false)
     }
-    if (users.some(u => u.id !== editingClubUserId && (u.email || '').toLowerCase() === clubUserForm.email.trim().toLowerCase())) {
-      setClubUserError(t('This email is already used.', 'هذا البريد مستخدم مسبقاً.', language))
-      return
-    }
-    onUpdateClub(selectedClub.id, { adminUsers: users })
-    setEditingClubUserId(null)
-    setClubUserForm({ email: '', password: '', permissions: [] })
   }
 
   const openEditClubUser = (user) => {
@@ -277,7 +299,7 @@ export default function AdminUsersManagement() {
     setClubUserError('')
   }
 
-  const handleEditClubOwner = (e) => {
+  const handleEditClubOwner = async (e) => {
     e.preventDefault()
     if (!selectedClub || !onUpdateClub || !editingClubOwner) return
     setClubUserError('')
@@ -289,12 +311,20 @@ export default function AdminUsersManagement() {
       setClubUserError(t('Password must be at least 6 characters.', 'كلمة المرور 6 أحرف على الأقل.', language))
       return
     }
-    onUpdateClub(selectedClub.id, {
-      adminEmail: clubUserForm.email.trim().toLowerCase(),
-      ...(clubUserForm.password && clubUserForm.password.length >= 6 && { adminPassword: clubUserForm.password })
-    })
-    setEditingClubOwner(false)
-    setClubUserForm({ email: '', password: '', permissions: [] })
+    setSaving(true)
+    try {
+      await onUpdateClub(selectedClub.id, {
+        adminEmail: clubUserForm.email.trim().toLowerCase(),
+        ...(clubUserForm.password && clubUserForm.password.length >= 6 && { adminPassword: clubUserForm.password })
+      })
+      setEditingClubOwner(false)
+      setClubUserForm({ email: '', password: '', permissions: [] })
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+    } catch (err) {
+      setClubUserError(t('Save failed.', 'فشل الحفظ.', language) + (err?.message || ''))
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -545,8 +575,8 @@ export default function AdminUsersManagement() {
                             </div>
                           </div>
                           <div className="au-form-actions">
-                            <button type="submit" className="au-btn au-btn--primary">{t('Add', 'إضافة', language)}</button>
-                            <button type="button" className="au-btn au-btn--secondary" onClick={() => setShowAddClubUser(false)}>{t('Cancel', 'إلغاء', language)}</button>
+                            <button type="submit" className="au-btn au-btn--primary" disabled={saving}>{saving ? '⋯' : t('Add', 'إضافة', language)}</button>
+                            <button type="button" className="au-btn au-btn--secondary" onClick={() => setShowAddClubUser(false)} disabled={saving}>{t('Cancel', 'إلغاء', language)}</button>
                           </div>
                         </form>
                       </Modal>
@@ -579,8 +609,8 @@ export default function AdminUsersManagement() {
                             </div>
                           )}
                           <div className="au-form-actions">
-                            <button type="submit" className="au-btn au-btn--primary">{t('Save', 'حفظ', language)}</button>
-                            <button type="button" className="au-btn au-btn--secondary" onClick={() => { setEditingClubUserId(null); setEditingClubOwner(false); setClubUserForm({ email: '', password: '', permissions: [] }) }}>{t('Cancel', 'إلغاء', language)}</button>
+                            <button type="submit" className="au-btn au-btn--primary" disabled={saving}>{saving ? '⋯' : t('Save', 'حفظ', language)}</button>
+                            <button type="button" className="au-btn au-btn--secondary" onClick={() => { setEditingClubUserId(null); setEditingClubOwner(false); setClubUserForm({ email: '', password: '', permissions: [] }) }} disabled={saving}>{t('Cancel', 'إلغاء', language)}</button>
                           </div>
                         </form>
                       </Modal>
