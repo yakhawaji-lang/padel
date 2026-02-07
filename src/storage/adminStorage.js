@@ -162,7 +162,7 @@ function deduplicateClubs(clubs) {
 }
 
 /**
- * Merge remote clubs with local, preserving court images, logo, banner, socialLinks
+ * Merge remote clubs with local, preserving court images, logo, banner, socialLinks, adminUsers
  * (remote may not have them due to size limits, race conditions, or stale data)
  */
 function mergeClubsPreservingLocalImages(remote, local) {
@@ -185,6 +185,11 @@ function mergeClubsPreservingLocalImages(remote, local) {
         const remoteSocial = remoteClub.settings?.socialLinks
         if (Array.isArray(localSocial) && localSocial.length > 0 && (!Array.isArray(remoteSocial) || remoteSocial.length === 0)) {
           out.settings = { ...(out.settings || {}), socialLinks: localSocial }
+        }
+        const localAdmins = localClub.adminUsers
+        const remoteAdmins = remoteClub.adminUsers
+        if (Array.isArray(localAdmins) && localAdmins.length > 0 && (!Array.isArray(remoteAdmins) || remoteAdmins.length < localAdmins.length)) {
+          out.adminUsers = localAdmins
         }
         if (localClub.courts?.length) {
           const remoteCourts = remoteClub.courts || []
@@ -245,7 +250,8 @@ export async function loadClubsAsync() {
 
 /**
  * Refresh clubs from API (PostgreSQL). Call periodically so admin sees new pending registrations from other devices.
- * Preserves logo, banner, socialLinks from local cache when remote has empty/missing (avoids overwriting with stale data).
+ * Preserves logo, banner, socialLinks, adminUsers from local cache when remote has empty/missing.
+ * Persists merged data back to DB when we restored local-only fields.
  */
 export async function refreshClubsFromApi() {
   if (!USE_POSTGRES || !_backendStorage) return
@@ -256,6 +262,14 @@ export async function refreshClubsFromApi() {
     const clubs = Array.isArray(remote) && remote.length > 0
       ? mergeClubsPreservingLocalImages(remote, local)
       : deduplicateClubs(Array.isArray(remote) ? remote : [])
+    const hasLocalRestored = Array.isArray(remote) && remote.length > 0 && clubs.some((c, i) => {
+      const r = remote.find(rc => rc.id === c.id)
+      if (!r) return false
+      const localAdmins = (c.adminUsers || []).length
+      const remoteAdmins = (r.adminUsers || []).length
+      return localAdmins > remoteAdmins
+    })
+    if (hasLocalRestored) saveClubs(clubs).catch(e => console.error('refreshClubsFromApi save:', e))
     _clubsCache = deduplicateClubs(clubs)
     syncMembersToClubs(_clubsCache)
     if (typeof window !== 'undefined') {
