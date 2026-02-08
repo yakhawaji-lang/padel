@@ -1,262 +1,492 @@
-.register-club-page {
+/* Register Club - Professional layout */
+.rc-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f0f9ff 100%);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  color: #1e293b;
 }
-.register-club-header {
+
+.rc-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 16px 24px;
-  background: #fff;
-  border-bottom: 1px solid #e5e7eb;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
-.register-club-back {
-  color: #1d4ed8;
+
+.rc-back {
+  color: #94a3b8;
   text-decoration: none;
-  font-weight: 500;
-}
-.register-club-back:hover { text-decoration: underline; }
-.register-club-lang {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-}
-.register-club-main {
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 32px 24px;
-}
-.register-club-card {
-  background: #fff;
-  border-radius: 16px;
-  padding: 32px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-}
-.register-club-title {
-  font-size: 1.5rem;
-  margin: 0 0 8px 0;
-  color: #0f172a;
-}
-.register-club-subtitle {
-  color: #64748b;
   font-size: 0.9375rem;
-  margin: 0 0 24px 0;
+  font-weight: 500;
+  padding: 8px 0;
+  transition: color 0.2s;
+}
+.rc-back:hover { color: #e2e8f0; }
+
+.rc-logo {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.rc-logo-img {
+  height: 32px;
+  width: auto;
+  display: block;
+  filter: brightness(0) invert(1);
+  opacity: 0.9;
+}
+.rc-page.rtl .rc-logo { left: auto; right: 50%; transform: translateX(50%); }
+
+.rc-lang {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.rc-lang:hover { background: rgba(255, 255, 255, 0.1); }
+
+.rc-main {
+  padding: 32px 24px 48px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.rc-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 40px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .rc-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rc-aside {
+  position: sticky;
+  top: 80px;
+}
+.rc-aside-inner {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 28px;
+}
+.rc-aside h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin: 0 0 20px 0;
+  line-height: 1.4;
+}
+.rc-benefits {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.rc-benefits li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  color: #94a3b8;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.rc-benefits li:last-of-type { border-bottom: none; }
+.rc-benefit-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+.rc-trust {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.rc-trust p {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin: 0;
   line-height: 1.5;
 }
-.register-club-form .form-row {
+
+.rc-form-wrap {
+  min-width: 0;
+}
+
+.rc-card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+}
+
+.rc-card-header {
+  margin-bottom: 32px;
+}
+.rc-card-header h1 {
+  font-size: 1.625rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.02em;
+}
+.rc-card-header p {
+  font-size: 0.9375rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.rc-form { display: block; }
+
+.rc-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  color: #dc2626;
+  font-size: 0.9375rem;
+  margin-bottom: 24px;
+}
+.rc-error-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  background: #dc2626;
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.rc-section {
+  margin-bottom: 28px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.rc-section:last-of-type { border-bottom: none; }
+
+.rc-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 16px 0;
+}
+.rc-section-num {
+  width: 28px;
+  height: 28px;
+  background: #0f172a;
+  color: #fff;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.rc-fields { display: flex; flex-direction: column; gap: 16px; }
+.rc-fields-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
-.register-club-form .form-group {
-  margin-bottom: 16px;
+@media (max-width: 600px) {
+  .rc-fields-row { grid-template-columns: 1fr; }
 }
-.register-club-form label {
+
+.rc-field label {
   display: block;
+  font-size: 0.875rem;
   font-weight: 500;
+  color: #374151;
   margin-bottom: 6px;
-  font-size: 0.875rem;
-  color: #374151;
 }
-.register-club-form input {
+.rc-field input {
   width: 100%;
-  padding: 10px 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
   font-size: 0.9375rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background: #fff;
 }
-.register-club-form input:focus {
+.rc-field input:focus {
   outline: none;
-  border-color: #1d4ed8;
-  box-shadow: 0 0 0 2px rgba(29,78,216,0.15);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1);
 }
-.register-club-form .form-hint {
-  display: block;
-  font-size: 0.75rem;
+.rc-field input::placeholder {
   color: #94a3b8;
-  margin-top: 4px;
 }
 
-.register-club-form .form-group-checkbox .checkbox-label {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  color: #374151;
-  line-height: 1.5;
+.rc-hint {
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  margin-top: 6px;
+  display: block;
 }
+.rc-hint-block { margin-bottom: 8px; }
 
-.register-club-form .form-group-checkbox .agree-checkbox {
-  flex-shrink: 0;
-  margin-top: 3px;
-  width: 18px;
-  height: 18px;
-}
-
-.register-club-form .form-group-checkbox a {
-  color: #1d4ed8;
-  text-decoration: none;
-}
-
-.register-club-form .form-group-checkbox a:hover {
-  text-decoration: underline;
-}
-.register-club-error {
-  background: #fef2f2;
-  color: #dc2626;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  font-size: 0.875rem;
-}
-.register-club-submit {
-  width: 100%;
-  padding: 14px;
-  background: #16a34a;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 1rem;
-  cursor: pointer;
-  margin-top: 8px;
-}
-.register-club-submit:hover { background: #15803d; }
-.register-club-login-hint {
-  margin: 20px 0 0 0;
-  text-align: center;
-  font-size: 0.875rem;
-  color: #64748b;
-}
-.register-club-login-hint a { color: #1d4ed8; }
-.register-club-success {
-  text-align: center;
-}
-.register-club-success h1 {
-  color: #16a34a;
-  margin: 0 0 16px 0;
-}
-.register-club-success p {
-  color: #475569;
-  line-height: 1.6;
-  margin: 0 0 24px 0;
-}
-.register-club-btn {
-  display: inline-block;
-  padding: 12px 24px;
-  background: #1d4ed8;
-  color: #fff;
-  text-decoration: none;
-  border-radius: 8px;
-  font-weight: 600;
-}
-.register-club-btn:hover { background: #1e40af; }
-/* Map picker */
-.location-map-picker {
-  margin-top: 8px;
-}
-.location-map-toolbar {
-  margin-bottom: 8px;
-}
-.location-map-use-btn {
-  padding: 8px 16px;
-  font-size: 0.875rem;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-}
-.location-map-use-btn:hover:not(:disabled) {
-  background: #e2e8f0;
-}
-.location-map-use-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-.location-map-container {
-  height: 280px;
-  min-height: 200px;
-  width: 100%;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  overflow: hidden;
-  background: #f1f5f9;
+.rc-password-wrap {
   position: relative;
-}
-.location-map-picker .leaflet-container {
-  height: 100%;
-  width: 100%;
-  z-index: 1;
-}
-.location-map-error {
-  font-size: 0.8125rem;
-  color: #dc2626;
-  margin: 8px 0 0 0;
-}
-.location-map-loading {
-  font-size: 0.8125rem;
-  color: #64748b;
-  margin: 8px 0 0 0;
-}
-.location-map-address {
-  font-size: 0.875rem;
-  color: #475569;
-  margin: 8px 0 0 0;
-  padding: 10px;
-  background: #f8fafc;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-}
-
-/* Image upload */
-.form-image-row {
   display: flex;
-  gap: 10px;
-  margin-top: 8px;
+  align-items: stretch;
 }
-.form-image-url {
-  flex: 1;
+.rc-password-wrap input {
+  padding-inline-end: 48px;
 }
-.btn-upload {
-  flex-shrink: 0;
-  padding: 10px 18px;
-  border-radius: 8px;
+.rc-password-toggle {
+  position: absolute;
+  top: 0;
+  inset-inline-end: 0;
+  bottom: 0;
+  width: 48px;
+  background: none;
+  border: none;
   cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 500;
-  border: 1px solid #d1d5db;
-  background: #f9fafb;
+  font-size: 1rem;
+  opacity: 0.7;
+  border-radius: 0 10px 10px 0;
 }
-.btn-upload:hover { background: #f3f4f6; }
-.form-image-preview {
-  margin-top: 10px;
+.rc-password-toggle:hover { opacity: 1; }
+.rc-page.rtl .rc-password-wrap input { padding-inline-end: 16px; padding-inline-start: 48px; }
+.rc-page.rtl .rc-password-toggle { inset-inline-end: auto; inset-inline-start: 0; border-radius: 10px 0 0 10px; }
+
+.rc-upload-row {
+  display: flex;
+  gap: 12px;
+}
+.rc-upload-url { flex: 1; }
+.rc-upload-btn {
+  flex-shrink: 0;
+  padding: 12px 20px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.rc-upload-btn:hover { background: #e2e8f0; }
+.rc-preview {
+  margin-top: 12px;
   display: flex;
   align-items: flex-start;
   gap: 12px;
 }
-.form-image-preview img {
+.rc-preview img {
   max-width: 120px;
   max-height: 90px;
   object-fit: contain;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
 }
-.btn-remove-img {
-  padding: 6px 14px;
+.rc-remove-preview {
+  padding: 8px 16px;
   font-size: 0.8125rem;
   color: #dc2626;
-  background: none;
+  background: #fef2f2;
   border: 1px solid #fecaca;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
+  font-weight: 500;
 }
-.btn-remove-img:hover { background: #fef2f2; }
+.rc-remove-preview:hover { background: #fee2e2; }
+
+/* Location map */
+.rc-form .location-map-picker { margin-top: 8px; }
+.rc-form .location-map-toolbar { margin-bottom: 10px; }
+.rc-form .location-map-use-btn {
+  padding: 10px 18px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.rc-form .location-map-use-btn:hover:not(:disabled) { background: #e2e8f0; }
+.rc-form .location-map-use-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+.rc-form .location-map-container {
+  height: 260px;
+  min-height: 200px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  background: #f8fafc;
+}
+.rc-form .location-map-picker .leaflet-container { height: 100%; width: 100%; z-index: 1; }
+.rc-form .location-map-error { font-size: 0.8125rem; color: #dc2626; margin-top: 8px; }
+.rc-form .location-map-loading { font-size: 0.8125rem; color: #64748b; margin-top: 8px; }
+.rc-form .location-map-address {
+  font-size: 0.875rem;
+  color: #475569;
+  margin-top: 10px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.rc-agree {
+  margin: 24px 0;
+}
+.rc-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  color: #475569;
+  line-height: 1.5;
+}
+.rc-checkbox input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.rc-checkbox-box {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #cbd5e1;
+  border-radius: 6px;
+  margin-top: 2px;
+  transition: border-color 0.2s, background 0.2s;
+  position: relative;
+}
+.rc-checkbox input:checked + .rc-checkbox-box {
+  background: #0f172a;
+  border-color: #0f172a;
+}
+.rc-checkbox input:checked + .rc-checkbox-box::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 6px;
+  height: 11px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.rc-checkbox a {
+  color: #0f172a;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.rc-checkbox a:hover { color: #334155; }
+
+.rc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  text-decoration: none;
+  border: none;
+  font-family: inherit;
+}
+.rc-btn:active { transform: scale(0.98); }
+.rc-btn-primary {
+  background: #0f172a;
+  color: #fff;
+  width: 100%;
+  min-height: 52px;
+}
+.rc-btn-primary:hover:not(:disabled) {
+  background: #1e293b;
+}
+.rc-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.rc-btn-submit { margin-top: 8px; }
+
+.rc-login-link {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 0.9375rem;
+  color: #64748b;
+}
+.rc-login-link a {
+  color: #0f172a;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.rc-login-link a:hover { color: #334155; }
+
+/* Success state */
+.rc-success-page { background: #0f172a; }
+.rc-success-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 70px);
+  padding: 48px 24px;
+}
+.rc-success-card {
+  background: #fff;
+  border-radius: 24px;
+  padding: 48px 40px;
+  max-width: 440px;
+  text-align: center;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+}
+.rc-success-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  color: #16a34a;
+}
+.rc-success-card h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 12px 0;
+}
+.rc-success-card p {
+  font-size: 0.9375rem;
+  color: #64748b;
+  line-height: 1.6;
+  margin: 0 0 28px 0;
+}
+.rc-success-card .rc-btn {
+  width: 100%;
+}
 
 @media (max-width: 600px) {
-  .register-club-form .form-row { grid-template-columns: 1fr; }
-  .form-image-row { flex-direction: column; }
+  .rc-card { padding: 24px; }
+  .rc-main { padding: 20px 16px 40px; }
 }
