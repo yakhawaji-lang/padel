@@ -6,7 +6,7 @@
 import { Router } from 'express'
 import { query } from '../db/pool.js'
 import { getActorFromRequest } from '../db/audit.js'
-import { hasNormalizedTables, getClubsFromNormalized, getMembersFromNormalized, getPlatformAdminsFromNormalized, saveClubsToNormalized, saveMembersToNormalized, savePlatformAdminsToNormalized } from '../db/normalizedData.js'
+import { hasNormalizedTables, getClubsFromNormalized, getMembersFromNormalized, getPlatformAdminsFromNormalized, saveClubsToNormalized, saveMembersToNormalized, savePlatformAdminsToNormalized, deleteClubPermanent } from '../db/normalizedData.js'
 
 const router = Router()
 
@@ -49,6 +49,25 @@ async function getFromEntities(key) {
     return { ...d, id: r.entity_id }
   })
 }
+
+/** POST /api/data/club-delete-permanent - Permanently delete a club from DB. Body: { clubId } */
+router.post('/club-delete-permanent', async (req, res) => {
+  try {
+    const { clubId } = req.body || {}
+    if (!clubId) return res.status(400).json({ error: 'Missing clubId' })
+    const normalized = await useNormalized()
+    if (!normalized) {
+      return res.status(400).json({ error: 'Permanent delete requires normalized tables' })
+    }
+    const actor = getActorFromRequest(req)
+    const ok = await deleteClubPermanent(clubId, actor)
+    if (!ok) return res.status(500).json({ error: 'Delete failed' })
+    res.json({ ok: true })
+  } catch (e) {
+    console.error('club-delete-permanent error:', e)
+    res.status(500).json({ error: dbErrorMsg(e) })
+  }
+})
 
 /** GET /api/data?keys=admin_clubs,all_members,... - Batch get from DB (must be before /:key) */
 router.get('/', async (req, res) => {

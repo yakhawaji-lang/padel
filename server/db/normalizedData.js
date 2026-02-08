@@ -565,3 +565,29 @@ export async function saveClubsToNormalized(items, actor = {}) {
     }
   }
 }
+
+/**
+ * Permanently delete a club and all related data from the database (hard delete).
+ * Use with caution - this cannot be undone.
+ */
+export async function deleteClubPermanent(clubId, actor = {}) {
+  if (!clubId) return false
+  const cid = String(clubId)
+  try {
+    await query('DELETE FROM member_clubs WHERE club_id = ?', [cid])
+    await query('DELETE FROM club_courts WHERE club_id = ?', [cid])
+    await query('DELETE FROM club_settings WHERE club_id = ?', [cid])
+    await query('DELETE FROM club_admin_users WHERE club_id = ?', [cid])
+    await query('DELETE FROM club_offers WHERE club_id = ?', [cid])
+    await query('DELETE FROM club_bookings WHERE club_id = ?', [cid])
+    await query('DELETE FROM club_accounting WHERE club_id = ?', [cid])
+    await query('DELETE FROM club_tournament_types WHERE club_id = ?', [cid])
+    await query('DELETE FROM club_store WHERE club_id = ?', [cid])
+    await query('DELETE FROM clubs WHERE id = ?', [cid])
+    await logAudit({ tableName: 'clubs', recordId: cid, action: 'DELETE', ...actor, clubId: cid, newValue: { permanent: true } })
+    return true
+  } catch (e) {
+    console.error('deleteClubPermanent error:', e)
+    return false
+  }
+}

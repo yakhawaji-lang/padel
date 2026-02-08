@@ -19,6 +19,7 @@ const DEFAULT_CTX = {
   onRefresh: () => {},
   onCreateClub: async () => ({}),
   onDeleteClub: async () => {},
+  onPermanentlyDeleteClub: async () => {},
 }
 
 export function useAdminPanel() {

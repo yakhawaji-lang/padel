@@ -652,6 +652,44 @@ export async function saveClubs(clubs) {
 /** Alias for saveClubs - kept for compatibility */
 export const saveClubsAsync = saveClubs
 
+/** Soft delete: remove club from list and persist (sets deleted_at in normalized DB) */
+export async function deleteClub(clubId) {
+  const clubs = loadClubs()
+  const updatedClubs = clubs.filter(c => c.id !== clubId)
+  await saveClubs(updatedClubs)
+  _clubsCache = updatedClubs
+  return true
+}
+
+/** Permanently delete club from database. Cannot be undone. Uses API when normalized tables exist. */
+export async function deleteClubPermanent(clubId) {
+  if (!clubId) return false
+  try {
+    if (USE_POSTGRES && _backendStorage) {
+      try {
+        const { api } = await import('./backendStorage.js')
+        await api.deleteClubPermanent(clubId)
+      } catch (apiErr) {
+        console.warn('Permanent delete API failed, falling back to soft delete:', apiErr.message)
+        await deleteClub(clubId)
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+        return true
+      }
+      await _backendStorage.refreshStoreKeys([ADMIN_STORAGE_KEYS.CLUBS])
+      _clubsCache = _backendStorage.getCache(ADMIN_STORAGE_KEYS.CLUBS) || []
+    } else {
+      await deleteClub(clubId)
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('clubs-synced'))
+    }
+    return true
+  } catch (e) {
+    console.error('deleteClubPermanent error:', e)
+    return false
+  }
+}
+
 export const getClubById = (clubId, forceFromStorage = false) => {
   let clubs
   if (forceFromStorage) {

@@ -11,7 +11,7 @@ import AllMembersManagement from './pages/AllMembersManagement'
 import PlatformPageGuard from '../components/PlatformPageGuard'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { AdminPanelProvider } from './AdminPanelContext'
-import { loadClubs, saveClubs, approveClub as doApproveClub, rejectClub as doRejectClub, syncMembersToClubsManually, refreshClubsFromApi } from '../storage/adminStorage'
+import { loadClubs, saveClubs, approveClub as doApproveClub, rejectClub as doRejectClub, deleteClub as doDeleteClub, deleteClubPermanent as doDeleteClubPermanent, syncMembersToClubsManually, refreshClubsFromApi } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 
 function MainAdminPanel() {
@@ -104,9 +104,15 @@ function MainAdminPanel() {
   }
 
   const handleClubDelete = async (clubId) => {
-    const updatedClubs = clubs.filter(club => club.id !== clubId)
-    setClubs(updatedClubs)
-    await saveClubs(updatedClubs)
+    if (await doDeleteClub(clubId)) {
+      setClubs(loadClubs() || [])
+    }
+  }
+
+  const handlePermanentlyDeleteClub = async (clubId) => {
+    if (await doDeleteClubPermanent(clubId)) {
+      setClubs(loadClubs() || [])
+    }
   }
 
   const handleApproveClub = async (clubId) => {
@@ -137,7 +143,8 @@ function MainAdminPanel() {
     onRejectClub: handleRejectClub,
     onRefresh: handleRefreshClubs,
     onCreateClub: handleClubCreate,
-    onDeleteClub: handleClubDelete
+    onDeleteClub: handleClubDelete,
+    onPermanentlyDeleteClub: handlePermanentlyDeleteClub
   }), [clubs, language])
 
   const location = useLocation()

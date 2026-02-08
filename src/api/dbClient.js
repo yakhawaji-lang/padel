@@ -98,6 +98,14 @@ export async function setStoreBatch(items) {
   })
 }
 
+/** Permanently delete a club from the database. Requires normalized tables. */
+export async function deleteClubPermanent(clubId) {
+  return fetchJson('/api/data/club-delete-permanent', {
+    method: 'POST',
+    body: JSON.stringify({ clubId })
+  })
+}
+
 // ---- Matches (replaces IndexedDB matches) ----
 
 export async function getMatches(opts = {}) {
