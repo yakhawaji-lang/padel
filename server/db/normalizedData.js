@@ -286,8 +286,19 @@ async function assembleClub(clubRow, courts, settings, adminUsers, offers, booki
       heroTitleColor: s.hero_title_color || '#0f172a',
       heroTextColor: s.hero_text_color || '#475569',
       heroStatsColor: s.hero_stats_color || '#0f172a',
-      socialLinks: typeof s.social_links === 'object' ? s.social_links : (s.social_links ? JSON.parse(s.social_links || '[]') : []),
-      bookingPrices: typeof s.booking_prices === 'object' ? s.booking_prices : (s.booking_prices ? JSON.parse(s.booking_prices || '{}') : {})
+      socialLinks: (() => {
+        const v = s.social_links
+        if (Array.isArray(v)) return v
+        if (v && typeof v === 'object') return Object.values(v)
+        if (typeof v === 'string') { try { const p = JSON.parse(v); return Array.isArray(p) ? p : [] } catch { return [] } }
+        return []
+      })(),
+      bookingPrices: (() => {
+        const v = s.booking_prices
+        if (v && typeof v === 'object' && !Array.isArray(v)) return v
+        if (typeof v === 'string') { try { const p = JSON.parse(v); return (p && typeof p === 'object' && !Array.isArray(p)) ? p : {} } catch { return {} } }
+        return {}
+      })()
     },
     tournaments: [],
     members: memberIds || [],

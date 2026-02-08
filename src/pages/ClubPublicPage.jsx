@@ -170,8 +170,16 @@ const ClubPublicPage = () => {
     [tournamentBookings, today]
   )
 
-  const storeCategories = useMemo(() => (club?.store?.categories || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0)), [club?.store?.categories])
-  const storeProducts = useMemo(() => (club?.store?.products || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0)), [club?.store?.products])
+  const storeCategories = useMemo(() => {
+    const cat = club?.store?.categories
+    const arr = Array.isArray(cat) ? cat : []
+    return arr.slice().sort((a, b) => (a.order || 0) - (b.order || 0))
+  }, [club?.store?.categories])
+  const storeProducts = useMemo(() => {
+    const prod = club?.store?.products
+    const arr = Array.isArray(prod) ? prod : []
+    return arr.slice().sort((a, b) => (a.order || 0) - (b.order || 0))
+  }, [club?.store?.products])
   const productsByCategory = useMemo(() => {
     const byCat = {}
     storeProducts.forEach(p => {
@@ -182,14 +190,14 @@ const ClubPublicPage = () => {
     return byCat
   }, [storeProducts])
 
-  const storeOffers = club?.store?.offers || []
+  const storeOffers = Array.isArray(club?.store?.offers) ? club.store.offers : []
   const getProductPrice = (product, basePriceNum) => {
     const today = new Date().toISOString().split('T')[0]
     const active = storeOffers.filter(o => o.active && (!o.startDate || o.startDate <= today) && (!o.endDate || o.endDate >= today))
     let best = basePriceNum
     active.forEach(o => {
-      const matchP = (o.productIds || []).includes(product?.id)
-      const matchC = (o.categoryIds || []).includes(product?.categoryId)
+      const matchP = (Array.isArray(o.productIds) ? o.productIds : []).includes(product?.id)
+      const matchC = (Array.isArray(o.categoryIds) ? o.categoryIds : []).includes(product?.categoryId)
       if (!matchP && !matchC) return
       const disc = o.type === 'percentage' ? basePriceNum * (Number(o.value) || 0) / 100 : Math.min(basePriceNum, Number(o.value) || 0)
       const p = basePriceNum - disc
@@ -199,7 +207,8 @@ const ClubPublicPage = () => {
   }
 
   const activeOffers = useMemo(() => {
-    const list = (club?.offers || []).slice()
+    const raw = club?.offers
+    const list = Array.isArray(raw) ? raw.slice() : []
     const todayStr = new Date().toISOString().split('T')[0]
     return list
       .filter(o => o.active !== false)
@@ -229,7 +238,7 @@ const ClubPublicPage = () => {
     )
   }
 
-  const courts = club.courts?.filter(c => !c.maintenance) || []
+  const courts = Array.isArray(club.courts) ? club.courts.filter(c => !c.maintenance) : []
   const currency = club?.settings?.currency || 'SAR'
   const offers = activeOffers
   const { tournamentsCount, matchesCount } = getClubTournamentStats(club)
@@ -411,8 +420,9 @@ const ClubPublicPage = () => {
   const [bookingSubmitting, setBookingSubmitting] = useState(false)
   const [bookingDuration, setBookingDuration] = useState(60)
   const durationOptions = useMemo(() => {
-    const dp = club?.settings?.bookingPrices?.durationPrices || [{ durationMinutes: 60, price: 100 }]
-    return dp.slice().sort((a, b) => (a.durationMinutes || 0) - (b.durationMinutes || 0))
+    const dp = club?.settings?.bookingPrices?.durationPrices
+    const arr = Array.isArray(dp) ? dp : [{ durationMinutes: 60, price: 100 }]
+    return arr.slice().sort((a, b) => (a.durationMinutes || 0) - (b.durationMinutes || 0))
   }, [club?.settings?.bookingPrices?.durationPrices])
 
   useEffect(() => {
@@ -483,7 +493,7 @@ const ClubPublicPage = () => {
             )}
           </div>
           <div className="club-public-header-social">
-            {club?.settings?.socialLinks?.filter(s => s.url).map((item, idx) => (
+            {(Array.isArray(club?.settings?.socialLinks) ? club.settings.socialLinks : []).filter(s => s?.url).map((item, idx) => (
               <SocialIcon
                 key={idx}
                 platform={item.platform || 'facebook'}
@@ -698,11 +708,14 @@ const ClubPublicPage = () => {
               {c.courtPrices}
             </h2>
             {(() => {
-              const bp = club?.settings?.bookingPrices || {}
-              const durationPrices = bp.durationPrices || [{ durationMinutes: 60, price: 100 }]
-              const hasModifiers = (bp.dayModifiers?.length > 0 && bp.dayModifiers.some(d => (d.multiplier || 1) !== 1)) ||
-                (bp.timeModifiers?.length > 0 && bp.timeModifiers.some(t => (t.multiplier || 1) !== 1)) ||
-                (bp.seasonModifiers?.length > 0 && bp.seasonModifiers.some(s => (s.multiplier || 1) !== 1))
+              const bp = club?.settings?.bookingPrices && typeof club.settings.bookingPrices === 'object' ? club.settings.bookingPrices : {}
+              const durationPrices = Array.isArray(bp.durationPrices) ? bp.durationPrices : [{ durationMinutes: 60, price: 100 }]
+              const dm = Array.isArray(bp.dayModifiers) ? bp.dayModifiers : []
+              const tm = Array.isArray(bp.timeModifiers) ? bp.timeModifiers : []
+              const sm = Array.isArray(bp.seasonModifiers) ? bp.seasonModifiers : []
+              const hasModifiers = (dm.length > 0 && dm.some(d => (d.multiplier || 1) !== 1)) ||
+                (tm.length > 0 && tm.some(t => (t.multiplier || 1) !== 1)) ||
+                (sm.length > 0 && sm.some(s => (s.multiplier || 1) !== 1))
               return (
                 <div className="club-public-prices-wrap">
                   <div className="club-public-prices-table-wrap">

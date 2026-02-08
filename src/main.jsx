@@ -63,7 +63,7 @@ function Root() {
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route path="/data-deletion" element={<DataDeletion />} />
-          <Route path="/clubs/:clubId" element={<ErrorBoundary fallback={<div style={{ padding: 40, textAlign: 'center', minHeight: '50vh' }}><p>Something went wrong. <a href="/">Go to home</a></p></div>}><ClubPublicPage /></ErrorBoundary>} />
+          <Route path="/clubs/:clubId" element={<ErrorBoundary fallback={(err) => <div style={{ padding: 40, textAlign: 'center', minHeight: '50vh' }}><p>Something went wrong. {err?.message || ''}</p><a href={import.meta.env.BASE_URL || '/'}>Go to home</a></div>}><ClubPublicPage /></ErrorBoundary>} />
           <Route path="/club/:clubId/*" element={<App />} />
         </Routes>
       </Suspense>

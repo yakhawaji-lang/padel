@@ -13,10 +13,17 @@ export class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
-      return this.props.fallback || (
+      const err = this.state.error
+      const fallback = this.props.fallback
+      const base = typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL || '/'
+      if (typeof fallback === 'function') {
+        const content = fallback(err)
+        if (content) return content
+      }
+      return fallback || (
         <div style={{ padding: 40, textAlign: 'center' }}>
-          <p>Something went wrong.</p>
-          <a href="/">Go to home</a>
+          <p>Something went wrong. {err?.message || ''}</p>
+          <a href={base}>Go to home</a>
         </div>
       )
     }
