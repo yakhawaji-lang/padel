@@ -84,6 +84,17 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
             </span>
           </Link>
         )}
+        {hasPlatformPermission(session, 'all-clubs') && (
+          <Link
+            to="/admin/all-bookings"
+            className={`main-admin-nav-item ${isActive('/admin/all-bookings') ? 'active' : ''}`}
+          >
+            <span className="nav-icon">📅</span>
+            <span className="nav-label">
+              {language === 'en' ? 'All Bookings' : 'جميع الحجوزات'}
+            </span>
+          </Link>
+        )}
       </nav>
 
       <div className="clubs-quick-list">

@@ -11,6 +11,7 @@ const Login = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const joinClubId = searchParams.get('join')
+  const returnUrl = searchParams.get('return')
   const [language, setLanguage] = useState(getAppLanguage())
   const [formData, setFormData] = useState({
     email: '',
@@ -31,7 +32,9 @@ const Login = () => {
     
     if (member) {
       setCurrentPlatformUser(member.id)
-      if (joinClubId) {
+      if (returnUrl && returnUrl.startsWith('/')) {
+        navigate(returnUrl)
+      } else if (joinClubId) {
         navigate(`/clubs/${joinClubId}`)
       } else {
         const clubId = member.clubIds?.[0] || member.clubId

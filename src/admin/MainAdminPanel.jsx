@@ -8,6 +8,7 @@ import AllClubsDashboard from './pages/AllClubsDashboard'
 import AllClubsManagement from './pages/AllClubsManagement'
 import AdminUsersManagement from './pages/AdminUsersManagement'
 import AllMembersManagement from './pages/AllMembersManagement'
+import AllBookingsDashboard from './pages/AllBookingsDashboard'
 import PlatformPageGuard from '../components/PlatformPageGuard'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { AdminPanelProvider } from './AdminPanelContext'
@@ -167,6 +168,9 @@ function MainAdminPanel() {
     }
     if (path === 'all-members') {
       return <PlatformPageGuard permission="all-members"><AllMembersManagement /></PlatformPageGuard>
+    }
+    if (path === 'all-bookings') {
+      return <PlatformPageGuard permission="all-clubs"><AllBookingsDashboard language={language} /></PlatformPageGuard>
     }
     return <AllClubsDashboard />
   }

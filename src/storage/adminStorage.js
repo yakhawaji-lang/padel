@@ -740,6 +740,50 @@ export async function addBookingToClub(clubId, bookingData) {
   return newBooking
 }
 
+/** Get all court bookings for a member across all clubs. Returns { booking, club, clubName }[]. */
+export function getMemberBookings(memberId) {
+  if (!memberId) return []
+  const clubs = loadClubs()
+  const results = []
+  const memberIdStr = String(memberId)
+  clubs.forEach(club => {
+    const list = club?.bookings && Array.isArray(club.bookings) ? club.bookings : []
+    list.forEach(b => {
+      if (b.isTournament) return
+      const bid = String(b.memberId || b.member_id || '')
+      if (bid !== memberIdStr) return
+      const dateStr = (b.date || b.startDate || '').toString().split('T')[0]
+      results.push({
+        booking: { ...b, dateStr },
+        club,
+        clubName: club.name,
+        clubNameAr: club.nameAr
+      })
+    })
+  })
+  return results.sort((a, b) => {
+    const d1 = a.booking.dateStr || a.booking.date || ''
+    const d2 = b.booking.dateStr || b.booking.date || ''
+    if (d1 !== d2) return d1.localeCompare(d2)
+    return (a.booking.startTime || '').localeCompare(b.booking.startTime || '')
+  })
+}
+
+/** Delete a court booking from a club. Returns true on success. */
+export async function deleteBookingFromClub(clubId, bookingId) {
+  const clubs = loadClubs()
+  const club = clubs.find(c => c.id === clubId)
+  if (!club) return false
+  const list = club.bookings || []
+  const filtered = list.filter(b => String(b.id) !== String(bookingId))
+  if (filtered.length === list.length) return false
+  const updatedClub = { ...club, bookings: filtered, updatedAt: new Date().toISOString() }
+  const updatedClubs = clubs.map(c => c.id === clubId ? updatedClub : c)
+  await saveClubs(updatedClubs)
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+  return true
+}
+
 /** Pending club registration - requires admin approval. Returns Promise when using Postgres. */
 export async function addPendingClub(clubData) {
   const clubs = loadClubs()

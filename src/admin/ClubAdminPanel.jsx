@@ -15,6 +15,7 @@ import ClubAccountingManagement from './pages/ClubAccountingManagement'
 import ClubSettings from './pages/ClubSettings'
 import ClubUsersManagement from './pages/ClubUsersManagement'
 import ClubBookingPrices from './pages/ClubBookingPrices'
+import ClubBookingsManagement from './pages/ClubBookingsManagement'
 import ClubPageGuard from '../components/ClubPageGuard'
 import { loadClubs, saveClubs, getClubById, syncMembersToClubsManually, refreshClubsFromApi } from '../storage/adminStorage'
 
@@ -134,6 +135,7 @@ function ClubAdminPanel() {
           <Route path="/" element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<ClubPageGuard permission="dashboard"><ClubDashboard club={club} /></ClubPageGuard>} />
           <Route path="members" element={<ClubPageGuard permission="members"><ClubMembersManagement club={club} language={language} /></ClubPageGuard>} />
+          <Route path="bookings" element={<ClubPageGuard permission="dashboard"><ClubBookingsManagement club={club} language={language} onRefresh={() => loadData(true)} /></ClubPageGuard>} />
           <Route path="offers" element={<ClubPageGuard permission="offers"><ClubOffersManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
           <Route path="store" element={<ClubPageGuard permission="store"><ClubStoreManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
           <Route path="accounting" element={<ClubPageGuard permission="accounting"><ClubAccountingManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />

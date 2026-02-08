@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { updatePlatformMember, logoutPlatformUser } from '../storage/platformAuth'
 import './MemberAccountDropdown.css'
 
@@ -35,8 +36,8 @@ const MemberAccountDropdown = ({ member, onUpdate, language = 'en', children, cl
   }
 
   const t = {
-    en: { editProfile: 'Edit profile', logout: 'Logout', myAccount: 'My account', save: 'Save', cancel: 'Cancel', name: 'Name', email: 'Email', avatar: 'Profile photo (URL or upload)' },
-    ar: { editProfile: 'تعديل الحساب', logout: 'تسجيل الخروج', myAccount: 'حسابي', save: 'حفظ', cancel: 'إلغاء', name: 'الاسم', email: 'البريد', avatar: 'صورة الملف الشخصي (رابط أو رفع)' }
+    en: { editProfile: 'Edit profile', logout: 'Logout', myAccount: 'My account', myBookings: 'My Bookings', save: 'Save', cancel: 'Cancel', name: 'Name', email: 'Email', avatar: 'Profile photo (URL or upload)' },
+    ar: { editProfile: 'تعديل الحساب', logout: 'تسجيل الخروج', myAccount: 'حسابي', myBookings: 'حجوزاتي', save: 'حفظ', cancel: 'إلغاء', name: 'الاسم', email: 'البريد', avatar: 'صورة الملف الشخصي (رابط أو رفع)' }
   }
   const c = t[language]
 
@@ -68,6 +69,9 @@ const MemberAccountDropdown = ({ member, onUpdate, language = 'en', children, cl
             <div className="member-account-menu-name">{member.name}</div>
             <div className="member-account-menu-email">{member.email}</div>
           </div>
+          <Link to="/my-bookings" className="member-account-menu-item" onClick={() => setOpen(false)}>
+            📅 {c.myBookings}
+          </Link>
           <button type="button" className="member-account-menu-item" onClick={() => { setEditOpen(true); setOpen(false); }}>
             {c.editProfile}
           </button>

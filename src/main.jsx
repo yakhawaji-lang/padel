@@ -17,6 +17,7 @@ const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'))
 const TermsOfService = lazy(() => import('./pages/TermsOfService'))
 const DataDeletion = lazy(() => import('./pages/DataDeletion'))
 const RegisterClub = lazy(() => import('./pages/RegisterClub'))
+const MyBookingsPage = lazy(() => import('./pages/MyBookingsPage'))
 const ClubLogin = lazy(() => import('./pages/ClubLogin'))
 const PlatformAdminLogin = lazy(() => import('./pages/PlatformAdminLogin'))
 const Logout = lazy(() => import('./pages/Logout'))
@@ -63,6 +64,7 @@ function Root() {
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route path="/data-deletion" element={<DataDeletion />} />
+          <Route path="/my-bookings" element={<ErrorBoundary fallback={(err) => <div style={{ padding: 40, textAlign: 'center' }}><p>Something went wrong. {err?.message || ''}</p><a href={import.meta.env.BASE_URL || '/'}>Go to home</a></div>}><MyBookingsPage /></ErrorBoundary>} />
           <Route path="/clubs/:clubId" element={<ErrorBoundary fallback={(err) => <div style={{ padding: 40, textAlign: 'center', minHeight: '50vh' }}><p>Something went wrong. {err?.message || ''}</p><a href={import.meta.env.BASE_URL || '/'}>Go to home</a></div>}><ClubPublicPage /></ErrorBoundary>} />
           <Route path="/club/:clubId/*" element={<App />} />
         </Routes>

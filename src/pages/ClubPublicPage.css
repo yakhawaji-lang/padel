@@ -560,6 +560,21 @@
   color: #0f172a;
   min-width: 160px;
 }
+.club-public-my-bookings-link {
+  margin-inline-start: auto;
+  color: #3b82f6;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #eff6ff;
+  transition: background 0.2s;
+}
+.club-public-my-bookings-link:hover {
+  background: #dbeafe;
+  color: #2563eb;
+}
 .club-public-court-booking-wrap {
   overflow-x: auto;
   overflow-y: visible;

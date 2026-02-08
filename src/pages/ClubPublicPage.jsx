@@ -578,6 +578,11 @@ const ClubPublicPage = () => {
           <div className="club-public-section-inner">
             <div className="club-public-court-booking-header">
               <label className="club-public-court-booking-date-label">{c.selectDate}</label>
+              {isMember && (
+                <Link to="/my-bookings" className="club-public-my-bookings-link">
+                  📅 {language === 'en' ? 'My Bookings' : 'حجوزاتي'}
+                </Link>
+              )}
               <input
                 type="date"
                 value={courtGridDate}
