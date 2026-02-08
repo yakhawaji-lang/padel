@@ -52,7 +52,7 @@ const RegisterClub = () => {
       successTitle: 'Registration Submitted',
       successMsg: 'Your club registration has been received. Our team will review it shortly. You can log in with your email and password once approved.',
       successCta: 'Go to Club Login',
-      namePlaceholder: 'e.g. Hala Padel',
+      namePlaceholder: 'e.g. Ace Padel Club',
       adminEmailPlaceholder: 'admin@club.com',
       passwordPlaceholder: 'Min. 6 characters',
       agreeTerms: 'I agree to the',
