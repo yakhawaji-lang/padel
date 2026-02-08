@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getClubMembersFromStorage, upsertMember, removeMemberFromClubs, deleteMember } from '../../storage/adminStorage'
+import { getClubMembersFromStorage, upsertMember, removeMemberFromClubs, deleteMember, refreshClubsFromApi } from '../../storage/adminStorage'
 import { getAppLanguage } from '../../storage/languageStorage'
 import './club-pages-common.css'
 import './MembersManagement.css'
@@ -25,6 +25,7 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
   const language = langProp || getAppLanguage()
   const navigate = useNavigate()
   const [refreshKey, setRefreshKey] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
   const [editingMember, setEditingMember] = useState(null)
   const [editForm, setEditForm] = useState({ name: '', email: '', mobile: '', password: '' })
   const [error, setError] = useState('')
@@ -62,6 +63,16 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
       document.removeEventListener('visibilitychange', onVisible)
     }
   }, [])
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    try {
+      await refreshClubsFromApi()
+      setRefreshKey(k => k + 1)
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const openEdit = (member) => {
     setEditingMember(member)
@@ -157,9 +168,14 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
           </h1>
           <p className="cxp-subtitle">{t('Manage club members', 'إدارة أعضاء النادي', language)}</p>
         </div>
-        <button type="button" className="cxp-btn cxp-btn--primary" onClick={() => setShowAddModal(true)}>
-          + {t('Add Member', 'إضافة عضو', language)}
-        </button>
+        <div className="cxp-header-actions">
+          <button type="button" className="cxp-btn cxp-btn--secondary" onClick={handleRefresh} disabled={refreshing} title={t('Refresh from database', 'تحديث من قاعدة البيانات', language)}>
+            {refreshing ? '⋯' : '↻'} {t('Refresh', 'تحديث', language)}
+          </button>
+          <button type="button" className="cxp-btn cxp-btn--primary" onClick={() => setShowAddModal(true)}>
+            + {t('Add Member', 'إضافة عضو', language)}
+          </button>
+        </div>
       </header>
 
       {members.length > 0 && (
