@@ -63,6 +63,7 @@
 | settings.headerBgColor, headerTextColor | entities.data | ألوان الهيدر | Save Settings |
 | settings.heroBgColor, heroBgOpacity, heroTitleColor, heroTextColor, heroStatsColor | entities.data | ألوان البطاقة | Save Settings |
 | settings.socialLinks | entities.data | السوشيال ميديا | Save Settings |
+| settings.bookingPrices | club_settings.booking_prices | أسعار الحجوزات (المدة، الأيام، الوقت، المواسم) | Save Booking Prices |
 | members | entities.data | الأعضاء | saveMembers (فوري) |
 | bookings | entities.data | الحجوزات | onUpdateClub |
 | offers | entities.data | العروض | onUpdateClub (فوري) |

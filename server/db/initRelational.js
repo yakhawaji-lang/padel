@@ -43,5 +43,12 @@ export async function runInitRelational() {
       if (!e.message?.includes('Duplicate column')) {}
     }
   }
+
+  try {
+    await query('ALTER TABLE club_settings ADD COLUMN booking_prices JSON NULL')
+  } catch (e) {
+    if (!e.message?.includes('Duplicate column')) {}
+  }
+
   return { created }
 }

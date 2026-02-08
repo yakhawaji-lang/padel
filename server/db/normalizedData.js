@@ -217,7 +217,8 @@ async function assembleClub(clubRow, courts, settings, adminUsers, offers, booki
       heroTitleColor: s.hero_title_color || '#0f172a',
       heroTextColor: s.hero_text_color || '#475569',
       heroStatsColor: s.hero_stats_color || '#0f172a',
-      socialLinks: typeof s.social_links === 'object' ? s.social_links : (s.social_links ? JSON.parse(s.social_links || '[]') : [])
+      socialLinks: typeof s.social_links === 'object' ? s.social_links : (s.social_links ? JSON.parse(s.social_links || '[]') : []),
+      bookingPrices: typeof s.booking_prices === 'object' ? s.booking_prices : (s.booking_prices ? JSON.parse(s.booking_prices || '{}') : {})
     },
     tournaments: [],
     members: memberIds || [],
@@ -385,17 +386,18 @@ export async function saveClubsToNormalized(items, actor = {}) {
     }
 
     const s = club.settings || {}
+    const bookingPricesJson = JSON.stringify(s.bookingPrices || {})
     await query(
-      `INSERT INTO club_settings (club_id, default_language, timezone, currency, booking_duration, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, updated_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE default_language=VALUES(default_language), timezone=VALUES(timezone), currency=VALUES(currency), booking_duration=VALUES(booking_duration), max_booking_advance=VALUES(max_booking_advance), cancellation_policy=VALUES(cancellation_policy), opening_time=VALUES(opening_time), closing_time=VALUES(closing_time), header_bg_color=VALUES(header_bg_color), header_text_color=VALUES(header_text_color), hero_bg_color=VALUES(hero_bg_color), hero_bg_opacity=VALUES(hero_bg_opacity), hero_title_color=VALUES(hero_title_color), hero_text_color=VALUES(hero_text_color), hero_stats_color=VALUES(hero_stats_color), social_links=VALUES(social_links), updated_at=NOW(), updated_by=VALUES(updated_by)`,
+      `INSERT INTO club_settings (club_id, default_language, timezone, currency, booking_duration, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE default_language=VALUES(default_language), timezone=VALUES(timezone), currency=VALUES(currency), booking_duration=VALUES(booking_duration), max_booking_advance=VALUES(max_booking_advance), cancellation_policy=VALUES(cancellation_policy), opening_time=VALUES(opening_time), closing_time=VALUES(closing_time), header_bg_color=VALUES(header_bg_color), header_text_color=VALUES(header_text_color), hero_bg_color=VALUES(hero_bg_color), hero_bg_opacity=VALUES(hero_bg_opacity), hero_title_color=VALUES(hero_title_color), hero_text_color=VALUES(hero_text_color), hero_stats_color=VALUES(hero_stats_color), social_links=VALUES(social_links), booking_prices=VALUES(booking_prices), updated_at=NOW(), updated_by=VALUES(updated_by)`,
       [
         cid, s.defaultLanguage || 'en', s.timezone || 'Asia/Riyadh', s.currency || 'SAR',
         s.bookingDuration ?? 60, s.maxBookingAdvance ?? 30, s.cancellationPolicy ?? 24,
         s.openingTime || '06:00', s.closingTime || '23:00',
         s.headerBgColor || '#ffffff', s.headerTextColor || '#0f172a',
         s.heroBgColor || '#ffffff', s.heroBgOpacity ?? 85, s.heroTitleColor || '#0f172a', s.heroTextColor || '#475569', s.heroStatsColor || '#0f172a',
-        JSON.stringify(s.socialLinks || []), actor.actorId || null
+        JSON.stringify(s.socialLinks || []), bookingPricesJson, actor.actorId || null
       ]
     )
 
