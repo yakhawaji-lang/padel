@@ -4516,21 +4516,18 @@ function App({ currentUser }) {
       const endDateStr = endDate.toISOString().split('T')[0]
       
       const playtomicData = await playtomicApi.getBookings(startDateStr, endDateStr)
+      const safeData = Array.isArray(playtomicData) ? playtomicData : []
       
-      setPlaytomicBookings(playtomicData)
+      setPlaytomicBookings(safeData)
       setPlaytomicLastSync(new Date())
       
       // Merge with local bookings
-      mergeBookings(localBookings, playtomicData)
+      mergeBookings(localBookings, safeData)
       
-      console.log(`Loaded ${playtomicData.length} bookings from Playtomic`)
+      if (safeData.length > 0) console.log(`Loaded ${safeData.length} bookings from Playtomic`)
     } catch (error) {
-      console.error('Error loading Playtomic bookings:', error)
-      alert(
-        language === 'en'
-          ? `Error loading bookings from Playtomic: ${error.message}`
-          : `خطأ في تحميل الحجوزات من Playtomic: ${error.message}`
-      )
+      console.warn('Playtomic bookings unavailable (CORS or network):', error?.message)
+      setPlaytomicBookings([])
     } finally {
       setIsLoadingPlaytomic(false)
     }
@@ -6077,7 +6074,7 @@ function App({ currentUser }) {
                                                 width: '100%',
                                                 maxWidth: '100%'
                                               }}>
-                                                {booking.participants.map((p, idx) => (
+                                                {(booking.participants || []).map((p, idx) => (
                                                   <div 
                                                     key={idx} 
                                                     className="booking-participant-name"
@@ -6102,11 +6099,11 @@ function App({ currentUser }) {
                                             <div><strong>{booking.resource}</strong></div>
                                             <div style={{ fontSize: '11px', marginTop: '2px' }}>{booking.startTime} - {booking.endTime}</div>
                                           </div>
-                                          {booking.participants.length > 0 && (
+                                          {(booking.participants?.length || 0) > 0 && (
                                             <div style={{ marginBottom: '8px' }}>
                                               <div style={{ fontWeight: '600', marginBottom: '4px', fontSize: '12px' }}>{t.participants}:</div>
                                               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                                {booking.participants.map((p, idx) => (
+                                                {(booking.participants || []).map((p, idx) => (
                                                   <div key={idx} style={{ 
                                                     padding: '2px 0',
                                                     fontSize: '13px',
@@ -6342,7 +6339,7 @@ function App({ currentUser }) {
                                               {new Date(booking.date).toLocaleDateString(language === 'en' ? 'en-US' : 'ar-SA', { month: 'short', day: 'numeric' })}
                                             </div>
                                             <div className="booking-participants">
-                                              {booking.participants.map((p, idx) => (
+                                              {(booking.participants || []).map((p, idx) => (
                                                 <div key={idx} className="booking-participant-name">
                                                   {typeof p === 'object' ? p.name : p}
                                                 </div>
@@ -6360,11 +6357,11 @@ function App({ currentUser }) {
                                             <div style={{ fontSize: '11px', marginTop: '2px' }}>{booking.startTime} - {booking.endTime}</div>
                                             <div style={{ fontSize: '11px', marginTop: '2px' }}>{new Date(booking.date).toLocaleDateString()}</div>
                                           </div>
-                                          {booking.participants.length > 0 && (
+                                          {(booking.participants?.length || 0) > 0 && (
                                             <div style={{ marginBottom: '8px' }}>
                                               <div style={{ fontWeight: '600', marginBottom: '4px', fontSize: '12px' }}>{t.participants}:</div>
                                               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                                {booking.participants.map((p, idx) => (
+                                                {(booking.participants || []).map((p, idx) => (
                                                   <div key={idx} style={{ 
                                                     padding: '2px 0',
                                                     fontSize: '13px',

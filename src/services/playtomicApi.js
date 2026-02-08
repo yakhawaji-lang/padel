@@ -138,9 +138,12 @@ export const playtomicApi = {
 
         return bookings.map(convertPlaytomicBooking)
       } catch (altError) {
-        console.error('All API endpoints failed:', altError)
-        // إرجاع بيانات تجريبية للاختبار (يمكن حذفها لاحقاً)
-        return getMockBookings(startDate, endDate)
+        console.warn('Playtomic API unavailable (CORS/network):', altError?.message)
+        try {
+          return getMockBookings(startDate, endDate) || []
+        } catch (_) {
+          return []
+        }
       }
     }
   },
