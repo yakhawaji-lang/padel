@@ -7,21 +7,22 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
   border-bottom: 1px solid #e2e8f0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
 
 .club-settings-tab {
-  padding: 10px 18px;
-  font-size: 14px;
+  padding: 12px 20px;
+  min-height: 44px;
+  font-size: 0.9375rem;
   font-weight: 500;
   color: #475569;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
@@ -29,64 +30,67 @@
 
 .club-settings-tab:hover {
   background: #f1f5f9;
-  color: #2563eb;
+  color: #3b82f6;
   border-color: #cbd5e1;
 }
 
 .club-settings-tab.active {
-  background: #2563eb;
-  color: white;
-  border-color: #2563eb;
+  background: #3b82f6;
+  color: #fff;
+  border-color: #3b82f6;
 }
 
 .settings-sections {
   display: flex;
   flex-direction: column;
-  gap: 30px;
-  padding-bottom: 20px;
+  gap: 24px;
+  padding-bottom: 24px;
 }
 
 .settings-section {
-  background: white;
-  padding: 25px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: #fff;
+  padding: 24px;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e2e8f0;
 }
 
 .settings-section h3 {
   margin: 0 0 20px 0;
-  font-size: 18px;
-  color: #333;
-  border-bottom: 2px solid #2196f3;
-  padding-bottom: 10px;
+  font-size: 1.125rem;
+  color: #0f172a;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 12px;
+  font-weight: 600;
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   font-weight: 500;
-  color: #555;
-  font-size: 14px;
+  color: #334155;
+  font-size: 0.875rem;
 }
 
 .form-group input,
 .form-group select {
   width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9375rem;
   box-sizing: border-box;
 }
 
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #2196f3;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
 .club-logo-in-title {
@@ -179,32 +183,33 @@
 .courts-table-content {
   width: 100%;
   border-collapse: collapse;
-  background: white;
-  border-radius: 4px;
+  background: #fff;
+  border-radius: 10px;
   overflow: hidden;
 }
 
 .courts-table-content thead {
-  background: #f5f5f5;
+  background: #f8fafc;
 }
 
 .courts-table-content th {
-  padding: 12px;
-  text-align: left;
+  padding: 14px 16px;
+  text-align: start;
   font-weight: 600;
-  color: #333;
-  font-size: 14px;
-  border-bottom: 2px solid #ddd;
+  color: #475569;
+  font-size: 0.8125rem;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .courts-table-content td {
-  padding: 12px;
-  border-bottom: 1px solid #eee;
-  font-size: 14px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.9375rem;
+  color: #0f172a;
 }
 
 .courts-table-content tbody tr:hover {
-  background: #f9f9f9;
+  background: #f8fafc;
 }
 
 .court-type-badge {

@@ -4,9 +4,10 @@
 }
 
 .members-table {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e2e8f0;
   overflow-x: auto;
   overflow-y: visible;
   -webkit-overflow-scrolling: touch;
@@ -19,33 +20,36 @@
 }
 
 .members-table thead {
-  background: #f8f9fa;
+  background: #f8fafc;
 }
 
 .members-table th {
-  padding: 12px 15px;
-  text-align: left;
+  padding: 14px 16px;
+  text-align: start;
   font-weight: 600;
-  font-size: 14px;
-  color: #333;
-  border-bottom: 2px solid #e0e0e0;
+  font-size: 0.8125rem;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .members-table td {
-  padding: 12px 15px;
-  border-bottom: 1px solid #f0f0f0;
-  font-size: 14px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.9375rem;
+  color: #0f172a;
 }
 
 .members-table tbody tr:hover {
-  background: #f8f9fa;
+  background: #f8fafc;
 }
 
 .members-table .btn-secondary,
 .members-table .btn-danger {
-  padding: 6px 12px;
-  font-size: 12px;
-  margin-right: 5px;
+  padding: 8px 14px;
+  min-height: 36px;
+  font-size: 0.8125rem;
+  margin-inline-end: 8px;
+  border-radius: 8px;
 }
 
 /* جوال - عرض احترافي */
@@ -150,12 +154,3 @@
   border-top: 1px solid #f1f5f9;
 }
 
-[dir="rtl"] .cxp-search-input {
-  padding-left: 14px;
-  padding-right: 40px;
-}
-
-[dir="rtl"] .cxp-search-wrap span {
-  left: auto;
-  right: 12px;
-}

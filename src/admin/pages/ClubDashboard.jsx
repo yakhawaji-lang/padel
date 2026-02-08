@@ -350,7 +350,7 @@ const ClubDashboard = ({ club }) => {
                       className="tournament-view-btn"
                       onClick={() => navigate(`/club/${clubId}`)}
                     >
-                      {t.viewDetails} →
+                      {t.viewDetails} {language === 'ar' ? '←' : '→'}
                     </button>
                   </div>
                 ) : (
@@ -381,7 +381,7 @@ const ClubDashboard = ({ club }) => {
                       className="tournament-view-btn"
                       onClick={() => navigate(`/club/${clubId}`)}
                     >
-                      {t.viewDetails} →
+                      {t.viewDetails} {language === 'ar' ? '←' : '→'}
                     </button>
                   </div>
                 ) : (
@@ -471,7 +471,7 @@ const ClubDashboard = ({ club }) => {
                       className="view-all-btn"
                       onClick={() => navigate(`/admin/club/${club.id}/members`)}
                     >
-                      {language === 'en' ? `View all ${stats.membersList.length} members` : `عرض جميع ${stats.membersList.length} عضو`} →
+                      {language === 'en' ? `View all ${stats.membersList.length} members` : `عرض جميع ${stats.membersList.length} عضو`} {language === 'ar' ? '←' : '→'}
                     </button>
                   )}
                 </div>

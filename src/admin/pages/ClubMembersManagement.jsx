@@ -150,12 +150,14 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
   return (
     <div className="club-admin-page club-members-management">
       <header className="cxp-header">
-        <h1 className="cxp-title">
-          {club.logo && <img src={club.logo} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'contain' }} />}
-          {t('Members', 'الأعضاء', language)} — {language === 'ar' ? (club.nameAr || club.name) : club.name}
-        </h1>
-        <p className="cxp-subtitle">{t('Manage club members', 'إدارة أعضاء النادي', language)}</p>
-        <button type="button" className="cxp-btn cxp-btn--primary" onClick={() => setShowAddModal(true)} style={{ marginLeft: 'auto' }}>
+        <div className="cxp-header-title-wrap">
+          <h1 className="cxp-title">
+            {club.logo && <img src={club.logo} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'contain' }} />}
+            {t('Members', 'الأعضاء', language)} — {language === 'ar' ? (club.nameAr || club.name) : club.name}
+          </h1>
+          <p className="cxp-subtitle">{t('Manage club members', 'إدارة أعضاء النادي', language)}</p>
+        </div>
+        <button type="button" className="cxp-btn cxp-btn--primary" onClick={() => setShowAddModal(true)}>
           + {t('Add Member', 'إضافة عضو', language)}
         </button>
       </header>
@@ -177,9 +179,8 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
             placeholder={t('Search by name, email, phone...', 'البحث بالاسم، البريد، الهاتف...', language)}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            style={{ paddingLeft: 40 }}
           />
-          <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }}>🔍</span>
+          <span className="cxp-search-icon">🔍</span>
         </div>
       )}
 

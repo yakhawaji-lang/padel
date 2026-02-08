@@ -1,21 +1,22 @@
+/* Club Admin Header - Clean, responsive */
+
 .club-admin-header {
-  background: white;
-  border-bottom: 1px solid #e0e0e0;
-  padding: 15px 20px;
-  padding-top: max(15px, env(safe-area-inset-top));
-  padding-left: max(20px, env(safe-area-inset-left));
-  padding-right: max(20px, env(safe-area-inset-right));
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 16px 24px;
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-inline: max(24px, env(safe-area-inset-left));
+  padding-inline-end: max(24px, env(safe-area-inset-right));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   flex-shrink: 0;
   z-index: 10;
-  position: relative;
 }
 
 .club-admin-header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   min-width: 0;
 }
 
@@ -23,7 +24,7 @@
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   min-width: 0;
   overflow: hidden;
 }
@@ -40,19 +41,22 @@
   min-width: 44px;
   min-height: 44px;
   padding: 10px;
-  background: #f0f0f0;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
   cursor: pointer;
-  border: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+.club-admin-menu-toggle:hover {
+  background: #e2e8f0;
 }
 
 .club-admin-menu-toggle span {
   display: block;
   width: 20px;
   height: 2px;
-  background: #333;
+  background: #475569;
   border-radius: 1px;
 }
 
@@ -64,14 +68,14 @@
 
 .club-admin-page-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 600;
-  color: #333;
+  color: #0f172a;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
-  overflow: hidden;
+  line-height: 1.3;
 }
 
 .club-admin-page-title .title-text {
@@ -81,18 +85,18 @@
 }
 
 .club-admin-header .club-logo {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
   object-fit: contain;
-  border-radius: 6px;
+  border-radius: 8px;
   flex-shrink: 0;
 }
 
 .club-address {
   display: block;
-  font-size: 12px;
-  color: #999;
+  font-size: 0.8125rem;
+  color: #64748b;
   margin-top: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -101,7 +105,7 @@
 
 .club-admin-header-right {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   flex-shrink: 0;
 }
@@ -109,20 +113,25 @@
 .header-language-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 0;
-  background: none;
-  border: none;
+  justify-content: center;
+  gap: 6px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
   cursor: pointer;
-  color: inherit;
   -webkit-tap-highlight-color: transparent;
 }
 
 .header-language-toggle:hover {
-  opacity: 0.85;
+  background: #e2e8f0;
 }
 
-/* تابلت وجوال - إظهار زر القائمة */
+/* Tablet */
 @media (max-width: 1024px) {
   .club-admin-menu-toggle {
     display: flex;
@@ -133,26 +142,21 @@
   }
 }
 
-/* جوال - عرض احترافي مضغوط */
+/* Mobile */
 @media (max-width: 768px) {
   .club-admin-header {
     padding: 12px 14px;
     padding-top: max(12px, env(safe-area-inset-top));
-    padding-left: max(14px, env(safe-area-inset-left));
-    padding-right: max(14px, env(safe-area-inset-right));
+    padding-inline: max(14px, env(safe-area-inset-left));
+    padding-inline-end: max(14px, env(safe-area-inset-right));
   }
 
   .club-admin-header-content {
-    gap: 10px;
-  }
-
-  .club-admin-header-left {
-    align-items: center;
+    gap: 12px;
   }
 
   .club-admin-page-title {
     font-size: 1rem;
-    line-height: 1.3;
   }
 
   .club-admin-page-title .title-text {
@@ -167,9 +171,14 @@
     display: none;
   }
 
+  .club-admin-header .club-logo {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+  }
 }
 
-@media (max-width: 400px) {
+@media (max-width: 480px) {
   .club-admin-header {
     padding: 10px 12px;
   }

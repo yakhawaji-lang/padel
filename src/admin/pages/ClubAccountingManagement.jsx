@@ -87,24 +87,26 @@ const ClubAccountingManagement = ({ club, onUpdateClub, language }) => {
   return (
     <div className="club-admin-page">
       <header className="cxp-header">
-        <h1 className="cxp-title">
-          {club.logo && <img src={club.logo} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'contain' }} />}
-          {t('Accounting', 'المحاسبة', lang)} — {lang === 'ar' ? (club.nameAr || club.name) : club.name}
-        </h1>
-        <p className="cxp-subtitle">{t('Track revenue and expenses', 'تتبع الإيرادات والمصروفات', lang)}</p>
+        <div className="cxp-header-title-wrap">
+          <h1 className="cxp-title">
+            {club.logo && <img src={club.logo} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'contain' }} />}
+            {t('Accounting', 'المحاسبة', lang)} — {lang === 'ar' ? (club.nameAr || club.name) : club.name}
+          </h1>
+          <p className="cxp-subtitle">{t('Track revenue and expenses', 'تتبع الإيرادات والمصروفات', lang)}</p>
+        </div>
       </header>
 
       <div className="cxp-stats">
-        <div className="cxp-stat" style={{ borderLeft: '4px solid #22c55e' }}>
-          <div className="cxp-stat-value" style={{ color: '#16a34a' }}>{formatAmount(totalRevenue)}</div>
+        <div className="cxp-stat cxp-stat-revenue">
+          <div className="cxp-stat-value">{formatAmount(totalRevenue)}</div>
           <div className="cxp-stat-label">{t('Revenue', 'الإيرادات', lang)}</div>
         </div>
-        <div className="cxp-stat" style={{ borderLeft: '4px solid #ef4444' }}>
-          <div className="cxp-stat-value" style={{ color: '#dc2626' }}>{formatAmount(totalExpenses)}</div>
+        <div className="cxp-stat cxp-stat-expenses">
+          <div className="cxp-stat-value">{formatAmount(totalExpenses)}</div>
           <div className="cxp-stat-label">{t('Expenses', 'المصروفات', lang)}</div>
         </div>
-        <div className="cxp-stat" style={{ borderLeft: '4px solid #1e3a5f' }}>
-          <div className="cxp-stat-value" style={{ color: net >= 0 ? '#16a34a' : '#dc2626' }}>{formatAmount(net)}</div>
+        <div className={`cxp-stat cxp-stat-net ${net < 0 ? 'negative' : ''}`}>
+          <div className="cxp-stat-value">{formatAmount(net)}</div>
           <div className="cxp-stat-label">{t('Net', 'الصافي', lang)}</div>
         </div>
       </div>
