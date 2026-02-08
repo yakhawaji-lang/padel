@@ -122,33 +122,46 @@ const HomePage = () => {
         language: 'Language'
       },
       hero: {
-        title: 'Professional management for your padel clubs',
-        subtitle: 'PlayTix — one platform to manage tournaments, bookings, members and accounting. Designed for club owners and managers who demand efficiency and clarity.',
-        cta: 'Access management dashboard'
+        title: 'Everything your padel club needs — in one place',
+        subtitle: 'PlayTix is the all‑in‑one platform for padel clubs: tournaments, court bookings, member management, club store, and accounting. Run your club like a pro — simple, smart, and scalable.',
+        tagline: 'Trusted by clubs across the region',
+        cta: 'Get started — free registration'
       },
       services: {
-        title: 'Our services',
-        intro: 'We provide a complete suite of tools for padel club operations.',
+        title: 'What PlayTix offers',
+        intro: 'A complete toolkit designed specifically for padel club owners and managers.',
         items: [
-          { title: 'Tournament management', text: 'Schedule and run King of the Court and Social tournaments. Track standings, teams, courts and match history per tournament.' },
-          { title: 'Bookings & calendar', text: 'Manage court bookings with a clear weekly or court-based view. Support for local and Playtomic integration.' },
-          { title: 'Members & statistics', text: 'Register members, track points, games and tournament history. Full statistics and points history per member.' },
-          { title: 'Accounting', text: 'Track revenue, filter by date and court. Overview of paid and pending amounts.' }
+          { title: 'Professional tournament management', text: 'Run King of the Court, Social tournaments, and more. Live standings, teams, matches, and rankings — everything in one dashboard.' },
+          { title: 'Court bookings & calendar', text: 'Simple weekly and court-based views. Integrate with Playtomic or manage bookings locally. See availability at a glance.' },
+          { title: 'Members & rankings', text: 'Register members, track points and games. Full statistics, leaderboards, and points history. Keep your community engaged.' },
+          { title: 'Club store', text: 'Sell rackets, balls, apparel, and more. Manage inventory, offers, and sales. Turn your club into a one-stop destination.' },
+          { title: 'Accounting & reports', text: 'Track revenue by date, court, and category. Paid vs. pending amounts. Clear reports for better decisions.' }
         ]
       },
       features: {
-        title: 'Why choose PlayTix',
-        intro: 'Built for the real needs of club managers.',
+        title: 'Why clubs choose PlayTix',
+        intro: 'Built for the real day-to-day needs of padel club managers.',
         items: [
-          'Multi-club support: manage several clubs from one admin panel.',
-          'Bilingual interface: full Arabic and English.',
-          'Data stays yours: local storage with optional cloud sync.',
-          'Mobile-friendly: use on tablet or phone at the club.'
+          'Manage multiple clubs from a single dashboard.',
+          'Full bilingual support — Arabic and English.',
+          'Your data, your control — secure cloud storage.',
+          'Works perfectly on tablet and phone at the club.',
+          'Playtomic integration for seamless court bookings.',
+          'Professional public pages for each club.'
         ]
       },
       about: {
         title: 'About PlayTix',
-        text: 'PlayTix is dedicated to padel club management. It enables organisers to schedule tournaments, assign teams to courts, record matches and maintain standings. Bookings and member management are integrated so that daily operations run smoothly from a single, professional interface.'
+        text: 'PlayTix is the leading platform for padel club management in the region. We help club owners and managers run tournaments, handle court bookings, grow their member base, and manage finances — all from one intuitive interface. Whether you run a single court or a multi-venue operation, PlayTix scales with you. Join hundreds of clubs who trust PlayTix to power their daily operations.'
+      },
+      highlights: {
+        title: 'One platform, endless possibilities',
+        items: [
+          { icon: '⚡', text: 'Set up in minutes — no technical expertise needed' },
+          { icon: '📊', text: 'Real-time stats and rankings for every tournament' },
+          { icon: '🛒', text: 'Sell products and offers directly to your members' },
+          { icon: '🔗', text: 'Connect with Playtomic for integrated bookings' }
+        ]
       },
       stats: {
         clubs: 'Clubs',
@@ -216,33 +229,46 @@ const HomePage = () => {
         language: 'اللغة'
       },
       hero: {
-        title: 'إدارة احترافية لأندية البادل',
-        subtitle: 'PlayTix — منصة واحدة لإدارة البطولات والحجوزات والأعضاء والمحاسبة. مصممة لمالكي النوادي والمدراء الذين يطلبون الكفاءة والوضوح.',
-        cta: 'الدخول إلى لوحة الإدارة'
+        title: 'كل ما يحتاجه نادي البادل — في مكان واحد',
+        subtitle: 'PlayTix منصة متكاملة لأندية البادل: البطولات، حجوزات الملاعب، إدارة الأعضاء، متجر النادي، والمحاسبة. أدِر ناديك باحترافية — بسيط، ذكي، وقابل للتوسع.',
+        tagline: 'موثوق به من نوادي في المنطقة',
+        cta: 'ابدأ الآن — تسجيل مجاني'
       },
       services: {
-        title: 'خدماتنا',
-        intro: 'نقدم مجموعة متكاملة من الأدوات لتشغيل أندية البادل.',
+        title: 'ما تقدمه PlayTix',
+        intro: 'مجموعة أدوات كاملة مصممة خصيصاً لمالكي ومدراء أندية البادل.',
         items: [
-          { title: 'إدارة البطولات', text: 'جدولة وإدارة بطولات ملك الملعب وبطولة سوشيال. متابعة الترتيب والفرق والملاعب وسجل المباريات لكل بطولة.' },
-          { title: 'الحجوزات والتقويم', text: 'إدارة حجوزات الملاعب بعرض أسبوعي أو حسب الملعب. دعم الحجوزات المحلية وتكامل Playtomic.' },
-          { title: 'الأعضاء والإحصائيات', text: 'تسجيل الأعضاء ومتابعة النقاط والألعاب وسجل البطولات. إحصائيات كاملة وسجل نقاط لكل عضو.' },
-          { title: 'المحاسبة', text: 'متابعة الإيرادات والتصفية حسب التاريخ والملعب. نظرة على المبالغ المدفوعة والمعلقة.' }
+          { title: 'إدارة احترافية للبطولات', text: 'إدارة بطولات ملك الملعب والسوشيال والمزيد. ترتيب مباشر، فرق، مباريات، وتصنيفات — كل شيء في لوحة تحكم واحدة.' },
+          { title: 'حجوزات الملاعب والتقويم', text: 'عرض أسبوعي وبحسب الملعب. تكامل مع Playtomic أو إدارة الحجوزات محلياً. شاهد التوفر بنظرة واحدة.' },
+          { title: 'الأعضاء والتصنيفات', text: 'تسجيل الأعضاء ومتابعة النقاط والألعاب. إحصائيات كاملة، لوحات ترتيب، وسجل نقاط. حافظ على تفاعل مجتمعك.' },
+          { title: 'متجر النادي', text: 'بيع المضارب والكرات والملابس والمزيد. إدارة المخزون والعروض والمبيعات. حوّل ناديك إلى وجهة متكاملة.' },
+          { title: 'المحاسبة والتقارير', text: 'متابعة الإيرادات حسب التاريخ والملعب والفئة. المبالغ المدفوعة والمعلقة. تقارير واضحة لقرارات أفضل.' }
         ]
       },
       features: {
-        title: 'لماذا PlayTix',
-        intro: 'مصممة وفق احتياجات مدراء النوادي الفعلية.',
+        title: 'لماذا تختار النوادي PlayTix',
+        intro: 'مصممة وفق الاحتياجات الفعلية اليومية لمدراء أندية البادل.',
         items: [
-          'دعم نوادي متعددة: إدارة عدة نوادي من لوحة تحكم واحدة.',
-          'واجهة ثنائية اللغة: عربي وإنجليزي كامل.',
-          'بياناتك تبقى ملكك: تخزين محلي مع إمكانية المزامنة السحابية.',
-          'متوافق مع الجوال: استخدام على جهاز لوحي أو هاتف داخل النادي.'
+          'إدارة نوادي متعددة من لوحة تحكم واحدة.',
+          'دعم ثنائي اللغة كامل — عربي وإنجليزي.',
+          'بياناتك تحت سيطرتك — تخزين سحابي آمن.',
+          'يعمل بشكل ممتاز على الجهاز اللوحي والهاتف داخل النادي.',
+          'تكامل Playtomic لحجوزات الملاعب بسلاسة.',
+          'صفحات عامة احترافية لكل نادٍ.'
         ]
       },
       about: {
         title: 'عن PlayTix',
-        text: 'PlayTix مخصص لإدارة أندية البادل. تتيح للمنظمين جدولة البطولات وتعيين الفرق على الملاعب وتسجيل المباريات والحفاظ على الترتيب. الحجوزات وإدارة الأعضاء مدمجة بحيث تسير العمليات اليومية بسلاسة من واجهة واحدة واحترافية.'
+        text: 'PlayTix المنصة الرائدة لإدارة أندية البادل في المنطقة. نساعد مالكي النوادي والمدراء في إدارة البطولات وحجوزات الملاعب وتنمية قاعدة الأعضاء والمالية — كل ذلك من واجهة سهلة واحدة. سواء تدير ملعباً واحداً أو عدة مراكز، PlayTix يتوسع معك. انضم إلى مئات النوادي التي تثق بـ PlayTix لتشغيل عملياتها اليومية.'
+      },
+      highlights: {
+        title: 'منصة واحدة، إمكانيات لا حدود لها',
+        items: [
+          { icon: '⚡', text: 'الإعداد خلال دقائق — بدون خبرة تقنية' },
+          { icon: '📊', text: 'إحصائيات وترتيب مباشر لكل بطولة' },
+          { icon: '🛒', text: 'بيع المنتجات والعروض مباشرة لأعضاء النادي' },
+          { icon: '🔗', text: 'اتصال مع Playtomic للحجوزات المدمجة' }
+        ]
       },
       stats: {
         clubs: 'نادي',
@@ -322,6 +348,7 @@ const HomePage = () => {
             <a href="#hero" onClick={(e) => { e.preventDefault(); scrollTo('hero') }}>{c.nav.home}</a>
             <a href="#services" onClick={(e) => { e.preventDefault(); scrollTo('services') }}>{c.nav.services}</a>
             <a href="#features" onClick={(e) => { e.preventDefault(); scrollTo('features') }}>{c.nav.features}</a>
+            <a href="#highlights" onClick={(e) => { e.preventDefault(); scrollTo('highlights') }}>{language === 'en' ? 'Why PlayTix' : 'لماذا PlayTix'}</a>
             <a href="#about" onClick={(e) => { e.preventDefault(); scrollTo('about') }}>{c.nav.about}</a>
             <a href="#join" onClick={(e) => { e.preventDefault(); scrollTo('join') }}>{language === 'en' ? 'Join' : 'انضم'}</a>
             <a href="#clubs" onClick={(e) => { e.preventDefault(); scrollTo('clubs') }}>{language === 'en' ? 'Clubs' : 'النوادي'}</a>
@@ -343,8 +370,9 @@ const HomePage = () => {
             <h1 className="hero-title">{c.hero.title}</h1>
             <p className="hero-subtitle">{c.hero.subtitle}</p>
             <button type="button" className="hero-cta" onClick={() => scrollTo('join')}>
-              {language === 'en' ? 'Register or join a club' : 'سجّل أو انضم لنادي'}
+              {c.hero.cta}
             </button>
+            <p className="hero-tagline">{c.hero.tagline}</p>
           </div>
         </section>
 
@@ -395,6 +423,21 @@ const HomePage = () => {
                   </Link>
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* نقاط بارزة */}
+        <section id="highlights" className="section section-highlights">
+          <div className="section-inner">
+            <h2 className="section-title">{c.highlights.title}</h2>
+            <div className="highlights-grid">
+              {c.highlights.items.map((item, i) => (
+                <div key={i} className="highlight-card">
+                  <span className="highlight-icon">{item.icon}</span>
+                  <p className="highlight-text">{item.text}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
