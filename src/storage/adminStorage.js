@@ -252,7 +252,11 @@ export async function refreshClubsFromApi() {
   if (!USE_POSTGRES || !_backendStorage) return
   try {
     const local = _clubsCache && Array.isArray(_clubsCache) ? _clubsCache : []
-    await _backendStorage.refreshStoreKeys([ADMIN_STORAGE_KEYS.CLUBS])
+    await _backendStorage.refreshStoreKeys([
+      ADMIN_STORAGE_KEYS.CLUBS,
+      MEMBER_STORAGE_KEYS.ALL,
+      MEMBER_STORAGE_KEYS.PADEL
+    ])
     const remote = _backendStorage.getCache(ADMIN_STORAGE_KEYS.CLUBS)
     const clubs = Array.isArray(remote) && remote.length > 0
       ? mergeClubsPreservingLocalImages(remote, local)
