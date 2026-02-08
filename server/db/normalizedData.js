@@ -250,13 +250,23 @@ async function assembleClub(clubRow, courts, settings, adminUsers, offers, booki
       category: a.category,
       ...(typeof a.data === 'object' ? a.data : {})
     })),
-    adminUsers: (adminUsers || []).map(u => ({
-      id: u.id,
-      email: u.email,
-      password: u.password_hash,
-      isOwner: !!u.is_owner,
-      permissions: typeof u.permissions === 'object' ? u.permissions : (u.permissions ? JSON.parse(u.permissions || '[]') : [])
-    })),
+    // Owner from club_admin_users (is_owner=1) - frontend expects adminEmail/adminPassword for login
+    ...(function () {
+      const admins = (adminUsers || []).map(u => ({
+        id: u.id,
+        email: u.email,
+        password: u.password_hash,
+        isOwner: !!u.is_owner,
+        permissions: typeof u.permissions === 'object' ? u.permissions : (u.permissions ? JSON.parse(u.permissions || '[]') : [])
+      }))
+      const owner = admins.find(u => u.isOwner)
+      const nonOwners = admins.filter(u => !u.isOwner)
+      return {
+        adminEmail: owner?.email || clubRow.email || '',
+        adminPassword: owner?.password || '',
+        adminUsers: nonOwners
+      }
+    })(),
     tournamentTypes: (tournamentTypes || []).map(t => ({
       id: t.id,
       name: t.name,
@@ -409,8 +419,26 @@ export async function saveClubsToNormalized(items, actor = {}) {
       )
     }
 
-    const adminUsers = club.adminUsers || []
-    const adminIds = new Set(adminUsers.map(u => u?.id).filter(Boolean))
+    // Owner (adminEmail/adminPassword) + additional admins (adminUsers). Frontend sends owner separately.
+    const ownerEmail = (club.adminEmail || club.email || '').trim().toLowerCase()
+    const ownerPassword = club.adminPassword || ''
+    const additionalAdmins = club.adminUsers || []
+    const allAdmins = []
+    if (ownerEmail) {
+      allAdmins.push({
+        id: 'owner',
+        email: club.adminEmail || club.email,
+        password: ownerPassword,
+        isOwner: true,
+        permissions: ['dashboard', 'members', 'offers', 'store', 'accounting', 'settings', 'users']
+      })
+    }
+    additionalAdmins.forEach(u => {
+      if (u?.id && (u.email || '').toLowerCase() !== ownerEmail) {
+        allAdmins.push({ ...u, isOwner: false })
+      }
+    })
+    const adminIds = new Set(allAdmins.map(u => u?.id).filter(Boolean))
     const { rows: existingAdmins } = await query('SELECT id FROM club_admin_users WHERE club_id=? AND deleted_at IS NULL', [cid])
     for (const ea of existingAdmins) {
       if (!adminIds.has(ea.id)) {
@@ -418,7 +446,7 @@ export async function saveClubsToNormalized(items, actor = {}) {
         await logAudit({ tableName: 'club_admin_users', recordId: ea.id, action: 'DELETE', ...actor, clubId: cid })
       }
     }
-    for (const u of adminUsers) {
+    for (const u of allAdmins) {
       if (!u?.id) continue
       const perm = JSON.stringify(u.permissions || [])
       await query(
