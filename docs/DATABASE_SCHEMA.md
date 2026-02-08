@@ -1,13 +1,44 @@
 # هيكل قاعدة البيانات - PlayTix (u502561206_padel_db)
 
 **كل مدخلات النظام تُخزَّن وتُقرأ من قاعدة البيانات `u502561206_padel_db` (MySQL) فقط.**  
-لا يوجد مصدر بيانات آخر — قاعدة البيانات هي المصدر الوحيد.
+لا localStorage، لا IndexedDB، لا JSON في التخزين — MySQL هو المصدر الوحيد.
+
+## الملفات
+- `server/db/schema-relational.sql` — هيكل علائقي كامل بدون أعمدة JSON
+- `server/db/queries.sql` — استعلامات شاملة لكل بيانات النظام
+- `docs/QUERIES.md` — فهرس الاستعلامات
 
 ---
 
-## الجداول والحقول لكل مدخلات النظام
+## الجداول المنظمة (المصدر الرئيسي بعد الترحيل)
 
-### 1. `entities` — الأندية، الأعضاء، مدراء المنصة
+بعد تشغيل `/api/init-db/migrate-to-normalized`، يُستخدم الهيكل التالي:
+
+| الجدول | الوصف | العلاقات |
+|--------|-------|----------|
+| `platform_admins` | مدراء المنصة | - |
+| `members` | الأعضاء | member_clubs |
+| `clubs` | الأندية | - |
+| `member_clubs` | علاقة many-to-many بين الأعضاء والنوادي | member_id → members, club_id → clubs |
+| `club_courts` | الملاعب | club_id → clubs |
+| `club_settings` | إعدادات النادي | club_id → clubs |
+| `club_admin_users` | مدراء النادي | club_id → clubs |
+| `club_offers` | العروض | club_id → clubs |
+| `club_bookings` | الحجوزات | club_id → clubs |
+| `club_accounting` | المحاسبة | club_id → clubs |
+| `club_tournament_types` | أنواع البطولات | club_id → clubs |
+| `club_store` | بيانات المتجر (JSON) | club_id → clubs |
+| `audit_log` | سجل التدقيق (من قام بماذا ومتى) | - |
+
+**الحذف المؤقت (Soft Delete):** كل جدول يحتوي على `deleted_at`, `deleted_by`. الحذف = تعبئة هذه الحقول، ولا يُحذف السجل نهائياً إلا بعد 3 أشهر عبر `/api/init-db/purge-soft-deleted`.
+
+**التدقيق (Audit):** يتم تسجيل كل عملية INSERT/UPDATE/DELETE في `audit_log` مع معرف المدخل (X-Actor-Type, X-Actor-Id) من الـ API.
+
+---
+
+## الجداول القديمة (للمرحمة)
+
+### 1. `entities` — (يُستخدم عند عدم وجود جداول منظمة)
 | الحقل       | النوع        | الوصف                          |
 |------------|--------------|--------------------------------|
 | id         | INT          | مفتاح تلقائي                   |
@@ -114,8 +145,19 @@ https://playtix.app/api/init-db?reset=1
 https://playtix.app/api/init-db/migrate-club-settings
 ```
 
-أو POST:
+**الترحيل إلى الجداول المنظمة:**
+```
+https://playtix.app/api/init-db/migrate-to-normalized
+```
+ينشئ الجداول المنظمة وينسخ البيانات من `entities`.
 
+**حذف السجلات المحذوفة (بعد 3 أشهر):**
+```
+https://playtix.app/api/init-db/purge-soft-deleted
+```
+يُنصح بتشغيلها دورياً (Cron يومي).
+
+أو POST:
 ```powershell
 Invoke-RestMethod -Uri "https://playtix.app/api/init-db" -Method POST
 ```

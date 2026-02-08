@@ -98,6 +98,9 @@ router.get('/', async (req, res) => {
       await query('DELETE FROM entities')
       await query('DELETE FROM app_settings')
       await query('TRUNCATE TABLE app_store')
+      for (const t of ['member_clubs', 'club_courts', 'club_settings', 'club_admin_users', 'club_offers', 'club_bookings', 'club_accounting', 'club_tournament_types', 'club_store', 'clubs', 'members', 'platform_admins', 'audit_log']) {
+        try { await query(`TRUNCATE TABLE \`${t}\``) } catch (_) { /* table may not exist */ }
+      }
       await query('SET FOREIGN_KEY_CHECKS = 1')
       // Run normal init
       for (let i = 0; i < STMTS.length; i++) {
@@ -118,6 +121,18 @@ router.get('/', async (req, res) => {
         createdAt: new Date().toISOString()
       }
       await query('INSERT IGNORE INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?)', ['platform_admin', defaultOwner.id, JSON.stringify(defaultOwner)])
+      try {
+        const { migrateEntitiesToNormalized } = await import('../db/migrateToNormalized.js')
+        await migrateEntitiesToNormalized()
+      } catch (migErr) {
+        console.warn('[init-db reset] migrate to normalized:', migErr.message)
+      }
+      try {
+        const { runInitRelational } = await import('../db/initRelational.js')
+        await runInitRelational()
+      } catch (relErr) {
+        console.warn('[init-db reset] init-relational:', relErr.message)
+      }
       return res.json({ ok: true, message: 'Database reset and reinitialized successfully' })
     } catch (e) {
       console.error('init-db reset error:', e)
@@ -177,6 +192,18 @@ router.get('/', async (req, res) => {
         }
         await query('INSERT IGNORE INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?)', ['platform_admin', defaultOwner.id, JSON.stringify(defaultOwner)])
       }
+      try {
+        const { migrateEntitiesToNormalized } = await import('../db/migrateToNormalized.js')
+        await migrateEntitiesToNormalized()
+      } catch (migErr) {
+        console.warn('[init-db init] migrate to normalized:', migErr.message)
+      }
+      try {
+        const { runInitRelational } = await import('../db/initRelational.js')
+        await runInitRelational()
+      } catch (relErr) {
+        console.warn('[init-db init] init-relational:', relErr.message)
+      }
       return res.json({ ok: true, message: 'Database initialized successfully (via browser)' })
     } catch (e) {
       console.error('init-db GET error:', e)
@@ -189,6 +216,24 @@ router.get('/', async (req, res) => {
   })
 })
 
+/** GET /api/init-db/stats - إحصائيات من الاستعلامات */
+router.get('/stats', async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ error: 'Database not connected' })
+    const { getStatsTotals, getTopMembersByPoints, getClubMatchCounts, getClubMemberCounts } = await import('../db/queries.js')
+    const [totals, topMembers, matchCounts, memberCounts] = await Promise.all([
+      getStatsTotals().catch(() => ({ clubs: 0, members: 0, matches: 0 })),
+      getTopMembersByPoints(5).catch(() => []),
+      getClubMatchCounts().catch(() => []),
+      getClubMemberCounts().catch(() => [])
+    ])
+    res.json({ ok: true, totals, topMembers, matchCounts, memberCounts })
+  } catch (e) {
+    console.error('init-db stats:', e)
+    res.status(500).json({ error: e.message })
+  }
+})
+
 /** GET /api/init-db/tables - Verify all required tables exist */
 router.get('/tables', async (req, res) => {
   try {
@@ -196,17 +241,27 @@ router.get('/tables', async (req, res) => {
       return res.json({ ok: false, tables: [], hint: 'Database not connected. Set DATABASE_URL or database.config.json' })
     }
     const required = ['entities', 'app_settings', 'app_store', 'matches', 'member_stats', 'tournament_summaries']
+    const normalized = ['clubs', 'members', 'platform_admins', 'audit_log']
     const results = []
     for (const t of required) {
       try {
         await query(`SELECT 1 FROM \`${t}\` LIMIT 1`)
-        results.push({ name: t, exists: true })
+        results.push({ name: t, exists: true, type: 'required' })
       } catch (e) {
-        results.push({ name: t, exists: false, error: e.message })
+        results.push({ name: t, exists: false, error: e.message, type: 'required' })
       }
     }
-    const allOk = results.every(r => r.exists)
-    res.json({ ok: allOk, tables: results, hint: allOk ? 'All tables ready' : 'Run POST /api/init-db to create missing tables' })
+    for (const t of normalized) {
+      try {
+        await query(`SELECT 1 FROM \`${t}\` LIMIT 1`)
+        results.push({ name: t, exists: true, type: 'normalized' })
+      } catch (e) {
+        results.push({ name: t, exists: false, error: e.message, type: 'normalized' })
+      }
+    }
+    const requiredOk = results.filter(r => r.type === 'required').every(r => r.exists)
+    const normalizedOk = results.filter(r => r.type === 'normalized').every(r => r.exists)
+    res.json({ ok: requiredOk, tables: results, normalizedReady: normalizedOk, hint: !requiredOk ? 'Run POST /api/init-db to create missing tables' : !normalizedOk ? 'Run /api/init-db/migrate-to-normalized for normalized schema' : 'All tables ready' })
   } catch (e) {
     res.status(500).json({ ok: false, tables: [], error: e.message })
   }
@@ -217,6 +272,7 @@ const migrateClubSettingsHandler = async (req, res) => {
     if (!isConnected()) {
       return res.status(503).json({ error: 'Database not connected' })
     }
+    const { hasNormalizedTables, saveClubsToNormalized } = await import('../db/normalizedData.js')
     const clubs = await getEntities('club')
     let updated = 0
     const defaults = {
@@ -234,6 +290,7 @@ const migrateClubSettingsHandler = async (req, res) => {
       heroStatsColor: '#0f172a',
       socialLinks: []
     }
+    const mergedClubs = []
     for (const club of clubs) {
       let changed = false
       const merged = { ...club }
@@ -269,12 +326,20 @@ const migrateClubSettingsHandler = async (req, res) => {
           changed = true
         }
       }
-      if (changed) {
-        await query(
-          'UPDATE entities SET data = ?, updated_at = NOW() WHERE entity_type = ? AND entity_id = ?',
-          [JSON.stringify(merged), 'club', club.id]
-        )
-        updated++
+      mergedClubs.push(merged)
+      if (changed) updated++
+    }
+    if (updated > 0) {
+      const normalized = await hasNormalizedTables()
+      if (normalized) {
+        await saveClubsToNormalized(mergedClubs, { actorType: 'system', actorId: null })
+      } else {
+        for (const club of mergedClubs) {
+          await query(
+            'UPDATE entities SET data = ?, updated_at = NOW() WHERE entity_type = ? AND entity_id = ?',
+            [JSON.stringify(club), 'club', club.id]
+          )
+        }
       }
     }
     res.json({ ok: true, message: `Migrated ${updated} club(s) - added missing courts (e.g. Court 4) and settings` })
@@ -287,6 +352,78 @@ const migrateClubSettingsHandler = async (req, res) => {
 /** GET/POST /api/init-db/migrate-club-settings - Add missing courts (e.g. Court 4) and Club Settings to existing clubs */
 router.get('/migrate-club-settings', migrateClubSettingsHandler)
 router.post('/migrate-club-settings', migrateClubSettingsHandler)
+
+/** GET/POST /api/init-db/init-relational - تهيئة الجداول العلائقية الإضافية */
+router.get('/init-relational', async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ error: 'Database not connected' })
+    const { runInitRelational } = await import('../db/initRelational.js')
+    const result = await runInitRelational()
+    res.json({ ok: true, message: 'Relational tables initialized', ...result })
+  } catch (e) {
+    console.error('init-relational:', e)
+    res.status(500).json({ error: e.message })
+  }
+})
+router.post('/init-relational', async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ error: 'Database not connected' })
+    const { runInitRelational } = await import('../db/initRelational.js')
+    const result = await runInitRelational()
+    res.json({ ok: true, message: 'Relational tables initialized', ...result })
+  } catch (e) {
+    console.error('init-relational:', e)
+    res.status(500).json({ error: e.message })
+  }
+})
+
+/** GET/POST /api/init-db/migrate-to-normalized - إنشاء الجداول المنظمة وترحيل البيانات من entities */
+router.get('/migrate-to-normalized', async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ error: 'Database not connected' })
+    const { migrateEntitiesToNormalized } = await import('../db/migrateToNormalized.js')
+    const stats = await migrateEntitiesToNormalized()
+    res.json({ ok: true, message: 'Migration completed', ...stats })
+  } catch (e) {
+    console.error('migrate-to-normalized:', e)
+    res.status(500).json({ error: e.message })
+  }
+})
+router.post('/migrate-to-normalized', async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ error: 'Database not connected' })
+    const { migrateEntitiesToNormalized } = await import('../db/migrateToNormalized.js')
+    const stats = await migrateEntitiesToNormalized()
+    res.json({ ok: true, message: 'Migration completed', ...stats })
+  } catch (e) {
+    console.error('migrate-to-normalized:', e)
+    res.status(500).json({ error: e.message })
+  }
+})
+
+/** GET/POST /api/init-db/purge-soft-deleted - حذف نهائي للسجلات المحذوفة منذ أكثر من 3 أشهر */
+router.get('/purge-soft-deleted', async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ error: 'Database not connected' })
+    const { purgeSoftDeleted } = await import('../db/purgeSoftDeleted.js')
+    const stats = await purgeSoftDeleted()
+    res.json({ ok: true, message: 'Purge completed', ...stats })
+  } catch (e) {
+    console.error('purge-soft-deleted:', e)
+    res.status(500).json({ error: e.message })
+  }
+})
+router.post('/purge-soft-deleted', async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ error: 'Database not connected' })
+    const { purgeSoftDeleted } = await import('../db/purgeSoftDeleted.js')
+    const stats = await purgeSoftDeleted()
+    res.json({ ok: true, message: 'Purge completed', ...stats })
+  } catch (e) {
+    console.error('purge-soft-deleted:', e)
+    res.status(500).json({ error: e.message })
+  }
+})
 
 /** POST /api/init-db/seed-platform-owner - Create default 2@2.com / 123456 when no admins */
 router.post('/seed-platform-owner', async (req, res) => {
@@ -373,6 +510,18 @@ router.post('/', async (req, res) => {
         'INSERT IGNORE INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?)',
         ['platform_admin', defaultOwner.id, JSON.stringify(defaultOwner)]
       )
+    }
+    try {
+      const { migrateEntitiesToNormalized } = await import('../db/migrateToNormalized.js')
+      await migrateEntitiesToNormalized()
+    } catch (migErr) {
+      console.warn('[init-db POST] migrate to normalized:', migErr.message)
+    }
+    try {
+      const { runInitRelational } = await import('../db/initRelational.js')
+      await runInitRelational()
+    } catch (relErr) {
+      console.warn('[init-db POST] init-relational:', relErr.message)
     }
     res.json({ ok: true, message: 'Database initialized successfully' })
   } catch (e) {

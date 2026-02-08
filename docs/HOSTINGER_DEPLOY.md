@@ -258,6 +258,15 @@ domains/
 | `https://playtix.app/api/init-db?reset=1` | إعادة تهيئة كاملة (حذف وإعادة إنشاء) |
 | `https://playtix.app/api/init-db/tables` | التحقق من وجود الجداول |
 | `https://playtix.app/api/init-db/migrate-club-settings` | ترحيل إعدادات الأندية + إضافة الملاعب الناقصة (GET/POST) |
+| `https://playtix.app/api/init-db/migrate-to-normalized` | إنشاء الجداول المنظمة وترحيل البيانات من entities |
+| `https://playtix.app/api/init-db/init-relational` | تهيئة الجداول العلائقية الإضافية |
+| `https://playtix.app/api/init-db/stats` | إحصائيات (عدد الأندية، الأعضاء، المباريات) |
+| `https://playtix.app/api/init-db/purge-soft-deleted` | حذف السجلات المحذوفة نهائياً (بعد 3 أشهر) |
+
+### جدولة Purge (Cron)
+لحذف السجلات المحذوفة تلقائياً بعد 3 أشهر، أضف Cron Job يومي في Hostinger:
+- **المسار:** `curl -s "https://playtix.app/api/init-db/purge-soft-deleted"`
+- **التكرار:** يومياً (مثلاً الساعة 3 صباحاً)
 
 ---
 
@@ -265,7 +274,10 @@ domains/
 
 | الجدول | الوظيفة |
 |--------|---------|
-| `entities` | الأندية، الأعضاء، مدراء المنصة |
+| `entities` | الأندية، الأعضاء، مدراء المنصة (للمرحمة) |
+| `clubs`, `members`, `platform_admins` | الجداول المنظمة الرئيسية |
+| `club_courts`, `club_settings`, `club_offers`, ... | جداول النادي المنظمة |
+| `audit_log` | سجل التدقيق |
 | `app_settings` | الإعدادات، اللغة، الجلسات |
 | `app_store` | ترحيل من نسخ قديمة |
 | `matches` | مباريات البطولات |

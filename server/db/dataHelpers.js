@@ -1,9 +1,25 @@
 /**
  * Helpers for reading/writing entities and app_settings (DB-only source of truth)
+ * يستخدم الجداول المنظمة إن وُجدت، وإلا entities
  */
 import { query } from './pool.js'
+import { hasNormalizedTables, getClubsFromNormalized, getMembersFromNormalized, getPlatformAdminsFromNormalized, saveClubsToNormalized, saveMembersToNormalized, savePlatformAdminsToNormalized } from './normalizedData.js'
+
+async function useNormalized() {
+  try {
+    return await hasNormalizedTables()
+  } catch {
+    return false
+  }
+}
 
 export async function getEntities(type) {
+  const normalized = await useNormalized()
+  if (normalized) {
+    if (type === 'club') return await getClubsFromNormalized()
+    if (type === 'member') return await getMembersFromNormalized()
+    if (type === 'platform_admin') return await getPlatformAdminsFromNormalized()
+  }
   const { rows } = await query(
     'SELECT entity_id, data FROM entities WHERE entity_type = ?',
     [type]
@@ -15,6 +31,13 @@ export async function getEntities(type) {
 }
 
 export async function setEntities(type, items) {
+  const normalized = await useNormalized()
+  const actor = { actorType: 'system', actorId: null }
+  if (normalized) {
+    if (type === 'club') return await saveClubsToNormalized(Array.isArray(items) ? items : [], actor)
+    if (type === 'member') return await saveMembersToNormalized(Array.isArray(items) ? items : [], actor)
+    if (type === 'platform_admin') return await savePlatformAdminsToNormalized(Array.isArray(items) ? items : [], actor)
+  }
   await query('DELETE FROM entities WHERE entity_type = ?', [type])
   for (const item of Array.isArray(items) ? items : []) {
     const id = (item?.id || 'item-' + Date.now()).toString()

@@ -10,10 +10,28 @@ const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API
       : ''
     : 'http://localhost:4000')
 
+/** ضبط دالة للحصول على بيانات المدخل (للتسجيل في audit_log) */
+let _getDataActor = null
+export function configureDataActor(getter) {
+  _getDataActor = getter
+}
+
+function getDataActorHeaders() {
+  const actor = typeof _getDataActor === 'function' ? _getDataActor() : null
+  if (!actor) return {}
+  const h = {}
+  if (actor.actorType) h['X-Actor-Type'] = actor.actorType
+  if (actor.actorId) h['X-Actor-Id'] = actor.actorId
+  if (actor.actorName) h['X-Actor-Name'] = actor.actorName
+  if (actor.clubId) h['X-Club-Id'] = actor.clubId
+  return h
+}
+
 async function fetchJson(path, options = {}) {
+  const actorHeaders = path.startsWith('/api/data') && (options.method === 'POST' || options.method === 'PUT') ? getDataActorHeaders() : {}
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers }
+    headers: { 'Content-Type': 'application/json', ...actorHeaders, ...options.headers }
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))

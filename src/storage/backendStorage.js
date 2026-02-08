@@ -11,6 +11,13 @@ let bootstrapped = false
 export async function bootstrap() {
   if (bootstrapped) return
   try {
+    api.configureDataActor?.(() => {
+      const pa = cache.get('platform_admin_session')
+      if (pa?.id) return { actorType: 'platform_admin', actorId: pa.id, actorName: pa.email }
+      const ca = cache.get('club_admin_session')
+      if (ca?.userId) return { actorType: 'club_admin', actorId: ca.userId, actorName: ca.email, clubId: ca.clubId }
+      return null
+    })
     const keys = [
       'admin_clubs', 'all_members', 'padel_members', 'admin_settings', 'platform_admins',
       'app_language', 'current_member_id', 'admin_current_club_id', 'bookings',

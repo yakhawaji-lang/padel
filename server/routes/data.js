@@ -1,9 +1,12 @@
 /**
- * Data API - reads/writes from entities and app_settings tables.
+ * Data API - reads/writes from normalized tables or entities (fallback).
  * Single source of truth: database only.
+ * يدعم الحذف المؤقت وتدقيق العمليات (audit).
  */
 import { Router } from 'express'
 import { query } from '../db/pool.js'
+import { getActorFromRequest } from '../db/audit.js'
+import { hasNormalizedTables, getClubsFromNormalized, getMembersFromNormalized, getPlatformAdminsFromNormalized, saveClubsToNormalized, saveMembersToNormalized, savePlatformAdminsToNormalized } from '../db/normalizedData.js'
 
 const router = Router()
 
@@ -23,6 +26,30 @@ const ENTITY_TYPE_MAP = {
   platform_admins: 'platform_admin'
 }
 
+async function useNormalized() {
+  try {
+    return await hasNormalizedTables()
+  } catch {
+    return false
+  }
+}
+
+async function getFromNormalized(key) {
+  if (key === 'admin_clubs') return await getClubsFromNormalized()
+  if (key === 'all_members' || key === 'padel_members') return await getMembersFromNormalized()
+  if (key === 'platform_admins') return await getPlatformAdminsFromNormalized()
+  return null
+}
+
+async function getFromEntities(key) {
+  const type = ENTITY_TYPE_MAP[key]
+  const { rows } = await query('SELECT entity_id, data FROM entities WHERE entity_type = ?', [type])
+  return rows.map(r => {
+    const d = typeof r.data === 'object' ? r.data : JSON.parse(r.data || '{}')
+    return { ...d, id: r.entity_id }
+  })
+}
+
 /** GET /api/data?keys=admin_clubs,all_members,... - Batch get from DB (must be before /:key) */
 router.get('/', async (req, res) => {
   try {
@@ -31,18 +58,12 @@ router.get('/', async (req, res) => {
     const keys = keysParam.split(',').map(k => k.trim()).filter(Boolean)
     if (!keys.length) return res.json({})
 
+    const normalized = await useNormalized()
     const result = {}
+
     for (const key of keys) {
       if (ENTITY_KEYS.includes(key)) {
-        const type = ENTITY_TYPE_MAP[key]
-        const { rows } = await query(
-          'SELECT entity_id, data FROM entities WHERE entity_type = ?',
-          [type]
-        )
-        result[key] = rows.map(r => {
-          const d = typeof r.data === 'object' ? r.data : JSON.parse(r.data || '{}')
-          return { ...d, id: r.entity_id }
-        })
+        result[key] = normalized ? await getFromNormalized(key) : await getFromEntities(key)
       } else {
         const { rows } = await query('SELECT value FROM app_settings WHERE `key` = ?', [key])
         const raw = rows[0]?.value
@@ -63,12 +84,8 @@ router.get('/:key', async (req, res) => {
   try {
     const key = req.params.key
     if (ENTITY_KEYS.includes(key)) {
-      const type = ENTITY_TYPE_MAP[key]
-      const { rows } = await query('SELECT entity_id, data FROM entities WHERE entity_type = ?', [type])
-      const arr = rows.map(r => {
-        const d = typeof r.data === 'object' ? r.data : JSON.parse(r.data || '{}')
-        return { ...d, id: r.entity_id }
-      })
+      const normalized = await useNormalized()
+      const arr = normalized ? await getFromNormalized(key) : await getFromEntities(key)
       return res.json(arr)
     }
     const { rows } = await query('SELECT value FROM app_settings WHERE `key` = ?', [key])
@@ -81,7 +98,7 @@ router.get('/:key', async (req, res) => {
   }
 })
 
-/** POST /api/data - Set key(s). Body: { key, value } or { items: [{ key, value }] } */
+/** POST /api/data - Set key(s). Body: { key, value } or { items: [{ key, value }] }. يدعم X-Actor-Type, X-Actor-Id, X-Club-Id للتدقيق */
 router.post('/', async (req, res) => {
   try {
     let items = req.body.items
@@ -93,19 +110,30 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Missing key or items' })
     }
 
+    const actor = getActorFromRequest(req)
+    const normalized = await useNormalized()
+
     for (const { key, value } of items) {
       if (!key) continue
       if (ENTITY_KEYS.includes(key)) {
-        const type = ENTITY_TYPE_MAP[key]
         const arr = Array.isArray(value) ? value : []
-        await query('DELETE FROM entities WHERE entity_type = ?', [type])
-        for (const item of arr) {
-          const id = (item?.id || item?.entity_id || 'item-' + Date.now() + '-' + Math.random().toString(36).slice(2)).toString()
-          const data = JSON.stringify(item)
-          await query(
-            'INSERT INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data), updated_at = NOW()',
-            [type, id, data]
-          )
+
+        if (normalized) {
+          const act = { actorType: actor.actorType || 'system', actorId: actor.actorId, actorName: actor.actorName, clubId: actor.clubId, ipAddress: actor.ipAddress }
+          if (key === 'admin_clubs') await saveClubsToNormalized(arr, act)
+          else if (key === 'all_members' || key === 'padel_members') await saveMembersToNormalized(arr, act)
+          else if (key === 'platform_admins') await savePlatformAdminsToNormalized(arr, act)
+        } else {
+          const type = ENTITY_TYPE_MAP[key]
+          await query('DELETE FROM entities WHERE entity_type = ?', [type])
+          for (const item of arr) {
+            const id = (item?.id || item?.entity_id || 'item-' + Date.now() + '-' + Math.random().toString(36).slice(2)).toString()
+            const data = JSON.stringify(item)
+            await query(
+              'INSERT INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data), updated_at = NOW()',
+              [type, id, data]
+            )
+          }
         }
       } else {
         await query(
