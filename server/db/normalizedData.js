@@ -302,15 +302,25 @@ async function assembleClub(clubRow, courts, settings, adminUsers, offers, booki
     },
     tournaments: [],
     members: memberIds || [],
-    bookings: (bookings || []).map(b => ({
-      ...(typeof b.data === 'object' ? b.data : {}),
-      id: b.id,
-      courtId: b.court_id,
-      memberId: b.member_id,
-      date: b.booking_date,
-      timeSlot: b.time_slot,
-      status: b.status
-    })),
+    bookings: (bookings || []).map(b => {
+      let data = b.data
+      if (typeof data === 'string') {
+        try { data = JSON.parse(data) } catch { data = {} }
+      }
+      const spread = (data && typeof data === 'object') ? data : {}
+      const dateVal = b.booking_date
+      const dateStr = dateVal ? (typeof dateVal === 'string' ? dateVal : (dateVal.toISOString ? dateVal.toISOString().split('T')[0] : String(dateVal))) : (spread.date || spread.startDate || '')
+      return {
+        ...spread,
+        id: b.id,
+        courtId: b.court_id,
+        memberId: b.member_id,
+        date: dateStr,
+        startDate: dateStr,
+        timeSlot: b.time_slot,
+        status: b.status
+      }
+    }),
     offers: (offers || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map(o => ({
       id: o.id,
       title: o.title,

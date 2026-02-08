@@ -15,7 +15,7 @@ import {
   deleteMatchesByTournament,
   deleteMatchesByDateAndType
 } from './storage'
-import { loadClubs, getClubById, saveClubs, upsertMember, addMemberToClub, deleteMember } from './storage/adminStorage'
+import { loadClubs, getClubById, saveClubs, upsertMember, addMemberToClub, deleteMember, refreshClubsFromApi } from './storage/adminStorage'
 import { getClubAdminSession } from './storage/clubAuth'
 import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import LanguageIcon from './components/LanguageIcon'
@@ -310,7 +310,7 @@ function App({ currentUser }) {
     }
   }, [clubId, navigate])
 
-  // Refresh club and members when clubs are synced (e.g. after member joins from public page)
+  // Refresh club, members, and bookings when clubs are synced (e.g. after member joins or booking from public page)
   useEffect(() => {
     if (!clubId) return
     const onSynced = () => {
@@ -326,6 +326,20 @@ function App({ currentUser }) {
             return Array.from(merged.values())
           })
         }
+        // Refresh bookings from updated club
+        const clubBookings = club?.bookings && Array.isArray(club.bookings) ? club.bookings : []
+        const localOnly = clubBookings.filter(b => !b.source || b.source !== 'playtomic')
+        let maxId = 0
+        const withIds = localOnly.map(b => {
+          if (b.isTournament && b.id != null) return b
+          if (b.id != null && b.id > 0 && !String(b.id).startsWith('playtomic_')) {
+            maxId = Math.max(maxId, typeof b.id === 'number' ? b.id : 0)
+            return b
+          }
+          maxId += 1
+          return { ...b, id: maxId, source: 'local' }
+        })
+        setLocalBookings(withIds)
       }
     }
     window.addEventListener('clubs-synced', onSynced)
@@ -4522,12 +4536,33 @@ function App({ currentUser }) {
     }
   }
 
-  // Load Playtomic bookings when bookings tab is opened
+  // When bookings tab is opened: refresh club data from API (to show latest bookings) and load Playtomic if needed
   useEffect(() => {
-    if (activeTab === 'bookings' && playtomicBookings.length === 0) {
+    if (activeTab !== 'bookings') return
+    refreshClubsFromApi().then(() => {
+      const clubs = loadClubs()
+      const club = clubs.find(c => c.id === clubId)
+      if (club) {
+        setCurrentClub(club)
+        const clubBookings = club?.bookings && Array.isArray(club.bookings) ? club.bookings : []
+        const localOnly = clubBookings.filter(b => !b.source || b.source !== 'playtomic')
+        let maxId = 0
+        const withIds = localOnly.map(b => {
+          if (b.isTournament && b.id != null) return b
+          if (b.id != null && b.id > 0 && !String(b.id).startsWith('playtomic_')) {
+            maxId = Math.max(maxId, typeof b.id === 'number' ? b.id : 0)
+            return b
+          }
+          maxId += 1
+          return { ...b, id: maxId, source: 'local' }
+        })
+        setLocalBookings(withIds)
+      }
+    })
+    if (playtomicBookings.length === 0) {
       loadPlaytomicBookings()
     }
-  }, [activeTab])
+  }, [activeTab, clubId])
 
   // Update merged bookings when local or Playtomic bookings change
   useEffect(() => {
