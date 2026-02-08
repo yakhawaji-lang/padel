@@ -63,7 +63,8 @@ const RegisterClub = () => {
       clubLogin: 'Club Login',
       benefitsTitle: 'Why register with PlayTix?',
       benefit1: 'Professional padel club management.',
-      benefit2: 'Court bookings and tournaments. Member management and rankings.',
+      benefit2: 'Court bookings and tournaments.',
+      benefit2b: 'Member management and rankings.',
       benefit3: 'Accounting & reporting',
       benefit4: 'Bilingual interface',
       benefit5: 'Club store management.'
@@ -103,7 +104,8 @@ const RegisterClub = () => {
       clubLogin: 'تسجيل دخول النادي',
       benefitsTitle: 'لماذا التسجيل مع PlayTix؟',
       benefit1: 'إدارة احترافية لأندية بادل.',
-      benefit2: 'حجوزات الملاعب و البطولات. إدارة الأعضاء و التصنيف',
+      benefit2: 'حجوزات الملاعب و البطولات',
+      benefit2b: 'إدارة الأعضاء و التصنيف',
       benefit3: 'المحاسبة والتقارير',
       benefit4: 'واجهة ثنائية اللغة',
       benefit5: 'إدارة متجر النادي.'
@@ -212,6 +214,7 @@ const RegisterClub = () => {
               <ul className="rc-benefits">
                 <li><span className="rc-benefit-icon">🏆</span>{c.benefit1}</li>
                 <li><span className="rc-benefit-icon">📅</span>{c.benefit2}</li>
+                <li><span className="rc-benefit-icon">👥</span>{c.benefit2b}</li>
                 <li><span className="rc-benefit-icon">💰</span>{c.benefit3}</li>
                 <li><span className="rc-benefit-icon">🛒</span>{c.benefit5}</li>
                 <li><span className="rc-benefit-icon">🌐</span>{c.benefit4}</li>
