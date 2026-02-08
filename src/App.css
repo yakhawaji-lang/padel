@@ -44,6 +44,35 @@
   z-index: 100;
 }
 
+.app-pending-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-bottom: 1px solid #fcd34d;
+  flex-shrink: 0;
+}
+
+.app-pending-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.app-pending-content strong {
+  display: block;
+  font-size: 0.9375rem;
+  color: #92400e;
+  margin-bottom: 4px;
+}
+
+.app-pending-content p {
+  font-size: 0.875rem;
+  color: #78350f;
+  margin: 0;
+  line-height: 1.5;
+}
+
 .header-content {
   width: 100%;
   display: flex;

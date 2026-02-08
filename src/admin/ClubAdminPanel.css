@@ -23,37 +23,6 @@
   display: block;
 }
 
-.club-pending-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 14px 20px;
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-  border-bottom: 1px solid #f59e0b;
-  color: #92400e;
-}
-
-.club-pending-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.club-pending-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.club-pending-text strong {
-  font-size: 0.9375rem;
-}
-
-.club-pending-text span {
-  font-size: 0.875rem;
-  line-height: 1.5;
-  opacity: 0.95;
-}
-
 .club-admin-content {
   flex: 1;
   margin-left: 250px;
@@ -65,6 +34,37 @@
   overflow: hidden;
   min-width: 0;
   width: 100%;
+}
+
+.club-pending-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  margin: 0 20px 16px;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1px solid #fcd34d;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.club-pending-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.club-pending-content strong {
+  display: block;
+  font-size: 1rem;
+  color: #92400e;
+  margin-bottom: 4px;
+}
+
+.club-pending-content p {
+  font-size: 0.9375rem;
+  color: #78350f;
+  margin: 0;
+  line-height: 1.5;
 }
 
 .club-admin-page {
@@ -82,6 +82,10 @@
 @media (max-width: 1024px) {
   .club-admin-content {
     margin-left: 0;
+  }
+
+  .club-pending-banner {
+    margin: 0 16px 12px;
   }
 
   .club-admin-page {

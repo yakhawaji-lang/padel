@@ -99,8 +99,6 @@ function ClubAdminPanel() {
     return null
   }
 
-  const isPending = club.status === 'pending'
-
   return (
     <div className={`club-admin-panel ${sidebarOpen ? 'sidebar-open' : ''} ${language === 'ar' ? 'rtl' : ''}`}>
       <div
@@ -116,21 +114,21 @@ function ClubAdminPanel() {
         onClose={() => setSidebarOpen(false)}
       />
       <div className="club-admin-content" onClick={() => setSidebarOpen(false)}>
-        {isPending && (
-          <div className="club-pending-banner" role="alert">
-            <span className="club-pending-icon">⏳</span>
-            <div className="club-pending-text">
-              <strong>{language === 'en' ? 'Awaiting club approval' : 'بانتظار الموافقة على النادي'}</strong>
-              <span>{language === 'en' ? 'Your club registration is under review. You can set up your club and use all features. Full access will continue once approved by the platform admin.' : 'تسجيل النادي قيد المراجعة. يمكنك إعداد النادي واستخدام جميع الميزات. سيستمر الوصول الكامل بعد الموافقة من إدارة المنصة.'}</span>
-            </div>
-          </div>
-        )}
         <ClubAdminHeader 
           club={club}
           language={language}
           onLanguageChange={setLanguage}
           onMenuToggle={() => setSidebarOpen(true)}
         />
+        {club.status === 'pending' && (
+          <div className="club-pending-banner" role="status">
+            <span className="club-pending-icon">⏳</span>
+            <div className="club-pending-content">
+              <strong>{language === 'en' ? 'Club pending approval' : 'النادي بانتظار الموافقة'}</strong>
+              <p>{language === 'en' ? 'Your registration is under review. You can explore the dashboard and prepare your club. Full access will be enabled once the platform admin approves your club.' : 'تسجيل ناديك قيد المراجعة. يمكنك استكشاف لوحة التحكم وإعداد النادي. سيتم تفعيل الوصول الكامل بعد موافقة مدير المنصة.'}</p>
+            </div>
+          </div>
+        )}
         <Routes>
           <Route path="/" element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<ClubPageGuard permission="dashboard"><ClubDashboard club={club} /></ClubPageGuard>} />

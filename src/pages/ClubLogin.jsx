@@ -58,7 +58,7 @@ const ClubLogin = () => {
     } else {
       setError(language === 'en'
         ? 'Invalid email or password.'
-        : 'بريد أو كلمة مرور غير صحيحة.')
+        : 'البريد الإلكتروني أو كلمة المرور غير صحيحة.')
     }
   }
 

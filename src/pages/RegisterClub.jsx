@@ -50,7 +50,7 @@ const RegisterClub = () => {
       submit: 'Submit Registration',
       backToHome: 'Back to home',
       successTitle: 'Registration Submitted',
-      successMsg: 'Your club registration has been received. You can log in now to set up your club dashboard and preview your club page. A banner will show until approval — full access continues once approved.',
+      successMsg: 'Your club registration has been received. Our team will review it shortly. You can log in with your email and password once approved.',
       successCta: 'Go to Club Login',
       namePlaceholder: 'e.g. Ace Padel Club',
       adminEmailPlaceholder: 'admin@club.com',
@@ -91,7 +91,7 @@ const RegisterClub = () => {
       submit: 'إرسال التسجيل',
       backToHome: 'العودة للرئيسية',
       successTitle: 'تم إرسال التسجيل',
-      successMsg: 'تم استلام طلب تسجيل النادي. يمكنك الدخول الآن لإعداد لوحة التحكم ومعاينة صفحة النادي. سيظهر شريط حتى الموافقة — يستمر الوصول الكامل بعد الموافقة.',
+      successMsg: 'تم استلام طلب تسجيل النادي. سنراجعه قريباً. ستتمكن من الدخول بالبريد وكلمة المرور بعد الموافقة.',
       successCta: 'الذهاب لتسجيل دخول النادي',
       namePlaceholder: 'مثال: هلا بادل',
       adminEmailPlaceholder: 'admin@club.com',
@@ -187,7 +187,12 @@ const RegisterClub = () => {
             </div>
             <h1>{c.successTitle}</h1>
             <p>{c.successMsg}</p>
-            <Link to="/club-login" className="rc-btn rc-btn-primary">{c.successCta}</Link>
+            <div className="rc-success-actions">
+              <Link to="/club-login" className="rc-btn rc-btn-primary">{c.successCta}</Link>
+              <p className="rc-success-hint">
+                {language === 'en' ? 'You can log in now to explore your club dashboard while waiting for approval.' : 'يمكنك تسجيل الدخول الآن لاستكشاف لوحة تحكم النادي أثناء انتظار الموافقة.'}
+              </p>
+            </div>
           </div>
         </main>
       </div>

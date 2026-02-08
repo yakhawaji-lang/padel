@@ -16,6 +16,7 @@ import {
   deleteMatchesByDateAndType
 } from './storage'
 import { loadClubs, getClubById, saveClubs, upsertMember, addMemberToClub, deleteMember } from './storage/adminStorage'
+import { getClubAdminSession } from './storage/clubAuth'
 import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import LanguageIcon from './components/LanguageIcon'
 import playtomicApi from './services/playtomicApi'
@@ -4678,6 +4679,16 @@ function App({ currentUser }) {
           </div>
         </div>
       </header>
+
+      {currentClub?.status === 'pending' && getClubAdminSession()?.clubId === clubId && (
+        <div className="app-pending-banner" role="status">
+          <span className="app-pending-icon">⏳</span>
+          <div className="app-pending-content">
+            <strong>{language === 'en' ? 'Club pending approval' : 'النادي بانتظار الموافقة'}</strong>
+            <p>{language === 'en' ? 'Your registration is under review. You can explore and prepare your club. Full access will be enabled once approved.' : 'تسجيل ناديك قيد المراجعة. يمكنك الاستكشاف وإعداد النادي. سيتم تفعيل الوصول الكامل بعد الموافقة.'}</p>
+          </div>
+        </div>
+      )}
 
       {/* نافذة جدولة البطولة - أعلى الصفحة لضمان الظهور */}
       {showTournamentBookingModal && (

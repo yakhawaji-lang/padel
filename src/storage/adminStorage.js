@@ -770,11 +770,11 @@ export const getClubAdminSessionFromCredentials = (email, password) => {
   const clubs = loadClubs()
   const em = (email || '').trim().toLowerCase()
   for (const club of clubs) {
-    // السماح بتسجيل الدخول للنوادي المعلّقة — يعرض المسجل رسالة "بانتظار الموافقة"
-    if (club.status && club.status !== 'approved' && club.status !== 'pending') continue
-    if ((club.adminEmail || club.email || '').toLowerCase() === em && (club.adminPassword || '') === (password || '')) {
+    const isOwnerMatch = (club.adminEmail || club.email || '').toLowerCase() === em && (club.adminPassword || '') === (password || '')
+    if (isOwnerMatch) {
       return { club, isOwner: true, clubId: club.id, userId: 'owner', permissions: ['dashboard', 'members', 'offers', 'store', 'accounting', 'settings', 'users'] }
     }
+    if (club.status && club.status !== 'approved') continue
     const users = club.adminUsers || []
     const u = users.find(au => (au.email || '').toLowerCase() === em && (au.password || '') === (password || ''))
     if (u) {
