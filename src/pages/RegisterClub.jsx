@@ -62,10 +62,11 @@ const RegisterClub = () => {
       alreadyApproved: 'Already approved?',
       clubLogin: 'Club Login',
       benefitsTitle: 'Why register with PlayTix?',
-      benefit1: 'Professional tournament management',
-      benefit2: 'Bookings & member management',
+      benefit1: 'Professional padel club management.',
+      benefit2: 'Court bookings and tournaments. Member management and rankings.',
       benefit3: 'Accounting & reporting',
-      benefit4: 'Bilingual interface'
+      benefit4: 'Bilingual interface',
+      benefit5: 'Club store management.'
     },
     ar: {
       title: 'تسجيل نادٍ جديد',
@@ -101,10 +102,11 @@ const RegisterClub = () => {
       alreadyApproved: 'تمت الموافقة مسبقاً؟',
       clubLogin: 'تسجيل دخول النادي',
       benefitsTitle: 'لماذا التسجيل مع PlayTix؟',
-      benefit1: 'إدارة احترافية للبطولات',
-      benefit2: 'الحجوزات وإدارة الأعضاء',
+      benefit1: 'إدارة احترافية لأندية بادل.',
+      benefit2: 'حجوزات الملاعب و البطولات. إدارة الأعضاء و التصنيف',
       benefit3: 'المحاسبة والتقارير',
-      benefit4: 'واجهة ثنائية اللغة'
+      benefit4: 'واجهة ثنائية اللغة',
+      benefit5: 'إدارة متجر النادي.'
     }
   }
   const c = t[language]
@@ -211,6 +213,7 @@ const RegisterClub = () => {
                 <li><span className="rc-benefit-icon">🏆</span>{c.benefit1}</li>
                 <li><span className="rc-benefit-icon">📅</span>{c.benefit2}</li>
                 <li><span className="rc-benefit-icon">💰</span>{c.benefit3}</li>
+                <li><span className="rc-benefit-icon">🛒</span>{c.benefit5}</li>
                 <li><span className="rc-benefit-icon">🌐</span>{c.benefit4}</li>
               </ul>
               <div className="rc-trust">
