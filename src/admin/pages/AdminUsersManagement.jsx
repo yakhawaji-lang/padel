@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import './common.css'
 import './AdminUsersManagement.css'
 import { useAdminPanel } from '../AdminPanelContext'
@@ -30,7 +31,8 @@ function Modal({ title, onClose, children }) {
 }
 
 export default function AdminUsersManagement() {
-  const { language = 'en', clubs = [], onUpdateClub, onRefreshClubs, onDeleteClub, onPermanentlyDeleteClub } = useAdminPanel()
+  const { language = 'en', clubs = [], onUpdateClub, onRefreshClubs } = useAdminPanel()
+  const location = useLocation()
   const session = getPlatformAdminSession()
   const [activeTab, setActiveTab] = useState('platform')
   const [admins, setAdmins] = useState(() => loadPlatformAdmins())
@@ -46,7 +48,6 @@ export default function AdminUsersManagement() {
   const [editingClubOwner, setEditingClubOwner] = useState(false)
   const [saving, setSaving] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
-  const [deletingClubId, setDeletingClubId] = useState(null)
 
   const refreshPlatform = () => setAdmins(loadPlatformAdmins())
 
@@ -72,6 +73,13 @@ export default function AdminUsersManagement() {
     })()
     return () => { cancelled = true }
   }, [])
+
+  useEffect(() => {
+    const state = location.state || {}
+    if (state.activeTab) setActiveTab(state.activeTab)
+    if (state.selectedClubId) setSelectedClubId(state.selectedClubId)
+    if (state.showAddClubUser) setShowAddClubUser(true)
+  }, [location.key])
 
   useEffect(() => {
     const approved = (clubs || []).filter(c => c.status !== 'pending' && c.status !== 'rejected')
@@ -300,46 +308,6 @@ export default function AdminUsersManagement() {
     setClubUserError('')
   }
 
-  const handleDeleteClub = async (clubId) => {
-    if (!clubId || !onDeleteClub) return
-    const club = approvedClubs.find(c => c.id === clubId)
-    const name = club ? (language === 'ar' ? (club.nameAr || club.name) : club.name) : ''
-    if (!window.confirm(t(`Delete club "${name}"? The club will be removed from the list. You can undo by re-adding.`, `حذف النادي "${name}"؟ سيُزال النادي من القائمة. يمكن الاسترجاع بإعادة الإضافة.`, language))) return
-    setDeletingClubId(clubId)
-    try {
-      await onDeleteClub(clubId)
-      if (selectedClubId === clubId) {
-        setSelectedClubId(approvedClubs.find(c => c.id !== clubId)?.id || '')
-      }
-      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
-    } catch (err) {
-      console.error('Delete club failed:', err)
-      setError(t('Delete failed.', 'فشل الحذف.', language))
-    } finally {
-      setDeletingClubId(null)
-    }
-  }
-
-  const handlePermanentlyDeleteClub = async (clubId) => {
-    if (!clubId || !onPermanentlyDeleteClub) return
-    const club = approvedClubs.find(c => c.id === clubId)
-    const name = club ? (language === 'ar' ? (club.nameAr || club.name) : club.name) : ''
-    if (!window.confirm(t(`Permanently delete "${name}"? This will remove all data from the database. This action cannot be undone!`, `حذف "${name}" نهائياً؟ سيُزال كل البيانات من قاعدة البيانات. لا يمكن التراجع!`, language))) return
-    setDeletingClubId(clubId)
-    try {
-      await onPermanentlyDeleteClub(clubId)
-      if (selectedClubId === clubId) {
-        setSelectedClubId(approvedClubs.find(c => c.id !== clubId)?.id || '')
-      }
-      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
-    } catch (err) {
-      console.error('Permanent delete failed:', err)
-      setError(t('Permanent delete failed.', 'فشل الحذف النهائي.', language))
-    } finally {
-      setDeletingClubId(null)
-    }
-  }
-
   const handleEditClubOwner = async (e) => {
     e.preventDefault()
     if (!selectedClub || !onUpdateClub || !editingClubOwner) return
@@ -558,24 +526,6 @@ export default function AdminUsersManagement() {
                       <div className="au-club-actions">
                         <button type="button" className="au-btn au-btn--primary" onClick={() => { setShowAddClubUser(true); setClubUserError(''); setClubUserForm({ email: '', password: '', permissions: [] }) }}>
                           + {t('Add Club Admin', 'إضافة مدير للنادي', language)}
-                        </button>
-                        <button
-                          type="button"
-                          className="au-btn au-btn--danger-outline"
-                          onClick={() => handleDeleteClub(selectedClub.id)}
-                          disabled={deletingClubId === selectedClub.id}
-                          title={t('Delete club (removes from list)', 'حذف النادي (يزيله من القائمة)', language)}
-                        >
-                          {deletingClubId === selectedClub.id ? '⋯' : '🗑'} {t('Delete', 'حذف', language)}
-                        </button>
-                        <button
-                          type="button"
-                          className="au-btn au-btn--danger"
-                          onClick={() => handlePermanentlyDeleteClub(selectedClub.id)}
-                          disabled={deletingClubId === selectedClub.id}
-                          title={t('Permanently delete from database. Cannot be undone!', 'حذف نهائي من قاعدة البيانات. لا يمكن التراجع!', language)}
-                        >
-                          {deletingClubId === selectedClub.id ? '⋯' : '⚠️'} {t('Permanent Delete', 'حذف نهائي', language)}
                         </button>
                       </div>
                     </div>

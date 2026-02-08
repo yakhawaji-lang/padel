@@ -31,13 +31,14 @@ function Modal({ title, onClose, children }) {
 }
 
 const AllClubsDashboard = () => {
-  const { clubs = [], language = 'en', onUpdateClub, onApproveClub, onRejectClub, onRefresh } = useAdminPanel()
+  const { clubs = [], language = 'en', onUpdateClub, onApproveClub, onRejectClub, onRefresh, onDeleteClub, onPermanentlyDeleteClub } = useAdminPanel()
   const navigate = useNavigate()
   const dataSource = getDataSourceLabel()
   const [searchQuery, setSearchQuery] = useState('')
   const [viewingPending, setViewingPending] = useState(null)
   const [sortBy, setSortBy] = useState('name')
   const [sortOrder, setSortOrder] = useState('asc')
+  const [deletingClubId, setDeletingClubId] = useState(null)
 
   const clubsList = Array.isArray(clubs) ? clubs : []
   const approvedClubs = useMemo(() => clubsList.filter(c => c.status !== 'pending'), [clubsList])
@@ -86,6 +87,42 @@ const AllClubsDashboard = () => {
   const handleSort = (newSortBy) => {
     if (sortBy === newSortBy) setSortOrder(o => o === 'asc' ? 'desc' : 'asc')
     else { setSortBy(newSortBy); setSortOrder('asc') }
+  }
+
+  const handleDeleteClub = async (clubId) => {
+    if (!clubId || !onDeleteClub) return
+    const club = approvedClubs.find(c => c.id === clubId)
+    const name = club ? (language === 'ar' ? (club.nameAr || club.name) : club.name) : ''
+    if (!window.confirm(t(`Delete club "${name}"? The club will be removed from the list. You can undo by re-adding.`, `حذف النادي "${name}"؟ سيُزال النادي من القائمة. يمكن الاسترجاع بإعادة الإضافة.`, language))) return
+    setDeletingClubId(clubId)
+    try {
+      await onDeleteClub(clubId)
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+    } catch (err) {
+      console.error('Delete club failed:', err)
+    } finally {
+      setDeletingClubId(null)
+    }
+  }
+
+  const handlePermanentlyDeleteClub = async (clubId) => {
+    if (!clubId || !onPermanentlyDeleteClub) return
+    const club = approvedClubs.find(c => c.id === clubId)
+    const name = club ? (language === 'ar' ? (club.nameAr || club.name) : club.name) : ''
+    if (!window.confirm(t(`Permanently delete "${name}"? This will remove all data from the database. This action cannot be undone!`, `حذف "${name}" نهائياً؟ سيُزال كل البيانات من قاعدة البيانات. لا يمكن التراجع!`, language))) return
+    setDeletingClubId(clubId)
+    try {
+      await onPermanentlyDeleteClub(clubId)
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+    } catch (err) {
+      console.error('Permanent delete failed:', err)
+    } finally {
+      setDeletingClubId(null)
+    }
+  }
+
+  const handleAddClubAdmin = (club) => {
+    navigate('/admin/admin-users', { state: { activeTab: 'clubs', selectedClubId: club.id, showAddClubUser: true } })
   }
 
   const getClubRevenue = (club) =>
@@ -295,6 +332,27 @@ const AllClubsDashboard = () => {
                       <button type="button" className="acd-btn-icon" onClick={() => navigate(`/club/${club.id}`)} title={t('Club page', 'صفحة النادي', language)}>◉</button>
                       <button type="button" className="acd-btn-icon" onClick={() => navigate(`/admin/club/${club.id}`)} title={t('Admin', 'إدارة', language)}>⚙</button>
                       <button type="button" className="acd-btn-icon" onClick={() => navigate('/admin/manage-clubs')} title={t('Edit', 'تعديل', language)}>✎</button>
+                      <button type="button" className="acd-btn acd-btn--small acd-btn--primary" onClick={() => handleAddClubAdmin(club)}>
+                        + {t('Add Club Admin', 'إضافة مدير للنادي', language)}
+                      </button>
+                      <button
+                        type="button"
+                        className="acd-btn acd-btn--small acd-btn--danger-outline"
+                        onClick={() => handleDeleteClub(club.id)}
+                        disabled={deletingClubId === club.id}
+                        title={t('Delete club (removes from list)', 'حذف النادي (يزيله من القائمة)', language)}
+                      >
+                        {deletingClubId === club.id ? '⋯' : '🗑'} {t('Delete', 'حذف', language)}
+                      </button>
+                      <button
+                        type="button"
+                        className="acd-btn acd-btn--small acd-btn--danger-solid"
+                        onClick={() => handlePermanentlyDeleteClub(club.id)}
+                        disabled={deletingClubId === club.id}
+                        title={t('Permanently delete from database. Cannot be undone!', 'حذف نهائي من قاعدة البيانات. لا يمكن التراجع!', language)}
+                      >
+                        {deletingClubId === club.id ? '⋯' : '⚠️'} {t('Permanent Delete', 'حذف نهائي', language)}
+                      </button>
                     </div>
                   </div>
                 )

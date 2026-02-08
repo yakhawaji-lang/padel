@@ -87,6 +87,25 @@
   background: #fee2e2;
 }
 
+.acd-btn--danger-outline {
+  background: transparent;
+  color: #dc2626;
+  border: 1px solid #dc2626;
+}
+
+.acd-btn--danger-outline:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+.acd-btn--danger-solid {
+  background: #dc2626;
+  color: #fff;
+}
+
+.acd-btn--danger-solid:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
 .acd-btn--small {
   padding: 6px 12px;
   font-size: 0.8125rem;
@@ -460,6 +479,7 @@
 
 .acd-club-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding-top: 10px;
   border-top: 1px solid #f1f5f9;
