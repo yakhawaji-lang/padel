@@ -20,23 +20,23 @@ const ClubLogin = () => {
   const t = {
     en: {
       title: 'Club Admin Login',
-      subtitle: 'Enter your email and password to access your club dashboard on PlayTix.',
+      subtitle: 'Enter your email and password to access your club dashboard. You can log in even while your club registration is pending approval.',
       email: 'Email',
       password: 'Password',
       submit: 'Login',
       backToHome: 'Back to home',
       registerClub: 'Register a new club',
-      notApproved: 'Your club registration is pending approval. Please wait for admin review.'
+      notApproved: 'You can log in and explore your club dashboard while your registration is under review.'
     },
     ar: {
       title: 'تسجيل دخول النادي',
-      subtitle: 'أدخل البريد الإلكتروني وكلمة المرور للدخول إلى لوحة تحكم النادي على PlayTix.',
+      subtitle: 'أدخل البريد الإلكتروني وكلمة المرور للدخول إلى لوحة تحكم النادي. يمكنك الدخول حتى أثناء انتظار الموافقة على تسجيل النادي.',
       email: 'البريد الإلكتروني',
       password: 'كلمة المرور',
       submit: 'دخول',
       backToHome: 'العودة للرئيسية',
       registerClub: 'تسجيل نادٍ جديد',
-      notApproved: 'تسجيل النادي قيد المراجعة. يرجى الانتظار حتى تتم الموافقة.'
+      notApproved: 'يمكنك الدخول واستكشاف لوحة التحكم أثناء مراجعة التسجيل.'
     }
   }
   const c = t[language]

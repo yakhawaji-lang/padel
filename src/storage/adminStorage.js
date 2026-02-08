@@ -770,6 +770,7 @@ export const getClubAdminSessionFromCredentials = (email, password) => {
   const clubs = loadClubs()
   const em = (email || '').trim().toLowerCase()
   for (const club of clubs) {
+    // Owner: allow both approved and pending clubs (المسجّل يدخل بانتظار الموافقة)
     const isOwnerMatch = (club.adminEmail || club.email || '').toLowerCase() === em && (club.adminPassword || '') === (password || '')
     if (isOwnerMatch) {
       return { club, isOwner: true, clubId: club.id, userId: 'owner', permissions: ['dashboard', 'members', 'offers', 'store', 'accounting', 'settings', 'users'] }
