@@ -4,6 +4,7 @@ import { loadClubs, getClubById, saveClubs, getClubMembersFromStorage, addMember
 import LanguageIcon from '../components/LanguageIcon'
 import SocialIcon from '../components/SocialIcon'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
+import { getClubAdminSession } from '../storage/clubAuth'
 import MemberAccountDropdown from '../components/MemberAccountDropdown'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './ClubPublicPage.css'
@@ -385,8 +386,37 @@ const ClubPublicPage = () => {
     }
   }
 
+  const clubSession = getClubAdminSession()
+  const isClubAdminViewingOwnPending = club?.status === 'pending' && clubSession?.clubId === club?.id
+  const isPendingAndNotAdmin = club?.status === 'pending' && clubSession?.clubId !== club?.id
+
+  if (isPendingAndNotAdmin) {
+    return (
+      <div className="club-public-page commercial">
+        <div className="club-public-pending-blocked">
+          <span className="club-public-pending-blocked-icon">⏳</span>
+          <h2>{language === 'en' ? 'Club under review' : 'النادي قيد المراجعة'}</h2>
+          <p>{language === 'en' ? 'This club is being reviewed by the platform. Please check back later.' : 'هذا النادي قيد المراجعة من المنصة. يرجى العودة لاحقاً.'}</p>
+          <Link to="/">{language === 'en' ? 'Back to home' : 'العودة للرئيسية'}</Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="club-public-page commercial">
+      {isClubAdminViewingOwnPending && (
+        <div className="club-public-pending-banner" role="alert">
+          <span className="club-public-pending-icon">⏳</span>
+          <div>
+            <strong>{language === 'en' ? 'Awaiting club approval' : 'بانتظار الموافقة على النادي'}</strong>
+            <span>{language === 'en' ? 'Your club is under review. You can preview and edit from the dashboard. It will be visible to the public once approved.' : 'النادي قيد المراجعة. يمكنك المعاينة والتعديل من لوحة التحكم. سيظهر للعموم بعد الموافقة.'}</span>
+          </div>
+          <Link to={`/admin/club/${clubId}`} className="club-public-pending-cta">
+            {language === 'en' ? 'Go to Dashboard' : 'لوحة التحكم'}
+          </Link>
+        </div>
+      )}
       <header
         className={`club-public-header${(club?.settings?.headerBgColor || club?.settings?.headerTextColor) ? ' has-custom-header-colors' : ''}`}
         style={{

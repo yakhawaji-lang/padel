@@ -99,6 +99,8 @@ function ClubAdminPanel() {
     return null
   }
 
+  const isPending = club.status === 'pending'
+
   return (
     <div className={`club-admin-panel ${sidebarOpen ? 'sidebar-open' : ''} ${language === 'ar' ? 'rtl' : ''}`}>
       <div
@@ -114,6 +116,15 @@ function ClubAdminPanel() {
         onClose={() => setSidebarOpen(false)}
       />
       <div className="club-admin-content" onClick={() => setSidebarOpen(false)}>
+        {isPending && (
+          <div className="club-pending-banner" role="alert">
+            <span className="club-pending-icon">⏳</span>
+            <div className="club-pending-text">
+              <strong>{language === 'en' ? 'Awaiting club approval' : 'بانتظار الموافقة على النادي'}</strong>
+              <span>{language === 'en' ? 'Your club registration is under review. You can set up your club and use all features. Full access will continue once approved by the platform admin.' : 'تسجيل النادي قيد المراجعة. يمكنك إعداد النادي واستخدام جميع الميزات. سيستمر الوصول الكامل بعد الموافقة من إدارة المنصة.'}</span>
+            </div>
+          </div>
+        )}
         <ClubAdminHeader 
           club={club}
           language={language}

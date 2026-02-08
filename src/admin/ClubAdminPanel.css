@@ -23,6 +23,37 @@
   display: block;
 }
 
+.club-pending-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-bottom: 1px solid #f59e0b;
+  color: #92400e;
+}
+
+.club-pending-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.club-pending-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.club-pending-text strong {
+  font-size: 0.9375rem;
+}
+
+.club-pending-text span {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  opacity: 0.95;
+}
+
 .club-admin-content {
   flex: 1;
   margin-left: 250px;

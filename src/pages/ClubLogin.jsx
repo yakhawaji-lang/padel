@@ -57,8 +57,8 @@ const ClubLogin = () => {
       navigate(`/admin/club/${sessionInfo.clubId}/dashboard`, { replace: true })
     } else {
       setError(language === 'en'
-        ? 'Invalid credentials or club not yet approved.'
-        : 'بيانات خاطئة أو النادي لم تتم الموافقة عليه بعد.')
+        ? 'Invalid email or password.'
+        : 'بريد أو كلمة مرور غير صحيحة.')
     }
   }
 

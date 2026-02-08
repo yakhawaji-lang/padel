@@ -13,6 +13,96 @@
   overflow-x: hidden;
 }
 
+.club-public-pending-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-bottom: 1px solid #f59e0b;
+  color: #92400e;
+  flex-wrap: wrap;
+}
+
+.club-public-pending-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.club-public-pending-banner > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.club-public-pending-banner strong {
+  display: block;
+  font-size: 0.9375rem;
+  margin-bottom: 2px;
+}
+
+.club-public-pending-banner span {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  opacity: 0.95;
+}
+
+.club-public-pending-cta {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  background: #f59e0b;
+  color: #fff;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.club-public-pending-cta:hover {
+  background: #d97706;
+  color: #fff;
+}
+
+.club-public-pending-blocked {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.club-public-pending-blocked-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+
+.club-public-pending-blocked h2 {
+  font-size: 1.25rem;
+  color: #0f172a;
+  margin: 0 0 8px;
+}
+
+.club-public-pending-blocked p {
+  font-size: 0.9375rem;
+  color: #64748b;
+  margin: 0 0 20px;
+  max-width: 360px;
+  line-height: 1.5;
+}
+
+.club-public-pending-blocked a {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.club-public-pending-blocked a:hover {
+  text-decoration: underline;
+}
+
 .club-public-header {
   background: #ffffff;
   border-bottom: 1px solid #e2e8f0;
