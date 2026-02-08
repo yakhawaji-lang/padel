@@ -289,12 +289,39 @@ const migrateClubSettingsHandler = async (req, res) => {
 router.get('/migrate-club-settings', migrateClubSettingsHandler)
 router.post('/migrate-club-settings', migrateClubSettingsHandler)
 
+/** GET/POST /api/init-db/sync-member-clubs - ربط الأعضاء في members بجدول member_clubs إذا كان الربط ناقصاً */
+const syncMemberClubsHandler = async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ error: 'Database not connected' })
+    const { hasNormalizedTables, syncMemberClubs } = await import('../db/normalizedData.js')
+    if (!(await hasNormalizedTables())) {
+      return res.status(400).json({ error: 'Normalized tables required. Run migrate-to-normalized first.' })
+    }
+    const result = await syncMemberClubs()
+    res.json({ ok: true, message: 'Member-club links synced', ...result })
+  } catch (e) {
+    console.error('sync-member-clubs:', e)
+    res.status(500).json({ error: e.message })
+  }
+}
+router.get('/sync-member-clubs', syncMemberClubsHandler)
+router.post('/sync-member-clubs', syncMemberClubsHandler)
+
 /** GET/POST /api/init-db/init-relational - تهيئة الجداول العلائقية الإضافية */
 router.get('/init-relational', async (req, res) => {
   try {
     if (!isConnected()) return res.status(503).json({ error: 'Database not connected' })
     const { runInitRelational } = await import('../db/initRelational.js')
     const result = await runInitRelational()
+    try {
+      const { hasNormalizedTables, syncMemberClubs } = await import('../db/normalizedData.js')
+      if (await hasNormalizedTables()) {
+        const syncResult = await syncMemberClubs()
+        if (syncResult.synced > 0) Object.assign(result, { memberClubsSynced: syncResult.synced })
+      }
+    } catch (syncErr) {
+      console.warn('init-relational sync-member-clubs:', syncErr?.message)
+    }
     res.json({ ok: true, message: 'Relational tables initialized', ...result })
   } catch (e) {
     console.error('init-relational:', e)
@@ -306,6 +333,15 @@ router.post('/init-relational', async (req, res) => {
     if (!isConnected()) return res.status(503).json({ error: 'Database not connected' })
     const { runInitRelational } = await import('../db/initRelational.js')
     const result = await runInitRelational()
+    try {
+      const { hasNormalizedTables, syncMemberClubs } = await import('../db/normalizedData.js')
+      if (await hasNormalizedTables()) {
+        const syncResult = await syncMemberClubs()
+        if (syncResult.synced > 0) Object.assign(result, { memberClubsSynced: syncResult.synced })
+      }
+    } catch (syncErr) {
+      console.warn('init-relational sync-member-clubs:', syncErr?.message)
+    }
     res.json({ ok: true, message: 'Relational tables initialized', ...result })
   } catch (e) {
     console.error('init-relational:', e)

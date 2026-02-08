@@ -174,6 +174,75 @@ export async function saveMembersToNormalized(items, actor = {}) {
   }
 }
 
+/**
+ * Sync member_clubs for members who exist in members table but have no member_clubs rows.
+ * Tries: entities, app_store (all_members, padel_members). Falls back to assigning to the single club if only one exists.
+ */
+export async function syncMemberClubs() {
+  const { rows: memberRows } = await query(
+    `SELECT id FROM members WHERE ${SOFT_DELETE_WHERE}`
+  )
+  if (memberRows.length === 0) return { synced: 0, membersChecked: 0 }
+
+  const memberIds = memberRows.map(r => r.id)
+  const placeholders = memberIds.map(() => '?').join(',')
+  const { rows: mcRows } = await query(
+    `SELECT member_id FROM member_clubs WHERE member_id IN (${placeholders})`,
+    memberIds
+  )
+  const membersWithClubs = new Set(mcRows.map(r => r.member_id))
+  const membersWithoutClubs = memberIds.filter(id => !membersWithClubs.has(id))
+  if (membersWithoutClubs.length === 0) return { synced: 0, membersChecked: memberIds.length }
+
+  let synced = 0
+  const { rows: clubRows } = await query(`SELECT id FROM clubs WHERE ${SOFT_DELETE_WHERE}`)
+  const allClubIds = clubRows.map(r => r.id)
+  const singleClubId = allClubIds.length === 1 ? allClubIds[0] : null
+
+  for (const memberId of membersWithoutClubs) {
+    let clubIds = []
+
+    const { rows: entityRows } = await query(
+      'SELECT data FROM entities WHERE entity_type = ? AND entity_id = ?',
+      ['member', memberId]
+    )
+    if (entityRows.length > 0) {
+      const d = typeof entityRows[0].data === 'object' ? entityRows[0].data : JSON.parse(entityRows[0].data || '{}')
+      clubIds = d.clubIds && Array.isArray(d.clubIds) ? d.clubIds : (d.clubId ? [d.clubId] : [])
+    }
+
+    if (clubIds.length === 0) {
+      const { rows: storeRows } = await query(
+        'SELECT value FROM app_store WHERE `key` IN (?, ?)',
+        ['all_members', 'padel_members']
+      )
+      for (const r of storeRows) {
+        const arr = Array.isArray(r.value) ? r.value : (typeof r.value === 'string' ? (() => { try { return JSON.parse(r.value || '[]') } catch { return [] } })() : [])
+        const m = arr.find(x => String(x?.id) === String(memberId))
+        if (m) {
+          clubIds = m.clubIds && Array.isArray(m.clubIds) ? m.clubIds : (m.clubId ? [m.clubId] : [])
+          break
+        }
+      }
+    }
+
+    if (clubIds.length === 0 && singleClubId) {
+      clubIds = [singleClubId]
+    }
+
+    for (const cid of clubIds) {
+      if (cid && allClubIds.includes(cid)) {
+        try {
+          await query('INSERT IGNORE INTO member_clubs (member_id, club_id) VALUES (?, ?)', [memberId, cid])
+          synced++
+        } catch (_) {}
+      }
+    }
+  }
+
+  return { synced, membersChecked: memberIds.length }
+}
+
 // ---------- Clubs ----------
 async function assembleClub(clubRow, courts, settings, adminUsers, offers, bookings, accounting, tournamentTypes, store, memberIds) {
   const s = settings?.[0] || {}
