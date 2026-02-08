@@ -4,6 +4,8 @@ import './ClubSettings.css'
 import '../pages/common.css'
 import SocialIcon, { PLATFORMS } from '../../components/SocialIcon'
 
+const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
+
 const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageChange }) => {
   const lang = language || 'en'
   const [formData, setFormData] = useState({
@@ -96,7 +98,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
 
   const handleSave = () => {
     if (formData.openingTime && formData.closingTime && formData.openingTime >= formData.closingTime) {
-      alert('Closing time must be after opening time.')
+      alert(t('Closing time must be after opening time.', 'وقت الإغلاق يجب أن يكون بعد وقت الفتح.', lang))
       return
     }
     const updates = {
@@ -141,12 +143,12 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('clubs-synced'))
     }
-    alert(lang === 'ar' ? 'تم حفظ الإعدادات بنجاح!' : 'Settings saved successfully!')
+    alert(t('Settings saved successfully!', 'تم حفظ الإعدادات بنجاح!', lang))
   }
 
   const handleAddCourt = () => {
     if (!courtForm.name.trim()) {
-      alert('Court name is required')
+      alert(t('Court name is required', 'اسم الملعب مطلوب', lang))
       return
     }
     const newCourt = {
@@ -176,7 +178,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
 
   const handleUpdateCourt = () => {
     if (!courtForm.name.trim()) {
-      alert('Court name is required')
+      alert(t('Court name is required', 'اسم الملعب مطلوب', lang))
       return
     }
     const updatedCourts = courts.map(c => 
@@ -191,7 +193,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
   }
 
   const handleDeleteCourt = (courtId) => {
-    if (window.confirm('Are you sure you want to delete this court?')) {
+    if (window.confirm(t('Are you sure you want to delete this court?', 'هل أنت متأكد من حذف هذا الملعب؟', lang))) {
       const nextCourts = courts.filter(c => c.id !== courtId)
       setCourts(nextCourts)
       onUpdateClub({ courts: nextCourts })
@@ -213,34 +215,42 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
     onUpdateClub({ courts: updatedCourts })
   }
 
+  const tabs = [
+    { id: 'basic', label: t('Basic Information', 'المعلومات الأساسية', lang), icon: '📋' },
+    { id: 'playtomic', label: 'Playtomic', icon: '🎾' },
+    { id: 'general', label: t('General', 'عام', lang), icon: '⚙️' },
+    { id: 'booking', label: t('Booking', 'الحجز', lang), icon: '📅' },
+    { id: 'courts', label: t('Courts', 'الملاعب', lang), icon: '🏟️' },
+    { id: 'hours', label: t('Club Hours', 'أوقات العمل', lang), icon: '🕐' },
+    { id: 'social', label: t('Social Media', 'التواصل الاجتماعي', lang), icon: '🔗' }
+  ]
+
   return (
     <div className="club-admin-page">
       <div className="club-settings">
-        <div className="page-header">
-          <h2 className="page-title">
-            {club.logo && <img src={club.logo} alt="" className="club-logo-in-title" />}
-            Club Settings - {club.name}
-          </h2>
-          <button className="btn-primary" onClick={handleSave}>Save Settings</button>
-        </div>
+        <header className="club-settings-header">
+          <div className="club-settings-header-title">
+            <h2 className="club-settings-page-title">
+              {club.logo && <img src={club.logo} alt="" className="club-logo-in-title" />}
+              {t('Club Settings', 'إعدادات النادي', lang)} — {lang === 'ar' ? (club.nameAr || club.name) : club.name}
+            </h2>
+            <p className="club-settings-subtitle">{t('Manage your club profile and preferences', 'إدارة الملف الشخصي والإعدادات للنادي', lang)}</p>
+          </div>
+          <button className="club-settings-save-btn" onClick={handleSave}>
+            ✓ {t('Save Settings', 'حفظ الإعدادات', lang)}
+          </button>
+        </header>
 
         <div className="club-settings-tabs">
-          {[
-            { id: 'basic', label: 'Basic Information' },
-            { id: 'playtomic', label: 'Playtomic' },
-            { id: 'general', label: 'General' },
-            { id: 'booking', label: 'Booking' },
-            { id: 'courts', label: 'Courts' },
-            { id: 'hours', label: 'Club Hours' },
-            { id: 'social', label: 'Social Media' }
-          ].map(({ id, label }) => (
+          {tabs.map(({ id, label, icon }) => (
             <button
               key={id}
               type="button"
               className={`club-settings-tab ${activeTab === id ? 'active' : ''}`}
               onClick={() => setActiveTab(id)}
             >
-              {label}
+              <span className="tab-icon">{icon}</span>
+              <span>{label}</span>
             </button>
           ))}
         </div>
@@ -248,336 +258,290 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
         <div className="settings-sections">
           {activeTab === 'basic' && (
           <div className="settings-section">
-            <h3>Basic Information</h3>
-            <div className="form-group">
-              <label>Club Name (English) *</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
+            <h3 className="settings-section-title">
+              <span className="section-icon">📋</span>
+              {t('Basic Information', 'المعلومات الأساسية', lang)}
+            </h3>
+
+            <div className="settings-field-group">
+              <h4 className="field-group-title">{t('Club Names', 'أسماء النادي', lang)}</h4>
+              <div className="form-row form-row-2">
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Club Name (English)', 'اسم النادي (إنجليزي)', lang)} *</label>
+                  <input
+                    type="text"
+                    className="settings-input"
+                    placeholder={t('e.g. Premium Padel Club', 'مثال: نادي البادل المميز')}
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  />
+                </div>
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Club Name (Arabic)', 'اسم النادي (عربي)', lang)}</label>
+                  <input
+                    type="text"
+                    className="settings-input"
+                    placeholder={t('e.g. نادي البادل المميز', 'مثال: نادي البادل المميز')}
+                    value={formData.nameAr}
+                    onChange={(e) => setFormData({ ...formData, nameAr: e.target.value })}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="form-group">
-              <label>Club Name (Arabic)</label>
-              <input
-                type="text"
-                value={formData.nameAr}
-                onChange={(e) => setFormData({ ...formData, nameAr: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label>Club logo — شعار النادي (URL or upload image)</label>
-              <div className="logo-input-row">
+
+            <div className="settings-field-group">
+              <h4 className="field-group-title">{t('Logo & Banner', 'الشعار والبنر', lang)}</h4>
+              <div className="form-group settings-field">
+                <label className="field-label">{t('Club Logo', 'شعار النادي', lang)}</label>
+                <p className="field-hint">{t('URL or upload image. Shown in header and listings.', 'رابط URL أو رفع صورة. يُعرض في الهيدر والقوائم.')}</p>
+              <div className="media-input-row">
                 <input
                   type="text"
-                  placeholder="https://... or leave empty"
+                  placeholder="https://..."
                   value={formData.logo}
                   onChange={(e) => setFormData({ ...formData, logo: e.target.value })}
-                  className="logo-url-input"
+                  className="media-url-input"
                 />
-                <label className="btn-secondary logo-upload-btn">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) {
-                        const reader = new FileReader()
-                        reader.onload = () => setFormData(prev => ({ ...prev, logo: reader.result }))
-                        reader.readAsDataURL(file)
-                      }
-                      e.target.value = ''
-                    }}
-                  />
-                  Upload image
+                <label className="btn-upload">
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) { const r = new FileReader(); r.onload = () => setFormData(prev => ({ ...prev, logo: r.result })); r.readAsDataURL(file) }
+                    e.target.value = ''
+                  }} />
+                  📤 {t('Upload', 'رفع', lang)}
                 </label>
               </div>
               {formData.logo && (
-                <div className="logo-preview-wrap">
-                  <img src={formData.logo} alt="Logo preview" className="logo-preview" />
-                  <button type="button" className="logo-remove" onClick={() => setFormData(prev => ({ ...prev, logo: '' }))}>Remove</button>
+                <div className="media-preview-row">
+                  <img src={formData.logo} alt="Logo" className="media-preview" />
+                  <button type="button" className="btn-remove-media" onClick={() => setFormData(prev => ({ ...prev, logo: '' }))}>✕ {t('Remove', 'إزالة', lang)}</button>
                 </div>
               )}
             </div>
-            <div className="form-group">
-              <label>Club Banner — بنر النادي (URL or upload image)</label>
-              <p className="form-hint">Displayed at the top of the club public page. Recommended: 1200×400px or similar wide aspect ratio. / يُعرض في أعلى صفحة النادي. يُفضّل نسبة 1200×400 بكسل.</p>
-              <div className="logo-input-row">
-                <input
-                  type="text"
-                  placeholder="https://... or leave empty"
-                  value={formData.banner}
-                  onChange={(e) => setFormData({ ...formData, banner: e.target.value })}
-                  className="logo-url-input"
-                />
-                <label className="btn-secondary logo-upload-btn">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) {
-                        const reader = new FileReader()
-                        reader.onload = () => setFormData(prev => ({ ...prev, banner: reader.result }))
-                        reader.readAsDataURL(file)
-                      }
-                      e.target.value = ''
-                    }}
-                  />
-                  Upload image
+            <div className="form-group settings-field">
+              <label className="field-label">{t('Club Banner', 'بنر النادي', lang)}</label>
+              <p className="field-hint">{t('Displayed at top of club page. Recommended: 1200×400px.', 'يُعرض في أعلى صفحة النادي. يُفضّل: 1200×400 بكسل.')}</p>
+              <div className="media-input-row">
+                <input type="text" placeholder="https://..." value={formData.banner} onChange={(e) => setFormData({ ...formData, banner: e.target.value })} className="media-url-input" />
+                <label className="btn-upload">
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) { const r = new FileReader(); r.onload = () => setFormData(prev => ({ ...prev, banner: r.result })); r.readAsDataURL(file) }
+                    e.target.value = ''
+                  }} />
+                  📤 {t('Upload', 'رفع', lang)}
                 </label>
               </div>
               {formData.banner && (
-                <div className="banner-preview-wrap">
-                  <img src={formData.banner} alt="Banner preview" className="banner-preview" />
-                  <button type="button" className="logo-remove" onClick={() => setFormData(prev => ({ ...prev, banner: '' }))}>Remove</button>
+                <div className="media-preview-row banner-preview-row">
+                  <img src={formData.banner} alt="Banner" className="banner-preview-img" />
+                  <button type="button" className="btn-remove-media" onClick={() => setFormData(prev => ({ ...prev, banner: '' }))}>✕ {t('Remove', 'إزالة', lang)}</button>
                 </div>
               )}
             </div>
-            <div className="form-row" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-              <div className="form-group" style={{ flex: '1 1 200px' }}>
-                <label>Header background color — لون خلفية القسم الذي أعلى البنر</label>
-                <p className="form-hint">Background / الخلفية</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                  <input
-                    type="color"
-                    value={formData.headerBgColor}
-                    onChange={(e) => setFormData({ ...formData, headerBgColor: e.target.value })}
-                    style={{ width: 48, height: 36, padding: 2, cursor: 'pointer', border: '1px solid #e2e8f0', borderRadius: 8 }}
-                  />
-                  <input
-                    type="text"
-                    value={formData.headerBgColor}
-                    onChange={(e) => setFormData({ ...formData, headerBgColor: e.target.value })}
-                    placeholder="#ffffff"
-                    style={{ width: 100, padding: '8px 12px', fontSize: 14 }}
-                  />
-                </div>
-              </div>
-              <div className="form-group" style={{ flex: '1 1 200px' }}>
-                <label>Header text color — لون الخطوط الذي أعلى البنر</label>
-                <p className="form-hint">Text / الخطوط</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                  <input
-                    type="color"
-                    value={formData.headerTextColor}
-                    onChange={(e) => setFormData({ ...formData, headerTextColor: e.target.value })}
-                    style={{ width: 48, height: 36, padding: 2, cursor: 'pointer', border: '1px solid #e2e8f0', borderRadius: 8 }}
-                  />
-                  <input
-                    type="text"
-                    value={formData.headerTextColor}
-                    onChange={(e) => setFormData({ ...formData, headerTextColor: e.target.value })}
-                    placeholder="#0f172a"
-                    style={{ width: 100, padding: '8px 12px', fontSize: 14 }}
-                  />
-                </div>
-              </div>
             </div>
-            <div className="form-group">
-              <label>Hero card on banner — إعدادات البطاقة على البنر</label>
-              <p className="form-hint">Background transparency, color, and font colors for the card overlay on the banner. / شفافية الخلفية، اللون، وألوان الخطوط للبطاقة فوق البنر.</p>
-              <div className="form-row" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: 12 }}>
-                <div className="form-group" style={{ flex: '1 1 140px' }}>
-                  <label>Background opacity — شفافية الخلفية (%)</label>
-                  <input type="number" min="0" max="100" value={formData.heroBgOpacity} onChange={(e) => setFormData({ ...formData, heroBgOpacity: Number(e.target.value) || 85 })} style={{ width: 80 }} />
-                </div>
-                <div className="form-group" style={{ flex: '1 1 140px' }}>
-                  <label>Background color — لون الخلفية</label>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <input type="color" value={formData.heroBgColor} onChange={(e) => setFormData({ ...formData, heroBgColor: e.target.value })} style={{ width: 40, height: 32, padding: 2, cursor: 'pointer' }} />
-                    <input type="text" value={formData.heroBgColor} onChange={(e) => setFormData({ ...formData, heroBgColor: e.target.value })} placeholder="#ffffff" style={{ width: 90, padding: 6, fontSize: 13 }} />
+
+            <div className="settings-field-group">
+              <h4 className="field-group-title">{t('Header Colors', 'ألوان الهيدر', lang)}</h4>
+              <p className="field-hint field-hint-block">{t('Colors for the section above the banner.', 'ألوان القسم فوق البنر.')}</p>
+              <div className="form-row form-row-2 color-fields-row">
+                <div className="color-field">
+                  <label>{t('Background', 'الخلفية', lang)}</label>
+                  <div className="color-input-wrap">
+                    <input type="color" value={formData.headerBgColor} onChange={(e) => setFormData({ ...formData, headerBgColor: e.target.value })} className="color-picker" />
+                    <input type="text" value={formData.headerBgColor} onChange={(e) => setFormData({ ...formData, headerBgColor: e.target.value })} placeholder="#ffffff" className="color-hex-input" />
                   </div>
                 </div>
-              </div>
-              <div className="form-row" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: 8 }}>
-                <div className="form-group" style={{ flex: '1 1 120px' }}>
-                  <label>Title color — لون العنوان</label>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <input type="color" value={formData.heroTitleColor} onChange={(e) => setFormData({ ...formData, heroTitleColor: e.target.value })} style={{ width: 36, height: 30, padding: 2, cursor: 'pointer' }} />
-                    <input type="text" value={formData.heroTitleColor} onChange={(e) => setFormData({ ...formData, heroTitleColor: e.target.value })} style={{ width: 80, padding: 6, fontSize: 13 }} />
-                  </div>
-                </div>
-                <div className="form-group" style={{ flex: '1 1 120px' }}>
-                  <label>Text color — لون الوصف</label>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <input type="color" value={formData.heroTextColor} onChange={(e) => setFormData({ ...formData, heroTextColor: e.target.value })} style={{ width: 36, height: 30, padding: 2, cursor: 'pointer' }} />
-                    <input type="text" value={formData.heroTextColor} onChange={(e) => setFormData({ ...formData, heroTextColor: e.target.value })} style={{ width: 80, padding: 6, fontSize: 13 }} />
-                  </div>
-                </div>
-                <div className="form-group" style={{ flex: '1 1 120px' }}>
-                  <label>Stats color — لون الإحصائيات</label>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <input type="color" value={formData.heroStatsColor} onChange={(e) => setFormData({ ...formData, heroStatsColor: e.target.value })} style={{ width: 36, height: 30, padding: 2, cursor: 'pointer' }} />
-                    <input type="text" value={formData.heroStatsColor} onChange={(e) => setFormData({ ...formData, heroStatsColor: e.target.value })} style={{ width: 80, padding: 6, fontSize: 13 }} />
+                <div className="color-field">
+                  <label>{t('Text', 'النص', lang)}</label>
+                  <div className="color-input-wrap">
+                    <input type="color" value={formData.headerTextColor} onChange={(e) => setFormData({ ...formData, headerTextColor: e.target.value })} className="color-picker" />
+                    <input type="text" value={formData.headerTextColor} onChange={(e) => setFormData({ ...formData, headerTextColor: e.target.value })} placeholder="#0f172a" className="color-hex-input" />
                   </div>
                 </div>
               </div>
             </div>
-            <div className="form-group">
-              <label>Tagline / Short description (English) — shown on home page</label>
-              <input
-                type="text"
-                placeholder="e.g. Indoor courts • King of the Court & Social tournaments"
-                value={formData.tagline}
-                onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
-              />
+
+            <div className="settings-field-group">
+              <h4 className="field-group-title">{t('Hero Card (on banner)', 'بطاقة البنر', lang)}</h4>
+              <p className="field-hint field-hint-block">{t('Card overlay colors and transparency.', 'ألوان وشفافية البطاقة فوق البنر.')}</p>
+              <div className="form-row form-row-multi hero-color-row">
+                <div className="form-group settings-field compact">
+                  <label className="field-label">{t('Opacity (%)', 'الشفافية', lang)}</label>
+                  <input type="number" min="0" max="100" value={formData.heroBgOpacity} onChange={(e) => setFormData({ ...formData, heroBgOpacity: Number(e.target.value) || 85 })} className="settings-input" />
+                </div>
+                <div className="color-field">
+                  <label>{t('Background', 'الخلفية', lang)}</label>
+                  <div className="color-input-wrap">
+                    <input type="color" value={formData.heroBgColor} onChange={(e) => setFormData({ ...formData, heroBgColor: e.target.value })} className="color-picker" />
+                    <input type="text" value={formData.heroBgColor} onChange={(e) => setFormData({ ...formData, heroBgColor: e.target.value })} className="color-hex-input" />
+                  </div>
+                </div>
+                <div className="color-field">
+                  <label>{t('Title', 'العنوان', lang)}</label>
+                  <div className="color-input-wrap">
+                    <input type="color" value={formData.heroTitleColor} onChange={(e) => setFormData({ ...formData, heroTitleColor: e.target.value })} className="color-picker" />
+                    <input type="text" value={formData.heroTitleColor} onChange={(e) => setFormData({ ...formData, heroTitleColor: e.target.value })} className="color-hex-input" />
+                  </div>
+                </div>
+                <div className="color-field">
+                  <label>{t('Description', 'الوصف', lang)}</label>
+                  <div className="color-input-wrap">
+                    <input type="color" value={formData.heroTextColor} onChange={(e) => setFormData({ ...formData, heroTextColor: e.target.value })} className="color-picker" />
+                    <input type="text" value={formData.heroTextColor} onChange={(e) => setFormData({ ...formData, heroTextColor: e.target.value })} className="color-hex-input" />
+                  </div>
+                </div>
+                <div className="color-field">
+                  <label>{t('Stats', 'الإحصائيات', lang)}</label>
+                  <div className="color-input-wrap">
+                    <input type="color" value={formData.heroStatsColor} onChange={(e) => setFormData({ ...formData, heroStatsColor: e.target.value })} className="color-picker" />
+                    <input type="text" value={formData.heroStatsColor} onChange={(e) => setFormData({ ...formData, heroStatsColor: e.target.value })} className="color-hex-input" />
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="form-group">
-              <label>Tagline (Arabic) — وصف قصير يظهر في الصفحة الرئيسية</label>
-              <input
-                type="text"
-                placeholder="مثال: ملاعب داخلية • بطولات ملك الملعب وسوشيال"
-                value={formData.taglineAr}
-                onChange={(e) => setFormData({ ...formData, taglineAr: e.target.value })}
-              />
+
+            <div className="settings-field-group">
+              <h4 className="field-group-title">{t('Tagline & Description', 'الشعار والوصف', lang)}</h4>
+              <div className="form-row form-row-2">
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Tagline (English)', 'الشعار (إنجليزي)', lang)}</label>
+                  <input type="text" className="settings-input" placeholder={t('e.g. Indoor courts • King of the Court', 'مثال: ملاعب داخلية • ملك الملعب')} value={formData.tagline} onChange={(e) => setFormData({ ...formData, tagline: e.target.value })} />
+                </div>
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Tagline (Arabic)', 'الشعار (عربي)', lang)}</label>
+                  <input type="text" className="settings-input" placeholder={t('مثال: ملاعب داخلية • ملك الملعب', 'مثال: ملاعب داخلية • ملك الملعب')} value={formData.taglineAr} onChange={(e) => setFormData({ ...formData, taglineAr: e.target.value })} />
+                </div>
+              </div>
             </div>
-            <div className="form-group">
-              <label>Address</label>
-              <input
-                type="text"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label>Address (Arabic)</label>
-              <input
-                type="text"
-                value={formData.addressAr}
-                onChange={(e) => setFormData({ ...formData, addressAr: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label>Phone</label>
-              <input
-                type="text"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label>Email</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label>Website</label>
-              <input
-                type="url"
-                value={formData.website}
-                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-              />
+
+            <div className="settings-field-group">
+              <h4 className="field-group-title">{t('Contact Information', 'معلومات التواصل', lang)}</h4>
+              <div className="form-row form-row-2">
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Address (English)', 'العنوان (إنجليزي)', lang)}</label>
+                  <input type="text" className="settings-input" placeholder={t('Street, City', 'الشارع، المدينة')} value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} />
+                </div>
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Address (Arabic)', 'العنوان (عربي)', lang)}</label>
+                  <input type="text" className="settings-input" value={formData.addressAr} onChange={(e) => setFormData({ ...formData, addressAr: e.target.value })} />
+                </div>
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Phone', 'الهاتف', lang)}</label>
+                  <input type="tel" className="settings-input" placeholder="+966..." value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+                </div>
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Email', 'البريد الإلكتروني', lang)}</label>
+                  <input type="email" className="settings-input" placeholder="info@club.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                </div>
+                <div className="form-group settings-field full-width">
+                  <label className="field-label">{t('Website', 'الموقع الإلكتروني', lang)}</label>
+                  <input type="url" className="settings-input" placeholder="https://..." value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} />
+                </div>
+              </div>
             </div>
           </div>
           )}
 
           {activeTab === 'playtomic' && (
           <div className="settings-section">
-            <h3>Playtomic Integration</h3>
-            <div className="form-group">
-              <label>Playtomic Venue ID</label>
-              <input
-                type="text"
-                value={formData.playtomicVenueId}
-                onChange={(e) => setFormData({ ...formData, playtomicVenueId: e.target.value })}
-                placeholder="e.g., hala-padel"
-              />
-            </div>
-            <div className="form-group">
-              <label>Playtomic API Key</label>
-              <input
-                type="password"
-                value={formData.playtomicApiKey}
-                onChange={(e) => setFormData({ ...formData, playtomicApiKey: e.target.value })}
-                placeholder="Enter your Playtomic API key"
-              />
+            <h3 className="settings-section-title">
+              <span className="section-icon">🎾</span>
+              Playtomic Integration
+            </h3>
+            <p className="field-hint field-hint-block">{t('Connect your club to Playtomic for court bookings.', 'ربط النادي بـ Playtomic لحجوزات الملاعب.')}</p>
+            <div className="settings-field-group">
+              <div className="form-row form-row-2">
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Playtomic Venue ID', 'معرف المكان')}</label>
+                  <input type="text" className="settings-input" placeholder="e.g. hala-padel" value={formData.playtomicVenueId} onChange={(e) => setFormData({ ...formData, playtomicVenueId: e.target.value })} />
+                </div>
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Playtomic API Key', 'مفتاح API')}</label>
+                  <input type="password" className="settings-input" placeholder={t('Enter your API key', 'أدخل مفتاح API')} value={formData.playtomicApiKey} onChange={(e) => setFormData({ ...formData, playtomicApiKey: e.target.value })} />
+                </div>
+              </div>
             </div>
           </div>
           )}
 
           {activeTab === 'general' && (
           <div className="settings-section">
-            <h3>General Settings</h3>
-            <div className="form-group">
-              <label>Default Language</label>
-              <select
-                value={formData.defaultLanguage}
-                onChange={(e) => setFormData({ ...formData, defaultLanguage: e.target.value })}
-              >
-                <option value="en">English</option>
-                <option value="ar">Arabic</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Timezone</label>
-              <input
-                type="text"
-                value={formData.timezone}
-                onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label>Currency</label>
-              <input
-                type="text"
-                value={formData.currency}
-                onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-              />
+            <h3 className="settings-section-title">
+              <span className="section-icon">⚙️</span>
+              {t('General Settings', 'الإعدادات العامة', lang)}
+            </h3>
+            <div className="settings-field-group">
+              <div className="form-row form-row-2">
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Default Language', 'اللغة الافتراضية', lang)}</label>
+                  <select className="settings-select" value={formData.defaultLanguage} onChange={(e) => setFormData({ ...formData, defaultLanguage: e.target.value })}>
+                    <option value="en">English</option>
+                    <option value="ar">العربية</option>
+                  </select>
+                </div>
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Timezone', 'المنطقة الزمنية', lang)}</label>
+                  <input type="text" className="settings-input" placeholder="Asia/Riyadh" value={formData.timezone} onChange={(e) => setFormData({ ...formData, timezone: e.target.value })} />
+                </div>
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Currency', 'العملة', lang)}</label>
+                  <select className="settings-select" value={formData.currency} onChange={(e) => setFormData({ ...formData, currency: e.target.value })}>
+                    <option value="SAR">SAR</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="AED">AED</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
           )}
 
           {activeTab === 'booking' && (
           <div className="settings-section">
-            <h3>Booking Settings</h3>
-            <div className="form-group">
-              <label>Booking Duration (minutes)</label>
-              <input
-                type="number"
-                value={formData.bookingDuration}
-                onChange={(e) => setFormData({ ...formData, bookingDuration: parseInt(e.target.value) })}
-              />
-            </div>
-            <div className="form-group">
-              <label>Max Booking Advance (days)</label>
-              <input
-                type="number"
-                value={formData.maxBookingAdvance}
-                onChange={(e) => setFormData({ ...formData, maxBookingAdvance: parseInt(e.target.value) })}
-              />
-            </div>
-            <div className="form-group">
-              <label>Cancellation Policy (hours before booking)</label>
-              <input
-                type="number"
-                value={formData.cancellationPolicy}
-                onChange={(e) => setFormData({ ...formData, cancellationPolicy: parseInt(e.target.value) })}
-              />
+            <h3 className="settings-section-title">
+              <span className="section-icon">📅</span>
+              {t('Booking Settings', 'إعدادات الحجز', lang)}
+            </h3>
+            <p className="field-hint field-hint-block">{t('Configure how court bookings work.', 'إعداد آلية حجز الملاعب.')}</p>
+            <div className="settings-field-group">
+              <div className="form-row form-row-3">
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Booking Duration (min)', 'مدة الحجز (دقيقة)', lang)}</label>
+                  <input type="number" className="settings-input" min={30} step={30} value={formData.bookingDuration} onChange={(e) => setFormData({ ...formData, bookingDuration: parseInt(e.target.value) || 60 })} />
+                </div>
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Max Advance (days)', 'الحد الأقصى للحجز مسبقاً (يوم)', lang)}</label>
+                  <input type="number" className="settings-input" min={1} value={formData.maxBookingAdvance} onChange={(e) => setFormData({ ...formData, maxBookingAdvance: parseInt(e.target.value) || 30 })} />
+                </div>
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Cancellation (hours before)', 'الإلغاء (ساعات قبل)', lang)}</label>
+                  <input type="number" className="settings-input" min={0} value={formData.cancellationPolicy} onChange={(e) => setFormData({ ...formData, cancellationPolicy: parseInt(e.target.value) || 24 })} />
+                </div>
+              </div>
             </div>
           </div>
           )}
 
           {activeTab === 'courts' && (
           <div className="settings-section">
-            <h3>Courts Management</h3>
+            <h3 className="settings-section-title">
+              <span className="section-icon">🏟️</span>
+              {t('Courts Management', 'إدارة الملاعب', lang)}
+            </h3>
             <div className="courts-list">
               {courts.length > 0 ? (
                 <div className="courts-table">
                   <table className="courts-table-content">
                     <thead>
                       <tr>
-                        <th>Image</th>
-                        <th>Name (English)</th>
-                        <th>Name (Arabic)</th>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th>Actions</th>
+                        <th>{t('Image', 'الصورة', lang)}</th>
+                        <th>{t('Name (English)', 'الاسم (إنجليزي)', lang)}</th>
+                        <th>{t('Name (Arabic)', 'الاسم (عربي)', lang)}</th>
+                        <th>{t('Type', 'النوع', lang)}</th>
+                        <th>{t('Status', 'الحالة', lang)}</th>
+                        <th>{t('Actions', 'الإجراءات', lang)}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -588,12 +552,12 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                           <td>{court.nameAr || '-'}</td>
                           <td>
                             <span className={`court-type-badge ${court.type}`}>
-                              {court.type === 'indoor' ? 'Indoor' : 'Outdoor'}
+                              {court.type === 'indoor' ? t('Indoor', 'داخلي', lang) : t('Outdoor', 'خارجي', lang)}
                             </span>
                           </td>
                           <td>
                             <span className={`court-status-badge ${court.maintenance ? 'maintenance' : 'active'}`}>
-                              {court.maintenance ? '🔧 Maintenance' : '✅ Active'}
+                              {court.maintenance ? '🔧 ' + t('Maintenance', 'صيانة', lang) : '✅ ' + t('Active', 'نشط', lang)}
                             </span>
                           </td>
                           <td>
@@ -601,21 +565,15 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                               <button 
                                 className={`btn-maintenance btn-small ${court.maintenance ? 'btn-restore' : ''}`}
                                 onClick={() => handleToggleMaintenance(court.id)}
-                                title={court.maintenance ? 'Restore from maintenance' : 'Put under maintenance'}
+                                title={court.maintenance ? t('Restore from maintenance', 'استعادة من الصيانة', lang) : t('Put under maintenance', 'وضع تحت الصيانة', lang)}
                               >
-                                {court.maintenance ? '✅ Restore' : '🔧 Maintenance'}
+                                {court.maintenance ? '✅ ' + t('Restore', 'استعادة', lang) : '🔧 ' + t('Maintenance', 'صيانة', lang)}
                               </button>
-                              <button 
-                                className="btn-secondary btn-small"
-                                onClick={() => handleEditCourt(court)}
-                              >
-                                Edit
+                              <button className="btn-secondary btn-small" onClick={() => handleEditCourt(court)}>
+                                {t('Edit', 'تعديل', lang)}
                               </button>
-                              <button 
-                                className="btn-danger btn-small"
-                                onClick={() => handleDeleteCourt(court.id)}
-                              >
-                                Delete
+                              <button className="btn-danger btn-small" onClick={() => handleDeleteCourt(court.id)}>
+                                {t('Delete', 'حذف', lang)}
                               </button>
                             </div>
                           </td>
@@ -625,103 +583,64 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                   </table>
                 </div>
               ) : (
-                <div className="empty-state">No courts added yet</div>
+                <div className="empty-state">{t('No courts added yet', 'لم تتم إضافة ملاعب بعد', lang)}</div>
               )}
             </div>
 
             <div className="court-form">
-              <h4>{editingCourt ? 'Edit Court' : 'Add New Court'}</h4>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Court Name (English) *</label>
-                  <input
-                    type="text"
-                    value={courtForm.name}
-                    onChange={(e) => setCourtForm({ ...courtForm, name: e.target.value })}
-                    placeholder="e.g., Court 1"
-                  />
+              <h4 className="court-form-title">{editingCourt ? t('Edit Court', 'تعديل الملعب', lang) : t('Add New Court', 'إضافة ملعب جديد', lang)}</h4>
+              <div className="form-row form-row-2 court-form-row">
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Court Name (English)', 'اسم الملعب (إنجليزي)', lang)} *</label>
+                  <input type="text" className="settings-input" placeholder="e.g. Court 1" value={courtForm.name} onChange={(e) => setCourtForm({ ...courtForm, name: e.target.value })} />
                 </div>
-                <div className="form-group">
-                  <label>Court Name (Arabic)</label>
-                  <input
-                    type="text"
-                    value={courtForm.nameAr}
-                    onChange={(e) => setCourtForm({ ...courtForm, nameAr: e.target.value })}
-                    placeholder="e.g., الملعب 1"
-                  />
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Court Name (Arabic)', 'اسم الملعب (عربي)', lang)}</label>
+                  <input type="text" className="settings-input" placeholder="مثال: الملعب 1" value={courtForm.nameAr} onChange={(e) => setCourtForm({ ...courtForm, nameAr: e.target.value })} />
                 </div>
-                <div className="form-group">
-                  <label>Type</label>
-                  <select
-                    value={courtForm.type}
-                    onChange={(e) => setCourtForm({ ...courtForm, type: e.target.value })}
-                  >
-                    <option value="indoor">Indoor</option>
-                    <option value="outdoor">Outdoor</option>
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Type', 'النوع', lang)}</label>
+                  <select className="settings-select" value={courtForm.type} onChange={(e) => setCourtForm({ ...courtForm, type: e.target.value })}>
+                    <option value="indoor">{t('Indoor', 'داخلي', lang)}</option>
+                    <option value="outdoor">{t('Outdoor', 'خارجي', lang)}</option>
                   </select>
                 </div>
-                <div className="form-group">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={courtForm.maintenance}
-                      onChange={(e) => setCourtForm({ ...courtForm, maintenance: e.target.checked })}
-                      style={{ marginRight: '8px' }}
-                    />
-                    Under Maintenance
+                <div className="form-group settings-field checkbox-field">
+                  <label className="checkbox-label">
+                    <input type="checkbox" checked={courtForm.maintenance} onChange={(e) => setCourtForm({ ...courtForm, maintenance: e.target.checked })} className="settings-checkbox" />
+                    {t('Under Maintenance', 'قيد الصيانة', lang)}
                   </label>
                 </div>
               </div>
-              <div className="form-group">
-                <label>Court image — صورة الملعب (URL or upload)</label>
-                <p className="form-hint">Shown in Facilities section on club public page. / تُعرض في قسم المرافق والملاعب.</p>
-                <div className="logo-input-row">
-                  <input
-                    type="text"
-                    placeholder="https://... or leave empty"
-                    value={courtForm.image}
-                    onChange={(e) => setCourtForm({ ...courtForm, image: e.target.value })}
-                    className="logo-url-input"
-                  />
-                  <label className="btn-secondary logo-upload-btn">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) {
-                          const reader = new FileReader()
-                          reader.onload = () => setCourtForm(prev => ({ ...prev, image: reader.result }))
-                          reader.readAsDataURL(file)
-                        }
-                        e.target.value = ''
-                      }}
-                    />
-                    Upload image
+              <div className="form-group settings-field">
+                <label className="field-label">{t('Court Image', 'صورة الملعب', lang)}</label>
+                <p className="field-hint">{t('Shown in Facilities section on club page.', 'يُعرض في قسم المرافق والملاعب.')}</p>
+                <div className="media-input-row">
+                  <input type="text" placeholder="https://..." value={courtForm.image} onChange={(e) => setCourtForm({ ...courtForm, image: e.target.value })} className="media-url-input" />
+                  <label className="btn-upload">
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) { const r = new FileReader(); r.onload = () => setCourtForm(prev => ({ ...prev, image: r.result })); r.readAsDataURL(file) }
+                      e.target.value = ''
+                    }} />
+                    📤 {t('Upload', 'رفع', lang)}
                   </label>
                 </div>
                 {courtForm.image && (
-                  <div className="logo-preview-wrap" style={{ marginTop: 10 }}>
-                    <img src={courtForm.image} alt="Court preview" className="logo-preview" style={{ width: 80, height: 60, objectFit: 'cover' }} />
-                    <button type="button" className="logo-remove" onClick={() => setCourtForm(prev => ({ ...prev, image: '' }))}>Remove</button>
+                  <div className="media-preview-row">
+                    <img src={courtForm.image} alt="Court" className="court-preview-img" />
+                    <button type="button" className="btn-remove-media" onClick={() => setCourtForm(prev => ({ ...prev, image: '' }))}>✕ {t('Remove', 'إزالة', lang)}</button>
                   </div>
                 )}
               </div>
               <div className="form-actions">
                 {editingCourt ? (
                   <>
-                    <button className="btn-primary" onClick={handleUpdateCourt}>
-                      Update Court
-                    </button>
-                    <button className="btn-secondary" onClick={handleCancelEdit}>
-                      Cancel
-                    </button>
+                    <button className="btn-primary" onClick={handleUpdateCourt}>{t('Update Court', 'تحديث الملعب', lang)}</button>
+                    <button className="btn-secondary" onClick={handleCancelEdit}>{t('Cancel', 'إلغاء', lang)}</button>
                   </>
                 ) : (
-                  <button className="btn-primary" onClick={handleAddCourt}>
-                    Add Court
-                  </button>
+                  <button className="btn-primary" onClick={handleAddCourt}>+ {t('Add Court', 'إضافة ملعب', lang)}</button>
                 )}
               </div>
             </div>
@@ -730,45 +649,36 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
 
           {activeTab === 'hours' && (
           <div className="settings-section">
-            <h3>Club Hours / أوقات النادي</h3>
-            <p className="section-description" style={{ marginBottom: '16px', color: '#6c757d', fontSize: '14px' }}>
-              Working hours of the club. All bookings and tournaments (court bookings, King of the Court, Social) will be restricted to these times.
-            </p>
-            <p className="section-description" style={{ marginBottom: '16px', color: '#6c757d', fontSize: '14px', direction: 'rtl' }}>
-              وقت عمل النادي. جميع الحجوزات والبطولات (حجوزات الملاعب، ملك الملعب، سوشيال) ستكون ضمن هذه الأوقات فقط.
-            </p>
-            <div className="form-row" style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-              <div className="form-group">
-                <label>Opening time / من الساعة</label>
-                <input
-                  type="time"
-                  value={formData.openingTime}
-                  onChange={(e) => setFormData({ ...formData, openingTime: e.target.value })}
-                  style={{ padding: '8px 12px', fontSize: '14px' }}
-                />
+            <h3 className="settings-section-title">
+              <span className="section-icon">🕐</span>
+              {t('Club Hours', 'أوقات العمل', lang)}
+            </h3>
+            <p className="field-hint field-hint-block">{t('Working hours. All bookings and tournaments are restricted to these times.', 'وقت عمل النادي. جميع الحجوزات والبطولات ضمن هذه الأوقات فقط.')}</p>
+            <div className="settings-field-group hours-group">
+              <div className="form-row form-row-2">
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Opening Time', 'من الساعة', lang)}</label>
+                  <input type="time" className="settings-input settings-time-input" value={formData.openingTime} onChange={(e) => setFormData({ ...formData, openingTime: e.target.value })} />
+                </div>
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Closing Time', 'إلى الساعة', lang)}</label>
+                  <input type="time" className="settings-input settings-time-input" value={formData.closingTime} onChange={(e) => setFormData({ ...formData, closingTime: e.target.value })} />
+                </div>
               </div>
-              <div className="form-group">
-                <label>Closing time / إلى الساعة</label>
-                <input
-                  type="time"
-                  value={formData.closingTime}
-                  onChange={(e) => setFormData({ ...formData, closingTime: e.target.value })}
-                  style={{ padding: '8px 12px', fontSize: '14px' }}
-                />
-              </div>
+              {formData.openingTime && formData.closingTime && formData.openingTime >= formData.closingTime && (
+                <p className="field-error">{t('Closing time must be after opening time.', 'وقت الإغلاق يجب أن يكون بعد وقت الفتح.')}</p>
+              )}
             </div>
-            {formData.openingTime >= formData.closingTime && (
-              <p style={{ color: '#dc3545', fontSize: '13px', marginTop: '8px' }}>
-                Closing time must be after opening time.
-              </p>
-            )}
           </div>
           )}
 
           {activeTab === 'social' && (
           <div className="settings-section">
-            <h3>Social Media — التواصل الاجتماعي</h3>
-            <p className="form-hint">Icons appear in the center of the header bar above the banner. / تظهر الأيقونات في منتصف الشريط الذي أعلى البنر.</p>
+            <h3 className="settings-section-title">
+              <span className="section-icon">🔗</span>
+              {t('Social Media', 'التواصل الاجتماعي', lang)}
+            </h3>
+            <p className="field-hint field-hint-block">{t('Social links appear in the header above the banner.', 'روابط التواصل تظهر في الشريط فوق البنر.')}</p>
             <div className="social-links-editor">
               {socialLinks.map((item, idx) => (
                 <div key={idx} className="social-link-row">
@@ -820,16 +730,16 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                     <SocialIcon platform={item.platform} iconColor={item.iconColor} textColor={item.textColor} size={28} preview />
                   </div>
                   <button type="button" className="btn-danger btn-small" onClick={() => setSocialLinks(socialLinks.filter((_, i) => i !== idx))}>
-                    Remove
+                    {t('Remove', 'إزالة', lang)}
                   </button>
                 </div>
               ))}
               <button
                 type="button"
-                className="btn-secondary"
+                className="btn-secondary btn-add-social"
                 onClick={() => setSocialLinks([...socialLinks, { platform: 'facebook', url: '', iconColor: '#1877f2', textColor: '#ffffff' }])}
               >
-                + Add social link
+                + {t('Add social link', 'إضافة رابط', lang)}
               </button>
             </div>
           </div>
