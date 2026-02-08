@@ -15,6 +15,8 @@ const t = {
   en: {
     title: 'PlayTix Admin Login',
     subtitle: 'Sign in to manage all clubs and PlayTix settings.',
+    superAdminTitle: 'Super Admin Login',
+    superAdminSubtitle: 'Sign in with full control: clubs, users, members, and all settings.',
     setupTitle: 'Create Platform Owner',
     setupSubtitle: 'No platform owner exists. Create the first one to get started.',
     email: 'Email',
@@ -27,6 +29,8 @@ const t = {
   ar: {
     title: 'تسجيل دخول إدارة PlayTix',
     subtitle: 'سجّل الدخول لإدارة جميع الأندية وإعدادات PlayTix.',
+    superAdminTitle: 'دخول مدير النظام',
+    superAdminSubtitle: 'سجّل الدخول للتحكم الكامل: الأندية والمستخدمون والأعضاء وجميع الإعدادات.',
     setupTitle: 'إنشاء مالك المنصة',
     setupSubtitle: 'لا يوجد مالك للمنصة. أنشئ الأول للبدء.',
     email: 'البريد الإلكتروني',
@@ -38,7 +42,7 @@ const t = {
   }
 }
 
-const PlatformAdminLogin = () => {
+const PlatformAdminLogin = ({ isSuperAdmin = false }) => {
   const navigate = useNavigate()
   const location = useLocation()
   const [language, setLanguage] = useState(getAppLanguage())
@@ -79,7 +83,7 @@ const PlatformAdminLogin = () => {
       if (admin) {
         setPlatformAdminSession(admin)
         const from = location.state?.from?.pathname
-        navigate(from && from.startsWith('/admin') ? from : '/admin/all-clubs', { replace: true, state: {} })
+        navigate(from && from.startsWith('/admin') ? from : '/admin/manage-clubs', { replace: true, state: {} })
       } else {
         setError(c.error)
       }
@@ -100,7 +104,7 @@ const PlatformAdminLogin = () => {
       const owner = await createPlatformOwner(email.trim(), password)
       if (owner) {
         setPlatformAdminSession(owner)
-        navigate('/admin/all-clubs', { replace: true, state: {} })
+        navigate('/admin/manage-clubs', { replace: true, state: {} })
       } else {
         await refreshStoreKeys(['platform_admins'])
         setNeedsSetup(false)
@@ -134,8 +138,8 @@ const PlatformAdminLogin = () => {
             </div>
           ) : (
             <>
-              <h1>{isSetup ? c.setupTitle : c.title}</h1>
-              <p>{isSetup ? c.setupSubtitle : c.subtitle}</p>
+              <h1>{isSetup ? c.setupTitle : (isSuperAdmin ? c.superAdminTitle : c.title)}</h1>
+              <p>{isSetup ? c.setupSubtitle : (isSuperAdmin ? c.superAdminSubtitle : c.subtitle)}</p>
               <form onSubmit={isSetup ? handleCreateOwner : handleLogin} className="auth-login-form">
                 {error && <p className="auth-login-error">{error}</p>}
                 <div className="form-group">

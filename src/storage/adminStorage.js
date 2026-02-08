@@ -232,11 +232,6 @@ export async function loadClubsAsync() {
     if (remote === null || !Array.isArray(remote)) return
     let local = _read(ADMIN_STORAGE_KEYS.CLUBS) || []
     let merged = mergeClubsPreservingLocalImages(remote, local)
-    if (!merged.length || !merged.some(c => c.id === 'hala-padel')) {
-      const hala = createExampleHalaPadel()
-      if (!merged.length) merged = [hala]
-      else if (!merged.some(c => c.id === 'hala-padel')) merged = [hala, ...merged]
-    }
     syncMembersToClubs(merged)
     _write(ADMIN_STORAGE_KEYS.CLUBS, merged)
     _clubsCache = merged
@@ -290,11 +285,6 @@ export function applyRemoteClubs(clubs) {
   try {
     let local = _read(ADMIN_STORAGE_KEYS.CLUBS) || []
     let merged = mergeClubsPreservingLocalImages(clubs, local)
-    if (!merged.length || !merged.some(c => c.id === 'hala-padel')) {
-      const hala = createExampleHalaPadel()
-      if (!merged.length) merged = [hala]
-      else if (!merged.some(c => c.id === 'hala-padel')) merged = [hala, ...merged]
-    }
     syncMembersToClubs(merged)
     _write(ADMIN_STORAGE_KEYS.CLUBS, merged)
     _clubsCache = merged
@@ -321,21 +311,7 @@ export const loadClubs = () => {
       clubs = (clubs && typeof clubs === 'object' && Array.isArray(clubs.value)) ? clubs.value : []
     }
     if (clubs && Array.isArray(clubs)) {
-      // Ensure Hala Padel exists if clubs array is empty or doesn't contain it
-      if (clubs.length === 0 || !clubs.some(c => c.id === 'hala-padel')) {
-        const halaPadel = createExampleHalaPadel()
-        if (clubs.length === 0) {
-          saveClubs([halaPadel]).catch(e => console.error('saveClubs:', e))
-          _clubsCache = [halaPadel]
-          return [halaPadel]
-        } else {
-          clubs.unshift(halaPadel)
-          saveClubs(clubs).catch(e => console.error('saveClubs:', e))
-          _clubsCache = clubs
-          return clubs
-        }
-      }
-      
+      // النظام يبدأ فارغاً — لا إنشاء نادٍ افتراضي
       // Sync members from DB into clubs
       syncMembersToClubs(clubs)
       // Migrate: ensure store/storeEnabled and club hours exist
@@ -391,21 +367,12 @@ export const loadClubs = () => {
       _clubsCache = deduped
       return deduped
     }
-    const halaPadel = createExampleHalaPadel()
-    saveClubs([halaPadel]).catch(e => console.error('saveClubs:', e))
-    _clubsCache = [halaPadel]
-    return [halaPadel]
+    _clubsCache = []
+    return []
   } catch (error) {
     console.error('Error loading clubs:', error)
-    // Even on error, try to create Hala Padel
-    try {
-      const halaPadel = createExampleHalaPadel()
-      saveClubs([halaPadel]).catch(e => console.error('saveClubs:', e))
-      _clubsCache = [halaPadel]
-      return [halaPadel]
-    } catch (e) {
-      return []
-    }
+    _clubsCache = []
+    return []
   }
 }
 
@@ -444,17 +411,7 @@ export const syncMembersToClubs = (clubs) => {
           return false
         }
         
-        // If no clubId/clubIds, assign to hala-padel by default (for backward compatibility)
-        if (club.id === 'hala-padel') {
-          // Initialize clubIds for this member
-          if (!member.clubIds) {
-            member.clubIds = ['hala-padel']
-          } else if (!member.clubIds.includes('hala-padel')) {
-            member.clubIds.push('hala-padel')
-          }
-          return true
-        }
-        
+        // If no clubId/clubIds, skip — النظام لا يستخدم نادٍ افتراضي
         return false
       })
       
@@ -488,11 +445,7 @@ export const syncMembersToClubs = (clubs) => {
           if (member.id) {
             // Ensure clubIds exists
             if (!member.clubIds) {
-              if (member.clubId) {
-                member.clubIds = [member.clubId]
-              } else {
-                member.clubIds = ['hala-padel'] // Default
-              }
+              member.clubIds = member.clubId ? [member.clubId] : []
             }
             updatedMembersMap.set(member.id, member)
           }
@@ -845,7 +798,7 @@ export const getClubMembersFromStorage = (clubId) => {
     return merged.filter(m => {
       if (m.clubIds && Array.isArray(m.clubIds)) return m.clubIds.includes(clubId)
       if (m.clubId) return m.clubId === clubId
-      return clubId === 'hala-padel'
+      return false
     }).map(m => ({
       id: m.id,
       name: m.name,

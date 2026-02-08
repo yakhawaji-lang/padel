@@ -5,7 +5,7 @@ import { getPlatformAdminSession, hasPlatformPermission } from '../storage/platf
 export default function PlatformPageGuard({ permission, children }) {
   const session = getPlatformAdminSession()
   if (!session) {
-    return <Navigate to="/admin-login" replace />
+    return <Navigate to="/super-admin" replace />
   }
   if (permission && !hasPlatformPermission(session, permission)) {
     return <Navigate to="/admin/all-clubs" replace />

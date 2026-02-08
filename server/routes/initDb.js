@@ -4,65 +4,6 @@ import { getEntities, setEntities } from '../db/dataHelpers.js'
 
 const router = Router()
 
-/** Default Hala Padel club with full Club Settings structure (entities.data JSON) */
-function getDefaultHalaPadel() {
-  return {
-    id: 'hala-padel',
-    name: 'Hala Padel',
-    nameAr: 'هلا بادل',
-    logo: '',
-    banner: '',
-    tagline: 'Indoor courts • King of the Court & Social tournaments • For all levels',
-    taglineAr: 'ملاعب داخلية • بطولات ملك الملعب وسوشيال • لجميع المستويات',
-    address: 'Arid District, 11234, Riyadh',
-    addressAr: 'حي العارض، 11234، الرياض',
-    phone: '',
-    email: '',
-    website: 'https://playtomic.com/clubs/hala-padel',
-    playtomicVenueId: 'hala-padel',
-    playtomicApiKey: '',
-    courts: [
-      { id: 'court-1', name: 'Court 1', nameAr: 'الملعب 1', type: 'indoor', maintenance: false, image: '' },
-      { id: 'court-2', name: 'Court 2', nameAr: 'الملعب 2', type: 'indoor', maintenance: false, image: '' },
-      { id: 'court-3', name: 'Court 3', nameAr: 'الملعب 3', type: 'indoor', maintenance: false, image: '' },
-      { id: 'court-4', name: 'Court 4', nameAr: 'الملعب 4', type: 'indoor', maintenance: false, image: '' }
-    ],
-    settings: {
-      defaultLanguage: 'en',
-      timezone: 'Asia/Riyadh',
-      currency: 'SAR',
-      bookingDuration: 60,
-      maxBookingAdvance: 30,
-      cancellationPolicy: 24,
-      openingTime: '06:00',
-      closingTime: '23:00',
-      headerBgColor: '#ffffff',
-      headerTextColor: '#0f172a',
-      heroBgColor: '#ffffff',
-      heroBgOpacity: 85,
-      heroTitleColor: '#0f172a',
-      heroTextColor: '#475569',
-      heroStatsColor: '#0f172a',
-      socialLinks: []
-    },
-    tournaments: [],
-    members: [],
-    bookings: [],
-    offers: [],
-    accounting: [],
-    adminUsers: [],
-    tournamentTypes: [
-      { id: 'king-of-court', name: 'King of the Court', nameAr: 'ملك الملعب', description: 'Winners stay on court', descriptionAr: 'الفائزون يبقون على الملعب' },
-      { id: 'social', name: 'Social Tournament', nameAr: 'بطولة سوشيال', description: 'Round-robin format', descriptionAr: 'نظام دوري' }
-    ],
-    storeEnabled: false,
-    store: { name: '', nameAr: '', categories: [], products: [], sales: [], inventoryMovements: [], offers: [], coupons: [], minStockAlert: 5 },
-    tournamentData: { kingState: null, socialState: null, currentTournamentId: 1 },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-}
-
 const STMTS = [
   `CREATE TABLE IF NOT EXISTS app_store (\`key\` VARCHAR(255) PRIMARY KEY, value JSON NOT NULL, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS entities (id INT AUTO_INCREMENT PRIMARY KEY, entity_type VARCHAR(50) NOT NULL, entity_id VARCHAR(255) NOT NULL, data JSON NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uk_entity (entity_type, entity_id), INDEX idx_entity_type (entity_type))`,
@@ -110,17 +51,16 @@ router.get('/', async (req, res) => {
           console.error('init-db reset stmt', i, 'failed:', stmtErr.message)
         }
       }
-      const halaPadel = getDefaultHalaPadel()
-      await query('INSERT IGNORE INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?)', ['club', 'hala-padel', JSON.stringify(halaPadel)])
+      // لا إنشاء نوادي افتراضية — النظام يبدأ فارغاً
       const defaultOwner = {
-        id: 'platform-owner-default',
-        email: '2@2.com',
-        password: '123456',
+        id: 'super-admin-default',
+        email: 'admin@playtix.app',
+        password: 'Admin@123456',
         role: 'owner',
         permissions: ['all-clubs', 'manage-clubs', 'all-members', 'admin-users'],
         createdAt: new Date().toISOString()
       }
-      await query('INSERT IGNORE INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?)', ['platform_admin', defaultOwner.id, JSON.stringify(defaultOwner)])
+      await query('INSERT INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?)', ['platform_admin', defaultOwner.id, JSON.stringify(defaultOwner)])
       try {
         const { migrateEntitiesToNormalized } = await import('../db/migrateToNormalized.js')
         await migrateEntitiesToNormalized()
@@ -175,22 +115,18 @@ router.get('/', async (req, res) => {
           await query('INSERT IGNORE INTO app_settings (`key`, value) VALUES (?, ?)', [r.key, JSON.stringify(r.value)])
         }
       }
-      const { rows: clubCountRows } = await query('SELECT COUNT(*) as n FROM entities WHERE entity_type = ?', ['club'])
-      if (clubCountRows[0]?.n === 0) {
-        const halaPadel = getDefaultHalaPadel()
-        await query('INSERT IGNORE INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?)', ['club', 'hala-padel', JSON.stringify(halaPadel)])
-      }
+      // لا إنشاء نوادي — النظام يبدأ فارغاً
       const { rows: paRows } = await query('SELECT COUNT(*) as n FROM entities WHERE entity_type = ?', ['platform_admin'])
       if (paRows[0]?.n === 0) {
         const defaultOwner = {
-          id: 'platform-owner-default',
-          email: '2@2.com',
-          password: '123456',
+          id: 'super-admin-default',
+          email: 'admin@playtix.app',
+          password: 'Admin@123456',
           role: 'owner',
           permissions: ['all-clubs', 'manage-clubs', 'all-members', 'admin-users'],
           createdAt: new Date().toISOString()
         }
-        await query('INSERT IGNORE INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?)', ['platform_admin', defaultOwner.id, JSON.stringify(defaultOwner)])
+        await query('INSERT INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?)', ['platform_admin', defaultOwner.id, JSON.stringify(defaultOwner)])
       }
       try {
         const { migrateEntitiesToNormalized } = await import('../db/migrateToNormalized.js')
@@ -425,7 +361,7 @@ router.post('/purge-soft-deleted', async (req, res) => {
   }
 })
 
-/** POST /api/init-db/seed-platform-owner - Create default 2@2.com / 123456 when no admins */
+/** POST /api/init-db/seed-platform-owner - Create super-admin when no admins */
 router.post('/seed-platform-owner', async (req, res) => {
   try {
     const admins = await getEntities('platform_admin')
@@ -433,15 +369,15 @@ router.post('/seed-platform-owner', async (req, res) => {
       return res.json({ ok: true, message: 'Platform admins already exist' })
     }
     const defaultOwner = {
-      id: 'platform-owner-default',
-      email: '2@2.com',
-      password: '123456',
+      id: 'super-admin-default',
+      email: 'admin@playtix.app',
+      password: 'Admin@123456',
       role: 'owner',
       permissions: ['all-clubs', 'manage-clubs', 'all-members', 'admin-users'],
       createdAt: new Date().toISOString()
     }
     await setEntities('platform_admin', [defaultOwner])
-    res.json({ ok: true, message: 'Default platform owner (2@2.com) created' })
+    res.json({ ok: true, message: 'Super admin (admin@playtix.app) created' })
   } catch (e) {
     console.error('seed-platform-owner:', e)
     res.status(500).json({ error: e.message })
@@ -488,26 +424,19 @@ router.post('/', async (req, res) => {
         await query('INSERT IGNORE INTO app_settings (`key`, value) VALUES (?, ?)', [r.key, JSON.stringify(r.value)])
       }
     }
-    // If no clubs exist, insert default Hala Padel
-    const { rows: clubCountRows } = await query('SELECT COUNT(*) as n FROM entities WHERE entity_type = ?', ['club'])
-    if (clubCountRows[0]?.n === 0) {
-      const halaPadel = getDefaultHalaPadel()
-      await query('INSERT IGNORE INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?)', ['club', 'hala-padel', JSON.stringify(halaPadel)])
-      console.log('[init-db] Inserted default Hala Padel club')
-    }
-    // Ensure default platform owner 2@2.com / 123456 exists for admin login
+    // لا إنشاء نوادي افتراضية — النظام يبدأ فارغاً
     const { rows: paRows } = await query('SELECT COUNT(*) as n FROM entities WHERE entity_type = ?', ['platform_admin'])
     if (paRows[0]?.n === 0) {
       const defaultOwner = {
-        id: 'platform-owner-default',
-        email: '2@2.com',
-        password: '123456',
+        id: 'super-admin-default',
+        email: 'admin@playtix.app',
+        password: 'Admin@123456',
         role: 'owner',
         permissions: ['all-clubs', 'manage-clubs', 'all-members', 'admin-users'],
         createdAt: new Date().toISOString()
       }
       await query(
-        'INSERT IGNORE INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?)',
+        'INSERT INTO entities (entity_type, entity_id, data) VALUES (?, ?, ?)',
         ['platform_admin', defaultOwner.id, JSON.stringify(defaultOwner)]
       )
     }

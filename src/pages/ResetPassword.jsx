@@ -84,7 +84,7 @@ const ResetPassword = () => {
       }
       setStatus('success')
       setMessage(c.success)
-      const loginPath = resetType === 'platform' ? '/admin-login' : resetType === 'club' ? '/club-login' : '/login'
+      const loginPath = resetType === 'platform' ? '/super-admin' : resetType === 'club' ? '/club-login' : '/login'
       setTimeout(() => navigate(loginPath), 2500)
     } catch (err) {
       setStatus('error')
@@ -113,7 +113,7 @@ const ResetPassword = () => {
           {status === 'success' ? (
             <div className="forgot-password-success">
               <p>{message}</p>
-              <Link to={resetType === 'platform' ? '/admin-login' : resetType === 'club' ? '/club-login' : '/login'} className="forgot-password-btn">{c.backToLogin}</Link>
+              <Link to={resetType === 'platform' ? '/super-admin' : resetType === 'club' ? '/club-login' : '/login'} className="forgot-password-btn">{c.backToLogin}</Link>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="forgot-password-form">
@@ -150,7 +150,7 @@ const ResetPassword = () => {
             </form>
           )}
           <p className="forgot-password-login-hint">
-            <Link to={resetType === 'platform' ? '/admin-login' : resetType === 'club' ? '/club-login' : '/login'}>{c.backToLogin}</Link>
+            <Link to={resetType === 'platform' ? '/super-admin' : resetType === 'club' ? '/club-login' : '/login'}>{c.backToLogin}</Link>
           </p>
         </div>
       </main>

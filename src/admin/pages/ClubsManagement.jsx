@@ -1,17 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './ClubsManagement.css'
-import { ensureHalaPadelExists } from '../utils/initHalaPadel'
-
 const ClubsManagement = ({ clubs, currentClub, onCreateClub, onUpdateClub, onDeleteClub, onSelectClub }) => {
   const navigate = useNavigate()
   const [showCreateModal, setShowCreateModal] = useState(false)
-  
-  // Ensure Hala Padel exists on mount
-  useEffect(() => {
-    ensureHalaPadelExists()
-    // Note: Clubs will be reloaded by parent component
-  }, [])
   const [editingClub, setEditingClub] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
@@ -114,18 +106,6 @@ const ClubsManagement = ({ clubs, currentClub, onCreateClub, onUpdateClub, onDel
         <div className="page-header">
           <h2 className="page-title">Clubs Management</h2>
           <div style={{ display: 'flex', gap: '10px' }}>
-            {!clubs.some(c => c.id === 'hala-padel') && (
-              <button 
-                className="btn-primary"
-                onClick={() => {
-                  ensureHalaPadelExists()
-                  window.location.reload()
-                }}
-                style={{ background: '#4caf50' }}
-              >
-                🏢 Create Hala Padel (Example)
-              </button>
-            )}
             <button 
               className="btn-primary"
               onClick={() => {

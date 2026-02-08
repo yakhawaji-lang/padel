@@ -138,7 +138,7 @@ Invoke-RestMethod -Uri "https://playtix.app/api/init-db?init=1"
 ```
 https://playtix.app/api/init-db?reset=1
 ```
-⚠️ يحذف كل البيانات ويُنشئ: entities (hala-padel + platform_admin)، app_store، app_settings
+⚠️ يحذف كل البيانات ويُنشئ: مستخدم Super Admin واحد فقط (admin@playtix.app)، بدون نوادي افتراضية
 
 **إضافة الملاعب الناقصة للنوادي الموجودة:**
 ```

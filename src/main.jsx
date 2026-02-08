@@ -50,6 +50,7 @@ function Root() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/admin-login" element={<PlatformAdminLogin />} />
+          <Route path="/super-admin" element={<PlatformAdminLogin isSuperAdmin />} />
           <Route path="/logout/:type" element={<Logout />} />
           <Route path="admin/club/:clubId/*" element={<ClubAuthGuard><ClubAdminPanel /></ClubAuthGuard>} />
           <Route path="admin/*" element={<PlatformAuthGuard><MainAdminPanel /></PlatformAuthGuard>} />

@@ -375,8 +375,8 @@ const HomePage = () => {
                   <Link to="/club-login" className="join-card-cta btn-outline">
                     {c.joinClubs.login}
                   </Link>
-                  <Link to="/admin-login" className="join-card-cta btn-outline" style={{ fontSize: '0.9rem', marginTop: 8 }}>
-                    {language === 'en' ? 'PlayTix Admin' : 'إدارة PlayTix'}
+                  <Link to="/super-admin" className="join-card-cta btn-outline" style={{ fontSize: '0.9rem', marginTop: 8 }}>
+                    {language === 'en' ? 'Super Admin Login' : 'دخول مدير النظام'}
                   </Link>
                 </div>
               </div>

@@ -13,7 +13,7 @@ export default function Logout() {
   useEffect(() => {
     if (type === 'platform') {
       clearPlatformAdminSession()
-      navigate('/admin-login', { replace: true })
+      navigate('/super-admin', { replace: true })
     } else if (type === 'club') {
       clearClubAdminSession()
       navigate('/club-login', { replace: true })

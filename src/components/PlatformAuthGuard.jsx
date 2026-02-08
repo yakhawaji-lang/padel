@@ -6,7 +6,7 @@ export default function PlatformAuthGuard({ children }) {
   const location = useLocation()
   const isAuth = canAccessPlatformAdmin()
   if (!isAuth) {
-    return <Navigate to="/admin-login" state={{ from: location }} replace />
+    return <Navigate to="/super-admin" state={{ from: location }} replace />
   }
   return children
 }

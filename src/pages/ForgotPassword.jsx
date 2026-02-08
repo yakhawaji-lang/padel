@@ -45,7 +45,7 @@ const ForgotPassword = () => {
   }, [language])
 
   const c = t[language]
-  const loginLink = resetType === 'platform' ? '/admin-login' : resetType === 'club' ? '/club-login' : '/login'
+  const loginLink = resetType === 'platform' ? '/super-admin' : resetType === 'club' ? '/club-login' : '/login'
 
   const handleSubmit = async (e) => {
     e.preventDefault()
