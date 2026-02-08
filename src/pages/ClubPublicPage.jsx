@@ -225,6 +225,20 @@ const ClubPublicPage = () => {
     }
   }, [club?.id])
 
+  const [bookingSubmitting, setBookingSubmitting] = useState(false)
+  const [bookingDuration, setBookingDuration] = useState(60)
+  const durationOptions = useMemo(() => {
+    const dp = club?.settings?.bookingPrices?.durationPrices
+    const arr = Array.isArray(dp) ? dp : [{ durationMinutes: 60, price: 100 }]
+    return arr.slice().sort((a, b) => (a.durationMinutes || 0) - (b.durationMinutes || 0))
+  }, [club?.settings?.bookingPrices?.durationPrices])
+
+  useEffect(() => {
+    if (bookingModal && durationOptions.length > 0) {
+      setBookingDuration(durationOptions[0].durationMinutes || 60)
+    }
+  }, [bookingModal?.dateStr, bookingModal?.startTime, durationOptions])
+
   if (!club) {
     return (
       <div className="club-public-page commercial">
@@ -416,20 +430,6 @@ const ClubPublicPage = () => {
       setJoinStatus('error')
     }
   }
-
-  const [bookingSubmitting, setBookingSubmitting] = useState(false)
-  const [bookingDuration, setBookingDuration] = useState(60)
-  const durationOptions = useMemo(() => {
-    const dp = club?.settings?.bookingPrices?.durationPrices
-    const arr = Array.isArray(dp) ? dp : [{ durationMinutes: 60, price: 100 }]
-    return arr.slice().sort((a, b) => (a.durationMinutes || 0) - (b.durationMinutes || 0))
-  }, [club?.settings?.bookingPrices?.durationPrices])
-
-  useEffect(() => {
-    if (bookingModal && durationOptions.length > 0) {
-      setBookingDuration(durationOptions[0].durationMinutes || 60)
-    }
-  }, [bookingModal?.dateStr, bookingModal?.startTime, durationOptions])
 
   const handleConfirmBooking = async () => {
     if (!bookingModal || !platformUser || !isMember) return
