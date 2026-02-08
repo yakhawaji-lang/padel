@@ -703,13 +703,37 @@ export const getClubById = (clubId, forceFromStorage = false) => {
 
 export const updateClub = async (clubId, updates) => {
   const clubs = loadClubs()
-  const updatedClubs = clubs.map(club => 
-    club.id === clubId 
+  const updatedClubs = clubs.map(club =>
+    club.id === clubId
       ? { ...club, ...updates, updatedAt: new Date().toISOString() }
       : club
   )
   await saveClubs(updatedClubs)
   return updatedClubs.find(club => club.id === clubId)
+}
+
+/** Add a court booking for a club. Triggers clubs-synced event. */
+export async function addBookingToClub(clubId, bookingData) {
+  const clubs = loadClubs()
+  const club = clubs.find(c => c.id === clubId)
+  if (!club) return null
+  const existingIds = (club.bookings || []).filter(b => b.id != null && typeof b.id === 'number').map(b => b.id)
+  const newId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1
+  const newBooking = {
+    id: newId,
+    ...bookingData,
+    isTournament: false,
+    source: 'playtix'
+  }
+  const updatedClub = {
+    ...club,
+    bookings: [...(club.bookings || []), newBooking],
+    updatedAt: new Date().toISOString()
+  }
+  const updatedClubs = clubs.map(c => c.id === clubId ? updatedClub : c)
+  await saveClubs(updatedClubs)
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+  return newBooking
 }
 
 /** Pending club registration - requires admin approval. Returns Promise when using Postgres. */

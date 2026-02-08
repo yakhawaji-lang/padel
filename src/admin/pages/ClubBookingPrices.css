@@ -1,0 +1,320 @@
+/* Club Booking Prices - Court Pricing Management */
+
+.cbp-page {
+  max-width: 960px;
+  width: 100%;
+}
+
+.cbp-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cbp-header-content { flex: 1; min-width: 0; }
+
+.cbp-title {
+  margin: 0 0 6px 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cbp-icon { font-size: 1.4rem; }
+
+.cbp-subtitle {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: #64748b;
+}
+
+.cbp-save-btn {
+  padding: 12px 24px;
+  background: #1e3a5f;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.cbp-save-btn:hover {
+  background: #152a47;
+  box-shadow: 0 4px 12px rgba(30, 58, 95, 0.25);
+}
+
+.cbp-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cbp-tab {
+  padding: 10px 18px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cbp-tab:hover { background: #f1f5f9; color: #1e293b; }
+.cbp-tab.active { background: #1e3a5f; color: #fff; border-color: #1e3a5f; }
+
+.cbp-content { margin-bottom: 32px; }
+
+.cbp-section h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.cbp-hint {
+  margin: 0 0 16px 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.cbp-table-wrap {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.cbp-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cbp-table th,
+.cbp-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.cbp-table th {
+  background: #f8fafc;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.cbp-table tr:last-child td { border-bottom: none; }
+
+.cbp-input {
+  padding: 8px 12px;
+  font-size: 0.9375rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 140px;
+}
+
+.cbp-input-num { max-width: 100px; }
+
+.cbp-btn-add {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0 0 10px 10px;
+  font-size: 0.9375rem;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cbp-btn-add:hover {
+  background: #f1f5f9;
+  color: #1e3a5f;
+  border-color: #94a3b8;
+}
+
+.cbp-btn-remove {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fef2f2;
+  color: #dc2626;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cbp-btn-remove:hover { background: #fee2e2; }
+
+.cbp-modifier-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.cbp-modifier-row { flex-wrap: nowrap; }
+
+.cbp-modifier-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+}
+
+.cbp-day-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cbp-day-chip:has(input:checked) {
+  background: #1e3a5f;
+  color: #fff;
+  border-color: #1e3a5f;
+}
+
+.cbp-day-chip input { display: none; }
+
+.cbp-modifier-mult {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cbp-modifier-mult label {
+  font-size: 0.8125rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.cbp-time-range,
+.cbp-season-range {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.cbp-time-range input,
+.cbp-season-range input {
+  max-width: 140px;
+}
+
+.cbp-preview {
+  padding: 24px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.cbp-preview h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.cbp-preview-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.cbp-preview-fields > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cbp-preview-fields label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #475569;
+}
+
+.cbp-preview-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 10px;
+  border: 2px solid #1e3a5f;
+}
+
+.cbp-preview-label {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #475569;
+}
+
+.cbp-preview-price {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e3a5f;
+}
+
+.cbp-footer {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.cbp-footer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #1e3a5f;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.cbp-footer-link:hover {
+  color: #0f172a;
+  text-decoration: underline;
+}
+
+[dir="rtl"] .cbp-table th,
+[dir="rtl"] .cbp-table td { text-align: right; }

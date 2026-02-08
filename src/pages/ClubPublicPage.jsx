@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { loadClubs, getClubById, saveClubs, getClubMembersFromStorage, addMemberToClub } from '../storage/adminStorage'
+import { loadClubs, getClubById, getClubMembersFromStorage, addMemberToClub, addBookingToClub } from '../storage/adminStorage'
+import { calculateBookingPrice } from '../utils/bookingPricing'
 import LanguageIcon from '../components/LanguageIcon'
 import SocialIcon from '../components/SocialIcon'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
+import { getClubAdminSession } from '../storage/clubAuth'
 import MemberAccountDropdown from '../components/MemberAccountDropdown'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './ClubPublicPage.css'
@@ -89,6 +91,7 @@ const ClubPublicPage = () => {
   const [joinStatus, setJoinStatus] = useState(null)
   const [platformUser, setPlatformUser] = useState(null)
   const [courtGridDate, setCourtGridDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [bookingModal, setBookingModal] = useState(null)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -238,6 +241,8 @@ const ClubPublicPage = () => {
     platformUser.clubId === club.id ||
     (Array.isArray(clubMembersList) && clubMembersList.some(m => String(m.id) === String(platformUser.id)))
   )
+  const clubAdminSession = getClubAdminSession()
+  const isClubAdmin = clubAdminSession && String(clubAdminSession.clubId) === String(clubId)
 
   const heroBgColor = club?.settings?.heroBgColor || '#ffffff'
   const heroBgOpacity = Math.min(1, Math.max(0, (club?.settings?.heroBgOpacity ?? 85) / 100))
@@ -295,6 +300,15 @@ const ClubPublicPage = () => {
       selectDate: 'Select date',
       available: 'Available',
       booked: 'Booked',
+      bookNow: 'Book now',
+      bookingPrice: 'Price',
+      confirmBooking: 'Confirm booking',
+      bookingSuccess: 'Booking confirmed!',
+      loginToBook: 'Login to book courts',
+      courtPrices: 'Court booking prices',
+      managePricesLink: 'Manage prices (admin)',
+      duration: 'Duration',
+      price: 'Price',
       joinPromptTitle: 'You\'re one step away!',
       joinPromptText: 'Join this club now to book courts, participate in tournaments, and enjoy member benefits.',
     },
@@ -345,6 +359,15 @@ const ClubPublicPage = () => {
       selectDate: 'اختر التاريخ',
       available: 'متاح',
       booked: 'محجوز',
+      bookNow: 'احجز الآن',
+      bookingPrice: 'السعر',
+      confirmBooking: 'تأكيد الحجز',
+      bookingSuccess: 'تم تأكيد الحجز!',
+      loginToBook: 'سجّل الدخول لحجز الملاعب',
+      courtPrices: 'أسعار حجوزات الملاعب',
+      managePricesLink: 'تعديل الأسعار (إداري)',
+      duration: 'المدة',
+      price: 'السعر',
       joinPromptTitle: 'أنت على بُعد خطوة واحدة!',
       joinPromptText: 'انضم للنادي الآن لحجز الملاعب والمشاركة في البطولات والاستفادة من مزايا العضوية.',
     }
@@ -382,6 +405,55 @@ const ClubPublicPage = () => {
       }
     } catch (e) {
       setJoinStatus('error')
+    }
+  }
+
+  const [bookingSubmitting, setBookingSubmitting] = useState(false)
+  const [bookingDuration, setBookingDuration] = useState(60)
+  const durationOptions = useMemo(() => {
+    const dp = club?.settings?.bookingPrices?.durationPrices || [{ durationMinutes: 60, price: 100 }]
+    return dp.slice().sort((a, b) => (a.durationMinutes || 0) - (b.durationMinutes || 0))
+  }, [club?.settings?.bookingPrices?.durationPrices])
+
+  useEffect(() => {
+    if (bookingModal && durationOptions.length > 0) {
+      setBookingDuration(durationOptions[0].durationMinutes || 60)
+    }
+  }, [bookingModal?.dateStr, bookingModal?.startTime, durationOptions])
+
+  const handleConfirmBooking = async () => {
+    if (!bookingModal || !platformUser || !isMember) return
+    const dur = bookingDuration || 60
+    const [h, m] = (bookingModal.startTime || '00:00').split(':').map(Number)
+    const endM = (h || 0) * 60 + (m || 0) + dur
+    const endTime = `${String(Math.floor(endM / 60)).padStart(2, '0')}:${String(endM % 60).padStart(2, '0')}`
+    const courtName = (bookingModal.court?.name || '').toString().trim()
+    const memberName = platformUser.name || platformUser.email || platformUser.displayName || ''
+    const priceResult = calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, dur)
+    setBookingSubmitting(true)
+    try {
+      await addBookingToClub(clubId, {
+        date: bookingModal.dateStr,
+        startDate: bookingModal.dateStr,
+        startTime: bookingModal.startTime,
+        endTime,
+        resource: courtName,
+        court: courtName,
+        courtName,
+        memberId: platformUser.id,
+        memberName,
+        customerName: memberName,
+        customer: memberName,
+        price: priceResult.price,
+        currency: priceResult.currency,
+        durationMinutes: dur
+      })
+      setBookingModal(null)
+      refreshClub()
+    } catch (e) {
+      console.error('Booking failed:', e)
+    } finally {
+      setBookingSubmitting(false)
     }
   }
 
@@ -545,11 +617,16 @@ const ClubPublicPage = () => {
                             }
                             return isTimeSlotCoveredByBooking(timeSlot, start, end)
                           })
+                          const canBook = !isBooked && isMember && platformUser
                           return (
                             <div
                               key={timeSlot}
-                              className={`club-public-court-grid-cell ${isBooked ? 'booked' : 'available'}`}
-                              title={isBooked ? c.booked : c.available}
+                              role={canBook ? 'button' : undefined}
+                              tabIndex={canBook ? 0 : undefined}
+                              className={`club-public-court-grid-cell ${isBooked ? 'booked' : 'available'} ${canBook ? 'clickable' : ''}`}
+                              title={isBooked ? c.booked : canBook ? c.bookNow : c.available}
+                              onClick={canBook ? () => setBookingModal({ court, dateStr, startTime: timeSlot }) : undefined}
+                              onKeyDown={canBook ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setBookingModal({ court, dateStr, startTime: timeSlot }) } } : undefined}
                             >
                               {''}
                             </div>
@@ -558,6 +635,104 @@ const ClubPublicPage = () => {
                       </React.Fragment>
                     ))}
                   </div>
+                </div>
+              )
+            })()}
+          </div>
+        </section>
+
+        {bookingModal && (
+          <div className="club-public-booking-modal-backdrop" onClick={() => !bookingSubmitting && setBookingModal(null)} role="presentation">
+            <div className="club-public-booking-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="booking-modal-title">
+              <h3 id="booking-modal-title" className="club-public-booking-modal-title">{c.courtBooking}</h3>
+              <div className="club-public-booking-modal-body">
+                <p className="club-public-booking-modal-row">
+                  <span>{c.court}:</span>
+                  <strong>{language === 'ar' && bookingModal.court?.nameAr ? bookingModal.court.nameAr : (bookingModal.court?.name || '')}</strong>
+                </p>
+                <p className="club-public-booking-modal-row">
+                  <span>{c.date}:</span>
+                  <strong>{formatDate(bookingModal.dateStr)}</strong>
+                </p>
+                <p className="club-public-booking-modal-row">
+                  <span>{c.time}:</span>
+                  <strong>{bookingModal.startTime}</strong>
+                </p>
+                <div className="club-public-booking-modal-row club-public-booking-modal-duration">
+                  <label>{c.duration}:</label>
+                  <select
+                    value={bookingDuration}
+                    onChange={e => setBookingDuration(parseInt(e.target.value, 10))}
+                    className="club-public-booking-duration-select"
+                  >
+                    {durationOptions.map(d => (
+                      <option key={d.durationMinutes} value={d.durationMinutes}>
+                        {d.durationMinutes} {language === 'en' ? 'min' : 'دقيقة'} — {parseFloat(d.price || 0).toFixed(0)} {currency}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="club-public-booking-modal-price">
+                  <span>{c.bookingPrice}:</span>
+                  <strong className="club-public-booking-modal-price-value">
+                    {calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price} {currency}
+                  </strong>
+                </div>
+              </div>
+              <div className="club-public-booking-modal-actions">
+                <button type="button" className="club-public-booking-modal-cancel" onClick={() => !bookingSubmitting && setBookingModal(null)} disabled={bookingSubmitting}>
+                  {language === 'en' ? 'Cancel' : 'إلغاء'}
+                </button>
+                <button type="button" className="club-public-booking-modal-confirm" onClick={handleConfirmBooking} disabled={bookingSubmitting}>
+                  {bookingSubmitting ? (language === 'en' ? 'Booking...' : 'جاري الحجز...') : c.confirmBooking}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <section className="club-public-section club-public-court-prices">
+          <div className="club-public-section-inner">
+            <h2 className="section-heading">
+              <span className="section-heading-icon">💰</span>
+              {c.courtPrices}
+            </h2>
+            {(() => {
+              const bp = club?.settings?.bookingPrices || {}
+              const durationPrices = bp.durationPrices || [{ durationMinutes: 60, price: 100 }]
+              const hasModifiers = (bp.dayModifiers?.length > 0 && bp.dayModifiers.some(d => (d.multiplier || 1) !== 1)) ||
+                (bp.timeModifiers?.length > 0 && bp.timeModifiers.some(t => (t.multiplier || 1) !== 1)) ||
+                (bp.seasonModifiers?.length > 0 && bp.seasonModifiers.some(s => (s.multiplier || 1) !== 1))
+              return (
+                <div className="club-public-prices-wrap">
+                  <div className="club-public-prices-table-wrap">
+                    <table className="club-public-prices-table">
+                      <thead>
+                        <tr>
+                          <th>{c.duration}</th>
+                          <th>{c.price}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(durationPrices || []).sort((a, b) => (a.durationMinutes || 0) - (b.durationMinutes || 0)).map((d, i) => (
+                          <tr key={i}>
+                            <td>{d.durationMinutes} {language === 'en' ? 'min' : 'دقيقة'}</td>
+                            <td className="club-public-price-cell">{parseFloat(d.price || 0).toFixed(0)} {currency}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {hasModifiers && (
+                    <p className="club-public-prices-note">
+                      {language === 'en' ? 'Prices may vary by day, time, and season.' : 'قد تختلف الأسعار حسب اليوم والوقت والموسم.'}
+                    </p>
+                  )}
+                  {isClubAdmin && (
+                    <Link to={`/admin/club/${clubId}/booking-prices`} className="club-public-manage-prices-link">
+                      {c.managePricesLink}
+                    </Link>
+                  )}
                 </div>
               )
             })()}
@@ -649,17 +824,27 @@ const ClubPublicPage = () => {
                       <th>{c.time}</th>
                       <th>{c.court}</th>
                       <th>{c.customer}</th>
+                      <th>{c.price}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {courtBookings.map((b, i) => (
-                      <tr key={b.id || i}>
-                        <td>{formatDate(b.dateStr)}</td>
-                        <td>{(b.startTime || '') + (b.endTime ? ` – ${b.endTime}` : '')}</td>
-                        <td>{b.resource || b.courtName || b.court || '—'}</td>
-                        <td>{b.memberName || b.customerName || b.customer || '—'}</td>
-                      </tr>
-                    ))}
+                    {courtBookings.map((b, i) => {
+                      const dur = b.durationMinutes || (() => {
+                        const [sh, sm] = (b.startTime || '0:0').split(':').map(Number)
+                        const [eh, em] = (b.endTime || '0:0').split(':').map(Number)
+                        return (eh * 60 + em) - (sh * 60 + sm) || 60
+                      })()
+                      const priceInfo = b.price != null ? { price: b.price, currency: b.currency || currency } : calculateBookingPrice(club, b.dateStr, b.startTime, dur)
+                      return (
+                        <tr key={b.id || i}>
+                          <td>{formatDate(b.dateStr)}</td>
+                          <td>{(b.startTime || '') + (b.endTime ? ` – ${b.endTime}` : '')}</td>
+                          <td>{b.resource || b.courtName || b.court || '—'}</td>
+                          <td>{b.memberName || b.customerName || b.customer || '—'}</td>
+                          <td className="club-public-booking-price-cell">{priceInfo.price} {priceInfo.currency}</td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
