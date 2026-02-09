@@ -7,14 +7,14 @@ import { getMergedMembersRaw } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import { setCurrentPlatformUser } from '../storage/platformAuth'
 
-/** Normalize for comparison: trim, lowercase emails, digits-only for phones */
+/** Normalize for comparison: trim, lowercase emails and names, digits-only for phones */
 function norm(s) {
   if (s == null) return ''
   const t = String(s).trim()
   if (t.includes('@')) return t.toLowerCase()
   const digits = t.replace(/\D/g, '')
   if (digits.length >= 8) return digits.replace(/^966/, '').replace(/^0/, '') || digits
-  return t
+  return t.toLowerCase()
 }
 
 const Login = () => {
@@ -64,7 +64,7 @@ const Login = () => {
           navigate(`/clubs/${joinClubId}`)
         } else {
           const clubId = member.clubIds?.[0] || member.clubId
-          if (clubId) navigate(`/club/${clubId}`)
+          if (clubId) navigate(`/clubs/${clubId}`)
           else navigate('/')
         }
       } else {
