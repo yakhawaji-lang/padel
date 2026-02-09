@@ -112,12 +112,14 @@ export async function upsertMember(member) {
 export async function addMemberToClub(memberId, clubIdOrIds) {
   const clubIds = Array.isArray(clubIdOrIds) ? clubIdOrIds : [clubIdOrIds]
   const members = getMergedMembersRaw()
-  const member = members.find(m => m.id === memberId)
+  const member = members.find(m => String(m?.id) === String(memberId))
   if (!member) return false
   const currentIds = member.clubIds || (member.clubId ? [member.clubId] : [])
   let changed = false
   clubIds.forEach(cid => {
-    if (!currentIds.includes(cid)) {
+    const cidStr = String(cid || '')
+    const exists = currentIds.some(id => String(id) === cidStr)
+    if (!exists) {
       currentIds.push(cid)
       changed = true
     }
@@ -393,17 +395,18 @@ export const syncMembersToClubs = (clubs) => {
       }
       
       // Find members that belong to this club
-      // Support both old format (clubId) and new format (clubIds array)
+      // Support both old format (clubId) and new format (clubIds array). Use String() for ID comparison.
+      const clubIdStr = String(club.id || '')
       const clubMembers = mergedMembers.filter(member => {
         // New format: member has clubIds array
         if (member.clubIds && Array.isArray(member.clubIds)) {
-          return member.clubIds.includes(club.id)
+          return member.clubIds.some(id => String(id) === clubIdStr)
         }
         
         // Old format: member has clubId (single club) - convert to array format
         if (member.clubId) {
           // If member belongs to this club, add it
-          if (member.clubId === club.id) {
+          if (String(member.clubId) === clubIdStr) {
             // Convert old format to new format
             if (!member.clubIds) {
               member.clubIds = [member.clubId]
@@ -907,9 +910,10 @@ export const getClubMembersFromStorage = (clubId) => {
   try {
     if (!clubId) return []
     const merged = getMergedMembersRaw()
+    const cid = String(clubId || '')
     return merged.filter(m => {
-      if (m.clubIds && Array.isArray(m.clubIds)) return m.clubIds.includes(clubId)
-      if (m.clubId) return m.clubId === clubId
+      if (m.clubIds && Array.isArray(m.clubIds)) return m.clubIds.some(id => String(id) === cid)
+      if (m.clubId) return String(m.clubId) === cid
       return false
     }).map(m => ({
       id: m.id,

@@ -6,16 +6,16 @@ import { getCurrentMemberId, setCurrentMemberId } from './appSettingsStorage.js'
 export const getCurrentPlatformUser = () => {
   try {
     const id = getCurrentMemberId()
-    if (!id) return null
+    if (id === null || id === undefined || id === '') return null
     const members = getMergedMembersRaw()
-    return members.find(m => m.id === id) || null
+    return members.find(m => String(m?.id) === String(id)) || null
   } catch (e) {
     return null
   }
 }
 
 export const setCurrentPlatformUser = (memberId) => {
-  setCurrentMemberId(memberId)
+  return setCurrentMemberId(memberId)
 }
 
 /** Update platform member profile - uses centralized save */

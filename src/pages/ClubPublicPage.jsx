@@ -132,6 +132,11 @@ const ClubPublicPage = () => {
     setPlatformUser(getCurrentPlatformUser())
   }, [])
 
+  // Re-fetch platformUser when club loads (handles refresh/race after bootstrap)
+  useEffect(() => {
+    if (club?.id) setPlatformUser(getCurrentPlatformUser())
+  }, [club?.id])
+
   useEffect(() => {
     const onMemberUpdate = () => setPlatformUser(getCurrentPlatformUser())
     window.addEventListener('member-updated', onMemberUpdate)
@@ -223,7 +228,7 @@ const ClubPublicPage = () => {
     } catch (_) {
       return []
     }
-  }, [club?.id])
+  }, [club?.id, joinStatus, platformUser?.id])
 
   const [bookingSubmitting, setBookingSubmitting] = useState(false)
   const [bookingDuration, setBookingDuration] = useState(60)
