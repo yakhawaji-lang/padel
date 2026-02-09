@@ -18,13 +18,17 @@
 
 **عند الحفظ:** يتم الكتابة إلى كلا المكانين. **عند القراءة:** يُفضَّل جدول `booking_payment_shares`، وإن لم يكن موجوداً يُستخدم JSON.
 
-### رابط إنشاء الجدول في u502561206_padel_db
+### رابط إضافة الجدول إلى u502561206_padel_db
 
-**رابط مباشر لتنزيل وتشغيل SQL على u502561206_padel_db:**
+**انسخ محتوى الرابط التالي ونفّذه في phpMyAdmin أو MySQL على u502561206_padel_db:**
+
+🔗 **رابط الملف (Raw):**
+https://raw.githubusercontent.com/yakhawaji-lang/padel/main/server/db/migrations/add-booking-payment-shares-table.sql
+
+**أو من المستودع:**
 - [add-booking-payment-shares-table.sql](https://github.com/yakhawaji-lang/padel/blob/main/server/db/migrations/add-booking-payment-shares-table.sql)
-- رابط Raw: `https://raw.githubusercontent.com/yakhawaji-lang/padel/main/server/db/migrations/add-booking-payment-shares-table.sql`
 
-**أو نفّذ الأمر:**
+**أو نفّذ الأمر من الطرفية:**
 ```bash
 mysql -u USER -p u502561206_padel_db < server/db/migrations/add-booking-payment-shares-table.sql
 ```
