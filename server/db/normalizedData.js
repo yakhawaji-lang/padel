@@ -76,10 +76,24 @@ export async function savePlatformAdminsToNormalized(items, actor = {}) {
 
 // ---------- Members ----------
 export async function getMembersFromNormalized() {
-  const { rows } = await query(
-    `SELECT id, name, name_ar, email, avatar, total_points, total_games, total_wins, points_history
-     FROM members WHERE ${SOFT_DELETE_WHERE}`
-  )
+  let rows
+  try {
+    const res = await query(
+      `SELECT id, name, name_ar, email, avatar, mobile, password_hash, total_points, total_games, total_wins, points_history
+       FROM members WHERE ${SOFT_DELETE_WHERE}`
+    )
+    rows = res.rows
+  } catch (e) {
+    if (e?.message?.includes('Unknown column') && (e?.message?.includes('password_hash') || e?.message?.includes('mobile'))) {
+      const res = await query(
+        `SELECT id, name, name_ar, email, avatar, total_points, total_games, total_wins, points_history
+         FROM members WHERE ${SOFT_DELETE_WHERE}`
+      )
+      rows = res.rows?.map(r => ({ ...r, password_hash: null, mobile: null })) || []
+    } else {
+      throw e
+    }
+  }
   const memberIds = rows.map(r => r.id)
   let clubIdsByMember = {}
   if (memberIds.length > 0) {
@@ -94,12 +108,41 @@ export async function getMembersFromNormalized() {
     })
   }
 
+  // Merge passwords from app_store/entities when missing (migration not run yet or legacy data)
+  const needsPasswordMerge = rows.some(r => !r.password_hash)
+  if (needsPasswordMerge && rows.length > 0) {
+    const passwordById = new Map()
+    try {
+      const { rows: storeRows } = await query('SELECT value FROM app_store WHERE `key` IN (?, ?)', ['all_members', 'padel_members'])
+      for (const r of storeRows || []) {
+        const arr = Array.isArray(r.value) ? r.value : (typeof r.value === 'string' ? (() => { try { return JSON.parse(r.value || '[]') } catch { return [] } })() : [])
+        for (const m of arr) {
+          if (m?.id && (m.password || m.password_hash)) passwordById.set(String(m.id), m.password || m.password_hash)
+        }
+      }
+    } catch (_) {}
+    try {
+      const { rows: entityRows } = await query('SELECT entity_id, data FROM entities WHERE entity_type = ?', ['member'])
+      for (const r of entityRows || []) {
+        const d = typeof r.data === 'object' ? r.data : (r.data ? JSON.parse(r.data || '{}') : {})
+        const pw = d.password || d.password_hash
+        if (r.entity_id && pw) passwordById.set(String(r.entity_id), pw)
+      }
+    } catch (_) {}
+    rows.forEach(r => {
+      if (!r.password_hash && passwordById.has(r.id)) r.password_hash = passwordById.get(r.id)
+    })
+  }
+
   return rows.map(r => ({
     id: r.id,
     name: r.name,
     nameAr: r.name_ar,
     email: r.email,
     avatar: r.avatar,
+    phone: r.mobile || null,
+    mobile: r.mobile || null,
+    password: r.password_hash || null,
     clubIds: clubIdsByMember[r.id] || [],
     clubId: (clubIdsByMember[r.id] || [])[0],
     totalPoints: r.total_points ?? 0,
@@ -121,41 +164,55 @@ export async function saveMembersToNormalized(items, actor = {}) {
     const isNew = !existingIds.has(id)
     const clubIds = item.clubIds || (item.clubId ? [item.clubId] : [])
 
+    const passwordVal = item.password ?? item.password_hash ?? null
+    const mobileVal = item.mobile ?? item.phone ?? null
+
+    const insertWithAuth = `INSERT INTO members (id, name, name_ar, email, avatar, mobile, password_hash, total_points, total_games, total_wins, points_history, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    const insertWithoutAuth = `INSERT INTO members (id, name, name_ar, email, avatar, total_points, total_games, total_wins, points_history, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    const insertParamsWithAuth = [id, item.name || '', item.nameAr || null, item.email || null, item.avatar || null, mobileVal, passwordVal, item.totalPoints ?? 0, item.totalGames ?? 0, item.totalWins ?? 0, JSON.stringify(item.pointsHistory || []), actor.actorId || null]
+    const insertParamsWithoutAuth = [id, item.name || '', item.nameAr || null, item.email || null, item.avatar || null, item.totalPoints ?? 0, item.totalGames ?? 0, item.totalWins ?? 0, JSON.stringify(item.pointsHistory || []), actor.actorId || null]
+
     if (isNew) {
-      await query(
-        `INSERT INTO members (id, name, name_ar, email, avatar, total_points, total_games, total_wins, points_history, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          id,
-          item.name || '',
-          item.nameAr || null,
-          item.email || null,
-          item.avatar || null,
-          item.totalPoints ?? 0,
-          item.totalGames ?? 0,
-          item.totalWins ?? 0,
-          JSON.stringify(item.pointsHistory || []),
-          actor.actorId || null
-        ]
-      )
+      try {
+        await query(insertWithAuth, insertParamsWithAuth)
+      } catch (e) {
+        if (e?.message?.includes('Unknown column') && (e?.message?.includes('password_hash') || e?.message?.includes('mobile'))) {
+          await query(insertWithoutAuth, insertParamsWithoutAuth)
+        } else {
+          throw e
+        }
+      }
       await logAudit({ tableName: 'members', recordId: id, action: 'INSERT', ...actor, newValue: { name: item.name } })
     } else {
-      await query(
-        `UPDATE members SET name=?, name_ar=?, email=?, avatar=?, total_points=?, total_games=?, total_wins=?, points_history=?, updated_at=NOW(), updated_by=?
-         WHERE id=?`,
-        [
-          item.name || '',
-          item.nameAr || null,
-          item.email || null,
-          item.avatar || null,
-          item.totalPoints ?? 0,
-          item.totalGames ?? 0,
-          item.totalWins ?? 0,
-          JSON.stringify(item.pointsHistory || []),
-          actor.actorId || null,
-          id
-        ]
-      )
+      try {
+        await query(
+          `UPDATE members SET name=?, name_ar=?, email=?, avatar=?, mobile=?, password_hash=?, total_points=?, total_games=?, total_wins=?, points_history=?, updated_at=NOW(), updated_by=?
+           WHERE id=?`,
+          [
+            item.name || '',
+            item.nameAr || null,
+            item.email || null,
+            item.avatar || null,
+            mobileVal,
+            passwordVal,
+            item.totalPoints ?? 0,
+            item.totalGames ?? 0,
+            item.totalWins ?? 0,
+            JSON.stringify(item.pointsHistory || []),
+            actor.actorId || null,
+            id
+          ]
+        )
+      } catch (e) {
+        if (e?.message?.includes('Unknown column') && (e?.message?.includes('password_hash') || e?.message?.includes('mobile'))) {
+          await query(
+            `UPDATE members SET name=?, name_ar=?, email=?, avatar=?, total_points=?, total_games=?, total_wins=?, points_history=?, updated_at=NOW(), updated_by=? WHERE id=?`,
+            [item.name || '', item.nameAr || null, item.email || null, item.avatar || null, item.totalPoints ?? 0, item.totalGames ?? 0, item.totalWins ?? 0, JSON.stringify(item.pointsHistory || []), actor.actorId || null, id]
+          )
+        } else throw e
+      }
       await logAudit({ tableName: 'members', recordId: id, action: 'UPDATE', ...actor, newValue: { name: item.name } })
     }
 
@@ -172,6 +229,36 @@ export async function saveMembersToNormalized(items, actor = {}) {
       await logAudit({ tableName: 'members', recordId: id, action: 'DELETE', ...actor })
     }
   }
+
+  // Dual-write to app_store so passwords are available for login merge (when password_hash column missing)
+  try {
+    const toStore = items.map(m => ({
+      id: m.id,
+      name: m.name,
+      nameAr: m.nameAr,
+      email: m.email,
+      avatar: m.avatar,
+      phone: m.phone ?? m.mobile,
+      mobile: m.mobile ?? m.phone,
+      password: m.password ?? m.password_hash ?? null,
+      clubIds: m.clubIds || (m.clubId ? [m.clubId] : []),
+      clubId: m.clubId || (m.clubIds?.[0]),
+      totalPoints: m.totalPoints ?? 0,
+      totalGames: m.totalGames ?? 0,
+      totalWins: m.totalWins ?? 0,
+      pointsHistory: m.pointsHistory || []
+    }))
+    await query(
+      `INSERT INTO app_store (\`key\`, value, updated_at) VALUES ('all_members', ?, NOW())
+       ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = NOW()`,
+      [JSON.stringify(toStore)]
+    )
+    await query(
+      `INSERT INTO app_store (\`key\`, value, updated_at) VALUES ('padel_members', ?, NOW())
+       ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = NOW()`,
+      [JSON.stringify(toStore)]
+    )
+  } catch (_) {}
 }
 
 /**
