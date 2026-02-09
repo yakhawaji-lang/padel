@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import LanguageIcon from '../components/LanguageIcon'
+
+/** Format phone from URL (digits only) to display format e.g. 966512345678 → 0512345678 */
+function formatPhoneFromUrl(s) {
+  if (!s || typeof s !== 'string') return ''
+  const digits = s.replace(/\D/g, '')
+  if (digits.startsWith('9665') && digits.length === 12) return '0' + digits.slice(3)
+  if (digits.startsWith('966') && digits.length >= 10) return '0' + digits.slice(3)
+  if (digits.length >= 9) return digits.startsWith('5') ? '0' + digits : digits
+  return digits ? digits : s
+}
 import { getCurrentPlatformUser, setCurrentPlatformUser } from '../storage/platformAuth'
 import { upsertMember, getMergedMembersRaw } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
@@ -10,8 +20,14 @@ const Register = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const joinClubId = searchParams.get('join')
+  const phoneFromUrl = searchParams.get('phone')
   const [language, setLanguage] = useState(getAppLanguage())
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '' })
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: formatPhoneFromUrl(phoneFromUrl || ''),
+    password: ''
+  })
   const [agreeToTerms, setAgreeToTerms] = useState(false)
   const [error, setError] = useState('')
 

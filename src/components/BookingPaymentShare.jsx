@@ -14,23 +14,26 @@ function normalizePhone(s) {
   return s.replace(/\s/g, '').replace(/^00/, '+').replace(/^0/, '+966')
 }
 
-/** Build registration URL with club join (same club as booking) */
-function getRegisterUrl(clubId) {
+/** Build registration URL with club join and optional phone for pre-fill */
+function getRegisterUrl(clubId, phone) {
   if (!clubId) return ''
-  const base = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) || '/'
-  const path = base.replace(/\/$/, '') + '/register?join=' + encodeURIComponent(clubId)
-  if (typeof window !== 'undefined') {
-    return window.location.origin + (path.startsWith('/') ? path : '/' + path)
+  if (typeof window === 'undefined') return ''
+  const pathname = window.location.pathname || ''
+  const base = pathname.startsWith('/app/') ? '/app' : ''
+  let url = window.location.origin + base + '/register?join=' + encodeURIComponent(clubId)
+  if (phone) {
+    const digits = String(phone).replace(/\D/g, '')
+    if (digits.length >= 8) url += '&phone=' + encodeURIComponent(digits)
   }
-  return path
+  return url
 }
 
-/** Build WhatsApp share link with registration URL */
+/** Build WhatsApp share link with registration URL (includes phone for pre-fill) */
 function buildWhatsAppLink(phone, clubName, dateStr, timeStr, amount, currency, clubId) {
   const p = normalizePhone(phone)
   const num = p.replace(/\D/g, '')
   const base = num.startsWith('966') ? `966${num.slice(3)}` : num
-  const registerUrl = getRegisterUrl(clubId)
+  const registerUrl = getRegisterUrl(clubId, phone)
   const registerText = registerUrl
     ? `سجّل في PlayTix للمشاركة: ${registerUrl}`
     : 'سجّل في PlayTix للمشاركة'
