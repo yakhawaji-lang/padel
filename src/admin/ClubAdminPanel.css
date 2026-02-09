@@ -1,7 +1,8 @@
-/* Club Admin Panel - Professional layout, consistent across browsers and devices */
+/* Club Admin Panel - Full-width layout with top nav only (no sidebar) */
 
 .club-admin-panel {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   height: 100dvh;
   min-height: -webkit-fill-available;
@@ -12,28 +13,11 @@
   max-width: 100vw;
 }
 
-.club-admin-sidebar-backdrop {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.4);
-  z-index: 99;
-  -webkit-tap-highlight-color: transparent;
-  backdrop-filter: blur(2px);
-}
-
-.club-admin-panel.sidebar-open .club-admin-sidebar-backdrop {
-  display: block;
-}
-
 .club-admin-content {
   flex: 1;
-  margin-inline-start: 260px;
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  height: 100dvh;
-  min-height: -webkit-fill-available;
+  min-height: 0;
   overflow: hidden;
   min-width: 0;
   width: 100%;

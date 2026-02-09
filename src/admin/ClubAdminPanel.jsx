@@ -3,7 +3,6 @@ import { Routes, Route, Navigate, useParams, useNavigate } from 'react-router-do
 import './ClubAdminPanel.css'
 import './admin-rtl.css'
 import './pages/club-pages-common.css'
-import ClubAdminSidebar from './components/ClubAdminSidebar'
 import ClubAdminHeader from './components/ClubAdminHeader'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import { setClubLanguage } from '../storage/appSettingsStorage'
@@ -26,7 +25,6 @@ function ClubAdminPanel() {
   const [clubs, setClubs] = useState([])
   const [language, setLanguage] = useState('en')
   const [isLoading, setIsLoading] = useState(true)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const loadData = async (silent = false) => {
     if (!silent) setIsLoading(true)
@@ -102,25 +100,12 @@ function ClubAdminPanel() {
   }
 
   return (
-    <div className={`club-admin-panel ${sidebarOpen ? 'sidebar-open' : ''} ${language === 'ar' ? 'rtl' : ''}`}>
-      <div
-        className="club-admin-sidebar-backdrop"
-        aria-hidden={!sidebarOpen}
-        onClick={() => setSidebarOpen(false)}
-      />
-      <ClubAdminSidebar 
-        club={club}
-        language={language}
-        onLanguageChange={setLanguage}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
-      <div className="club-admin-content" onClick={() => setSidebarOpen(false)}>
+    <div className={`club-admin-panel ${language === 'ar' ? 'rtl' : ''}`}>
+      <div className="club-admin-content">
         <ClubAdminHeader 
           club={club}
           language={language}
           onLanguageChange={setLanguage}
-          onMenuToggle={() => setSidebarOpen(true)}
         />
         {club.status === 'pending' && (
           <div className="club-pending-banner" role="status">
