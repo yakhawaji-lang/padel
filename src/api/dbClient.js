@@ -35,9 +35,27 @@ async function fetchJson(path, options = {}) {
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || res.statusText)
+    const e = new Error(err.error || res.statusText)
+    e.status = res.status
+    throw e
   }
   return res.json()
+}
+
+/** Retry on 504 Gateway Timeout (server slow) - up to 2 retries, 3s delay */
+async function fetchWithRetry(path, options, maxRetries = 2) {
+  for (let i = 0; i <= maxRetries; i++) {
+    try {
+      return await fetchJson(path, options)
+    } catch (e) {
+      const is504 = e?.status === 504 || /504|Gateway Timeout|timeout/i.test(e?.message || '')
+      if (is504 && i < maxRetries) {
+        await new Promise(r => setTimeout(r, 3000))
+        continue
+      }
+      throw e
+    }
+  }
 }
 
 // ---- Data API (reads from entities + app_settings tables, DB-only) ----
@@ -75,13 +93,13 @@ export async function getStoreBatch(keys) {
 
 export async function setStore(key, value) {
   try {
-    return await fetchJson('/api/data', {
+    return await fetchWithRetry('/api/data', {
       method: 'POST',
       body: JSON.stringify({ key, value })
     })
   } catch (e) {
-    if (e.message?.includes('Not Found') || e.message?.includes('404')) {
-      return fetchJson('/api/store', {
+    if (e?.message?.includes('Not Found') || e?.message?.includes('404')) {
+      return fetchWithRetry('/api/store', {
         method: 'POST',
         body: JSON.stringify({ key, value })
       })

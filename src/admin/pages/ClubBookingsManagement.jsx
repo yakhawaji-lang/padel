@@ -72,6 +72,10 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     })
   }
 
+  const showError = (msg) => {
+    if (typeof window !== 'undefined' && window.alert) window.alert(msg)
+  }
+
   const handleSaveEdit = async () => {
     if (!editBooking?.id) return
     setActionLoading('edit')
@@ -101,6 +105,11 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       })
       setEditBooking(null)
       refresh()
+    } catch (e) {
+      const msg = language === 'en'
+        ? `Failed to save: ${e?.message || 'Server error. Try again.'}`
+        : `فشل الحفظ: ${e?.message || 'خطأ في الخادم. حاول مرة أخرى.'}`
+      showError(msg)
     } finally {
       setActionLoading(null)
     }
@@ -112,6 +121,11 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     try {
       await updateBookingInClub(club.id, b.id, { status: 'cancelled' })
       refresh()
+    } catch (e) {
+      const msg = language === 'en'
+        ? `Failed to cancel: ${e?.message || 'Server error. Try again.'}`
+        : `فشل الإلغاء: ${e?.message || 'خطأ في الخادم. حاول مرة أخرى.'}`
+      showError(msg)
     } finally {
       setActionLoading(null)
     }
@@ -123,6 +137,11 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     try {
       await deleteBookingFromClub(club.id, bookingId)
       refresh()
+    } catch (e) {
+      const msg = language === 'en'
+        ? `Failed to delete: ${e?.message || 'Server error. Try again.'}`
+        : `فشل الحذف: ${e?.message || 'خطأ في الخادم. حاول مرة أخرى.'}`
+      showError(msg)
     } finally {
       setActionLoading(null)
     }
@@ -136,6 +155,11 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     try {
       await deleteBookingFromClub(club.id, bookingId)
       refresh()
+    } catch (e) {
+      const msg = language === 'en'
+        ? `Failed to delete: ${e?.message || 'Server error. Try again.'}`
+        : `فشل الحذف النهائي: ${e?.message || 'خطأ في الخادم. حاول مرة أخرى.'}`
+      showError(msg)
     } finally {
       setActionLoading(null)
     }

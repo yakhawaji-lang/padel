@@ -478,7 +478,6 @@ export const syncMembersToClubs = (clubs) => {
     
     if (hasChanges) {
       saveClubs(clubs).catch(e => console.error('saveClubs:', e))
-      console.log('Synced members to clubs:', clubs.map(c => ({ name: c.name, members: c.members?.length || 0 })))
     }
   } catch (error) {
     console.error('Error syncing members to clubs:', error)
