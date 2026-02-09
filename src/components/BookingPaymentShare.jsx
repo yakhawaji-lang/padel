@@ -96,10 +96,22 @@ export default function BookingPaymentShare({
     try {
       const contacts = await navigator.contacts.select(['tel', 'name'], { multiple: true })
       if (contacts?.length > 0) {
-        const first = contacts[0]
-        const tel = (first.tel && first.tel[0]) || ''
-        if (tel) addUnregistered(tel, true)
-        else setContactError(t('No phone number in selected contact', 'لا يوجد رقم في جهة الاتصال المختارة'))
+        const validPhones = contacts.map(c => (c.tel && c.tel[0]) || '').map(tel => normalizePhone(tel)).filter(p => p && p.length >= 8)
+        if (validPhones.length > 0) {
+          const totalParticipants = shares.length + validPhones.length + 1
+          const amt = splitMode === 'equal'
+            ? Math.round((totalPrice / totalParticipants) * 100) / 100
+            : Math.round((remaining / validPhones.length) * 100) / 100
+          const newShares = validPhones.map(p => ({
+            phone: p,
+            type: 'unregistered',
+            amount: amt,
+            whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, amt, currency)
+          }))
+          onChange([...shares, ...newShares])
+        } else {
+          setContactError(t('No valid phone in selected contacts', 'لا يوجد رقم صالح في جهات الاتصال المختارة'))
+        }
       }
     } catch (e) {
       if (e.name === 'SecurityError' || e.message?.includes('gesture')) {
