@@ -643,7 +643,8 @@ export async function saveClubsToNormalized(items, actor = {}) {
       [cid, JSON.stringify(storeData), actor.actorId || null]
     )
 
-    const memberIds = club.members || []
+    const memberList = club.members || []
+    const memberIds = memberList.map((m) => (m != null && typeof m === 'object' && m.id != null ? String(m.id) : (m != null ? String(m) : null))).filter(Boolean)
     await query('DELETE FROM member_clubs WHERE club_id = ?', [cid])
     for (const mid of memberIds) {
       if (mid) await query('INSERT IGNORE INTO member_clubs (member_id, club_id) VALUES (?, ?)', [mid, cid])

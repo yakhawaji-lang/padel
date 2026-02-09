@@ -74,11 +74,17 @@ if (connectionString && isMySQL && !hasPlaceholderHost) {
   }
 }
 
+/** Sanitize params for MySQL: undefined -> null (fixes mysqld_stmt_execute) */
+function sanitizeParams(params) {
+  if (!Array.isArray(params)) return []
+  return params.map((p) => (p === undefined ? null : p))
+}
+
 /** Query wrapper - returns { rows, insertId } for compatibility with pg-style code */
 export async function query(text, params = []) {
   if (!pool) throw new Error('Database not configured. Set DATABASE_URL (mysql://...).')
   const sql = text.replace(/\$(\d+)/g, () => '?')
-  const args = params
+  const args = sanitizeParams(params)
   const [result] = await pool.execute(sql, args)
   const rows = Array.isArray(result) ? result : []
   const insertId = result?.insertId
