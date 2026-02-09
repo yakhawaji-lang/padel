@@ -18,18 +18,83 @@
   max-width: 100vw;
 }
 
-/* Mobile backdrop للقائمة الجانبية */
-.app-sidebar-backdrop {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 998;
-  -webkit-tap-highlight-color: transparent;
+/* Top Tab Navigation - بدون قائمة جانبية */
+.app-top-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0 20px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  min-height: 52px;
 }
 
-.app.sidebar-open .app-sidebar-backdrop {
-  display: block;
+.app-top-nav-scroll {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 6px 0;
+}
+
+.app-top-nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.app-top-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.app-top-tab:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.app-top-tab.active {
+  background: #1e3a5f;
+  color: #fff;
+}
+
+.app-top-tab-icon {
+  font-size: 1.1rem;
+}
+
+.app-top-nav-dashboard {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 8px;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.app-top-nav-dashboard:hover {
+  background: #e2e8f0;
+  color: #1e293b;
 }
 
 /* Header */
@@ -153,130 +218,17 @@
   gap: 10px;
 }
 
-/* App Layout */
+/* App Layout - بدون قائمة جانبية (تنقل علوي فقط) */
+.app.app-top-nav-only .app-layout {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
 .app-layout {
   display: flex;
   flex: 1;
   overflow: hidden;
-}
-
-/* Sidebar */
-.sidebar {
-  width: 250px;
-  flex-shrink: 0;
-  background: #1e293b;
-  color: white;
-  overflow-y: auto;
-  overflow-x: hidden;
-  border-right: 1px solid #334155;
-  display: flex;
   flex-direction: column;
-  -webkit-overflow-scrolling: touch;
-  position: relative;
-}
-
-.sidebar-close {
-  display: none;
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 40px;
-  height: 40px;
-  border: none;
-  background: rgba(255, 255, 255, 0.15);
-  color: white;
-  font-size: 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  align-items: center;
-  justify-content: center;
-  z-index: 5;
-}
-
-.sidebar-close:hover {
-  background: rgba(255, 255, 255, 0.25);
-}
-
-/* جوال و تابلت — الشريط الجانبي كـ drawer */
-@media (max-width: 1024px) {
-  .app-menu-toggle {
-    display: flex;
-  }
-
-  .app-layout {
-    margin-left: 0;
-  }
-
-  /* RTL: الشريط من اليمين */
-  .app.rtl .sidebar {
-    left: auto;
-    right: 0;
-    transform: translateX(100%);
-    padding-left: 0;
-    padding-right: env(safe-area-inset-right);
-  }
-
-  .app.rtl.sidebar-open .sidebar {
-    transform: translateX(0);
-  }
-
-  .sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: min(280px, 88vw);
-    max-width: 320px;
-    z-index: 999;
-    transform: translateX(-100%);
-    transition: transform 0.25s ease;
-    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
-    padding-left: env(safe-area-inset-left);
-  }
-
-  .app.sidebar-open .sidebar {
-    transform: translateX(0);
-  }
-
-  .sidebar-close {
-    display: flex;
-  }
-
-  .sidebar-section {
-    padding: 20px;
-    padding-top: 60px;
-  }
-
-  .sidebar-tab {
-    min-height: 48px;
-    padding: 14px 20px;
-  }
-
-  .sidebar-back-dashboard {
-    min-height: 48px;
-  }
-
-  .app-header {
-    padding: 0 12px 0 16px;
-  }
-
-  .header-title {
-    font-size: 1rem;
-  }
-
-  .main-content {
-    padding: 12px 16px;
-    padding-bottom: max(16px, env(safe-area-inset-bottom));
-  }
-
-  .content-tabs-container {
-    padding: 0 12px;
-  }
-
-  .content-tab {
-    padding: 10px 14px;
-    font-size: 13px;
-  }
 }
 
 @media (max-width: 480px) {
@@ -1091,6 +1043,11 @@
   flex-direction: row;
 }
 
+/* تطبيق النادي: تنقل علوي فقط - إخفاء أي قائمة جانبية إن وُجدت */
+.app.app-top-nav-only .sidebar,
+.app.app-top-nav-only .sidebar-section {
+  display: none !important;
+}
 .app.rtl .sidebar {
   border-right: none;
   border-left: 1px solid #334155;
