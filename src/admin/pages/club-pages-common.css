@@ -372,12 +372,52 @@
   box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
 }
 
+/* صف الإجراءات (أزرار تحت الترويسة) - محاذاة حسب الاتجاه */
+.cxp-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+/* جداول: محاذاة حسب الاتجاه (عربي/إنجليزي) */
+.cxp-card table,
+.club-admin-page table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.club-admin-page th,
+.club-admin-page td,
+.cxp-card th,
+.cxp-card td {
+  text-align: start;
+  padding: 12px 16px;
+}
+.club-admin-page thead th,
+.cxp-card thead th {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #334155;
+  border-bottom: 2px solid #e2e8f0;
+  background: #f8fafc;
+}
+.club-admin-page tbody td,
+.cxp-card tbody td {
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.9375rem;
+}
+
 /* RTL: محاذاة النصوص والأزرار */
 [dir="rtl"] .cxp-header-actions {
   flex-direction: row-reverse;
 }
 
 [dir="rtl"] .cxp-form-actions {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .cxp-title {
   flex-direction: row-reverse;
 }
 

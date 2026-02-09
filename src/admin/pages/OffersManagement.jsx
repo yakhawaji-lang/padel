@@ -233,21 +233,22 @@ const OffersManagement = ({ currentClub, clubs, onUpdateClub, language: langProp
 
   return (
     <div className="club-admin-page offers-management-page">
+      <header className="cxp-header">
+        <div className="cxp-header-title-wrap">
+          <h1 className="cxp-title">
+            {currentClub.logo && <img src={currentClub.logo} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'contain' }} />}
+            {c.title} — {language === 'ar' ? (currentClub.nameAr || currentClub.name) : currentClub.name}
+          </h1>
+          <p className="cxp-subtitle">{c.subtitle}</p>
+        </div>
+        <div className="cxp-header-actions">
+          <button type="button" className="cxp-btn cxp-btn--primary" onClick={openCreate}>
+            + {c.create}
+          </button>
+        </div>
+      </header>
       <div className="offers-management">
-        <div className="offers-page-header">
-          <div className="offers-header-top">
-            <div className="offers-title-wrap">
-              <h2 className="page-title">
-                {currentClub.logo && <img src={currentClub.logo} alt="" className="club-logo" />}
-                {c.title} — {language === 'ar' && currentClub.nameAr ? currentClub.nameAr : currentClub.name}
-              </h2>
-              <p className="offers-subtitle">{c.subtitle}</p>
-            </div>
-            <button type="button" className="btn-primary btn-create-offer" onClick={openCreate}>
-              + {c.create}
-            </button>
-          </div>
-          <div className="offers-stats-row">
+        <div className="offers-stats-row">
             <div className="offer-stat-card">
               <span className="offer-stat-value">{stats.total}</span>
               <span className="offer-stat-label">{c.stats.total}</span>
@@ -285,8 +286,6 @@ const OffersManagement = ({ currentClub, clubs, onUpdateClub, language: langProp
               {c.expired}
             </button>
           </div>
-        </div>
-
         <div className="offers-list">
           {filteredOffers.length === 0 ? (
             <div className="offers-empty-state">

@@ -46,7 +46,7 @@
 
 .bookings-table th {
   padding: 12px 15px;
-  text-align: left;
+  text-align: start;
   font-weight: 600;
   font-size: 14px;
   color: #333;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { loadClubs, getClubById, getClubMembersFromStorage, deleteBookingFromClub, updateBookingInClub } from '../../storage/adminStorage'
 import { calculateBookingPrice } from '../../utils/bookingPricing'
+import './club-pages-common.css'
 import './BookingsManagement.css'
 
 const ClubBookingsManagement = ({ club, language, onRefresh }) => {
@@ -223,18 +224,25 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   if (!club) return null
 
   return (
-    <div className="admin-page">
-      <div className="bookings-management">
-        <div className="page-header">
-          <h2 className="page-title">
-            {club.logo && <img src={club.logo} alt="" className="club-logo" />}
-            {c.bookings} – {language === 'ar' && club.nameAr ? club.nameAr : club.name}
-          </h2>
-          <button type="button" className="btn-primary" onClick={refresh}>
-            {c.refresh}
+    <div className="club-admin-page">
+      <header className="cxp-header">
+        <div className="cxp-header-title-wrap">
+          <h1 className="cxp-title">
+            {club.logo && <img src={club.logo} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'contain' }} />}
+            {c.bookings} — {language === 'ar' ? (club.nameAr || club.name) : club.name}
+          </h1>
+          <p className="cxp-subtitle">
+            {language === 'en' ? 'View and manage court bookings' : 'عرض وإدارة حجوزات الملاعب'}
+          </p>
+        </div>
+        <div className="cxp-header-actions">
+          <button type="button" className="cxp-btn cxp-btn--secondary" onClick={refresh}>
+            ↻ {c.refresh}
           </button>
         </div>
+      </header>
 
+      <div className="bookings-management">
         <div className="bookings-tabs">
           <button
             type="button"
@@ -252,7 +260,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
           </button>
         </div>
 
-        <div className="bookings-table">
+        <div className="bookings-table cxp-card" style={{ overflow: 'hidden', padding: 0 }}>
           <table>
             <thead>
               <tr>

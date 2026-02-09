@@ -107,7 +107,7 @@ function ClubAdminPanel() {
   const section = location.pathname.split('/').filter(Boolean).pop() || 'dashboard'
 
   return (
-    <div className={`club-admin-panel club-admin-panel--${section} ${language === 'ar' ? 'rtl' : ''}`}>
+    <div className={`club-admin-panel club-admin-panel--${section} ${language === 'ar' ? 'rtl' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
       <div className="club-admin-content">
         <ClubAdminHeader 
           club={club}

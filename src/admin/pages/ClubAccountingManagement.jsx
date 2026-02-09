@@ -111,7 +111,7 @@ const ClubAccountingManagement = ({ club, onUpdateClub, language }) => {
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+      <div className="cxp-actions-row">
         <button type="button" className="cxp-btn cxp-btn--primary" onClick={() => setShowAdd(true)}>
           + {t('Add Transaction', 'إضافة عملية', lang)}
         </button>

@@ -93,85 +93,98 @@ export default function ClubUsersManagement({ club, onUpdateClub, language = 'en
     <div className="club-admin-page club-members-management">
       <header className="cxp-header">
         <div className="cxp-header-title-wrap">
-          <h1 className="cxp-title">{t('Club Admin Users', 'مدراء النادي', language)}</h1>
+          <h1 className="cxp-title">
+            {club?.logo && <img src={club.logo} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'contain' }} />}
+            {t('Club Admin Users', 'مدراء النادي', language)} — {language === 'ar' ? (club?.nameAr || club?.name) : club?.name}
+          </h1>
           <p className="cxp-subtitle">{t('Manage users who can access this club admin', 'إدارة المستخدمين الذين يمكنهم الوصول لتحكم النادي', language)}</p>
         </div>
+        <div className="cxp-header-actions">
+          <button type="button" className="cxp-btn cxp-btn--primary" onClick={() => { setShowAdd(true); setForm({ email: '', password: '', permissions: [] }); setError('') }}>
+            + {t('Add User', 'إضافة مستخدم', language)}
+          </button>
+        </div>
       </header>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
-        <button type="button" className="cxp-btn cxp-btn--primary" onClick={() => { setShowAdd(true); setForm({ email: '', password: '', permissions: [] }); setError('') }}>
-          + {t('Add User', 'إضافة مستخدم', language)}
-        </button>
-      </div>
 
-          {showAdd && !editingId && (
-        <div className="modal-overlay" onClick={() => { setShowAdd(false); setError('') }}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3>{t('Add Club Admin User', 'إضافة مدير للنادي', language)}</h3>
-            <form onSubmit={handleAdd}>
-              {error && <p className="register-error" style={{ marginBottom: 12 }}>{error}</p>}
-              <div className="form-group">
-                <label>{t('Email', 'البريد')} *</label>
-                <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required />
-              </div>
-              <div className="form-group">
-                <label>{t('Password', 'كلمة المرور')} * (min 6)</label>
-                <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required minLength={6} />
-              </div>
-              <div className="form-group">
-                <label>{t('Pages access', 'صفحات الوصول')}</label>
-                <div className="permissions-checkbox-grid">
-                  {CLUB_PERMISSIONS.map(p => (
-                    <label key={p.id} className="permission-checkbox-item">
-                      <input type="checkbox" checked={form.permissions.includes(p.id)} onChange={() => togglePerm(p.id)} />
-                      <span>{p.label[language]}</span>
-                    </label>
-                  ))}
+      {showAdd && !editingId && (
+        <div className="cxp-modal-backdrop" onClick={() => { setShowAdd(false); setError('') }} role="presentation">
+          <div className="cxp-modal" onClick={e => e.stopPropagation()} role="dialog">
+            <div className="cxp-modal-header">
+              <h3>{t('Add Club Admin User', 'إضافة مدير للنادي', language)}</h3>
+              <button type="button" className="cxp-modal-close" onClick={() => { setShowAdd(false); setError('') }} aria-label="Close">&times;</button>
+            </div>
+            <div className="cxp-modal-body">
+              <form onSubmit={handleAdd}>
+                {error && <p className="register-error" style={{ marginBottom: 12 }}>{error}</p>}
+                <div className="cxp-form-group">
+                  <label>{t('Email', 'البريد', language)} *</label>
+                  <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required />
                 </div>
-              </div>
-              <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-                <button type="submit" className="btn-primary">{t('Add', 'إضافة', language)}</button>
-                <button type="button" className="btn-secondary" onClick={() => setShowAdd(false)}>{t('Cancel', 'إلغاء', language)}</button>
-              </div>
-            </form>
+                <div className="cxp-form-group">
+                  <label>{t('Password', 'كلمة المرور', language)} * (min 6)</label>
+                  <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required minLength={6} />
+                </div>
+                <div className="cxp-form-group">
+                  <label>{t('Pages access', 'صفحات الوصول', language)}</label>
+                  <div className="permissions-checkbox-grid">
+                    {CLUB_PERMISSIONS.map(p => (
+                      <label key={p.id} className="permission-checkbox-item">
+                        <input type="checkbox" checked={form.permissions.includes(p.id)} onChange={() => togglePerm(p.id)} />
+                        <span>{p.label[language]}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="cxp-form-actions">
+                  <button type="button" className="cxp-btn cxp-btn--secondary" onClick={() => setShowAdd(false)}>{t('Cancel', 'إلغاء', language)}</button>
+                  <button type="submit" className="cxp-btn cxp-btn--primary">{t('Add', 'إضافة', language)}</button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
 
       {editingId && (
-        <div className="modal-overlay" onClick={() => { setEditingId(null); setForm({ email: '', password: '', permissions: [] }) }}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3>{t('Edit Club Admin User', 'تعديل مدير النادي', language)}</h3>
-            <form onSubmit={handleEdit}>
-              {error && <p className="register-error" style={{ marginBottom: 12 }}>{error}</p>}
-              <div className="form-group">
-                <label>{t('Email', 'البريد')} *</label>
-                <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required />
-              </div>
-              <div className="form-group">
-                <label>{t('Password', 'كلمة المرور')} (min 6, leave blank to keep)</label>
-                <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" />
-              </div>
-              <div className="form-group">
-                <label>{t('Pages access', 'صفحات الوصول')}</label>
-                <div className="permissions-checkbox-grid">
-                  {CLUB_PERMISSIONS.map(p => (
-                    <label key={p.id} className="permission-checkbox-item">
-                      <input type="checkbox" checked={form.permissions.includes(p.id)} onChange={() => togglePerm(p.id)} />
-                      <span>{p.label[language]}</span>
-                    </label>
-                  ))}
+        <div className="cxp-modal-backdrop" onClick={() => { setEditingId(null); setForm({ email: '', password: '', permissions: [] }) }} role="presentation">
+          <div className="cxp-modal" onClick={e => e.stopPropagation()} role="dialog">
+            <div className="cxp-modal-header">
+              <h3>{t('Edit Club Admin User', 'تعديل مدير النادي', language)}</h3>
+              <button type="button" className="cxp-modal-close" onClick={() => { setEditingId(null); setForm({ email: '', password: '', permissions: [] }) }} aria-label="Close">&times;</button>
+            </div>
+            <div className="cxp-modal-body">
+              <form onSubmit={handleEdit}>
+                {error && <p className="register-error" style={{ marginBottom: 12 }}>{error}</p>}
+                <div className="cxp-form-group">
+                  <label>{t('Email', 'البريد', language)} *</label>
+                  <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required />
                 </div>
-              </div>
-              <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-                <button type="submit" className="btn-primary">{t('Save', 'حفظ', language)}</button>
-                <button type="button" className="btn-secondary" onClick={() => { setEditingId(null); setForm({ email: '', password: '', permissions: [] }) }}>{t('Cancel', 'إلغاء', language)}</button>
-              </div>
-            </form>
+                <div className="cxp-form-group">
+                  <label>{t('Password', 'كلمة المرور', language)} (min 6, leave blank to keep)</label>
+                  <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" />
+                </div>
+                <div className="cxp-form-group">
+                  <label>{t('Pages access', 'صفحات الوصول', language)}</label>
+                  <div className="permissions-checkbox-grid">
+                    {CLUB_PERMISSIONS.map(p => (
+                      <label key={p.id} className="permission-checkbox-item">
+                        <input type="checkbox" checked={form.permissions.includes(p.id)} onChange={() => togglePerm(p.id)} />
+                        <span>{p.label[language]}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="cxp-form-actions">
+                  <button type="button" className="cxp-btn cxp-btn--secondary" onClick={() => { setEditingId(null); setForm({ email: '', password: '', permissions: [] }) }}>{t('Cancel', 'إلغاء', language)}</button>
+                  <button type="submit" className="cxp-btn cxp-btn--primary">{t('Save', 'حفظ', language)}</button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
 
-      <div className="members-table-wrap">
+      <div className="members-table-wrap cxp-card" style={{ overflow: 'hidden', padding: 0 }}>
         <table className="members-table">
           <thead>
             <tr>

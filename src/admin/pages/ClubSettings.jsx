@@ -227,20 +227,21 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
 
   return (
     <div className="club-admin-page">
-      <div className="club-settings">
-        <header className="club-settings-header">
-          <div className="club-settings-header-title">
-            <h2 className="club-settings-page-title">
-              {club.logo && <img src={club.logo} alt="" className="club-logo-in-title" />}
-              {t('Club Settings', 'إعدادات النادي', lang)} — {lang === 'ar' ? (club.nameAr || club.name) : club.name}
-            </h2>
-            <p className="club-settings-subtitle">{t('Manage your club profile and preferences', 'إدارة الملف الشخصي والإعدادات للنادي', lang)}</p>
-          </div>
-          <button className="club-settings-save-btn" onClick={handleSave}>
+      <header className="cxp-header">
+        <div className="cxp-header-title-wrap">
+          <h1 className="cxp-title">
+            {club.logo && <img src={club.logo} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'contain' }} />}
+            {t('Club Settings', 'إعدادات النادي', lang)} — {lang === 'ar' ? (club.nameAr || club.name) : club.name}
+          </h1>
+          <p className="cxp-subtitle">{t('Manage your club profile and preferences', 'إدارة الملف الشخصي والإعدادات للنادي', lang)}</p>
+        </div>
+        <div className="cxp-header-actions">
+          <button type="button" className="cxp-btn cxp-btn--primary" onClick={handleSave}>
             ✓ {t('Save Settings', 'حفظ الإعدادات', lang)}
           </button>
-        </header>
-
+        </div>
+      </header>
+      <div className="club-settings">
         <div className="club-settings-tabs">
           {tabs.map(({ id, label, icon }) => (
             <button

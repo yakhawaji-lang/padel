@@ -688,14 +688,15 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
 
   return (
     <div className="club-admin-page club-store-management">
-      <div className="store-page-header">
-        <h2 className="page-title">
-          {club.logo && <img src={club.logo} alt="" className="club-logo" />}
-          {c.title} – {language === 'ar' && club.nameAr ? club.nameAr : club.name}
-        </h2>
-      </div>
-
-      <p className="store-enabled-note">{c.storeEnabledNote}</p>
+      <header className="cxp-header">
+        <div className="cxp-header-title-wrap">
+          <h1 className="cxp-title">
+            {club.logo && <img src={club.logo} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'contain' }} />}
+            {c.title} — {language === 'ar' ? (club.nameAr || club.name) : club.name}
+          </h1>
+          <p className="cxp-subtitle">{c.storeEnabledNote}</p>
+        </div>
+      </header>
 
       <div className="store-tabs">
         {tabs.map(tab => (

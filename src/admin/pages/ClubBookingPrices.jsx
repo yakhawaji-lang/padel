@@ -144,21 +144,24 @@ const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
 
   return (
     <div className="club-admin-page">
-      <div className="cbp-page">
-        <header className="cbp-header">
-          <div className="cbp-header-content">
-            <h2 className="cbp-title">
-              <span className="cbp-icon">💰</span>
-              {t('Court Booking Prices', 'أسعار حجوزات الملاعب', lang)}
-            </h2>
-            <p className="cbp-subtitle">
-              {t('Configure pricing by duration, days, time, and seasons', 'إعداد الأسعار حسب المدة والأيام والوقت والمواسم', lang)}
-            </p>
-          </div>
-          <button className="cbp-save-btn" onClick={handleSave}>
+      <header className="cxp-header">
+        <div className="cxp-header-title-wrap">
+          <h1 className="cxp-title">
+            {club.logo && <img src={club.logo} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'contain' }} />}
+            <span>💰</span>
+            {t('Court Booking Prices', 'أسعار حجوزات الملاعب', lang)} — {lang === 'ar' ? (club.nameAr || club.name) : club.name}
+          </h1>
+          <p className="cxp-subtitle">
+            {t('Configure pricing by duration, days, time, and seasons', 'إعداد الأسعار حسب المدة والأيام والوقت والمواسم', lang)}
+          </p>
+        </div>
+        <div className="cxp-header-actions">
+          <button type="button" className="cxp-btn cxp-btn--primary" onClick={handleSave}>
             ✓ {t('Save', 'حفظ', lang)}
           </button>
-        </header>
+        </div>
+      </header>
+      <div className="cbp-page">
 
         <div className="cbp-tabs">
           {tabs.map(({ id, label, icon }) => (
