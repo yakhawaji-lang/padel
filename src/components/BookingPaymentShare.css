@@ -1,296 +1,372 @@
-/* Booking payment share - مشاركة الدفع */
+/* Booking payment share - مشاركة الدفع - احترافي ومتجاوب */
+
 .booking-payment-share {
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 20px;
+  padding-top: 20px;
   border-top: 1px solid #e2e8f0;
 }
 
 .booking-payment-share-header {
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
-.booking-payment-share-header label {
+
+.booking-payment-share-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
   font-size: 0.9375rem;
   font-weight: 600;
   color: #334155;
-}
-.booking-payment-share-header input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  padding: 8px 0;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
-.booking-payment-share-split {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.booking-payment-share-split button {
-  padding: 6px 12px;
-  font-size: 0.8125rem;
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  border-radius: 8px;
+.booking-payment-share-toggle input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  margin: 0;
   cursor: pointer;
-  transition: all 0.2s;
+  accent-color: #1e3a5f;
 }
-.booking-payment-share-split button:hover {
-  background: #f1f5f9;
+
+.booking-payment-share-toggle-text {
+  flex: 1;
 }
-.booking-payment-share-split button.active {
-  background: #1e3a5f;
-  color: #fff;
-  border-color: #1e3a5f;
+
+.booking-payment-share-panel {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.booking-payment-share-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.booking-payment-share-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.booking-payment-share-radio input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: #1e3a5f;
 }
 
 .booking-payment-share-list {
   list-style: none;
-  margin: 0 0 12px;
+  margin: 0 0 16px;
   padding: 0;
 }
 
 .booking-payment-share-item {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: #f8fafc;
-  border-radius: 8px;
-  margin-bottom: 6px;
-}
-.booking-payment-share-item .participant-label {
-  flex: 1;
-  font-size: 0.875rem;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.booking-payment-share-item .whatsapp-link {
-  font-size: 1rem;
-  text-decoration: none;
-}
-.booking-payment-share-item .participant-amount {
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-.booking-payment-share-item .amount-input {
-  width: 70px;
-  padding: 4px 8px;
-  font-size: 0.875rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-}
-.booking-payment-share-item .remove-btn {
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  background: #fecaca;
-  color: #991b1b;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 1.1rem;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.booking-payment-share-item .remove-btn:hover {
-  background: #fca5a5;
-}
-
-.booking-payment-share-summary {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.8125rem;
-  color: #64748b;
-  margin-bottom: 8px;
-}
-
-.booking-payment-share-error {
-  color: #dc2626;
-  font-size: 0.8125rem;
-  margin: 0 0 8px;
-}
-
-.booking-payment-share-add {
-  margin-top: 12px;
-}
-.add-buttons {
-  display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-}
-.add-buttons button,
-.add-registered button,
-.add-unregistered button {
-  padding: 8px 14px;
-  font-size: 0.8125rem;
-  border: 1px solid #cbd5e1;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 14px;
   background: #fff;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.add-buttons button:hover,
-.add-registered button:hover:not(:disabled),
-.add-unregistered button:hover:not(:disabled) {
-  background: #f1f5f9;
-}
-.add-registered,
-.add-unregistered {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-}
-.add-registered .member-select,
-.add-unregistered .phone-input {
-  padding: 8px 12px;
-  font-size: 0.875rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  min-width: 140px;
-}
-.add-unregistered .phone-input {
-  min-width: 160px;
-}
-.contact-error {
-  color: #dc2626;
-  font-size: 0.8125rem;
-  margin: 0;
-  width: 100%;
-}
-
-.booking-payment-share-mode {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 12px;
-}
-.booking-payment-share-mode label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  font-size: 0.875rem;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .booking-payment-share-item-label {
   flex: 1;
+  min-width: 80px;
   font-size: 0.875rem;
+  font-weight: 500;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
 .booking-payment-share-item-amount {
   display: flex;
   align-items: center;
   gap: 6px;
 }
+
 .booking-payment-share-item-amount input {
-  width: 70px;
-  padding: 4px 8px;
+  width: 72px;
+  min-width: 72px;
+  padding: 8px 10px;
   font-size: 0.875rem;
   border: 1px solid #cbd5e1;
-  border-radius: 6px;
+  border-radius: 8px;
+  background: #fff;
 }
-.booking-payment-share-whatsapp {
+
+.booking-payment-share-item-amount input:disabled {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.booking-payment-share-currency {
   font-size: 0.8125rem;
-  color: #25d366;
-  text-decoration: none;
+  color: #64748b;
+  font-weight: 500;
 }
-.booking-payment-share-whatsapp:hover {
-  text-decoration: underline;
-}
-.booking-payment-share-remove {
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  background: #fecaca;
-  color: #991b1b;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 1.1rem;
-  line-height: 1;
-}
-.booking-payment-share-add-type {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-.booking-payment-share-add-type label {
+
+.booking-payment-share-whatsapp {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  font-size: 0.875rem;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: #25d366;
+  text-decoration: none;
+  border-radius: 8px;
+  background: rgba(37, 211, 102, 0.12);
+  transition: background 0.2s;
+  flex-shrink: 0;
 }
+
+.booking-payment-share-whatsapp:hover {
+  background: rgba(37, 211, 102, 0.2);
+}
+
+.booking-payment-share-wa-icon {
+  font-size: 1.125rem;
+}
+
+.booking-payment-share-remove {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  border: none;
+  background: #fef2f2;
+  color: #dc2626;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.booking-payment-share-remove:hover {
+  background: #fee2e2;
+}
+
+.booking-payment-share-error {
+  color: #dc2626;
+  font-size: 0.8125rem;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  background: #fef2f2;
+  border-radius: 8px;
+}
+
+.booking-payment-share-remaining {
+  margin: 0 0 16px;
+  font-size: 0.9375rem;
+  color: #475569;
+}
+
+.booking-payment-share-remaining strong {
+  color: #1e3a5f;
+}
+
+.booking-payment-share-add {
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.booking-payment-share-add-title {
+  margin: 0 0 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.booking-payment-share-add-type {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
 .booking-payment-share-members {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
+
 .booking-payment-share-member-btn {
-  padding: 6px 12px;
-  font-size: 0.8125rem;
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  border-radius: 8px;
-  cursor: pointer;
-}
-.booking-payment-share-member-btn:hover:not(:disabled) {
-  background: #f1f5f9;
-}
-.booking-payment-share-member-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.booking-payment-share-phone {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-.booking-payment-share-phone-input {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.booking-payment-share-phone-input input {
-  padding: 8px 12px;
+  padding: 10px 16px;
   font-size: 0.875rem;
   border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  min-width: 160px;
+  background: #fff;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #334155;
+  -webkit-tap-highlight-color: transparent;
 }
-.booking-payment-share-contact-btn,
-.booking-payment-share-add-phone {
-  padding: 8px 14px;
-  font-size: 0.8125rem;
+
+.booking-payment-share-member-btn:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.booking-payment-share-member-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.booking-payment-share-phone {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.booking-payment-share-phone-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.booking-payment-share-phone-row input {
+  flex: 1;
+  min-width: 140px;
+  padding: 10px 14px;
+  font-size: 0.9375rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.booking-payment-share-contact-btn {
+  padding: 10px 16px;
+  font-size: 0.875rem;
   border: 1px solid #cbd5e1;
   background: #fff;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
+  color: #475569;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
 }
+
+.booking-payment-share-contact-btn:hover {
+  background: #f1f5f9;
+}
+
 .booking-payment-share-add-phone {
+  padding: 10px 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: none;
   background: #1e3a5f;
   color: #fff;
-  border-color: #1e3a5f;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
 }
+
 .booking-payment-share-add-phone:hover {
   background: #152a47;
 }
-.booking-payment-share-remaining {
-  margin-top: 8px;
+
+.booking-payment-share-empty {
   font-size: 0.875rem;
   color: #64748b;
-}
-.booking-payment-share-add-inline {
-  margin-top: 8px;
-}
-.booking-payment-share-empty {
-  font-size: 0.8125rem;
-  color: #64748b;
   margin: 0;
+}
+
+/* Responsive - Mobile */
+@media (max-width: 480px) {
+  .booking-payment-share {
+    margin-top: 16px;
+    padding-top: 16px;
+  }
+
+  .booking-payment-share-toggle {
+    font-size: 0.9375rem;
+  }
+
+  .booking-payment-share-toggle input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    min-height: 22px;
+  }
+
+  .booking-payment-share-panel {
+    margin-top: 12px;
+    padding: 14px;
+  }
+
+  .booking-payment-share-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .booking-payment-share-item-label {
+    min-width: 0;
+  }
+
+  .booking-payment-share-item-amount {
+    width: 100%;
+  }
+
+  .booking-payment-share-item-amount input {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    padding: 10px 12px;
+  }
+
+  .booking-payment-share-member-btn {
+    width: 100%;
+    padding: 12px 16px;
+  }
+
+  .booking-payment-share-phone-row {
+    flex-direction: column;
+  }
+
+  .booking-payment-share-phone-row input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .booking-payment-share-add-phone {
+    width: 100%;
+  }
+
+  .booking-payment-share-contact-btn {
+    width: 100%;
+  }
+}
+
+/* RTL support */
+[dir="rtl"] .booking-payment-share-item-amount {
+  direction: ltr;
 }

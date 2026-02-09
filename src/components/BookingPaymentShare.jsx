@@ -8,7 +8,7 @@ import React, { useState, useCallback, useEffect } from 'react'
 
 const CONTACT_PICKER_SUPPORTED = typeof navigator !== 'undefined' && 'contacts' in navigator && typeof navigator.contacts?.select === 'function'
 
-/** Normalize phone to E.164-like for WhatsApp (remove spaces, keep + and digits) */
+/** Normalize phone to E.164-like for WhatsApp */
 function normalizePhone(s) {
   if (!s || typeof s !== 'string') return ''
   return s.replace(/\s/g, '').replace(/^00/, '+').replace(/^0/, '+966')
@@ -38,8 +38,9 @@ export default function BookingPaymentShare({
   onChange,
 }) {
   const shares = value || []
-  const [splitMode, setSplitMode] = useState('equal') // 'equal' | 'custom'
-  const [addType, setAddType] = useState('registered') // 'registered' | 'unregistered'
+  const [isExpanded, setIsExpanded] = useState(shares.length > 0)
+  const [splitMode, setSplitMode] = useState('equal')
+  const [addType, setAddType] = useState('registered')
   const [manualPhone, setManualPhone] = useState('')
   const [customAmounts, setCustomAmounts] = useState({})
   const [contactError, setContactError] = useState('')
@@ -50,9 +51,11 @@ export default function BookingPaymentShare({
 
   const totalShared = shares.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
   const remaining = Math.max(0, totalPrice - totalShared)
-  const isValid = totalShared <= totalPrice && (shares.length === 0 || totalShared > 0)
-
   const equalAmount = shares.length > 0 ? Math.round((totalPrice / (shares.length + 1)) * 100) / 100 : 0
+
+  useEffect(() => {
+    if (shares.length > 0 && !isExpanded) setIsExpanded(true)
+  }, [shares.length])
 
   useEffect(() => {
     if (splitMode === 'equal' && shares.length > 0) {
@@ -62,6 +65,15 @@ export default function BookingPaymentShare({
     }
   }, [splitMode, totalPrice, shares.length])
 
+  const handleToggle = (checked) => {
+    setIsExpanded(checked)
+    if (!checked) {
+      onChange([])
+      setContactError('')
+      setManualPhone('')
+    }
+  }
+
   const updateShareAmount = (idx, amount) => {
     const next = [...shares]
     next[idx] = { ...next[idx], amount: parseFloat(amount) || 0 }
@@ -70,23 +82,24 @@ export default function BookingPaymentShare({
 
   const addRegistered = (member) => {
     if (!member?.id) return
-    const amt = splitMode === 'equal' ? equalAmount || totalPrice / 2 : remaining / 2
+    const amt = splitMode === 'equal' ? (shares.length === 0 ? totalPrice / 2 : equalAmount) : remaining / 2
     onChange([...shares, { memberId: member.id, memberName: member.name || member.email, type: 'registered', amount: Math.round(amt * 100) / 100 }])
   }
 
-  const addUnregistered = (phone, fromContacts = false) => {
-    const p = normalizePhone(phone || manualPhone)
+  const addUnregistered = (phoneVal) => {
+    const p = normalizePhone(phoneVal || manualPhone)
     if (!p || p.length < 8) {
       setContactError(t('Enter a valid phone number', 'أدخل رقم جوال صحيح'))
       return
     }
     setContactError('')
-    const amt = splitMode === 'equal' ? equalAmount || totalPrice / 2 : remaining / 2
+    const amt = splitMode === 'equal' ? (shares.length === 0 ? totalPrice / 2 : equalAmount) : remaining / 2
+    const amount = Math.round(amt * 100) / 100
     onChange([...shares, {
       phone: p,
       type: 'unregistered',
-      amount: Math.round(amt * 100) / 100,
-      whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, Math.round(amt * 100) / 100, currency)
+      amount,
+      whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, amount, currency)
     }])
     setManualPhone('')
   }
@@ -132,95 +145,113 @@ export default function BookingPaymentShare({
         <label className="booking-payment-share-toggle">
           <input
             type="checkbox"
-            checked={shares.length > 0}
-            onChange={e => { if (!e.target.checked) onChange([]) }}
+            checked={isExpanded}
+            onChange={e => handleToggle(e.target.checked)}
+            aria-expanded={isExpanded}
           />
-          <span>{t('Share payment with others', 'مشاركة الدفع مع آخرين')}</span>
+          <span className="booking-payment-share-toggle-text">{t('Share payment with others', 'مشاركة الدفع مع آخرين')}</span>
         </label>
       </div>
 
-      {shares.length > 0 && (
-        <>
-          <div className="booking-payment-share-mode">
-            <label>
-              <input
-                type="radio"
-                name="splitMode"
-                checked={splitMode === 'equal'}
-                onChange={() => setSplitMode('equal')}
-              />
-              {t('Split equally', 'تقسيم بالتساوي')}
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="splitMode"
-                checked={splitMode === 'custom'}
-                onChange={() => setSplitMode('custom')}
-              />
-              {t('Custom amounts', 'مبالغ محددة')}
-            </label>
-          </div>
-
-          <div className="booking-payment-share-list">
-            {shares.map((s, idx) => (
-              <div key={idx} className="booking-payment-share-item">
-                <span className="booking-payment-share-item-label">
-                  {s.type === 'registered' ? (s.memberName || s.memberId) : (s.phone || t('Unregistered', 'غير مسجل'))}
-                </span>
-                <div className="booking-payment-share-item-amount">
+      {isExpanded && (
+        <div className="booking-payment-share-panel">
+          {shares.length > 0 ? (
+            <>
+              <div className="booking-payment-share-mode">
+                <label className="booking-payment-share-radio">
                   <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={splitMode === 'equal' ? equalAmount : (customAmounts[idx] ?? s.amount)}
-                    onChange={e => {
-                      const v = parseFloat(e.target.value) || 0
-                      setCustomAmounts(prev => ({ ...prev, [idx]: v }))
-                      updateShareAmount(idx, v)
-                    }}
-                    disabled={splitMode === 'equal'}
+                    type="radio"
+                    name="splitMode"
+                    checked={splitMode === 'equal'}
+                    onChange={() => setSplitMode('equal')}
                   />
-                  <span>{currency}</span>
-                </div>
-                {s.whatsappLink && (
-                  <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="booking-payment-share-whatsapp" title="Send WhatsApp">
-                    WhatsApp
-                  </a>
-                )}
-                <button type="button" className="booking-payment-share-remove" onClick={() => removeShare(idx)} aria-label={t('Remove', 'إزالة')}>
-                  ×
-                </button>
+                  <span>{t('Split equally', 'تقسيم بالتساوي')}</span>
+                </label>
+                <label className="booking-payment-share-radio">
+                  <input
+                    type="radio"
+                    name="splitMode"
+                    checked={splitMode === 'custom'}
+                    onChange={() => setSplitMode('custom')}
+                  />
+                  <span>{t('Custom amounts', 'مبالغ محددة')}</span>
+                </label>
               </div>
-            ))}
-          </div>
 
-          {totalShared > totalPrice && (
-            <p className="booking-payment-share-error">
-              {t('Total shared amount cannot exceed booking price', 'مجموع المبالغ المشاركة لا يمكن أن يتجاوز سعر الحجز')}
-            </p>
-          )}
+              <ul className="booking-payment-share-list" role="list">
+                {shares.map((s, idx) => (
+                  <li key={idx} className="booking-payment-share-item">
+                    <span className="booking-payment-share-item-label">
+                      {s.type === 'registered' ? (s.memberName || s.memberId) : (s.phone || t('Unregistered', 'غير مسجل'))}
+                    </span>
+                    <div className="booking-payment-share-item-amount">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={splitMode === 'equal' ? equalAmount : (customAmounts[idx] ?? s.amount)}
+                        onChange={e => {
+                          const v = parseFloat(e.target.value) || 0
+                          setCustomAmounts(prev => ({ ...prev, [idx]: v }))
+                          updateShareAmount(idx, v)
+                        }}
+                        disabled={splitMode === 'equal'}
+                        aria-label={t('Amount', 'المبلغ')}
+                      />
+                      <span className="booking-payment-share-currency">{currency}</span>
+                    </div>
+                    {s.whatsappLink && (
+                      <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="booking-payment-share-whatsapp" title="Send WhatsApp" aria-label="WhatsApp">
+                        <span className="booking-payment-share-wa-icon">💬</span>
+                      </a>
+                    )}
+                    <button type="button" className="booking-payment-share-remove" onClick={() => removeShare(idx)} aria-label={t('Remove', 'إزالة')}>
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+
+              {totalShared > totalPrice && (
+                <p className="booking-payment-share-error" role="alert">
+                  {t('Total shared amount cannot exceed booking price', 'مجموع المبالغ المشاركة لا يمكن أن يتجاوز سعر الحجز')}
+                </p>
+              )}
+
+              <p className="booking-payment-share-remaining">
+                {t('Your share', 'حصتك')}: <strong>{remaining.toFixed(2)} {currency}</strong>
+              </p>
+            </>
+          ) : null}
 
           <div className="booking-payment-share-add">
+            <p className="booking-payment-share-add-title">{t('Add participant', 'إضافة مشارك')}</p>
             <div className="booking-payment-share-add-type">
-              <label><input type="radio" name="addType" checked={addType === 'registered'} onChange={() => setAddType('registered')} /> {t('Registered member', 'عضو مسجل')}</label>
-              <label><input type="radio" name="addType" checked={addType === 'unregistered'} onChange={() => setAddType('unregistered')} /> {t('Not on platform', 'غير مسجل')}</label>
+              <label className="booking-payment-share-radio">
+                <input type="radio" name="addType" checked={addType === 'registered'} onChange={() => setAddType('registered')} />
+                <span>{t('Registered member', 'عضو مسجل')}</span>
+              </label>
+              <label className="booking-payment-share-radio">
+                <input type="radio" name="addType" checked={addType === 'unregistered'} onChange={() => setAddType('unregistered')} />
+                <span>{t('Not on platform', 'غير مسجل')}</span>
+              </label>
             </div>
 
             {addType === 'registered' && (
               <div className="booking-payment-share-members">
-                {otherMembers.map(m => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    className="booking-payment-share-member-btn"
-                    onClick={() => addRegistered(m)}
-                    disabled={shares.some(s => s.memberId === m.id)}
-                  >
-                    {m.name || m.email || m.id}
-                  </button>
-                ))}
-                {otherMembers.length === 0 && (
+                {otherMembers.length > 0 ? (
+                  otherMembers.map(m => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className="booking-payment-share-member-btn"
+                      onClick={() => addRegistered(m)}
+                      disabled={shares.some(s => s.memberId === m.id)}
+                    >
+                      {m.name || m.email || m.id}
+                    </button>
+                  ))
+                ) : (
                   <p className="booking-payment-share-empty">{t('No other members in club', 'لا يوجد أعضاء آخرين في النادي')}</p>
                 )}
               </div>
@@ -233,64 +264,23 @@ export default function BookingPaymentShare({
                     {t('Select from contacts', 'اختر من جهات الاتصال')}
                   </button>
                 )}
-                <div className="booking-payment-share-phone-input">
+                <div className="booking-payment-share-phone-row">
                   <input
                     type="tel"
                     placeholder={t('Or enter phone number', 'أو أدخل رقم الجوال')}
                     value={manualPhone}
                     onChange={e => { setManualPhone(e.target.value); setContactError('') }}
-                    onKeyDown={e => e.key === 'Enter' && addUnregistered()}
+                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addUnregistered())}
+                    inputMode="tel"
                   />
                   <button type="button" className="booking-payment-share-add-phone" onClick={() => addUnregistered()}>
-                    {t('Add & create WhatsApp link', 'إضافة وإنشاء رابط واتساب')}
+                    {t('Add', 'إضافة')}
                   </button>
                 </div>
-                {contactError && <p className="booking-payment-share-error">{contactError}</p>}
+                {contactError && <p className="booking-payment-share-error" role="alert">{contactError}</p>}
               </div>
             )}
           </div>
-
-          <p className="booking-payment-share-remaining">
-            {t('Your share', 'حصتك')}: {remaining.toFixed(2)} {currency}
-          </p>
-        </>
-      )}
-
-      {shares.length === 0 && (
-        <div className="booking-payment-share-add-inline">
-          <div className="booking-payment-share-add-type">
-            <label><input type="radio" name="addType" checked={addType === 'registered'} onChange={() => setAddType('registered')} /> {t('Registered member', 'عضو مسجل')}</label>
-            <label><input type="radio" name="addType" checked={addType === 'unregistered'} onChange={() => setAddType('unregistered')} /> {t('Not on platform', 'غير مسجل')}</label>
-          </div>
-          {addType === 'registered' && otherMembers.length > 0 && (
-            <div className="booking-payment-share-members">
-              {otherMembers.slice(0, 5).map(m => (
-                <button key={m.id} type="button" className="booking-payment-share-member-btn" onClick={() => addRegistered(m)}>
-                  {m.name || m.email || m.id}
-                </button>
-              ))}
-            </div>
-          )}
-          {addType === 'unregistered' && (
-            <div className="booking-payment-share-phone">
-              {CONTACT_PICKER_SUPPORTED && (
-                <button type="button" className="booking-payment-share-contact-btn" onClick={pickFromContacts}>
-                  {t('Select from contacts', 'اختر من جهات الاتصال')}
-                </button>
-              )}
-              <input
-                type="tel"
-                placeholder={t('Phone number', 'رقم الجوال')}
-                value={manualPhone}
-                onChange={e => { setManualPhone(e.target.value); setContactError('') }}
-                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addUnregistered())}
-              />
-              <button type="button" className="booking-payment-share-add-phone" onClick={() => addUnregistered()}>
-                {t('Add & WhatsApp link', 'إضافة ورابط واتساب')}
-              </button>
-              {contactError && <p className="booking-payment-share-error">{contactError}</p>}
-            </div>
-          )}
         </div>
       )}
     </div>
