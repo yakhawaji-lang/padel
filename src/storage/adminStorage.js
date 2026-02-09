@@ -772,6 +772,24 @@ export function getMemberBookings(memberId) {
   })
 }
 
+/** Update a court booking in a club. Returns the updated booking or null. */
+export async function updateBookingInClub(clubId, bookingId, updates) {
+  const clubs = loadClubs()
+  const club = clubs.find(c => c.id === clubId)
+  if (!club) return null
+  const list = club.bookings || []
+  const idx = list.findIndex(b => String(b.id) === String(bookingId))
+  if (idx < 0) return null
+  const updated = { ...list[idx], ...updates, id: list[idx].id }
+  const newList = [...list]
+  newList[idx] = updated
+  const updatedClub = { ...club, bookings: newList, updatedAt: new Date().toISOString() }
+  const updatedClubs = clubs.map(c => c.id === clubId ? updatedClub : c)
+  await saveClubs(updatedClubs)
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+  return updated
+}
+
 /** Delete a court booking from a club. Returns true on success. */
 export async function deleteBookingFromClub(clubId, bookingId) {
   const clubs = loadClubs()

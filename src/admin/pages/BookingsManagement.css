@@ -70,6 +70,142 @@
   margin-right: 5px;
 }
 
+/* Actions dropdown */
+.bookings-actions-cell {
+  position: relative;
+}
+.btn-actions-toggle {
+  padding: 6px 10px;
+  font-size: 16px;
+  line-height: 1;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #64748b;
+}
+.btn-actions-toggle:hover {
+  background: #e2e8f0;
+  color: #334155;
+}
+.bookings-actions-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+.bookings-actions-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  min-width: 180px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  padding: 4px 0;
+  z-index: 100;
+  border: 1px solid #e2e8f0;
+}
+[dir="rtl"] .bookings-actions-menu {
+  right: auto;
+  left: 0;
+}
+.bookings-action-item {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  text-align: left;
+  background: none;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  color: #334155;
+}
+[dir="rtl"] .bookings-action-item { text-align: right; }
+.bookings-action-item:hover {
+  background: #f8fafc;
+}
+.bookings-action-cancel:hover { color: #ea580c; }
+.bookings-action-delete:hover { color: #dc2626; }
+.bookings-action-permanent:hover { color: #991b1b; font-weight: 600; }
+
+/* Status badges */
+.booking-status {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.booking-status-confirmed {
+  background: #dcfce7;
+  color: #166534;
+}
+.booking-status-cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.booking-row-cancelled {
+  opacity: 0.75;
+}
+
+/* Edit modal */
+.bookings-edit-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+.bookings-edit-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.bookings-edit-modal h3 {
+  margin: 0 0 20px 0;
+  font-size: 1.25rem;
+}
+.bookings-edit-modal .form-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.bookings-edit-modal .form-row .form-group {
+  flex: 1;
+}
+.bookings-edit-modal .form-group {
+  margin-bottom: 0;
+}
+.bookings-edit-modal .form-group label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: #334155;
+}
+.bookings-edit-modal input,
+.bookings-edit-modal select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.bookings-edit-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  justify-content: flex-end;
+}
+
 /* Responsive - تابلت وجوال */
 .bookings-management {
   overflow-x: auto;
@@ -97,5 +233,9 @@
   .bookings-table td {
     padding: 8px 10px;
     font-size: 12px;
+  }
+  .bookings-edit-modal .form-row {
+    flex-direction: column;
+    gap: 12px;
   }
 }
