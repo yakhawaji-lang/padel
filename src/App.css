@@ -18,28 +18,41 @@
   max-width: 100vw;
 }
 
-/* Top Tab Navigation - بدون قائمة جانبية */
+/* Top Tab Navigation - centered tabs */
 .app-top-nav {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0;
   background: #fff;
   border-bottom: 1px solid #e2e8f0;
-  padding: 0 20px;
+  padding: 0 16px;
   flex-shrink: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   min-height: 52px;
+}
+
+.app-top-nav-spacer {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-top-nav-center {
+  flex: 0 1 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 0;
 }
 
 .app-top-nav-scroll {
   display: flex;
   align-items: center;
   gap: 4px;
-  flex: 1;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   padding: 6px 0;
+  justify-content: center;
 }
 
 .app-top-nav-scroll::-webkit-scrollbar {
@@ -77,24 +90,30 @@
   font-size: 1.1rem;
 }
 
-.app-top-nav-dashboard {
+.app-top-nav-dashboard-icon {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
   background: #f1f5f9;
   color: #475569;
-  font-size: 0.875rem;
-  font-weight: 500;
   text-decoration: none;
-  border-radius: 8px;
+  border-radius: 10px;
   flex-shrink: 0;
-  transition: all 0.2s;
+  transition: background 0.2s, color 0.2s;
 }
 
-.app-top-nav-dashboard:hover {
+.app-top-nav-dashboard-icon:hover {
   background: #e2e8f0;
-  color: #1e293b;
+  color: #1e3a5f;
+}
+
+.app-top-nav-dashboard-icon-svg {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 /* Header */
@@ -231,6 +250,13 @@
   flex-direction: column;
 }
 
+@media (max-width: 768px) {
+  .main-content {
+    padding: 16px 12px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
+
 @media (max-width: 480px) {
   .app-header {
     padding: 0 10px 0 12px;
@@ -252,7 +278,18 @@
   }
 
   .main-content {
-    padding: 10px 12px;
+    padding: 12px 10px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .app-top-nav {
+    padding: 0 8px;
+  }
+
+  .app-top-nav-dashboard-icon {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
   }
 }
 
@@ -328,14 +365,18 @@
   line-height: 1;
 }
 
-/* Main Content */
+/* Main Content - full width on all screens */
 .main-content {
   flex: 1;
   overflow-y: auto;
-  background: #f8f9fa;
+  overflow-x: hidden;
+  background: #f1f5f9;
   padding: 20px;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* Content Tabs */
@@ -1103,16 +1144,142 @@ h2 {
   margin-bottom: 15px;
 }
 
-/* ========== جدولة البطولة - تصميم احترافي ========== */
+/* ========== Home Dashboard - live overview ========== */
+.app-home-dashboard {
+  width: 100%;
+  max-width: 100%;
+  padding: 24px 16px 32px;
+  box-sizing: border-box;
+}
+
+.app-home-dashboard-title {
+  margin: 0 0 24px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.app-home-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+.app-home-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 20px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  width: 100%;
+  min-height: 120px;
+}
+
+.app-home-card:hover {
+  border-color: #1e3a5f;
+  box-shadow: 0 6px 20px rgba(30, 58, 95, 0.12);
+  transform: translateY(-2px);
+}
+
+.app-home-card-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.app-home-card-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #1e3a5f;
+  line-height: 1.2;
+}
+
+.app-home-card-label {
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.app-home-card-action {
+  font-size: 0.8125rem;
+  color: #3b82f6;
+  font-weight: 600;
+  margin-top: auto;
+}
+
+.app-home-card--wide {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  min-height: auto;
+}
+
+.app-home-card-accounting {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-home-card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  margin-top: 8px;
+  font-size: 0.9375rem;
+  color: #475569;
+}
+
+.app-home-card-stats strong {
+  color: #0f172a;
+}
+
+@media (max-width: 768px) {
+  .app-home-dashboard {
+    padding: 16px 12px 24px;
+  }
+  .app-home-dashboard-title {
+    font-size: 1.25rem;
+    margin-bottom: 16px;
+  }
+  .app-home-dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .app-home-card {
+    padding: 16px;
+    min-height: 100px;
+  }
+  .app-home-card-value {
+    font-size: 1.5rem;
+  }
+  .app-home-card--wide .app-home-card-stats {
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-home-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ========== جدولة البطولة - full width ========== */
 .tournament-schedule-page {
-  padding: 32px 28px 40px;
-  max-width: 1100px;
-  margin: 0 auto;
+  padding: 24px 16px 32px;
+  width: 100%;
+  max-width: 100%;
   min-height: 100%;
   background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 50%, #f8fafc 100%);
   border-radius: 16px;
-  margin-left: 8px;
-  margin-right: 8px;
+  box-sizing: border-box;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset;
 }
 

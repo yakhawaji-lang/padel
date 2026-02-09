@@ -24,7 +24,7 @@ import playtomicApi from './services/playtomicApi'
 function App({ currentUser }) {
   const { clubId } = useParams()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState('king') // 'king', 'social', 'members', 'oldTournaments', 'bookings', or 'accounting'
+  const [activeTab, setActiveTab] = useState('home') // 'home', 'king', 'social', 'members', 'oldTournaments', 'bookings', or 'accounting'
   const [language, setLanguage] = useState(() => getAppLanguage())
   const [currentClub, setCurrentClub] = useState(null) // Current club data loaded from URL
   const [isLoadingClub, setIsLoadingClub] = useState(true) // Loading state for club data
@@ -268,7 +268,8 @@ function App({ currentUser }) {
           setCurrentTournamentId(1)
         }
         
-        if (savedActiveTab) {
+        const validTabs = ['home', 'king', 'social', 'members', 'oldTournaments', 'bookings', 'accounting']
+        if (savedActiveTab && validTabs.includes(savedActiveTab)) {
           setActiveTab(savedActiveTab)
         }
         
@@ -4665,7 +4666,7 @@ function App({ currentUser }) {
           </div>
           <div className="header-center">
             <div className="header-title">
-              {activeTab === 'king' ? t.kingOfCourt : activeTab === 'social' ? t.socialTournament : activeTab === 'members' ? t.members : activeTab === 'bookings' ? t.bookings : activeTab === 'accounting' ? t.accounting : t.oldTournaments}
+              {activeTab === 'home' ? t.home : activeTab === 'king' ? t.kingOfCourt : activeTab === 'social' ? t.socialTournament : activeTab === 'members' ? t.members : activeTab === 'bookings' ? t.bookings : activeTab === 'accounting' ? t.accounting : t.oldTournaments}
             </div>
           </div>
           <div className="header-right">
@@ -4801,67 +4802,135 @@ function App({ currentUser }) {
         </div>
       )}
 
-      {/* Top Tab Navigation - بدون قائمة جانبية */}
+      {/* Top Tab Navigation - centered tabs, dashboard icon */}
       <nav className="app-top-nav">
-        <div className="app-top-nav-scroll">
-          <button
-            className={`app-top-tab ${activeTab === 'king' ? 'active' : ''}`}
-            onClick={() => switchTab('king')}
-          >
-            <span className="app-top-tab-icon">🏆</span>
-            <span>{t.kingOfCourt}</span>
-          </button>
-          <button
-            className={`app-top-tab ${activeTab === 'social' ? 'active' : ''}`}
-            onClick={() => switchTab('social')}
-          >
-            <span className="app-top-tab-icon">👥</span>
-            <span>{t.socialTournament}</span>
-          </button>
-          <button
-            className={`app-top-tab ${activeTab === 'members' ? 'active' : ''}`}
-            onClick={() => switchTab('members')}
-          >
-            <span className="app-top-tab-icon">📋</span>
-            <span>{t.members}</span>
-          </button>
-          <button
-            className={`app-top-tab ${activeTab === 'oldTournaments' ? 'active' : ''}`}
-            onClick={() => switchTab('oldTournaments')}
-          >
-            <span className="app-top-tab-icon">📅</span>
-            <span>{t.oldTournaments}</span>
-          </button>
-          <button
-            className={`app-top-tab ${activeTab === 'bookings' ? 'active' : ''}`}
-            onClick={() => switchTab('bookings')}
-          >
-            <span className="app-top-tab-icon">📆</span>
-            <span>{t.bookings}</span>
-          </button>
-          <button
-            className={`app-top-tab ${activeTab === 'accounting' ? 'active' : ''}`}
-            onClick={() => switchTab('accounting')}
-          >
-            <span className="app-top-tab-icon">💰</span>
-            <span>{t.accounting}</span>
-          </button>
+        <div className="app-top-nav-spacer" aria-hidden="true" />
+        <div className="app-top-nav-center">
+          <div className="app-top-nav-scroll">
+            <button
+              className={`app-top-tab ${activeTab === 'home' ? 'active' : ''}`}
+              onClick={() => switchTab('home')}
+            >
+              <span className="app-top-tab-icon">🏠</span>
+              <span>{t.home}</span>
+            </button>
+            <button
+              className={`app-top-tab ${activeTab === 'king' ? 'active' : ''}`}
+              onClick={() => switchTab('king')}
+            >
+              <span className="app-top-tab-icon">🏆</span>
+              <span>{t.kingOfCourt}</span>
+            </button>
+            <button
+              className={`app-top-tab ${activeTab === 'social' ? 'active' : ''}`}
+              onClick={() => switchTab('social')}
+            >
+              <span className="app-top-tab-icon">👥</span>
+              <span>{t.socialTournament}</span>
+            </button>
+            <button
+              className={`app-top-tab ${activeTab === 'members' ? 'active' : ''}`}
+              onClick={() => switchTab('members')}
+            >
+              <span className="app-top-tab-icon">📋</span>
+              <span>{t.members}</span>
+            </button>
+            <button
+              className={`app-top-tab ${activeTab === 'oldTournaments' ? 'active' : ''}`}
+              onClick={() => switchTab('oldTournaments')}
+            >
+              <span className="app-top-tab-icon">📅</span>
+              <span>{t.oldTournaments}</span>
+            </button>
+            <button
+              className={`app-top-tab ${activeTab === 'bookings' ? 'active' : ''}`}
+              onClick={() => switchTab('bookings')}
+            >
+              <span className="app-top-tab-icon">📆</span>
+              <span>{t.bookings}</span>
+            </button>
+            <button
+              className={`app-top-tab ${activeTab === 'accounting' ? 'active' : ''}`}
+              onClick={() => switchTab('accounting')}
+            >
+              <span className="app-top-tab-icon">💰</span>
+              <span>{t.accounting}</span>
+            </button>
+          </div>
         </div>
         <Link
           to={`/admin/club/${clubId}`}
-          className="app-top-nav-dashboard"
+          className="app-top-nav-dashboard-icon"
           title={t.backToDashboard}
+          aria-label={t.backToDashboard}
         >
-          <span>←</span>
-          <span>{t.backToDashboard}</span>
+          <span className="app-top-nav-dashboard-icon-svg" aria-hidden="true">←</span>
         </Link>
       </nav>
 
       <div className="app-layout">
         <main className="main-content">
 
-          {/* Members Tab Content */}
-          {activeTab === 'members' ? (
+          {/* Home Tab - Live overview dashboard */}
+          {activeTab === 'home' ? (
+            <div className="app-home-dashboard">
+              <h2 className="app-home-dashboard-title">{t.liveOverview}</h2>
+              <div className="app-home-dashboard-grid">
+                <button type="button" className="app-home-card" onClick={() => switchTab('members')}>
+                  <span className="app-home-card-icon">👥</span>
+                  <span className="app-home-card-value">{members.length}</span>
+                  <span className="app-home-card-label">{t.totalMembers}</span>
+                  <span className="app-home-card-action">{t.goToSection} →</span>
+                </button>
+                <button type="button" className="app-home-card" onClick={() => switchTab('bookings')}>
+                  <span className="app-home-card-icon">📆</span>
+                  <span className="app-home-card-value">
+                    {bookings.filter(b => {
+                      const today = new Date().toISOString().split('T')[0]
+                      const d = (b.date || b.startDate || '').toString().split('T')[0]
+                      return !b.isTournament && d >= today
+                    }).length}
+                  </span>
+                  <span className="app-home-card-label">{t.upcomingBookings}</span>
+                  <span className="app-home-card-action">{t.goToSection} →</span>
+                </button>
+                <button type="button" className="app-home-card" onClick={() => switchTab('king')}>
+                  <span className="app-home-card-icon">🏆</span>
+                  <span className="app-home-card-value">
+                    {bookings.filter(b => {
+                      const today = new Date().toISOString().split('T')[0]
+                      return b.isTournament && b.tournamentType === 'king' && (b.date || '').toString().split('T')[0] >= today
+                    }).length}
+                  </span>
+                  <span className="app-home-card-label">{t.kingOfCourt}</span>
+                  <span className="app-home-card-action">{t.goToSection} →</span>
+                </button>
+                <button type="button" className="app-home-card" onClick={() => switchTab('social')}>
+                  <span className="app-home-card-icon">🎯</span>
+                  <span className="app-home-card-value">
+                    {bookings.filter(b => {
+                      const today = new Date().toISOString().split('T')[0]
+                      return b.isTournament && b.tournamentType === 'social' && (b.date || '').toString().split('T')[0] >= today
+                    }).length}
+                  </span>
+                  <span className="app-home-card-label">{t.socialTournament}</span>
+                  <span className="app-home-card-action">{t.goToSection} →</span>
+                </button>
+                <button type="button" className="app-home-card app-home-card--wide" onClick={() => switchTab('accounting')}>
+                  <span className="app-home-card-icon">💰</span>
+                  <div className="app-home-card-accounting">
+                    <span className="app-home-card-label">{t.accountingSummary}</span>
+                    <div className="app-home-card-stats">
+                      <span>{t.totalPaid}: <strong>{typeof getAccountingStatistics === 'function' ? getAccountingStatistics().totalPaid.toFixed(0) : '0'}</strong></span>
+                      <span>{t.totalPending}: <strong>{typeof getAccountingStatistics === 'function' ? getAccountingStatistics().totalPending.toFixed(0) : '0'}</strong></span>
+                      <span>{t.totalUnpaid}: <strong>{typeof getAccountingStatistics === 'function' ? getAccountingStatistics().totalUnpaid.toFixed(0) : '0'}</strong></span>
+                    </div>
+                  </div>
+                  <span className="app-home-card-action">{t.goToSection} →</span>
+                </button>
+              </div>
+            </div>
+          ) : activeTab === 'members' ? (
             <>
               {/* Member Sub-Tabs Navigation */}
               <div className="content-tabs-container">

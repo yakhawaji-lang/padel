@@ -29,6 +29,7 @@ export const translations = {
     timeUpAlert: 'Time is up! Please record the match result.',
     tiedScores: 'Scores are tied! Please enter different scores or play a tiebreaker.',
     needTwoTeams: 'You need at least 2 teams!',
+    home: 'Home',
     kingOfCourt: 'King of the Court',
     socialTournament: 'Social Tournament',
     switchMode: 'Switch Mode',
@@ -191,7 +192,13 @@ export const translations = {
     summary: 'Summary',
     revenue: 'Revenue',
     pending: 'Pending',
-    unpaid: 'Unpaid'
+    unpaid: 'Unpaid',
+    liveOverview: 'Live Overview',
+    totalMembers: 'Total Members',
+    upcomingBookings: 'Upcoming Bookings',
+    scheduledTournaments: 'Scheduled Tournaments',
+    accountingSummary: 'Accounting Summary',
+    goToSection: 'Go to section'
   },
   ar: {
     title: 'بطولة هلا بادل',
@@ -223,6 +230,7 @@ export const translations = {
     timeUpAlert: 'انتهى الوقت! يرجى تسجيل نتيجة المباراة.',
     tiedScores: 'النتائج متعادلة! يرجى إدخال نتائج مختلفة أو لعب كسر التعادل.',
     needTwoTeams: 'تحتاج إلى فريقين على الأقل!',
+    home: 'الرئيسية',
     kingOfCourt: 'ملك الملعب',
     socialTournament: 'بطولة سوشيال',
     switchMode: 'تبديل الوضع',
@@ -385,7 +393,13 @@ export const translations = {
     summary: 'ملخص',
     revenue: 'الإيرادات',
     pending: 'معلق',
-    unpaid: 'غير مدفوع'
+    unpaid: 'غير مدفوع',
+    liveOverview: 'نظرة حية',
+    totalMembers: 'إجمالي الأعضاء',
+    upcomingBookings: 'الحجوزات القادمة',
+    scheduledTournaments: 'البطولات المجدولة',
+    accountingSummary: 'ملخص المحاسبة',
+    goToSection: 'انتقل للقسم'
   }
 }
 
