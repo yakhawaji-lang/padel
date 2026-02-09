@@ -42,21 +42,29 @@ async function fetchJson(path, options = {}) {
   return res.json()
 }
 
-/** Retry on 502/503/504 (server slow/overloaded) - up to 3 retries, 4s delay */
+/** Retry on 502/503/504 (server slow/overloaded) - up to 4 retries, 3s delay */
 const RETRY_STATUSES = [502, 503, 504]
-async function fetchWithRetry(path, options, maxRetries = 3) {
+function isRetryableError(e) {
+  if (!e) return false
+  if (RETRY_STATUSES.includes(e.status)) return true
+  const msg = (e?.message || '').toLowerCase()
+  return /50[234]|gateway timeout|timeout|bad gateway|service unavailable|failed to fetch|networkerror|network error/i.test(msg)
+}
+async function fetchWithRetry(path, options, maxRetries = 4) {
+  let lastErr
   for (let i = 0; i <= maxRetries; i++) {
     try {
       return await fetchJson(path, options)
     } catch (e) {
-      const retryable = RETRY_STATUSES.includes(e?.status) || /50[234]|Gateway Timeout|timeout|Bad Gateway|Service Unavailable/i.test(e?.message || '')
-      if (retryable && i < maxRetries) {
-        await new Promise(r => setTimeout(r, 4000))
+      lastErr = e
+      if (isRetryableError(e) && i < maxRetries) {
+        await new Promise(r => setTimeout(r, 3000))
         continue
       }
       throw e
     }
   }
+  throw lastErr
 }
 
 // ---- Data API (reads from entities + app_settings tables, DB-only) ----
