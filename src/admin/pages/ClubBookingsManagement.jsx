@@ -6,9 +6,9 @@ import './BookingsManagement.css'
 const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   const [bookings, setBookings] = useState([])
   const [filter, setFilter] = useState('upcoming')
-  const [actionId, setActionId] = useState(null)
+  const [actionLoading, setActionLoading] = useState(null)
   const [editBooking, setEditBooking] = useState(null)
-  const [actionMenuOpen, setActionMenuOpen] = useState(null)
+  const [editForm, setEditForm] = useState({})
 
   const refresh = () => {
     loadClubs()
@@ -35,9 +35,6 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   const past = withDate.filter(b => (b.dateStr || '') < today)
   const displayed = filter === 'upcoming' ? upcoming : past
 
-  const courts = club?.courts || []
-  const members = getClubMembersFromStorage(club?.id) || []
-
   const formatDate = (dateStr) => {
     if (!dateStr) return '—'
     try {
@@ -52,86 +49,96 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     }
   }
 
-  const runAction = async (fn) => {
-    setActionId('run')
-    try {
-      await fn()
-      refresh()
-      setActionMenuOpen(null)
-      setEditBooking(null)
-    } finally {
-      setActionId(null)
-    }
-  }
-
-  const handleEdit = (b) => {
+  const openEditModal = (b) => {
     const dur = b.durationMinutes || 60
     const [h, m] = (b.startTime || '00:00').split(':').map(Number)
     const endM = (h || 0) * 60 + (m || 0) + dur
     const endTime = `${String(Math.floor(endM / 60)).padStart(2, '0')}:${String(endM % 60).padStart(2, '0')}`
-    setEditBooking({
-      ...b,
-      endTime: b.endTime || endTime
+    const resourceVal = b.resource || b.courtName || b.court || ''
+    const courts = club?.courts || []
+    const matchedCourt = courts.find(c => (c.name || '') === resourceVal || (c.id || '') === (b.courtId || resourceVal))
+    setEditBooking(b)
+    setEditForm({
+      dateStr: b.dateStr || '',
+      startTime: b.startTime || '',
+      endTime: b.endTime || endTime,
+      courtId: matchedCourt?.id || (resourceVal ? '_other' : ''),
+      resource: resourceVal,
+      memberName: b.memberName || b.customerName || b.customer || '',
+      memberId: (members.some(m => String(m.id) === (b.memberId || '')) ? b.memberId : '') || '',
+      price: b.price != null ? b.price : '',
+      status: b.status || 'confirmed',
+      durationMinutes: dur
     })
-    setActionMenuOpen(null)
   }
 
-  const handleSaveEdit = async (e) => {
-    e.preventDefault()
-    if (!editBooking) return
-    const form = e.target
-    const dateStr = form.date?.value || editBooking.dateStr
-    const startTime = form.startTime?.value || editBooking.startTime
-    const dur = parseInt(form.duration?.value, 10) || 60
-    const [h, m] = (startTime || '00:00').split(':').map(Number)
-    const endM = (h || 0) * 60 + (m || 0) + dur
-    const endTime = `${String(Math.floor(endM / 60)).padStart(2, '0')}:${String(endM % 60).padStart(2, '0')}`
-    const courtVal = form.court?.value
-    const courtName = courts.find(c => c.id === courtVal)?.name || courtVal || editBooking.resource || editBooking.courtName
-    const customerName = form.customer?.value?.trim() || editBooking.memberName || editBooking.customerName
-    const priceVal = parseFloat(form.price?.value)
-    const price = isNaN(priceVal) ? (editBooking.price ?? calculateBookingPrice(club, dateStr, startTime, dur).price) : priceVal
-    const currency = club?.settings?.currency || 'SAR'
-    const status = form.status?.value || editBooking.status || 'confirmed'
-
-    await runAction(() =>
-      updateBookingInClub(club.id, editBooking.id, {
-        date: dateStr,
-        startDate: dateStr,
-        startTime,
+  const handleSaveEdit = async () => {
+    if (!editBooking?.id) return
+    setActionLoading('edit')
+    try {
+      const dur = parseInt(editForm.durationMinutes, 10) || 60
+      const [h, m] = (editForm.startTime || '00:00').split(':').map(Number)
+      const endM = (h || 0) * 60 + (m || 0) + dur
+      const endTime = `${String(Math.floor(endM / 60)).padStart(2, '0')}:${String(endM % 60).padStart(2, '0')}`
+      const court = courts.find(c => c.id === editForm.courtId)
+      const courtName = court?.name || editForm.resource || editForm.courtId || ''
+      await updateBookingInClub(club.id, editBooking.id, {
+        date: editForm.dateStr,
+        startDate: editForm.dateStr,
+        startTime: editForm.startTime,
         endTime,
-        durationMinutes: dur,
         resource: courtName,
         court: courtName,
-        courtName,
-        memberName: customerName,
-        customerName,
-        customer: customerName,
-        price,
-        currency,
-        status
+        courtName: courtName,
+        courtId: (editForm.courtId && editForm.courtId !== '_other') ? editForm.courtId : undefined,
+        memberName: editForm.memberName,
+        customerName: editForm.memberName,
+        customer: editForm.memberName,
+        memberId: editForm.memberId || undefined,
+        price: editForm.price !== '' ? parseFloat(editForm.price) : undefined,
+        status: editForm.status,
+        durationMinutes: dur
       })
-    )
+      setEditBooking(null)
+      refresh()
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const handleCancel = async (b) => {
-    const msg = language === 'en' ? 'Cancel this booking? Status will be set to cancelled.' : 'إلغاء هذا الحجز؟ ستُحدّث الحالة إلى ملغي.'
-    if (!window.confirm(msg)) return
-    await runAction(() => updateBookingInClub(club.id, b.id, { status: 'cancelled' }))
+    if (!window.confirm(language === 'en' ? 'Cancel this booking?' : 'إلغاء هذا الحجز؟')) return
+    setActionLoading(b.id)
+    try {
+      await updateBookingInClub(club.id, b.id, { status: 'cancelled' })
+      refresh()
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const handleDelete = async (bookingId) => {
-    const msg = language === 'en' ? 'Delete this booking? It will be removed from the list.' : 'حذف هذا الحجز؟ سيُزال من القائمة.'
-    if (!window.confirm(msg)) return
-    await runAction(() => deleteBookingFromClub(club.id, bookingId))
+    if (!window.confirm(language === 'en' ? 'Delete this booking? It will be removed from the list.' : 'حذف هذا الحجز؟ سيتم إزالته من القائمة.')) return
+    setActionLoading(bookingId)
+    try {
+      await deleteBookingFromClub(club.id, bookingId)
+      refresh()
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const handlePermanentDelete = async (bookingId) => {
-    const msg = language === 'en'
+    if (!window.confirm(language === 'en'
       ? 'Permanently delete from database? This cannot be undone.'
-      : 'حذف نهائياً من قاعدة البيانات؟ لا يمكن التراجع عن هذا الإجراء.'
-    if (!window.confirm(msg)) return
-    await runAction(() => deleteBookingFromClub(club.id, bookingId))
+      : 'الحذف النهائي من قاعدة البيانات؟ لا يمكن التراجع.')) return
+    setActionLoading('perm-' + bookingId)
+    try {
+      await deleteBookingFromClub(club.id, bookingId)
+      refresh()
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const t = {
@@ -149,7 +156,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       edit: 'Edit',
       cancel: 'Cancel',
       delete: 'Delete',
-      permanentDelete: 'Permanent delete',
+      permanentDelete: 'Permanent Delete',
       noBookings: 'No bookings found',
       refresh: 'Refresh',
       editBooking: 'Edit booking',
@@ -186,12 +193,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   }
   const c = t[language] || t.en
 
-  const getStatusClass = (status) => {
-    const s = (status || '').toLowerCase()
-    if (s === 'cancelled') return 'booking-status-cancelled'
-    if (s === 'confirmed') return 'booking-status-confirmed'
-    return ''
-  }
+  const courts = club?.courts || []
+  const members = getClubMembersFromStorage(club?.id) || []
 
   if (!club) return null
 
@@ -203,8 +206,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
             {club.logo && <img src={club.logo} alt="" className="club-logo" />}
             {c.bookings} – {language === 'ar' && club.nameAr ? club.nameAr : club.name}
           </h2>
-          <button type="button" className="btn-primary" onClick={refresh} disabled={!!actionId}>
-            {actionId ? '…' : c.refresh}
+          <button type="button" className="btn-primary" onClick={refresh}>
+            {c.refresh}
           </button>
         </div>
 
@@ -252,8 +255,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                     ? { price: b.price, currency: b.currency || club?.settings?.currency || 'SAR' }
                     : calculateBookingPrice(club, b.dateStr, b.startTime, dur)
                   const isCancelled = (b.status || '').toLowerCase() === 'cancelled'
-                  const isUpcoming = (b.dateStr || '') >= today
-                  const menuOpen = actionMenuOpen === b.id
+                  const isLoading = actionLoading === b.id || actionLoading === 'perm-' + b.id
                   return (
                     <tr key={b.id || i} className={isCancelled ? 'booking-row-cancelled' : ''}>
                       <td>{formatDate(b.dateStr)}</td>
@@ -262,59 +264,50 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                       <td>{b.memberName || b.customerName || b.customer || '—'}</td>
                       <td>{priceInfo.price} {priceInfo.currency}</td>
                       <td>
-                        <span className={`booking-status ${getStatusClass(b.status)}`}>
-                          {b.status || c.confirmed}
+                        <span className={`booking-status booking-status-${(b.status || 'confirmed').toLowerCase()}`}>
+                          {(b.status || 'confirmed') === 'cancelled' ? c.cancelled : (b.status || c.confirmed)}
                         </span>
                       </td>
                       <td>
-                        <div className="bookings-actions-cell">
+                        <div className="bookings-actions">
                           <button
                             type="button"
-                            className="btn-actions-toggle"
-                            onClick={() => setActionMenuOpen(menuOpen ? null : b.id)}
-                            disabled={!!actionId}
-                            aria-haspopup="true"
-                            aria-expanded={menuOpen}
+                            className="btn-secondary btn-icon"
+                            onClick={() => openEditModal(b)}
+                            disabled={isLoading}
+                            title={c.edit}
                           >
-                            ⋮
+                            ✏️
                           </button>
-                          {menuOpen && (
-                            <>
-                              <div className="bookings-actions-backdrop" onClick={() => setActionMenuOpen(null)} />
-                              <div className="bookings-actions-menu">
-                                <button
-                                  type="button"
-                                  className="bookings-action-item"
-                                  onClick={() => handleEdit(b)}
-                                >
-                                  ✏️ {c.edit}
-                                </button>
-                                {isUpcoming && !isCancelled && (
-                                  <button
-                                    type="button"
-                                    className="bookings-action-item bookings-action-cancel"
-                                    onClick={() => handleCancel(b)}
-                                  >
-                                    🚫 {c.cancel}
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  className="bookings-action-item bookings-action-delete"
-                                  onClick={() => handleDelete(b.id)}
-                                >
-                                  🗑️ {c.delete}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="bookings-action-item bookings-action-permanent"
-                                  onClick={() => handlePermanentDelete(b.id)}
-                                >
-                                  ⛔ {c.permanentDelete}
-                                </button>
-                              </div>
-                            </>
+                          {!isCancelled && (b.dateStr || '') >= today && (
+                            <button
+                              type="button"
+                              className="btn-warning btn-icon"
+                              onClick={() => handleCancel(b)}
+                              disabled={isLoading}
+                              title={c.cancel}
+                            >
+                              ⛔
+                            </button>
                           )}
+                          <button
+                            type="button"
+                            className="btn-danger btn-icon"
+                            onClick={() => handleDelete(b.id)}
+                            disabled={isLoading}
+                            title={c.delete}
+                          >
+                            🗑️
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-danger-outline btn-icon"
+                            onClick={() => handlePermanentDelete(b.id)}
+                            disabled={isLoading}
+                            title={c.permanentDelete}
+                          >
+                            ⚠️
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -330,98 +323,121 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
         <div className="bookings-edit-overlay" onClick={() => setEditBooking(null)}>
           <div className="bookings-edit-modal" onClick={e => e.stopPropagation()}>
             <h3>{c.editBooking}</h3>
-            <form onSubmit={handleSaveEdit}>
+            <div className="bookings-edit-form">
               <div className="form-row">
-                <div className="form-group">
-                  <label>{c.date}</label>
-                  <input
-                    type="date"
-                    name="date"
-                    defaultValue={editBooking.dateStr}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>{c.time}</label>
-                  <input
-                    type="time"
-                    name="startTime"
-                    defaultValue={editBooking.startTime}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>{c.duration}</label>
-                  <input
-                    type="number"
-                    name="duration"
-                    min="30"
-                    step="30"
-                    defaultValue={editBooking.durationMinutes || 60}
-                  />
-                </div>
+                <label>{c.date}</label>
+                <input
+                  type="date"
+                  value={editForm.dateStr}
+                  onChange={e => setEditForm(f => ({ ...f, dateStr: e.target.value }))}
+                />
               </div>
               <div className="form-row">
-                <div className="form-group">
-                  <label>{c.court}</label>
+                <label>{c.time}</label>
+                <input
+                  type="time"
+                  value={editForm.startTime}
+                  onChange={e => setEditForm(f => ({ ...f, startTime: e.target.value }))}
+                />
+              </div>
+              <div className="form-row">
+                <label>{c.duration}</label>
+                <input
+                  type="number"
+                  min="30"
+                  step="30"
+                  value={editForm.durationMinutes}
+                  onChange={e => setEditForm(f => ({ ...f, durationMinutes: e.target.value }))}
+                />
+              </div>
+              <div className="form-row">
+                <label>{c.court}</label>
+                {courts.length > 0 ? (
                   <select
-                    name="court"
-                    defaultValue={
-                      courts.find(crt => (crt.name || crt.id || '') === (editBooking.resource || editBooking.courtName || editBooking.court || ''))?.id ||
-                      (editBooking.resource || editBooking.courtName || editBooking.court || '')
-                    }
+                    value={editForm.courtId || '_other'}
+                    onChange={e => {
+                      const val = e.target.value
+                      if (val === '_other') {
+                        setEditForm(f => ({ ...f, courtId: '', resource: f.resource }))
+                      } else {
+                        const court = courts.find(c => c.id === val)
+                        setEditForm(f => ({ ...f, courtId: val, resource: court?.name || val }))
+                      }
+                    }}
                   >
-                    <option value="">—</option>
-                    {courts.map(crt => (
-                      <option key={crt.id} value={crt.id}>{crt.name || crt.id}</option>
+                    {courts.map(court => (
+                      <option key={court.id} value={court.id}>{court.name || court.id}</option>
                     ))}
-                    {((editBooking.resource || editBooking.courtName || editBooking.court) &&
-                      !courts.some(crt => (crt.name || crt.id) === (editBooking.resource || editBooking.courtName || editBooking.court))) && (
-                      <option value={editBooking.resource || editBooking.courtName || editBooking.court}>
-                        {editBooking.resource || editBooking.courtName || editBooking.court}
-                      </option>
-                    )}
+                    <option value="_other">— {language === 'en' ? 'Other' : 'آخر'} —</option>
                   </select>
-                </div>
-                <div className="form-group">
-                  <label>{c.customer}</label>
+                ) : null}
+                {(courts.length === 0 || editForm.courtId === '' || editForm.courtId === '_other') && (
                   <input
                     type="text"
-                    name="customer"
-                    defaultValue={editBooking.memberName || editBooking.customerName || editBooking.customer || ''}
-                    placeholder={language === 'en' ? 'Customer name' : 'اسم العميل'}
+                    value={editForm.resource}
+                    onChange={e => setEditForm(f => ({ ...f, resource: e.target.value }))}
+                    placeholder={c.court}
                   />
-                </div>
+                )}
               </div>
               <div className="form-row">
-                <div className="form-group">
-                  <label>{c.price}</label>
-                  <input
-                    type="number"
-                    name="price"
-                    min="0"
-                    step="0.01"
-                    defaultValue={editBooking.price ?? ''}
-                    placeholder={language === 'en' ? 'Auto' : 'تلقائي'}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>{c.status}</label>
-                  <select name="status" defaultValue={editBooking.status || 'confirmed'}>
-                    <option value="confirmed">{c.confirmed}</option>
-                    <option value="cancelled">{c.cancelled}</option>
+                <label>{c.customer}</label>
+                {members.length > 0 ? (
+                  <select
+                    value={members.some(m => String(m.id) === editForm.memberId) ? editForm.memberId : '_other'}
+                    onChange={e => {
+                      const val = e.target.value
+                      if (val === '_other') {
+                        setEditForm(f => ({ ...f, memberId: '', memberName: f.memberName || '' }))
+                      } else {
+                        const m = members.find(x => String(x.id) === val)
+                        setEditForm(f => ({ ...f, memberId: val, memberName: m?.name || m?.email || val }))
+                      }
+                    }}
+                  >
+                    {members.map(m => (
+                      <option key={m.id} value={m.id}>{m.name || m.email || m.id}</option>
+                    ))}
+                    <option value="_other">— {language === 'en' ? 'Other' : 'آخر'} —</option>
                   </select>
-                </div>
+                ) : null}
+                <input
+                  type="text"
+                  value={editForm.memberName}
+                  onChange={e => setEditForm(f => ({ ...f, memberName: e.target.value }))}
+                  placeholder={c.customer}
+                />
               </div>
-              <div className="bookings-edit-actions">
-                <button type="button" className="btn-secondary" onClick={() => setEditBooking(null)}>
-                  {c.close}
-                </button>
-                <button type="submit" className="btn-primary" disabled={!!actionId}>
-                  {actionId ? '…' : c.save}
-                </button>
+              <div className="form-row">
+                <label>{c.price}</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editForm.price}
+                  onChange={e => setEditForm(f => ({ ...f, price: e.target.value }))}
+                />
+                <span>{club?.settings?.currency || 'SAR'}</span>
               </div>
-            </form>
+              <div className="form-row">
+                <label>{c.status}</label>
+                <select
+                  value={editForm.status}
+                  onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
+                >
+                  <option value="confirmed">{c.confirmed}</option>
+                  <option value="cancelled">{c.cancelled}</option>
+                </select>
+              </div>
+            </div>
+            <div className="bookings-edit-actions">
+              <button type="button" className="btn-secondary" onClick={() => setEditBooking(null)}>
+                {c.close}
+              </button>
+              <button type="button" className="btn-primary" onClick={handleSaveEdit} disabled={actionLoading === 'edit'}>
+                {actionLoading === 'edit' ? '…' : c.save}
+              </button>
+            </div>
           </div>
         </div>
       )}
