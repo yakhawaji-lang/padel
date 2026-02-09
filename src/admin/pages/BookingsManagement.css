@@ -1,5 +1,6 @@
 .bookings-management {
-  max-width: 1400px;
+  width: 100%;
+  max-width: none;
 }
 
 .bookings-tabs {

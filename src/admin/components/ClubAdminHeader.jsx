@@ -69,7 +69,7 @@ const ClubAdminHeader = ({ club, language, onLanguageChange }) => {
             onClick={() => onLanguageChange(language === 'en' ? 'ar' : 'en')}
             title={language === 'en' ? 'العربية' : 'English'}
           >
-            <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={18} />
+            <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={20} showLabel={true} />
           </button>
           <div className="club-admin-header__dropdown" ref={menuRef}>
             <button

@@ -1,8 +1,8 @@
 /* Club Booking Prices - Court Pricing Management */
 
 .cbp-page {
-  max-width: 960px;
   width: 100%;
+  max-width: none;
 }
 
 .cbp-header {

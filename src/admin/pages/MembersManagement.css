@@ -1,6 +1,6 @@
 .members-management {
-  max-width: 1400px;
   width: 100%;
+  max-width: none;
 }
 
 .members-table {

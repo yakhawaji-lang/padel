@@ -179,16 +179,27 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 46px;
   height: 46px;
-  min-width: 46px;
-  padding: 0;
+  min-height: 46px;
+  padding: 0 14px;
+  gap: 8px;
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.2s, border-color 0.2s;
+}
+
+.club-admin-header__lang-btn {
+  min-width: 46px;
+  width: auto;
+}
+
+.club-admin-header__more-btn {
+  width: 46px;
+  min-width: 46px;
+  padding: 0;
 }
 
 .club-admin-header__lang-btn:hover,
@@ -341,11 +352,15 @@
     min-width: 40px;
   }
 
-  .club-admin-header__lang-btn,
   .club-admin-header__more-btn {
     width: 44px;
     height: 44px;
     min-width: 44px;
+  }
+  .club-admin-header__lang-btn {
+    height: 44px;
+    min-height: 44px;
+    padding: 0 12px;
   }
 }
 
