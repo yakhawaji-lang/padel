@@ -1,6 +1,8 @@
 /* Club Dashboard - Professional, responsive */
 
 .club-dashboard {
+  flex: 1;
+  min-width: 0;
   width: 100%;
   max-width: none;
 }
@@ -67,6 +69,8 @@
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
   margin-bottom: 28px;
+  width: 100%;
+  min-width: 0;
 }
 
 .stat-card {
@@ -160,6 +164,8 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
+  width: 100%;
+  min-width: 0;
 }
 
 .dashboard-left,
