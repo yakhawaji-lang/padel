@@ -39,7 +39,7 @@ router.get('/', async (req, res) => {
       await query('DELETE FROM entities')
       await query('DELETE FROM app_settings')
       await query('TRUNCATE TABLE app_store')
-      for (const t of ['member_clubs', 'club_courts', 'club_settings', 'club_admin_users', 'club_offers', 'club_bookings', 'club_accounting', 'club_tournament_types', 'club_store', 'clubs', 'members', 'platform_admins', 'audit_log']) {
+      for (const t of ['booking_payment_shares', 'member_clubs', 'club_courts', 'club_settings', 'club_admin_users', 'club_offers', 'club_bookings', 'club_accounting', 'club_tournament_types', 'club_store', 'clubs', 'members', 'platform_admins', 'audit_log']) {
         try { await query(`TRUNCATE TABLE \`${t}\``) } catch (_) { /* table may not exist */ }
       }
       await query('SET FOREIGN_KEY_CHECKS = 1')
