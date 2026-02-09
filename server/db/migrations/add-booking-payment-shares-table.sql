@@ -2,8 +2,9 @@
 -- Add booking_payment_shares table - u502561206_padel_db
 -- مشاركة الدفع للحجوزات — جدول مستقل لتخزين المشاركين في الدفع
 -- ============================================================================
--- Run this on your MySQL database (u502561206_padel_db) to add the table.
--- Example: mysql -u USER -p u502561206_padel_db < server/db/migrations/add-booking-payment-shares-table.sql
+-- انسخ الأوامر التالية (من CREATE TABLE إلى النهاية) والصقها في phpMyAdmin
+-- Copy the SQL below (from CREATE TABLE to the end) and paste into phpMyAdmin
+-- لا تنفذ اسم الملف — نفذ محتوى الملف فقط | Do NOT run the filename — run the file contents only
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS booking_payment_shares (
