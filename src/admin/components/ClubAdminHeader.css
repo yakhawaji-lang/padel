@@ -1,4 +1,4 @@
-/* Club Admin Header - Modern top navigation (no sidebar) */
+/* Club Admin Header - القائمة العلوية + شريط الصفحات تحتها */
 
 .club-admin-header--top-nav {
   background: #fff;
@@ -8,6 +8,7 @@
   z-index: 50;
 }
 
+/* الصف الأول: الشعار + العنوان + الإجراءات */
 .club-admin-header__bar {
   display: flex;
   align-items: center;
@@ -17,6 +18,7 @@
   padding-inline: max(20px, env(safe-area-inset-left));
   padding-inline-end: max(20px, env(safe-area-inset-right));
   min-height: 56px;
+  background: #fff;
 }
 
 .club-admin-header__brand {
@@ -90,8 +92,16 @@
   border-radius: 1px;
 }
 
+/* الصف الثاني: أيقونات الصفحات - خلفية مميزة */
+.club-admin-header__sub {
+  background: #f1f5f9;
+  border-top: 1px solid #e2e8f0;
+  padding: 0 20px;
+  padding-inline: max(20px, env(safe-area-inset-left));
+  padding-inline-end: max(20px, env(safe-area-inset-right));
+}
+
 .club-admin-header__nav {
-  flex: 1;
   display: flex;
   justify-content: center;
   min-width: 0;
@@ -104,9 +114,10 @@
   gap: 4px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 4px 0;
+  padding: 8px 0;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  justify-content: center;
 }
 
 .club-admin-header__nav-scroll::-webkit-scrollbar {
@@ -121,7 +132,7 @@
   border-radius: 10px;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #64748b;
+  color: #475569;
   text-decoration: none;
   white-space: nowrap;
   transition: background 0.2s, color 0.2s;
@@ -129,7 +140,7 @@
 }
 
 .club-admin-header__nav-link:hover {
-  background: #f1f5f9;
+  background: #e2e8f0;
   color: #0f172a;
 }
 
@@ -153,6 +164,7 @@
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  margin-inline-start: auto;
 }
 
 .club-admin-header__lang-btn {
@@ -257,7 +269,7 @@
   inset-inline-start: 0;
 }
 
-/* Tablet: show hamburger, nav in drawer */
+/* Tablet & mobile: زر القائمة يفتح/يغلق شريط الصفحات */
 @media (max-width: 1024px) {
   .club-admin-header__bar {
     flex-wrap: wrap;
@@ -274,24 +286,33 @@
     order: 3;
   }
 
-  .club-admin-header__nav {
-    order: 4;
-    width: 100%;
+  .club-admin-header__sub {
     max-height: 0;
     overflow: hidden;
-    transition: max-height 0.3s ease;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-inline: 16px;
+    transition: max-height 0.25s ease;
+    border-top: none;
   }
 
-  .club-admin-header__nav--open {
+  .club-admin-header__sub:has(.club-admin-header__nav--open) {
     max-height: 80vh;
+    padding: 8px 16px 12px;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .club-admin-header__nav.club-admin-header__nav--open {
     overflow-y: auto;
+    max-height: 70vh;
   }
 
   .club-admin-header__nav-scroll {
     flex-direction: column;
     align-items: stretch;
     gap: 4px;
-    padding: 12px 0;
+    padding: 8px 0;
+    justify-content: flex-start;
   }
 
   .club-admin-header__nav-link {

@@ -36,6 +36,7 @@ const ClubAdminHeader = ({ club, language, onLanguageChange }) => {
 
   return (
     <header className="club-admin-header club-admin-header--top-nav">
+      {/* القائمة العلوية: الشعار + العنوان + اللغة + القائمة المنسدلة */}
       <div className="club-admin-header__bar">
         <div className="club-admin-header__brand">
           {club?.logo && <img src={club.logo} alt="" className="club-admin-header__logo" />}
@@ -60,25 +61,6 @@ const ClubAdminHeader = ({ club, language, onLanguageChange }) => {
         >
           <span /><span /><span />
         </button>
-
-        <nav className={`club-admin-header__nav ${navOpen ? 'club-admin-header__nav--open' : ''}`}>
-          <div className="club-admin-header__nav-scroll">
-            {visibleItems.map(item => (
-              <NavLink
-                key={item.path}
-                to={`${basePath}/${item.path}`}
-                end={item.path === 'dashboard'}
-                className={({ isActive }) =>
-                  `club-admin-header__nav-link ${isActive ? 'club-admin-header__nav-link--active' : ''}`
-                }
-                onClick={() => setNavOpen(false)}
-              >
-                <span className="club-admin-header__nav-icon">{item.icon}</span>
-                <span className="club-admin-header__nav-label">{item.label[language]}</span>
-              </NavLink>
-            ))}
-          </div>
-        </nav>
 
         <div className="club-admin-header__actions">
           <button
@@ -112,6 +94,28 @@ const ClubAdminHeader = ({ club, language, onLanguageChange }) => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* شريط أيقونات الصفحات تحت القائمة العلوية - خلفية مميزة */}
+      <div className="club-admin-header__sub">
+        <nav className={`club-admin-header__nav ${navOpen ? 'club-admin-header__nav--open' : ''}`}>
+          <div className="club-admin-header__nav-scroll">
+            {visibleItems.map(item => (
+              <NavLink
+                key={item.path}
+                to={`${basePath}/${item.path}`}
+                end={item.path === 'dashboard'}
+                className={({ isActive }) =>
+                  `club-admin-header__nav-link ${isActive ? 'club-admin-header__nav-link--active' : ''}`
+                }
+                onClick={() => setNavOpen(false)}
+              >
+                <span className="club-admin-header__nav-icon">{item.icon}</span>
+                <span className="club-admin-header__nav-label">{item.label[language]}</span>
+              </NavLink>
+            ))}
+          </div>
+        </nav>
       </div>
     </header>
   )
