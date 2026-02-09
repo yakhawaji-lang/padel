@@ -7,6 +7,16 @@ import { getMergedMembersRaw } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import { setCurrentPlatformUser } from '../storage/platformAuth'
 
+/** Normalize for comparison: trim, lowercase emails, digits-only for phones */
+function norm(s) {
+  if (s == null) return ''
+  const t = String(s).trim()
+  if (t.includes('@')) return t.toLowerCase()
+  const digits = t.replace(/\D/g, '')
+  if (digits.length >= 8) return digits.replace(/^966/, '').replace(/^0/, '') || digits
+  return t
+}
+
 const Login = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -17,32 +27,51 @@ const Login = () => {
     email: '',
     password: ''
   })
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   React.useEffect(() => {
     setAppLanguage(language)
   }, [language])
 
-  const handleMemberLogin = (e) => {
+  const handleMemberLogin = async (e) => {
     e.preventDefault()
-    const members = getMergedMembersRaw()
-    const member = members.find(m =>
-      (m.email === formData.email || m.name === formData.email) &&
-      m.password === formData.password
-    )
-    
-    if (member) {
-      setCurrentPlatformUser(member.id)
-      if (returnUrl && returnUrl.startsWith('/')) {
-        navigate(returnUrl)
-      } else if (joinClubId) {
-        navigate(`/clubs/${joinClubId}`)
-      } else {
-        const clubId = member.clubIds?.[0] || member.clubId
-        if (clubId) navigate(`/club/${clubId}`)
-        else navigate('/')
+    setError('')
+    setLoading(true)
+    try {
+      const input = norm(formData.email)
+      const password = (formData.password || '').trim()
+      if (!input || !password) {
+        setError(language === 'ar' ? 'أدخل البريد أو الاسم وكلمة المرور' : 'Enter email or name and password')
+        return
       }
-    } else {
-      alert('Invalid credentials')
+      try {
+        const backend = (await import('../storage/backendStorage')).default
+        if (backend?.refreshStoreKeys) {
+          await backend.refreshStoreKeys(['all_members', 'padel_members'])
+        }
+      } catch (_) {}
+      const members = getMergedMembersRaw()
+      const member = members.find(m => {
+        const matchId = norm(m.email) === input || norm(m.name) === input || norm(m.mobile || m.phone || '') === input
+        return matchId && (m.password || '') === password
+      })
+      if (member) {
+        await setCurrentPlatformUser(member.id)
+        if (returnUrl && returnUrl.startsWith('/')) {
+          navigate(returnUrl)
+        } else if (joinClubId) {
+          navigate(`/clubs/${joinClubId}`)
+        } else {
+          const clubId = member.clubIds?.[0] || member.clubId
+          if (clubId) navigate(`/club/${clubId}`)
+          else navigate('/')
+        }
+      } else {
+        setError(language === 'ar' ? 'البريد أو كلمة المرور غير صحيحة' : 'Invalid email or password')
+      }
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -72,6 +101,7 @@ const Login = () => {
 
         <div className="login-form-container">
           <form onSubmit={handleMemberLogin} className="login-form">
+            {error && <p className="login-error" role="alert">{error}</p>}
             <div className="form-group">
               <label>{language === 'en' ? 'Email or name' : 'البريد أو الاسم'}</label>
               <input
@@ -92,8 +122,8 @@ const Login = () => {
                 required
               />
             </div>
-            <button type="submit" className="btn-primary btn-block">
-              {language === 'en' ? 'Login' : 'تسجيل الدخول'}
+            <button type="submit" className="btn-primary btn-block" disabled={loading}>
+              {loading ? (language === 'en' ? 'Logging in...' : 'جاري تسجيل الدخول...') : (language === 'en' ? 'Login' : 'تسجيل الدخول')}
             </button>
           </form>
           <p className="login-forgot-hint">
