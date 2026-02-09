@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { loadClubs, getClubById, getClubMembersFromStorage, addMemberToClub, addBookingToClub } from '../storage/adminStorage'
+import { loadClubs, getClubById, getClubMembersFromStorage, addMemberToClub, addBookingToClub, refreshClubsFromApi } from '../storage/adminStorage'
 import { calculateBookingPrice } from '../utils/bookingPricing'
 import LanguageIcon from '../components/LanguageIcon'
 import SocialIcon from '../components/SocialIcon'
@@ -106,6 +106,13 @@ const ClubPublicPage = () => {
   useEffect(() => {
     refreshClub()
   }, [refreshClub])
+
+  useEffect(() => {
+    refreshClubsFromApi().then(() => {
+      refreshClub()
+      setPlatformUser(getCurrentPlatformUser())
+    })
+  }, [clubId])
 
   useEffect(() => {
     const onSynced = () => {
@@ -426,6 +433,7 @@ const ClubPublicPage = () => {
       const ok = await addMemberToClub(platformUser.id, club.id)
       if (ok) {
         setJoinStatus('success')
+        await refreshClubsFromApi()
         setPlatformUser(getCurrentPlatformUser())
         refreshClub()
       } else {

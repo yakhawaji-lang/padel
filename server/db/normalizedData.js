@@ -112,8 +112,8 @@ export async function getMembersFromNormalized() {
 export async function saveMembersToNormalized(items, actor = {}) {
   if (!Array.isArray(items)) return
   const existing = await getMembersFromNormalized()
-  const existingIds = new Set(existing.map(m => m.id))
-  const newIds = new Set(items.map(m => m?.id).filter(Boolean))
+  const existingIds = new Set(existing.map(m => String(m?.id || '')).filter(Boolean))
+  const newIds = new Set(items.map(m => (m?.id != null ? String(m.id) : '')).filter(Boolean))
 
   for (const item of items) {
     if (!item?.id) continue
@@ -166,7 +166,7 @@ export async function saveMembersToNormalized(items, actor = {}) {
   }
 
   for (const id of existingIds) {
-    if (!newIds.has(id)) {
+    if (!newIds.has(id) && id) {
       await query('UPDATE members SET deleted_at=NOW(), deleted_by=? WHERE id=?', [actor.actorId || null, id])
       await query('DELETE FROM member_clubs WHERE member_id = ?', [id])
       await logAudit({ tableName: 'members', recordId: id, action: 'DELETE', ...actor })
