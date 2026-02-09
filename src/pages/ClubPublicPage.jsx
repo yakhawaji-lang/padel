@@ -7,8 +7,10 @@ import SocialIcon from '../components/SocialIcon'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { getClubAdminSession } from '../storage/clubAuth'
 import MemberAccountDropdown from '../components/MemberAccountDropdown'
+import BookingPaymentShare from '../components/BookingPaymentShare'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './ClubPublicPage.css'
+import '../components/BookingPaymentShare.css'
 
 const getClubBookings = (clubId) => {
   try {
@@ -92,6 +94,7 @@ const ClubPublicPage = () => {
   const [platformUser, setPlatformUser] = useState(null)
   const [courtGridDate, setCourtGridDate] = useState(() => new Date().toISOString().split('T')[0])
   const [bookingModal, setBookingModal] = useState(null)
+  const [paymentShares, setPaymentShares] = useState([])
 
   useEffect(() => {
     setAppLanguage(language)
@@ -446,6 +449,9 @@ const ClubPublicPage = () => {
 
   const handleConfirmBooking = async () => {
     if (!bookingModal || !platformUser || !isMember) return
+    const totalPrice = calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration || 60).price
+    const sharedSum = (paymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
+    if (paymentShares?.length > 0 && sharedSum > totalPrice) return
     const dur = bookingDuration || 60
     const [h, m] = (bookingModal.startTime || '00:00').split(':').map(Number)
     const endM = (h || 0) * 60 + (m || 0) + dur
@@ -469,9 +475,11 @@ const ClubPublicPage = () => {
         customer: memberName,
         price: priceResult.price,
         currency: priceResult.currency,
-        durationMinutes: dur
+        durationMinutes: dur,
+        paymentShares: paymentShares.length > 0 ? paymentShares : undefined
       })
       setBookingModal(null)
+      setPaymentShares([])
       refreshClub()
     } catch (e) {
       console.error('Booking failed:', e)
@@ -670,7 +678,7 @@ const ClubPublicPage = () => {
         </section>
 
         {bookingModal && (
-          <div className="club-public-booking-modal-backdrop" onClick={() => !bookingSubmitting && setBookingModal(null)} role="presentation">
+          <div className="club-public-booking-modal-backdrop" onClick={() => { if (!bookingSubmitting) { setBookingModal(null); setPaymentShares([]) } }} role="presentation">
             <div className="club-public-booking-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="booking-modal-title">
               <h3 id="booking-modal-title" className="club-public-booking-modal-title">{c.courtBooking}</h3>
               <div className="club-public-booking-modal-body">
@@ -706,12 +714,29 @@ const ClubPublicPage = () => {
                     {calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price} {currency}
                   </strong>
                 </div>
+                <BookingPaymentShare
+                  totalPrice={calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price}
+                  currency={currency}
+                  clubName={language === 'ar' && club?.nameAr ? club.nameAr : club?.name}
+                  dateStr={bookingModal.dateStr}
+                  startTime={bookingModal.startTime}
+                  clubMembers={clubMembersList}
+                  currentMemberId={platformUser?.id}
+                  language={language}
+                  value={paymentShares}
+                  onChange={setPaymentShares}
+                />
               </div>
               <div className="club-public-booking-modal-actions">
-                <button type="button" className="club-public-booking-modal-cancel" onClick={() => !bookingSubmitting && setBookingModal(null)} disabled={bookingSubmitting}>
+                <button type="button" className="club-public-booking-modal-cancel" onClick={() => { if (!bookingSubmitting) { setBookingModal(null); setPaymentShares([]) } }} disabled={bookingSubmitting}>
                   {language === 'en' ? 'Cancel' : 'إلغاء'}
                 </button>
-                <button type="button" className="club-public-booking-modal-confirm" onClick={handleConfirmBooking} disabled={bookingSubmitting}>
+                <button
+                  type="button"
+                  className="club-public-booking-modal-confirm"
+                  onClick={handleConfirmBooking}
+                  disabled={bookingSubmitting || (paymentShares?.length > 0 && (paymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) > calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price)}
+                >
                   {bookingSubmitting ? (language === 'en' ? 'Booking...' : 'جاري الحجز...') : c.confirmBooking}
                 </button>
               </div>
