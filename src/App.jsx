@@ -5868,29 +5868,10 @@ function App({ currentUser }) {
 
               {bookingView === 'weekly' ? (
                 <div className="section section-bookings">
-                  <div className="section-header bookings-section-header">
-                    <h2 className="bookings-title">{t.bookings} - {currentClub?.nameAr || currentClub?.name || 'Hala Padel'}</h2>
-                    <div className="bookings-header-actions">
-                      <div className="bookings-sync-row">
-                        <button 
-                          className="btn-primary btn-refresh-playtomic"
-                          onClick={() => loadPlaytomicBookings(true)}
-                          disabled={isLoadingPlaytomic}
-                          title={language === 'en' ? 'Refresh bookings from Playtomic' : 'تحديث الحجوزات من Playtomic'}
-                        >
-                          <span>🔄</span>
-                          <span className="btn-label">{isLoadingPlaytomic ? (language === 'en' ? 'Loading...' : 'جاري التحميل...') : (language === 'en' ? 'Refresh Playtomic' : 'تحديث Playtomic')}</span>
-                        </button>
-                        {playtomicLastSync && (
-                          <span className="bookings-last-sync">
-                            {language === 'en' 
-                              ? `Last sync: ${new Date(playtomicLastSync).toLocaleTimeString()}`
-                              : `آخر تحديث: ${new Date(playtomicLastSync).toLocaleTimeString('ar-SA')}`
-                            }
-                          </span>
-                        )}
-                      </div>
-                      <div className="bookings-nav-wrap">
+                  <div className="bookings-section-header">
+                    <h2 className="bookings-title">{t.bookings} — {currentClub?.nameAr || currentClub?.name || 'Hala Padel'}</h2>
+                    <div className="bookings-toolbar">
+                      <div className="bookings-toolbar-nav">
                         <button 
                           className="btn-secondary btn-nav-prev"
                           onClick={() => {
@@ -5899,9 +5880,10 @@ function App({ currentUser }) {
                             setCurrentWeek(newWeek)
                           }}
                           title={language === 'en' ? `Previous ${selectedDays.length} days` : `${selectedDays.length} أيام سابقة`}
+                          aria-label={language === 'en' ? `Previous ${selectedDays.length} days` : `${selectedDays.length} أيام سابقة`}
                         >
                           <span>{isRTL ? '→' : '←'}</span>
-                          <span className="nav-label-full">{language === 'en' ? `Previous ${selectedDays.length === 1 ? 'Day' : `${selectedDays.length} Days`}` : `${selectedDays.length === 1 ? 'اليوم السابق' : `${selectedDays.length} أيام سابقة`}`}</span>
+                          <span className="nav-label-full">{language === 'en' ? (selectedDays.length === 1 ? 'Prev' : `−${selectedDays.length}`) : (selectedDays.length === 1 ? 'السابق' : `−${selectedDays.length}`)}</span>
                         </button>
                         <button 
                           className="btn-secondary btn-nav-today"
@@ -5917,17 +5899,18 @@ function App({ currentUser }) {
                             setCurrentWeek(newWeek)
                           }}
                           title={language === 'en' ? `Next ${selectedDays.length} days` : `${selectedDays.length} أيام قادمة`}
+                          aria-label={language === 'en' ? `Next ${selectedDays.length} days` : `${selectedDays.length} أيام قادمة`}
                         >
-                          <span className="nav-label-full">{language === 'en' ? `Next ${selectedDays.length === 1 ? 'Day' : `${selectedDays.length} Days`}` : `${selectedDays.length === 1 ? 'اليوم التالي' : `${selectedDays.length} أيام قادمة`}`}</span>
+                          <span className="nav-label-full">{language === 'en' ? (selectedDays.length === 1 ? 'Next' : `+${selectedDays.length}`) : (selectedDays.length === 1 ? 'التالي' : `+${selectedDays.length}`)}</span>
                           <span>{isRTL ? '←' : '→'}</span>
                         </button>
                       </div>
-                      <div className="bookings-days-row">
-                        <span className="bookings-days-label">{language === 'en' ? 'Days:' : 'الأيام:'}</span>
+                      <div className="bookings-toolbar-days">
+                        <span className="bookings-days-label">{language === 'en' ? 'Days' : 'الأيام'}</span>
                         <button 
                           className="btn-secondary btn-days-value"
                           onClick={toggleWeeklyViewDays}
-                          title={language === 'en' ? `Reduce to ${selectedDays.length > 1 ? selectedDays.length - 1 : 7} days` : `تقليل إلى ${selectedDays.length > 1 ? selectedDays.length - 1 : 7} أيام`}
+                          title={language === 'en' ? `Show ${selectedDays.length > 1 ? selectedDays.length - 1 : 7} days` : `عرض ${selectedDays.length > 1 ? selectedDays.length - 1 : 7} أيام`}
                         >
                           {selectedDays.length}
                         </button>
@@ -5935,10 +5918,31 @@ function App({ currentUser }) {
                           <button 
                             className="btn-secondary btn-days-all"
                             onClick={maximizeWeeklyView}
-                            title={language === 'en' ? 'Show all 7 days' : 'عرض جميع الأيام'}
+                            title={language === 'en' ? 'Show 7 days' : 'عرض 7 أيام'}
                           >
-                            {language === 'en' ? 'All' : 'الكل'}
+                            {language === 'en' ? '7' : '٧'}
                           </button>
+                        )}
+                      </div>
+                      <div className="bookings-toolbar-sync">
+                        <button 
+                          type="button"
+                          className="bookings-sync-btn"
+                          onClick={() => loadPlaytomicBookings(true)}
+                          disabled={isLoadingPlaytomic}
+                          title={language === 'en' ? 'Refresh from Playtomic' : 'تحديث من Playtomic'}
+                          aria-label={language === 'en' ? 'Refresh from Playtomic' : 'تحديث من Playtomic'}
+                        >
+                          <span className="bookings-sync-icon" aria-hidden="true">🔄</span>
+                          {isLoadingPlaytomic && <span className="bookings-sync-loading">{language === 'en' ? '…' : '…'}</span>}
+                        </button>
+                        {playtomicLastSync && (
+                          <span className="bookings-last-sync">
+                            {language === 'en' 
+                              ? new Date(playtomicLastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                              : new Date(playtomicLastSync).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })
+                            }
+                          </span>
                         )}
                       </div>
                     </div>
@@ -6193,57 +6197,60 @@ function App({ currentUser }) {
               </div>
               ) : (
                 <div className="section section-bookings">
-                  <div className="section-header bookings-section-header">
-                    <h2 className="bookings-title">{t.bookings} - {currentClub?.nameAr || currentClub?.name || 'Hala Padel'}</h2>
-                    <div className="bookings-header-actions bookings-court-actions">
-                      <div className="bookings-sync-row">
+                  <div className="bookings-section-header">
+                    <h2 className="bookings-title">{t.bookings} — {currentClub?.nameAr || currentClub?.name || 'Hala Padel'}</h2>
+                    <div className="bookings-toolbar bookings-toolbar-court">
+                      <div className="bookings-toolbar-nav">
+                        <button
+                          className="btn-secondary btn-nav-prev"
+                          onClick={() => navigateCourtViewDate('prev')}
+                          title={language === 'en' ? 'Previous day' : 'اليوم السابق'}
+                          aria-label={language === 'en' ? 'Previous day' : 'اليوم السابق'}
+                        >
+                          {isRTL ? '→' : '←'}
+                        </button>
                         <button 
-                          className="btn-primary btn-refresh-playtomic"
+                          className="btn-secondary btn-nav-today"
+                          onClick={() => setSelectedDateForCourtView(new Date().toISOString().split('T')[0])}
+                        >
+                          {language === 'en' ? 'Today' : 'اليوم'}
+                        </button>
+                        <input
+                          type="date"
+                          value={selectedDateForCourtView}
+                          onChange={(e) => setSelectedDateForCourtView(e.target.value)}
+                          className="search-input bookings-date-input"
+                          aria-label={language === 'en' ? 'Select date' : 'اختر التاريخ'}
+                        />
+                        <button
+                          className="btn-secondary btn-nav-next"
+                          onClick={() => navigateCourtViewDate('next')}
+                          title={language === 'en' ? 'Next day' : 'اليوم التالي'}
+                          aria-label={language === 'en' ? 'Next day' : 'اليوم التالي'}
+                        >
+                          {isRTL ? '←' : '→'}
+                        </button>
+                      </div>
+                      <div className="bookings-toolbar-sync">
+                        <button 
+                          type="button"
+                          className="bookings-sync-btn"
                           onClick={() => loadPlaytomicBookings(true)}
                           disabled={isLoadingPlaytomic}
-                          title={language === 'en' ? 'Refresh bookings from Playtomic' : 'تحديث الحجوزات من Playtomic'}
+                          title={language === 'en' ? 'Refresh from Playtomic' : 'تحديث من Playtomic'}
+                          aria-label={language === 'en' ? 'Refresh from Playtomic' : 'تحديث من Playtomic'}
                         >
-                          <span>🔄</span>
-                          <span className="btn-label">{isLoadingPlaytomic ? (language === 'en' ? 'Loading...' : 'جاري التحميل...') : (language === 'en' ? 'Refresh Playtomic' : 'تحديث Playtomic')}</span>
+                          <span className="bookings-sync-icon" aria-hidden="true">🔄</span>
+                          {isLoadingPlaytomic && <span className="bookings-sync-loading">…</span>}
                         </button>
                         {playtomicLastSync && (
                           <span className="bookings-last-sync">
                             {language === 'en' 
-                              ? `Last sync: ${new Date(playtomicLastSync).toLocaleTimeString()}`
-                              : `آخر تحديث: ${new Date(playtomicLastSync).toLocaleTimeString('ar-SA')}`
+                              ? new Date(playtomicLastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                              : new Date(playtomicLastSync).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })
                             }
                           </span>
                         )}
-                      </div>
-                      <div className="bookings-nav-wrap bookings-court-nav-wrap">
-                        <button
-                          className="btn-secondary btn-nav-prev"
-                          onClick={() => navigateCourtViewDate('prev')}
-                          title={language === 'en' ? 'Previous Day' : 'اليوم السابق'}
-                        >
-                          {isRTL ? '→' : '←'}
-                        </button>
-                        <div className="bookings-nav-today-group">
-                          <button 
-                            className="btn-secondary btn-nav-today"
-                            onClick={() => setSelectedDateForCourtView(new Date().toISOString().split('T')[0])}
-                          >
-                            {language === 'en' ? 'Today' : 'اليوم'}
-                          </button>
-                          <input
-                            type="date"
-                            value={selectedDateForCourtView}
-                            onChange={(e) => setSelectedDateForCourtView(e.target.value)}
-                            className="search-input bookings-date-input"
-                          />
-                        </div>
-                        <button
-                          className="btn-secondary btn-nav-next"
-                          onClick={() => navigateCourtViewDate('next')}
-                          title={language === 'en' ? 'Next Day' : 'اليوم التالي'}
-                        >
-                          {isRTL ? '←' : '→'}
-                        </button>
                       </div>
                     </div>
                   </div>
