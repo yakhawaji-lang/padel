@@ -14,13 +14,28 @@ function normalizePhone(s) {
   return s.replace(/\s/g, '').replace(/^00/, '+').replace(/^0/, '+966')
 }
 
-/** Build WhatsApp share link */
-function buildWhatsAppLink(phone, clubName, dateStr, timeStr, amount, currency) {
+/** Build registration URL with club join (same club as booking) */
+function getRegisterUrl(clubId) {
+  if (!clubId) return ''
+  const base = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) || '/'
+  const path = base.replace(/\/$/, '') + '/register?join=' + encodeURIComponent(clubId)
+  if (typeof window !== 'undefined') {
+    return window.location.origin + (path.startsWith('/') ? path : '/' + path)
+  }
+  return path
+}
+
+/** Build WhatsApp share link with registration URL */
+function buildWhatsAppLink(phone, clubName, dateStr, timeStr, amount, currency, clubId) {
   const p = normalizePhone(phone)
   const num = p.replace(/\D/g, '')
   const base = num.startsWith('966') ? `966${num.slice(3)}` : num
+  const registerUrl = getRegisterUrl(clubId)
+  const registerText = registerUrl
+    ? `سجّل في PlayTix للمشاركة: ${registerUrl}`
+    : 'سجّل في PlayTix للمشاركة'
   const text = encodeURIComponent(
-    `مرحباً! أنا أشاركك في دفع حجز ملعب في ${clubName || 'النادي'}\nالتاريخ: ${dateStr}\nالوقت: ${timeStr}\nمبلغ مشاركتك: ${amount} ${currency}\nسجّل في PlayTix للمشاركة: `
+    `مرحباً! أنا أشاركك في دفع حجز ملعب في ${clubName || 'النادي'}\nالتاريخ: ${dateStr}\nالوقت: ${timeStr}\nمبلغ مشاركتك: ${amount} ${currency}\n${registerText}`
   )
   return `https://wa.me/${base}?text=${text}`
 }
@@ -29,6 +44,7 @@ export default function BookingPaymentShare({
   totalPrice,
   currency,
   clubName,
+  clubId,
   dateStr,
   startTime,
   clubMembers = [],
@@ -99,7 +115,7 @@ export default function BookingPaymentShare({
       phone: p,
       type: 'unregistered',
       amount,
-      whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, amount, currency)
+      whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, amount, currency, clubId)
     }])
     setManualPhone('')
   }
@@ -119,7 +135,7 @@ export default function BookingPaymentShare({
             phone: p,
             type: 'unregistered',
             amount: amt,
-            whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, amt, currency)
+            whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, amt, currency, clubId)
           }))
           onChange([...shares, ...newShares])
         } else {

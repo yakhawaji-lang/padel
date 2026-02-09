@@ -718,6 +718,7 @@ const ClubPublicPage = () => {
                   totalPrice={calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price}
                   currency={currency}
                   clubName={language === 'ar' && club?.nameAr ? club.nameAr : club?.name}
+                  clubId={clubId}
                   dateStr={bookingModal.dateStr}
                   startTime={bookingModal.startTime}
                   clubMembers={clubMembersList}
