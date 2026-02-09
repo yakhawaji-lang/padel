@@ -140,6 +140,16 @@ https://playtix.app/api/db-check
 - `ENOTFOUND HOST` → استبدل أي placeholder بـ HOST الفعلي
 - `Access denied @'::1'` → استخدم `127.0.0.1` بدلاً من `localhost`
 
+### 3.2.1 إصلاح Connect timed out
+إذا ظهرت رسالة **Connect timed out** أو **The driver has not received any packets** (مع DBeaver أو التطبيق):
+
+1. **Remote MySQL في Hostinger:** hPanel → Databases → MySQL Databases → **Remote MySQL** → أضف عنوان IP:
+   - للتطبيق على Hostinger: استخدم `127.0.0.1` أو `localhost` (لا حاجة لـ Remote MySQL)
+   - للتطبيق خارج Hostinger أو DBeaver من جهازك: أضف IP جهازك أو السيرفر
+   - للتجربة السريعة: أضف `%` (يسمح لأي IP — استبدله لاحقاً بأمان)
+2. **تحقق من Host:** تأكد أنك تستخدم الـ host المعروض في hPanel (مثل `srvXXXX.hstgr.io` أو IP `77.37.35.74`) — قد يتغيّر
+3. **تأخير الشبكة:** تمت إضافة `connectTimeout: 60000` في الكود لزيادة مهلة الاتصال
+
 ### 3.3 تهيئة الجداول
 **من المتصفح (الأسهل):**
 ```

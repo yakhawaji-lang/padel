@@ -67,7 +67,10 @@ if (connectionString && isMySQL && !hasPlaceholderHost) {
       uri: connectionString,
       waitForConnections: true,
       connectionLimit: 10,
-      queueLimit: 0
+      queueLimit: 0,
+      connectTimeout: 60000,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 10000
     })
   } catch (err) {
     console.error('[pool] MySQL pool init failed:', err.message)
