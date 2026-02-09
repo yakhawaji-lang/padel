@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react'
-import { Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useParams, useNavigate, useLocation } from 'react-router-dom'
 import './ClubAdminPanel.css'
 import './admin-rtl.css'
 import './pages/club-pages-common.css'
 import ClubAdminHeader from './components/ClubAdminHeader'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
-import { setClubLanguage } from '../storage/appSettingsStorage'
+import { setClubLanguage, getClubLanguageCached } from '../storage/appSettingsStorage'
 import ClubDashboard from './pages/ClubDashboard'
 import ClubMembersManagement from './pages/ClubMembersManagement'
 import ClubOffersManagement from './pages/ClubOffersManagement'
@@ -23,7 +23,7 @@ function ClubAdminPanel() {
   const navigate = useNavigate()
   const [club, setClub] = useState(null)
   const [clubs, setClubs] = useState([])
-  const [language, setLanguage] = useState('en')
+  const [language, setLanguage] = useState(() => getAppLanguage())
   const [isLoading, setIsLoading] = useState(true)
 
   const loadData = async (silent = false) => {
@@ -36,7 +36,11 @@ function ClubAdminPanel() {
       const foundClub = getClubById(clubId)
       if (foundClub) {
         setClub(foundClub)
-        if (!silent) setLanguage(getAppLanguage())
+        if (!silent) {
+          const savedLang = getClubLanguageCached(clubId) || getAppLanguage()
+          setLanguage(savedLang)
+          setAppLanguage(savedLang)
+        }
       } else {
         navigate('/admin/all-clubs')
       }
@@ -99,8 +103,11 @@ function ClubAdminPanel() {
     return null
   }
 
+  const location = useLocation()
+  const section = location.pathname.split('/').filter(Boolean).pop() || 'dashboard'
+
   return (
-    <div className={`club-admin-panel ${language === 'ar' ? 'rtl' : ''}`}>
+    <div className={`club-admin-panel club-admin-panel--${section} ${language === 'ar' ? 'rtl' : ''}`}>
       <div className="club-admin-content">
         <ClubAdminHeader 
           club={club}
@@ -116,6 +123,7 @@ function ClubAdminPanel() {
             </div>
           </div>
         )}
+        <main className="club-admin-main" data-section={section}>
         <Routes>
           <Route path="/" element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<ClubPageGuard permission="dashboard"><ClubDashboard club={club} /></ClubPageGuard>} />
@@ -128,6 +136,7 @@ function ClubAdminPanel() {
           <Route path="settings" element={<ClubPageGuard permission="settings"><ClubSettings club={club} language={language} onUpdateClub={handleClubUpdate} onDefaultLanguageChange={(lang) => { setLanguage(lang); setAppLanguage(lang); if (clubId) setClubLanguage(clubId, lang) }} /></ClubPageGuard>} />
           <Route path="users" element={<ClubPageGuard permission="users"><ClubUsersManagement club={club} onUpdateClub={handleClubUpdate} language={language} /></ClubPageGuard>} />
         </Routes>
+        </main>
       </div>
     </div>
   )

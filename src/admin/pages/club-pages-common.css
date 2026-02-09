@@ -1,18 +1,24 @@
 /* Club Admin Pages - Shared Professional Styles (cxp-) */
 
-/* Page wrapper */
+/* Page wrapper - ممتد واحترافي */
 .club-admin-page {
   flex: 1;
-  padding: 20px;
-  padding-inline: 20px;
-  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  padding: 24px;
+  padding-inline: 24px;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   min-height: 0;
   width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
-  background: #f1f5f9;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 16px;
+  margin: 16px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(226, 232, 240, 0.8);
 }
 
 /* Header */
@@ -361,8 +367,11 @@
 /* Mobile */
 @media (max-width: 768px) {
   .club-admin-page {
-    padding: 12px 14px;
-    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    margin: 12px;
+    margin-bottom: 16px;
+    border-radius: 12px;
   }
 
   .cxp-title {

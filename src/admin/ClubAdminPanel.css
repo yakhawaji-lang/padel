@@ -23,6 +23,26 @@
   width: 100%;
 }
 
+.club-admin-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  width: 100%;
+}
+
+/* خلفيات مميزة حسب القسم - ألوان متقاربة واحترافية */
+.club-admin-panel--dashboard { background: #f0f4f8; }
+.club-admin-panel--members { background: #f2f5f9; }
+.club-admin-panel--bookings { background: #f1f5f9; }
+.club-admin-panel--booking-prices { background: #f3f6fa; }
+.club-admin-panel--offers { background: #f5f7fa; }
+.club-admin-panel--store { background: #f2f6f9; }
+.club-admin-panel--accounting { background: #f0f5f9; }
+.club-admin-panel--settings { background: #f4f6fa; }
+.club-admin-panel--users { background: #f1f4f8; }
+
 .club-pending-banner {
   display: flex;
   align-items: flex-start;
