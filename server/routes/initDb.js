@@ -79,6 +79,54 @@ router.get('/', async (req, res) => {
       return res.status(500).json({ error: e.message })
     }
   }
+  // GET /api/init-db?migrate-members=1 — إضافة أعمدة password_hash و mobile ثم مزامنة كلمات المرور من app_store
+  if (req.query['migrate-members'] === '1' && hasDb) {
+    try {
+      for (const [tbl, col, def] of [['members', 'password_hash', 'VARCHAR(255) DEFAULT NULL'], ['members', 'mobile', 'VARCHAR(50) DEFAULT NULL']]) {
+        try {
+          await query(`ALTER TABLE \`${tbl}\` ADD COLUMN \`${col}\` ${def}`)
+        } catch (e) {
+          if (!e.message?.includes('Duplicate column') && !e.message?.includes("doesn't exist")) throw e
+        }
+      }
+      let synced = 0
+      const byId = new Map()
+      try {
+        const { rows: storeRows } = await query('SELECT `key`, value FROM app_store WHERE `key` IN (?, ?)', ['all_members', 'padel_members'])
+        for (const r of storeRows) {
+          const arr = Array.isArray(r.value) ? r.value : (typeof r.value === 'string' ? JSON.parse(r.value || '[]') : [])
+          arr.forEach(m => {
+            if (m?.id && (m.password || m.password_hash || m.mobile || m.phone)) {
+              byId.set(m.id, { ...byId.get(m.id), ...m })
+            }
+          })
+        }
+      } catch (_) {}
+      try {
+        const { rows: entityRows } = await query('SELECT entity_id, data FROM entities WHERE entity_type = ?', ['member'])
+        for (const r of entityRows) {
+          const m = typeof r.data === 'object' ? r.data : JSON.parse(r.data || '{}')
+          if (m?.id && (m.password || m.password_hash || m.mobile || m.phone)) {
+            byId.set(m.id, { ...byId.get(m.id), ...m, id: r.entity_id })
+          }
+        }
+      } catch (_) {}
+      for (const [id, m] of byId) {
+        const pw = m.password ?? m.password_hash ?? null
+        const mob = m.mobile ?? m.phone ?? null
+        if (pw || mob) {
+          try {
+            await query('UPDATE members SET password_hash=COALESCE(?, password_hash), mobile=COALESCE(?, mobile) WHERE id=?', [pw, mob, id])
+            if (pw) synced++
+          } catch (_) {}
+        }
+      }
+      return res.json({ ok: true, message: `Members auth columns migrated. ${synced} password(s) synced. Try login again.` })
+    } catch (e) {
+      console.error('migrate-members error:', e)
+      return res.status(500).json({ error: e.message })
+    }
+  }
   // GET /api/init-db?init=1 — تهيئة من المتصفح (بديل لـ POST عند صعوبة تنفيذ الأوامر)
   if (req.query.init === '1' && hasDb) {
     try {
@@ -148,7 +196,7 @@ router.get('/', async (req, res) => {
   }
   res.json({
     configured: hasDb,
-    hint: !hasDb ? 'Add database.config.json or DATABASE_URL' : 'Add ?init=1 to URL to initialize tables from browser, or use POST'
+    hint: !hasDb ? 'Add database.config.json or DATABASE_URL' : 'Add ?init=1 to initialize, ?migrate-members=1 to fix member login (add password columns)'
   })
 })
 

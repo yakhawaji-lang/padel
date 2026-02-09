@@ -51,5 +51,18 @@ export async function runInitRelational() {
     if (!e.message?.includes('Duplicate column')) {}
   }
 
+  for (const col of [
+    ['members', 'password_hash', 'VARCHAR(255) DEFAULT NULL'],
+    ['members', 'mobile', 'VARCHAR(50) DEFAULT NULL']
+  ]) {
+    try {
+      await query(`ALTER TABLE \`${col[0]}\` ADD COLUMN \`${col[1]}\` ${col[2]}`)
+    } catch (e) {
+      if (!e.message?.includes('Duplicate column') && !e.message?.includes("doesn't exist")) {
+        console.warn('[init-relational] members auth columns:', e.message)
+      }
+    }
+  }
+
   return { created }
 }

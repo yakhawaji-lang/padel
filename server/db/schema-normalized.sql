@@ -50,6 +50,8 @@ CREATE TABLE IF NOT EXISTS members (
   name_ar VARCHAR(255),
   email VARCHAR(255),
   avatar VARCHAR(500),
+  mobile VARCHAR(50),
+  password_hash VARCHAR(255),
   total_points INT DEFAULT 0,
   total_games INT DEFAULT 0,
   total_wins INT DEFAULT 0,
