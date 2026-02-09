@@ -244,7 +244,7 @@ export async function syncMemberClubs() {
 }
 
 // ---------- Clubs ----------
-async function assembleClub(clubRow, courts, settings, adminUsers, offers, bookings, accounting, tournamentTypes, store, memberIds) {
+async function assembleClub(clubRow, courts, settings, adminUsers, offers, bookings, accounting, tournamentTypes, store, memberIds, paymentSharesByBooking = {}) {
   const s = settings?.[0] || {}
   return {
     id: clubRow.id,
@@ -310,8 +310,12 @@ async function assembleClub(clubRow, courts, settings, adminUsers, offers, booki
       const spread = (data && typeof data === 'object') ? data : {}
       const dateVal = b.booking_date
       const dateStr = dateVal ? (typeof dateVal === 'string' ? dateVal : (dateVal.toISOString ? dateVal.toISOString().split('T')[0] : String(dateVal))) : (spread.date || spread.startDate || '')
+      const bpsKey = `${b.club_id}:${b.id}`
+      const sharesFromTable = paymentSharesByBooking[bpsKey] || []
+      const paymentShares = sharesFromTable.length > 0 ? sharesFromTable : (spread.paymentShares || [])
       return {
         ...spread,
+        paymentShares: Array.isArray(paymentShares) ? paymentShares : [],
         id: b.id,
         courtId: b.court_id,
         memberId: b.member_id,
@@ -382,7 +386,7 @@ export async function getClubsFromNormalized() {
   const clubIds = clubs.map(c => c.id)
   const placeholders = clubIds.map(() => '?').join(',')
 
-  const [courtsRes, settingsRes, adminRes, offersRes, bookingsRes, accountingRes, ttRes, storeRes, mcRes] = await Promise.all([
+  const [courtsRes, settingsRes, adminRes, offersRes, bookingsRes, accountingRes, ttRes, storeRes, mcRes, bpsRes] = await Promise.all([
     query(`SELECT * FROM club_courts WHERE club_id IN (${placeholders}) AND deleted_at IS NULL`, clubIds),
     query(`SELECT * FROM club_settings WHERE club_id IN (${placeholders})`, clubIds),
     query(`SELECT * FROM club_admin_users WHERE club_id IN (${placeholders}) AND deleted_at IS NULL`, clubIds),
@@ -391,7 +395,8 @@ export async function getClubsFromNormalized() {
     query(`SELECT * FROM club_accounting WHERE club_id IN (${placeholders}) AND deleted_at IS NULL`, clubIds),
     query(`SELECT * FROM club_tournament_types WHERE club_id IN (${placeholders}) AND deleted_at IS NULL`, clubIds),
     query(`SELECT * FROM club_store WHERE club_id IN (${placeholders})`, clubIds),
-    query(`SELECT member_id, club_id FROM member_clubs WHERE club_id IN (${placeholders})`, clubIds)
+    query(`SELECT member_id, club_id FROM member_clubs WHERE club_id IN (${placeholders})`, clubIds),
+    query(`SELECT booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link FROM booking_payment_shares WHERE club_id IN (${placeholders})`, clubIds).catch(() => ({ rows: [] }))
   ])
 
   const byClub = (arr, key = 'club_id') => {
@@ -414,6 +419,20 @@ export async function getClubsFromNormalized() {
     membersByClub[r.club_id].push(r.member_id)
   })
 
+  const paymentSharesByBooking = {}
+  ;(bpsRes?.rows || bpsRes || []).forEach(r => {
+    const key = `${r.club_id}:${r.booking_id}`
+    if (!paymentSharesByBooking[key]) paymentSharesByBooking[key] = []
+    paymentSharesByBooking[key].push({
+      type: r.participant_type || 'registered',
+      memberId: r.member_id || undefined,
+      memberName: r.member_name || undefined,
+      phone: r.phone || undefined,
+      amount: parseFloat(r.amount) || 0,
+      whatsappLink: r.whatsapp_link || undefined
+    })
+  })
+
   const result = []
   for (const club of clubs) {
     const cid = club.id
@@ -427,7 +446,8 @@ export async function getClubsFromNormalized() {
       accountingByClub[cid],
       ttByClub[cid],
       (storeByClub[cid] || [])[0],
-      membersByClub[cid]
+      membersByClub[cid],
+      paymentSharesByBooking
     ))
   }
   return result
@@ -576,6 +596,7 @@ export async function saveClubsToNormalized(items, actor = {}) {
     for (const eb of existingBookings) {
       if (!bookingIds.has(eb.id)) {
         await query('UPDATE club_bookings SET deleted_at=NOW(), deleted_by=? WHERE club_id=? AND id=?', [actor.actorId || null, cid, eb.id])
+        await query('DELETE FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?', [eb.id, cid]).catch(() => {})
         await logAudit({ tableName: 'club_bookings', recordId: eb.id, action: 'DELETE', ...actor, clubId: cid })
       }
     }
@@ -589,6 +610,25 @@ export async function saveClubsToNormalized(items, actor = {}) {
          ON DUPLICATE KEY UPDATE court_id=VALUES(court_id), member_id=VALUES(member_id), booking_date=VALUES(booking_date), time_slot=VALUES(time_slot), status=VALUES(status), data=VALUES(data), updated_at=NOW(), updated_by=VALUES(updated_by), deleted_at=NULL, deleted_by=NULL`,
         [bid, cid, b.courtId || null, b.memberId || null, b.date || null, b.timeSlot || null, b.status || null, JSON.stringify(bData), actor.actorId || null]
       )
+      const shares = Array.isArray(b.paymentShares) ? b.paymentShares : []
+      try {
+        await query('DELETE FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?', [bid, cid])
+        for (const s of shares) {
+          const ptype = (s.type === 'unregistered' ? 'unregistered' : 'registered')
+          const mid = ptype === 'registered' ? (s.memberId || null) : null
+          const mname = ptype === 'registered' ? (s.memberName || null) : null
+          const ph = ptype === 'unregistered' ? (s.phone || null) : null
+          const amt = parseFloat(s.amount) || 0
+          const wa = ptype === 'unregistered' ? (s.whatsappLink || null) : null
+          await query(
+            `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [bid, cid, ptype, mid, mname, ph, amt, wa]
+          )
+        }
+      } catch (bpsErr) {
+        console.warn('booking_payment_shares: run migration add-booking-payment-shares-table.sql if table missing:', bpsErr?.message)
+      }
     }
 
     const accounting = club.accounting || []
@@ -670,6 +710,7 @@ export async function deleteClubPermanent(clubId, actor = {}) {
     await query('DELETE FROM member_clubs WHERE club_id = ?', [cid])
     await query('DELETE FROM club_courts WHERE club_id = ?', [cid])
     await query('DELETE FROM club_settings WHERE club_id = ?', [cid])
+    await query('DELETE FROM booking_payment_shares WHERE club_id = ?', [cid]).catch(() => {})
     await query('DELETE FROM club_admin_users WHERE club_id = ?', [cid])
     await query('DELETE FROM club_offers WHERE club_id = ?', [cid])
     await query('DELETE FROM club_bookings WHERE club_id = ?', [cid])

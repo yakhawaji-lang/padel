@@ -4,30 +4,44 @@
 تمكين المستخدم من مشاركة دفع حجز الملعب مع أعضاء مسجلين أو غير مسجلين في المنصة.
 
 ## التخزين في قاعدة البيانات u502561206_padel_db
-**لا حاجة لتعديلات على قاعدة البيانات.** تُخزَّن بيانات المشاركة في عمود `data` (JSON) ضمن جدول `club_bookings` الموجود مسبقاً.
 
-### بنية البيانات (داخل club_bookings.data)
-```json
-{
-  "paymentShares": [
-    {
-      "memberId": "member-id",
-      "memberName": "اسم العضو",
-      "type": "registered",
-      "amount": 45
-    },
-    {
-      "phone": "+966512345678",
-      "type": "unregistered",
-      "amount": 45,
-      "whatsappLink": "https://wa.me/966512345678?text=..."
-    }
-  ]
-}
+يتم التخزين في **مكانين** معاً لضمان التوافق والاستعلام:
+
+### 1. جدول `booking_payment_shares` (جدول مستقل)
+- تخزين منظم لكل مشارك في الدفع
+- مناسب للاستعلامات والتقارير
+- يُقرأ منه أولاً عند تحميل الحجوزات
+
+### 2. عمود `data` (JSON) في `club_bookings`
+- تُخزَّن نسخة في `club_bookings.data.paymentShares` للتوافق
+- يستخدم كاحتياطي عند عدم وجود جدول `booking_payment_shares`
+
+**عند الحفظ:** يتم الكتابة إلى كلا المكانين. **عند القراءة:** يُفضَّل جدول `booking_payment_shares`، وإن لم يكن موجوداً يُستخدم JSON.
+
+### رابط إنشاء الجدول في u502561206_padel_db
+
+**رابط مباشر لتنزيل وتشغيل SQL على u502561206_padel_db:**
+- [add-booking-payment-shares-table.sql](https://github.com/yakhawaji-lang/padel/blob/main/server/db/migrations/add-booking-payment-shares-table.sql)
+- رابط Raw: `https://raw.githubusercontent.com/yakhawaji-lang/padel/main/server/db/migrations/add-booking-payment-shares-table.sql`
+
+**أو نفّذ الأمر:**
+```bash
+mysql -u USER -p u502561206_padel_db < server/db/migrations/add-booking-payment-shares-table.sql
 ```
 
-### الجدول المستخدم (موجود)
-- `club_bookings` — عمود `data` (JSON) يضم جميع بيانات الحجز بما فيها `paymentShares`
+### بنية جدول booking_payment_shares
+| العمود | النوع | الوصف |
+|--------|-------|-------|
+| id | INT AUTO_INCREMENT | مفتاح أساسي |
+| booking_id | VARCHAR(255) | معرف الحجز |
+| club_id | VARCHAR(255) | معرف النادي |
+| participant_type | ENUM | 'registered' أو 'unregistered' |
+| member_id | VARCHAR(255) NULL | معرف العضو (للمسجلين) |
+| member_name | VARCHAR(255) NULL | اسم العضو |
+| phone | VARCHAR(50) NULL | رقم الجوال (لغير المسجلين) |
+| amount | DECIMAL(10,2) | مبلغ المشاركة |
+| whatsapp_link | TEXT NULL | رابط واتساب |
+| created_at | DATETIME | تاريخ الإنشاء |
 
 ## المميزات
 - مشاركة مع أعضاء مسجلين (اختيار من قائمة أعضاء النادي)
