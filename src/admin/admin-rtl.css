@@ -17,13 +17,13 @@
   border-right: 3px solid #2196f3;
 }
 
-/* Club Admin Panel RTL */
+/* Club Admin Panel RTL - بدون شريط جانبي، المحتوى ممتد بالكامل */
 .club-admin-panel.rtl .club-admin-content {
   margin-left: 0;
-  margin-right: 250px;
+  margin-right: 0;
 }
 
-/* سطح المكتب RTL: الشريط ظاهر على اليمين */
+/* سطح المكتب RTL: الشريط ظاهر على اليمين (إن وُجد) */
 .club-admin-panel.rtl .club-admin-sidebar {
   left: auto;
   right: 0;
