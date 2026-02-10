@@ -164,6 +164,12 @@ const ClubPublicPage = () => {
     return () => window.removeEventListener('member-updated', onMemberUpdate)
   }, [])
 
+  useEffect(() => {
+    if (!bookingSuccessId) return
+    const t = setTimeout(() => setBookingSuccessId(null), 8000)
+    return () => clearTimeout(t)
+  }, [bookingSuccessId])
+
   const bookings = useMemo(() => getClubBookings(clubId), [clubId])
   const today = useMemo(() => new Date().toISOString().split('T')[0], [])
 
@@ -587,12 +593,6 @@ const ClubPublicPage = () => {
       setBookingSubmitting(false)
     }
   }
-
-  useEffect(() => {
-    if (!bookingSuccessId) return
-    const t = setTimeout(() => setBookingSuccessId(null), 8000)
-    return () => clearTimeout(t)
-  }, [bookingSuccessId])
 
   return (
     <div className="club-public-page commercial">
