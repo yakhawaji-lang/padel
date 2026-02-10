@@ -263,6 +263,55 @@ const ClubPublicPage = () => {
     }
   }, [bookingModal?.dateStr, bookingModal?.startTime, durationOptions])
 
+  const isMember = club && platformUser && (
+    platformUser.clubIds?.includes(club.id) ||
+    platformUser.clubId === club.id ||
+    (Array.isArray(clubMembersList) && clubMembersList.some(m => String(m.id) === String(platformUser.id)))
+  )
+
+  const handleSlotClick = useCallback(async (court, dateStr, startTime) => {
+    if (!platformUser || !isMember) return
+    setLockError(null)
+    const dur = club?.settings?.bookingDuration || 60
+    const [h, m] = (startTime || '00:00').split(':').map(Number)
+    const endM = (h || 0) * 60 + (m || 0) + dur
+    const endTime = `${String(Math.floor(endM / 60)).padStart(2, '0')}:${String(endM % 60).padStart(2, '0')}`
+    const courtId = (court?.name || court?.id || '').toString()
+    const lockMinutes = club?.settings?.lockMinutes ?? 10
+    try {
+      const result = await bookingApi.acquireBookingLock({
+        clubId,
+        courtId,
+        date: dateStr,
+        startTime,
+        endTime,
+        memberId: platformUser.id,
+        lockMinutes
+      })
+      if (result.lockId) {
+        setActiveLock({ lockId: result.lockId, expiresAt: result.expiresAt })
+        setBookingModal({ court, dateStr, startTime })
+      }
+    } catch (e) {
+      if (e.status === 409 || e.message?.includes('SLOT_TAKEN')) {
+        setLockError(language === 'en' ? 'This slot was just taken. Please choose another.' : 'هذا الوقت تم حجزه للتو. اختر وقتاً آخر.')
+        refreshClub()
+      } else {
+        setLockError(language === 'en' ? 'Could not reserve slot. Please try again.' : 'تعذر حجز الوقت. حاول مجدداً.')
+      }
+    }
+  }, [clubId, platformUser, isMember, club?.settings?.bookingDuration, club?.settings?.lockMinutes, language, refreshClub])
+
+  const handleCloseBookingModal = useCallback(() => {
+    if (activeLock?.lockId) {
+      bookingApi.releaseBookingLock(activeLock.lockId, clubId, bookingModal?.dateStr).catch(() => {})
+      setActiveLock(null)
+    }
+    setBookingModal(null)
+    setPaymentShares([])
+    setLockError(null)
+  }, [activeLock?.lockId, clubId, bookingModal?.dateStr])
+
   if (!club) {
     return (
       <div className="club-public-page commercial">
@@ -283,11 +332,6 @@ const ClubPublicPage = () => {
   const clubName = language === 'ar' && club.nameAr ? club.nameAr : club.name
   const tagline = language === 'ar' ? (club.taglineAr || club.tagline) : (club.tagline || club.taglineAr)
   const address = club.address ? (language === 'ar' && club.addressAr ? club.addressAr : club.address) : null
-  const isMember = platformUser && (
-    platformUser.clubIds?.includes(club.id) ||
-    platformUser.clubId === club.id ||
-    (Array.isArray(clubMembersList) && clubMembersList.some(m => String(m.id) === String(platformUser.id)))
-  )
   const clubAdminSession = getClubAdminSession()
   const isClubAdmin = clubAdminSession && String(clubAdminSession.clubId) === String(clubId)
 
@@ -455,50 +499,6 @@ const ClubPublicPage = () => {
       setJoinStatus('error')
     }
   }
-
-  const handleSlotClick = useCallback(async (court, dateStr, startTime) => {
-    if (!platformUser || !isMember) return
-    setLockError(null)
-    const dur = club?.settings?.bookingDuration || 60
-    const [h, m] = (startTime || '00:00').split(':').map(Number)
-    const endM = (h || 0) * 60 + (m || 0) + dur
-    const endTime = `${String(Math.floor(endM / 60)).padStart(2, '0')}:${String(endM % 60).padStart(2, '0')}`
-    const courtId = (court?.name || court?.id || '').toString()
-    const courtName = (court?.name || '').toString().trim()
-    const lockMinutes = club?.settings?.lockMinutes ?? 10
-    try {
-      const result = await bookingApi.acquireBookingLock({
-        clubId,
-        courtId,
-        date: dateStr,
-        startTime,
-        endTime,
-        memberId: platformUser.id,
-        lockMinutes
-      })
-      if (result.lockId) {
-        setActiveLock({ lockId: result.lockId, expiresAt: result.expiresAt })
-        setBookingModal({ court, dateStr, startTime })
-      }
-    } catch (e) {
-      if (e.status === 409 || e.message?.includes('SLOT_TAKEN')) {
-        setLockError(language === 'en' ? 'This slot was just taken. Please choose another.' : 'هذا الوقت تم حجزه للتو. اختر وقتاً آخر.')
-        refreshClub()
-      } else {
-        setLockError(language === 'en' ? 'Could not reserve slot. Please try again.' : 'تعذر حجز الوقت. حاول مجدداً.')
-      }
-    }
-  }, [clubId, platformUser, isMember, club?.settings?.bookingDuration, club?.settings?.lockMinutes, language])
-
-  const handleCloseBookingModal = useCallback(() => {
-    if (activeLock?.lockId) {
-      bookingApi.releaseBookingLock(activeLock.lockId, clubId, bookingModal?.dateStr).catch(() => {})
-      setActiveLock(null)
-    }
-    setBookingModal(null)
-    setPaymentShares([])
-    setLockError(null)
-  }, [activeLock?.lockId, clubId, bookingModal?.dateStr])
 
   const handleConfirmBooking = async () => {
     if (!bookingModal || !platformUser || !isMember) return
