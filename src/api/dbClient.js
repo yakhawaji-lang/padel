@@ -225,10 +225,10 @@ export async function acquireBookingLock({ clubId, courtId, date, startTime, end
   })
 }
 
-export async function releaseBookingLock(lockId) {
+export async function releaseBookingLock(lockId, clubId, date) {
   return fetchJson('/api/bookings/release-lock', {
     method: 'POST',
-    body: JSON.stringify({ lockId })
+    body: JSON.stringify({ lockId, clubId, date })
   })
 }
 
@@ -251,6 +251,29 @@ export async function cancelBookingLock(lockId) {
     method: 'POST',
     body: JSON.stringify({ lockId })
   })
+}
+
+// ---- Favorites ----
+export async function getFavoriteMembers(memberId, clubId) {
+  const params = new URLSearchParams({ memberId, clubId })
+  return fetchJson(`/api/bookings/favorites?${params}`)
+}
+
+export async function addFavoriteMember(memberId, clubId, favoriteMemberId) {
+  return fetchJson('/api/bookings/favorites', {
+    method: 'POST',
+    body: JSON.stringify({ memberId, clubId, favoriteMemberId })
+  })
+}
+
+export async function removeFavoriteMember(memberId, clubId, favoriteMemberId) {
+  const params = new URLSearchParams({ memberId, clubId, favoriteMemberId })
+  return fetchJson(`/api/bookings/favorites?${params}`, { method: 'DELETE' })
+}
+
+// ---- Invite ----
+export async function getInviteByToken(token) {
+  return fetchJson(`/api/bookings/invite/${encodeURIComponent(token)}`)
 }
 
 // ---- Health check ----

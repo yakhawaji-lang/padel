@@ -3,8 +3,10 @@
  * - Add registered club members
  * - Add unregistered users via contact picker or manual phone, generate WhatsApp invite link
  * - Split: equal or custom amounts (must not exceed total price)
+ * - Favorites: show favorite members first, add/remove from favorites
  */
 import React, { useState, useCallback, useEffect } from 'react'
+import * as bookingApi from '../api/dbClient'
 
 const CONTACT_PICKER_SUPPORTED = typeof navigator !== 'undefined' && 'contacts' in navigator && typeof navigator.contacts?.select === 'function'
 
@@ -63,10 +65,41 @@ export default function BookingPaymentShare({
   const [manualPhone, setManualPhone] = useState('')
   const [customAmounts, setCustomAmounts] = useState({})
   const [contactError, setContactError] = useState('')
+  const [favoriteIds, setFavoriteIds] = useState(new Set())
+  const [favoritesLoading, setFavoritesLoading] = useState(false)
 
   const t = useCallback((en, ar) => (language === 'ar' ? ar : en), [language])
 
+  useEffect(() => {
+    if (!clubId || !currentMemberId) return
+    setFavoritesLoading(true)
+    bookingApi.getFavoriteMembers(currentMemberId, clubId)
+      .then(ids => setFavoriteIds(new Set(Array.isArray(ids) ? ids.map(String) : [])))
+      .catch(() => {})
+      .finally(() => setFavoritesLoading(false))
+  }, [clubId, currentMemberId])
+
+  const toggleFavorite = useCallback(async (memberId, isFavorite) => {
+    if (!clubId || !currentMemberId || !memberId) return
+    try {
+      if (isFavorite) {
+        await bookingApi.removeFavoriteMember(currentMemberId, clubId, memberId)
+        setFavoriteIds(prev => { const s = new Set(prev); s.delete(String(memberId)); return s })
+      } else {
+        await bookingApi.addFavoriteMember(currentMemberId, clubId, memberId)
+        setFavoriteIds(prev => new Set([...prev, String(memberId)]))
+      }
+    } catch (_) {}
+  }, [clubId, currentMemberId])
+
   const otherMembers = clubMembers.filter(m => String(m?.id) !== String(currentMemberId))
+  const favoritesFirst = [...otherMembers].sort((a, b) => {
+    const aFav = favoriteIds.has(String(a?.id))
+    const bFav = favoriteIds.has(String(b?.id))
+    if (aFav && !bFav) return -1
+    if (!aFav && bFav) return 1
+    return 0
+  })
 
   const totalShared = shares.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
   const remaining = Math.max(0, totalPrice - totalShared)
@@ -258,18 +291,34 @@ export default function BookingPaymentShare({
 
             {addType === 'registered' && (
               <div className="booking-payment-share-members">
-                {otherMembers.length > 0 ? (
-                  otherMembers.map(m => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      className="booking-payment-share-member-btn"
-                      onClick={() => addRegistered(m)}
-                      disabled={shares.some(s => s.memberId === m.id)}
-                    >
-                      {m.name || m.email || m.id}
-                    </button>
-                  ))
+                {favoritesFirst.length > 0 ? (
+                  favoritesFirst.map(m => {
+                    const isFavorite = favoriteIds.has(String(m.id))
+                    const isAdded = shares.some(s => s.memberId === m.id)
+                    return (
+                      <div key={m.id} className="booking-payment-share-member-row">
+                        <button
+                          type="button"
+                          className={`booking-payment-share-member-btn ${isFavorite ? 'is-favorite' : ''}`}
+                          onClick={() => addRegistered(m)}
+                          disabled={isAdded}
+                        >
+                          {m.name || m.email || m.id}
+                        </button>
+                        {!favoritesLoading && (
+                          <button
+                            type="button"
+                            className={`booking-payment-share-favorite-btn ${isFavorite ? 'is-favorite' : ''}`}
+                            onClick={e => { e.preventDefault(); toggleFavorite(m.id, isFavorite) }}
+                            title={isFavorite ? t('Remove from favorites', 'إزالة من المفضلة') : t('Add to favorites', 'إضافة للمفضلة')}
+                            aria-label={isFavorite ? t('Remove from favorites', 'إزالة من المفضلة') : t('Add to favorites', 'إضافة للمفضلة')}
+                          >
+                            {isFavorite ? '★' : '☆'}
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })
                 ) : (
                   <p className="booking-payment-share-empty">{t('No other members in club', 'لا يوجد أعضاء آخرين في النادي')}</p>
                 )}

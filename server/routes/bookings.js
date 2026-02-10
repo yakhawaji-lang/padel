@@ -3,30 +3,46 @@
  * Prevents double booking via booking_slot_locks
  */
 import { Router } from 'express'
+import rateLimit from 'express-rate-limit'
 import crypto from 'crypto'
 import { query } from '../db/pool.js'
 import { getActorFromRequest } from '../db/audit.js'
 import { logAudit } from '../db/audit.js'
 import * as lock from '../db/bookingLock.js'
+import * as idempotency from '../db/idempotency.js'
 import { hasNormalizedTables } from '../db/normalizedData.js'
+import * as slotCache from '../lib/slotCache.js'
 
 const router = Router()
+
+const bookingRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: 'Too many requests. Try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false
+})
+router.use(bookingRateLimit)
 
 function dbError(e) {
   return e?.message || 'Database error'
 }
 
-/** GET /api/bookings/locks - Active locks for a club/date (for grid display) */
+/** GET /api/bookings/locks - Active locks for a club/date (cached 30s) */
 router.get('/locks', async (req, res) => {
   try {
     const { clubId, date } = req.query
     if (!clubId || !date) return res.status(400).json({ error: 'clubId and date required' })
+    const cached = slotCache.getCachedLocks(clubId, date)
+    if (cached) return res.json(cached)
     const { rows } = await query(
       `SELECT id, club_id, court_id, booking_date, start_time, end_time, member_id, expires_at 
        FROM booking_slot_locks WHERE club_id = ? AND booking_date = ? AND expires_at > NOW()`,
       [clubId, date]
     )
-    res.json(rows || [])
+    const data = rows || []
+    slotCache.setCachedLocks(clubId, date, data)
+    res.json(data)
   } catch (e) {
     console.error('bookings locks error:', e)
     res.status(500).json({ error: dbError(e) })
@@ -44,6 +60,7 @@ router.post('/lock', async (req, res) => {
     if (!result.ok) {
       return res.status(409).json({ error: result.error || 'SLOT_TAKEN', conflict: result.conflict })
     }
+    slotCache.invalidateLocks(clubId, date)
     res.json({ lockId: result.lockId, expiresAt: result.expiresAt })
   } catch (e) {
     console.error('bookings lock error:', e)
@@ -54,9 +71,10 @@ router.post('/lock', async (req, res) => {
 /** POST /api/bookings/release-lock - Release lock without booking */
 router.post('/release-lock', async (req, res) => {
   try {
-    const { lockId } = req.body || {}
+    const { lockId, clubId, date } = req.body || {}
     if (!lockId) return res.status(400).json({ error: 'lockId required' })
     const ok = await lock.releaseLock(lockId)
+    if (clubId && date) slotCache.invalidateLocks(clubId, date)
     res.json({ ok })
   } catch (e) {
     console.error('bookings release-lock error:', e)
@@ -73,6 +91,11 @@ router.post('/confirm', async (req, res) => {
     const { lockId, clubId, courtId, date, startTime, endTime, memberId, memberName, totalAmount, paymentShares, idempotencyKey } = req.body || {}
     if (!lockId || !clubId || !courtId || !date || !startTime || !endTime || !memberId) {
       return res.status(400).json({ error: 'lockId, clubId, courtId, date, startTime, endTime, memberId required' })
+    }
+
+    if (idempotencyKey) {
+      const existing = await idempotency.checkIdempotency(idempotencyKey)
+      if (existing) return res.json({ ok: true, bookingId: existing, status: 'confirmed', idempotent: true })
     }
 
     const actor = getActorFromRequest(req)
@@ -107,19 +130,28 @@ router.post('/confirm', async (req, res) => {
 
     await lock.convertLockToBooking(lockId, bid)
     await lock.releaseLock(lockId)
+    slotCache.invalidateLocks(clubId, date)
+
+    const baseUrl = (req.headers.origin || req.headers.referer || '').replace(/\/$/, '') || 'https://playtix.app'
+    const createdShares = []
 
     for (const s of paymentShares || []) {
       const token = s.type === 'unregistered' ? `inv_${crypto.randomBytes(16).toString('hex')}` : null
+      const payUrl = token ? `${baseUrl}/pay-invite/${token}` : null
+      const waLink = (payUrl ? `https://wa.me/?text=${encodeURIComponent(payUrl)}` : null) || s.whatsappLink
       await query(
         `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [bid, clubId, s.type || 'registered', s.memberId || null, s.memberName || null, s.phone || null, parseFloat(s.amount) || 0, s.whatsappLink || null, token]
+        [bid, clubId, s.type || 'registered', s.memberId || null, s.memberName || null, s.phone || null, parseFloat(s.amount) || 0, waLink || null, token]
       )
+      createdShares.push({ ...s, inviteToken: token, payInviteUrl: payUrl })
     }
+
+    if (idempotencyKey) await idempotency.storeIdempotency(idempotencyKey, bid)
 
     await logAudit({ tableName: 'club_bookings', recordId: bid, action: 'INSERT', ...actor, clubId, newValue: { status, memberId } })
 
-    res.json({ ok: true, bookingId: bid, status })
+    res.json({ ok: true, bookingId: bid, status, paymentShares: createdShares })
   } catch (e) {
     console.error('bookings confirm error:', e)
     res.status(500).json({ error: dbError(e) })
@@ -141,8 +173,10 @@ router.post('/cancel', async (req, res) => {
     const clubId = rows[0].club_id
     const totalAmount = parseFloat(rows[0].total_amount) || 0
     const memberId = rows[0].member_id
+    const bookingDate = rows[0]?.booking_date ? String(rows[0].booking_date).split('T')[0] : null
     await query('UPDATE club_bookings SET status = ?, deleted_at = NOW(), deleted_by = ? WHERE id = ? AND club_id = ?', ['cancelled', actor.actorId || null, bookingId, clubId])
     await lock.deleteLockByBooking(bookingId)
+    if (bookingDate) slotCache.invalidateLocks(clubId, bookingDate)
     if (totalAmount > 0 && memberId) {
       const refundDays = 3
       const expectedBy = new Date()
@@ -160,6 +194,98 @@ router.post('/cancel', async (req, res) => {
     res.json({ ok: true, type: 'booking' })
   } catch (e) {
     console.error('bookings cancel error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** GET /api/bookings/favorites - List favorite members for a member in a club */
+router.get('/favorites', async (req, res) => {
+  try {
+    const { memberId, clubId } = req.query
+    if (!memberId || !clubId) return res.status(400).json({ error: 'memberId and clubId required' })
+    const { rows } = await query(
+      `SELECT mf.favorite_member_id AS id
+       FROM member_favorites mf
+       WHERE mf.member_id = ? AND mf.club_id = ?`,
+      [memberId, clubId]
+    )
+    const ids = (rows || []).map(r => r.id)
+    res.json(ids)
+  } catch (e) {
+    console.error('bookings favorites get error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** POST /api/bookings/favorites - Add favorite member */
+router.post('/favorites', async (req, res) => {
+  try {
+    const { memberId, clubId, favoriteMemberId } = req.body || {}
+    if (!memberId || !clubId || !favoriteMemberId) {
+      return res.status(400).json({ error: 'memberId, clubId, favoriteMemberId required' })
+    }
+    await query(
+      `INSERT IGNORE INTO member_favorites (member_id, club_id, favorite_member_id) VALUES (?, ?, ?)`,
+      [memberId, clubId, favoriteMemberId]
+    )
+    res.json({ ok: true })
+  } catch (e) {
+    console.error('bookings favorites post error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** DELETE /api/bookings/favorites - Remove favorite member */
+router.delete('/favorites', async (req, res) => {
+  try {
+    const { memberId, clubId, favoriteMemberId } = req.query
+    if (!memberId || !clubId || !favoriteMemberId) {
+      return res.status(400).json({ error: 'memberId, clubId, favoriteMemberId required' })
+    }
+    await query(
+      'DELETE FROM member_favorites WHERE member_id = ? AND club_id = ? AND favorite_member_id = ?',
+      [memberId, clubId, favoriteMemberId]
+    )
+    res.json({ ok: true })
+  } catch (e) {
+    console.error('bookings favorites delete error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** GET /api/bookings/invite/:token - Get invite/share data by token */
+router.get('/invite/:token', async (req, res) => {
+  try {
+    const { token } = req.params
+    if (!token) return res.status(400).json({ error: 'Token required' })
+    const { rows } = await query(
+      `SELECT bps.id, bps.booking_id, bps.club_id, bps.participant_type, bps.member_id, bps.member_name, bps.phone, bps.amount, bps.invite_token,
+              cb.court_id, cb.booking_date, cb.start_time, cb.end_time, cb.status AS booking_status, cb.total_amount
+       FROM booking_payment_shares bps
+       JOIN club_bookings cb ON cb.id = bps.booking_id AND cb.club_id = bps.club_id AND cb.deleted_at IS NULL
+       WHERE bps.invite_token = ?`,
+      [token]
+    )
+    if (!rows?.length) return res.status(404).json({ error: 'Invite not found' })
+    const r = rows[0]
+    res.json({
+      inviteToken: r.invite_token,
+      bookingId: r.booking_id,
+      clubId: r.club_id,
+      participantType: r.participant_type,
+      memberId: r.member_id,
+      memberName: r.member_name,
+      phone: r.phone,
+      amount: parseFloat(r.amount) || 0,
+      courtId: r.court_id,
+      bookingDate: r.booking_date ? String(r.booking_date).split('T')[0] : null,
+      startTime: r.start_time,
+      endTime: r.end_time,
+      bookingStatus: r.booking_status,
+      totalAmount: parseFloat(r.total_amount) || 0
+    })
+  } catch (e) {
+    console.error('bookings invite get error:', e)
     res.status(500).json({ error: dbError(e) })
   }
 })

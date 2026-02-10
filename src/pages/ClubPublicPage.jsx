@@ -492,13 +492,13 @@ const ClubPublicPage = () => {
 
   const handleCloseBookingModal = useCallback(() => {
     if (activeLock?.lockId) {
-      bookingApi.releaseBookingLock(activeLock.lockId).catch(() => {})
+      bookingApi.releaseBookingLock(activeLock.lockId, clubId, bookingModal?.dateStr).catch(() => {})
       setActiveLock(null)
     }
     setBookingModal(null)
     setPaymentShares([])
     setLockError(null)
-  }, [activeLock?.lockId])
+  }, [activeLock?.lockId, clubId, bookingModal?.dateStr])
 
   const handleConfirmBooking = async () => {
     if (!bookingModal || !platformUser || !isMember) return
@@ -517,6 +517,7 @@ const ClubPublicPage = () => {
     setLockError(null)
     try {
       if (activeLock?.lockId) {
+        const idempotencyKey = `confirm_${activeLock.lockId}`
         await bookingApi.confirmBooking({
           lockId: activeLock.lockId,
           clubId,
@@ -527,7 +528,8 @@ const ClubPublicPage = () => {
           memberId: platformUser.id,
           memberName,
           totalAmount: priceResult.price,
-          paymentShares: paymentShares.length > 0 ? paymentShares : undefined
+          paymentShares: paymentShares.length > 0 ? paymentShares : undefined,
+          idempotencyKey
         })
         setActiveLock(null)
       } else {
