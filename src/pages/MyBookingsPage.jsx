@@ -14,6 +14,7 @@ const MyBookingsPage = () => {
   const [filter, setFilter] = useState('upcoming')
   const [language, setLanguage] = useState(() => getAppLanguage())
   const [cancelling, setCancelling] = useState(null)
+  const [markingPayAtClub, setMarkingPayAtClub] = useState(null)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -56,6 +57,21 @@ const MyBookingsPage = () => {
       })
     } catch {
       return dateStr
+    }
+  }
+
+  const handleMarkPayAtClub = async (clubId, bookingId) => {
+    setMarkingPayAtClub(bookingId)
+    try {
+      await bookingApi.markPayAtClub(bookingId, clubId)
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      await refreshClubsFromApi()
+      loadClubs()
+      setBookings(getMemberBookings(member.id))
+    } catch (e) {
+      console.error('markPayAtClub failed:', e)
+    } finally {
+      setMarkingPayAtClub(null)
     }
   }
 
@@ -125,7 +141,9 @@ const MyBookingsPage = () => {
       participants: 'Participants',
       paid: 'Paid',
       pending: 'Pending',
-      resendInvite: 'Resend invite'
+      resendInvite: 'Resend invite',
+      payAtClub: 'Pay at club (cash/card)',
+      payAtClubConfirm: 'I\'ll pay at club'
     },
     ar: {
       myBookings: 'حجوزاتي',
@@ -147,7 +165,9 @@ const MyBookingsPage = () => {
       participants: 'المشاركون',
       paid: 'دفع',
       pending: 'قيد الانتظار',
-      resendInvite: 'إعادة إرسال الدعوة'
+      resendInvite: 'إعادة إرسال الدعوة',
+      payAtClub: 'الدفع في النادي (كاش أو كارد)',
+      payAtClubConfirm: 'سأدفع في النادي'
     }
   }
   const c = t[language] || t.en
@@ -235,6 +255,19 @@ const MyBookingsPage = () => {
                       <span className={`my-bookings-status ${getStatusClass(booking.status)}`}>
                         {getStatusLabel(booking.status)}
                       </span>
+                      {['pending_payments', 'partially_paid'].includes((booking.status || '').toString()) && filter === 'upcoming' && (
+                        <div className="my-bookings-pay-at-club-wrap">
+                          <button
+                            type="button"
+                            className="my-bookings-pay-at-club-btn"
+                            onClick={() => handleMarkPayAtClub(club.id, booking.id)}
+                            disabled={markingPayAtClub === booking.id}
+                          >
+                            {markingPayAtClub === booking.id ? '…' : c.payAtClubConfirm}
+                          </button>
+                          <span className="my-bookings-pay-at-club-hint">{c.payAtClub}</span>
+                        </div>
+                      )}
                       {Array.isArray(booking.paymentShares) && booking.paymentShares.length > 0 && (
                         <div className="my-bookings-shares">
                           {booking.paymentShares.map((s, idx) => (

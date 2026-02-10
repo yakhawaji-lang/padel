@@ -193,6 +193,35 @@
   cursor: not-allowed;
 }
 
+.my-bookings-pay-at-club-wrap {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.my-bookings-pay-at-club-btn {
+  padding: 6px 12px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.my-bookings-pay-at-club-btn:hover:not(:disabled) {
+  background: #bfdbfe;
+}
+.my-bookings-pay-at-club-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+.my-bookings-pay-at-club-hint {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
 @media (max-width: 640px) {
   .my-bookings-table-wrap {
     overflow-x: auto;

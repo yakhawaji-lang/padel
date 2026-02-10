@@ -232,10 +232,10 @@ export async function releaseBookingLock(lockId, clubId, date) {
   })
 }
 
-export async function confirmBooking({ lockId, clubId, courtId, date, startTime, endTime, memberId, memberName, totalAmount, paymentShares, idempotencyKey }) {
+export async function confirmBooking({ lockId, clubId, courtId, date, startTime, endTime, memberId, memberName, totalAmount, paymentMethod, paymentShares, idempotencyKey }) {
   return fetchJson('/api/bookings/confirm', {
     method: 'POST',
-    body: JSON.stringify({ lockId, clubId, date, startTime, endTime, memberId, memberName, totalAmount, paymentShares, idempotencyKey, courtId })
+    body: JSON.stringify({ lockId, clubId, date, startTime, endTime, memberId, memberName, totalAmount, paymentMethod, paymentShares, idempotencyKey, courtId })
   })
 }
 
@@ -243,6 +243,13 @@ export async function cancelBooking(bookingId) {
   return fetchJson('/api/bookings/cancel', {
     method: 'POST',
     body: JSON.stringify({ bookingId })
+  })
+}
+
+export async function markPayAtClub(bookingId, clubId) {
+  return fetchJson('/api/bookings/mark-pay-at-club', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId })
   })
 }
 

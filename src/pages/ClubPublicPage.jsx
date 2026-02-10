@@ -96,6 +96,8 @@ const ClubPublicPage = () => {
   const [courtGridDate, setCourtGridDate] = useState(() => new Date().toISOString().split('T')[0])
   const [bookingModal, setBookingModal] = useState(null)
   const [paymentShares, setPaymentShares] = useState([])
+  const [paymentMethod, setPaymentMethod] = useState('at_club') // 'at_club' | 'split'
+  const [bookingSuccessId, setBookingSuccessId] = useState(null) // show success and link to my-bookings
   const [activeLock, setActiveLock] = useState(null)
   const [activeLocks, setActiveLocks] = useState([])
   const [lockError, setLockError] = useState(null)
@@ -395,6 +397,10 @@ const ClubPublicPage = () => {
       bookingPrice: 'Price',
       confirmBooking: 'Confirm booking',
       bookingSuccess: 'Booking confirmed!',
+      paymentMethod: 'Payment',
+      payAtClub: 'Pay at club (cash or card)',
+      splitPayment: 'Split payment with others',
+      viewMyBookings: 'View my bookings',
       loginToBook: 'Login to book courts',
       courtPrices: 'Court booking prices',
       managePricesLink: 'Manage prices (admin)',
@@ -454,6 +460,10 @@ const ClubPublicPage = () => {
       bookingPrice: 'السعر',
       confirmBooking: 'تأكيد الحجز',
       bookingSuccess: 'تم تأكيد الحجز!',
+      paymentMethod: 'الدفع',
+      payAtClub: 'الدفع في النادي (كاش أو كارد)',
+      splitPayment: 'تقسيم المبلغ مع آخرين',
+      viewMyBookings: 'عرض حجوزاتي',
       loginToBook: 'سجّل الدخول لحجز الملاعب',
       courtPrices: 'أسعار حجوزات الملاعب',
       managePricesLink: 'تعديل الأسعار (إداري)',
@@ -525,7 +535,8 @@ const ClubPublicPage = () => {
     try {
       if (activeLock?.lockId) {
         const idempotencyKey = `confirm_${activeLock.lockId}`
-        await bookingApi.confirmBooking({
+        const payAtClub = paymentMethod === 'at_club'
+        const res = await bookingApi.confirmBooking({
           lockId: activeLock.lockId,
           clubId,
           courtId,
@@ -535,10 +546,12 @@ const ClubPublicPage = () => {
           memberId: platformUser.id,
           memberName,
           totalAmount: priceResult.price,
-          paymentShares: paymentShares.length > 0 ? paymentShares : undefined,
+          paymentMethod: payAtClub ? 'at_club' : undefined,
+          paymentShares: payAtClub ? undefined : (paymentShares.length > 0 ? paymentShares : undefined),
           idempotencyKey
         })
         setActiveLock(null)
+        setBookingSuccessId(res?.bookingId || true)
       } else {
         await addBookingToClub(clubId, {
           date: bookingModal.dateStr,
@@ -555,13 +568,18 @@ const ClubPublicPage = () => {
           price: priceResult.price,
           currency: priceResult.currency,
           durationMinutes: dur,
-          paymentShares: paymentShares.length > 0 ? paymentShares : undefined
+          paymentShares: paymentMethod === 'split' && paymentShares.length > 0 ? paymentShares : undefined,
+          status: paymentMethod === 'at_club' ? 'confirmed' : undefined
         })
+        setBookingSuccessId(true)
       }
       setBookingModal(null)
       setPaymentShares([])
+      setPaymentMethod('at_club')
       await refreshClubsFromApi()
+      loadClubs()
       refreshClub()
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
     } catch (e) {
       console.error('Booking failed:', e)
       setLockError(e?.message || (language === 'en' ? 'Booking failed. Please try again.' : 'فشل الحجز. حاول مجدداً.'))
@@ -570,8 +588,23 @@ const ClubPublicPage = () => {
     }
   }
 
+  useEffect(() => {
+    if (!bookingSuccessId) return
+    const t = setTimeout(() => setBookingSuccessId(null), 8000)
+    return () => clearTimeout(t)
+  }, [bookingSuccessId])
+
   return (
     <div className="club-public-page commercial">
+      {bookingSuccessId && (
+        <div className="club-public-booking-success-banner" role="alert">
+          <span>{c.bookingSuccess}</span>
+          <Link to="/my-bookings" className="club-public-booking-success-link" onClick={() => setBookingSuccessId(null)}>
+            {c.viewMyBookings}
+          </Link>
+          <button type="button" className="club-public-booking-success-dismiss" onClick={() => setBookingSuccessId(null)} aria-label="Close">×</button>
+        </div>
+      )}
       <header
         className={`club-public-header${(club?.settings?.headerBgColor || club?.settings?.headerTextColor) ? ' has-custom-header-colors' : ''}`}
         style={{
@@ -813,19 +846,32 @@ const ClubPublicPage = () => {
                     {calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price} {currency}
                   </strong>
                 </div>
-                <BookingPaymentShare
-                  totalPrice={calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price}
-                  currency={currency}
-                  clubName={language === 'ar' && club?.nameAr ? club.nameAr : club?.name}
-                  clubId={clubId}
-                  dateStr={bookingModal.dateStr}
-                  startTime={bookingModal.startTime}
-                  clubMembers={clubMembersList}
-                  currentMemberId={platformUser?.id}
-                  language={language}
-                  value={paymentShares}
-                  onChange={setPaymentShares}
-                />
+                <div className="club-public-booking-payment-method">
+                  <p className="club-public-booking-payment-method-label">{c.paymentMethod}:</p>
+                  <label className="club-public-booking-payment-radio">
+                    <input type="radio" name="paymentMethod" checked={paymentMethod === 'at_club'} onChange={() => { setPaymentMethod('at_club'); setPaymentShares([]) }} />
+                    <span>{c.payAtClub}</span>
+                  </label>
+                  <label className="club-public-booking-payment-radio">
+                    <input type="radio" name="paymentMethod" checked={paymentMethod === 'split'} onChange={() => setPaymentMethod('split')} />
+                    <span>{c.splitPayment}</span>
+                  </label>
+                </div>
+                {paymentMethod === 'split' && (
+                  <BookingPaymentShare
+                    totalPrice={calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price}
+                    currency={currency}
+                    clubName={language === 'ar' && club?.nameAr ? club.nameAr : club?.name}
+                    clubId={clubId}
+                    dateStr={bookingModal.dateStr}
+                    startTime={bookingModal.startTime}
+                    clubMembers={clubMembersList}
+                    currentMemberId={platformUser?.id}
+                    language={language}
+                    value={paymentShares}
+                    onChange={setPaymentShares}
+                  />
+                )}
               </div>
               {activeLock && (
                 <p className="club-public-booking-lock-notice">
@@ -840,7 +886,7 @@ const ClubPublicPage = () => {
                   type="button"
                   className="club-public-booking-modal-confirm"
                   onClick={handleConfirmBooking}
-                  disabled={bookingSubmitting || (paymentShares?.length > 0 && (paymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) > calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price)}
+                  disabled={bookingSubmitting || (paymentMethod === 'split' && paymentShares?.length > 0 && (paymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) > calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price)}
                 >
                   {bookingSubmitting ? (language === 'en' ? 'Booking...' : 'جاري الحجز...') : c.confirmBooking}
                 </button>

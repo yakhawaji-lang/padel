@@ -89,7 +89,7 @@ router.post('/confirm', async (req, res) => {
     const normalized = await hasNormalizedTables()
     if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
 
-    const { lockId, clubId, courtId, date, startTime, endTime, memberId, memberName, totalAmount, paymentShares, idempotencyKey } = req.body || {}
+    const { lockId, clubId, courtId, date, startTime, endTime, memberId, memberName, totalAmount, paymentMethod, paymentShares, idempotencyKey } = req.body || {}
     if (!lockId || !clubId || !courtId || !date || !startTime || !endTime || !memberId) {
       return res.status(400).json({ error: 'lockId, clubId, courtId, date, startTime, endTime, memberId required' })
     }
@@ -103,9 +103,11 @@ router.post('/confirm', async (req, res) => {
 
     const bid = `bk_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
     const settings = await getBookingSettings(clubId)
-    const status = paymentShares?.length > 0 ? 'pending_payments' : 'confirmed'
-    const paidAmount = paymentShares?.length > 0 ? 0 : (totalAmount || 0)
-    const paymentDeadlineMinutes = paymentShares?.length > 0 ? settings.splitPaymentDeadlineMinutes : null
+    const payAtClub = paymentMethod === 'at_club'
+    const hasShares = Array.isArray(paymentShares) && paymentShares.length > 0
+    const status = payAtClub ? 'confirmed' : (hasShares ? 'pending_payments' : 'confirmed')
+    const paidAmount = (payAtClub || !hasShares) ? (totalAmount || 0) : 0
+    const paymentDeadlineMinutes = !payAtClub && hasShares ? settings.splitPaymentDeadlineMinutes : null
     const paymentDeadline = paymentDeadlineMinutes != null
       ? new Date(Date.now() + paymentDeadlineMinutes * 60 * 1000)
       : null
@@ -243,6 +245,36 @@ router.post('/record-payment', async (req, res) => {
     res.json({ ok: true, paidAmount, status })
   } catch (e) {
     console.error('bookings record-payment error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** POST /api/bookings/mark-pay-at-club - Extend deadline to end of booking date so booking is not expired; user will pay at club (cash/card) */
+router.post('/mark-pay-at-club', async (req, res) => {
+  try {
+    const normalized = await hasNormalizedTables()
+    if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
+    const { bookingId, clubId } = req.body || {}
+    if (!bookingId || !clubId) return res.status(400).json({ error: 'bookingId and clubId required' })
+    const { rows } = await query(
+      'SELECT id, booking_date, status FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL',
+      [bookingId, clubId]
+    )
+    if (!rows?.length) return res.status(404).json({ error: 'Booking not found' })
+    const b = rows[0]
+    if (!['pending_payments', 'partially_paid'].includes(b.status || '')) {
+      return res.status(400).json({ error: 'Booking is not awaiting payment' })
+    }
+    const dateStr = b.booking_date ? String(b.booking_date).split('T')[0] : null
+    const deadlineEndOfDay = dateStr ? new Date(dateStr + 'T23:59:59') : new Date(Date.now() + 24 * 60 * 60 * 1000)
+    await query(
+      'UPDATE club_bookings SET payment_deadline_at = ? WHERE id = ? AND club_id = ?',
+      [deadlineEndOfDay, bookingId, clubId]
+    )
+    if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
+    res.json({ ok: true, paymentDeadlineAt: deadlineEndOfDay })
+  } catch (e) {
+    console.error('bookings mark-pay-at-club error:', e)
     res.status(500).json({ error: dbError(e) })
   }
 })
