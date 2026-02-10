@@ -755,9 +755,12 @@ export function getMemberBookings(memberId) {
       const isInitiator = String(b.memberId || b.initiatorMemberId || b.member_id || '') === memberIdStr
       const isParticipant = Array.isArray(b.paymentShares) && b.paymentShares.some(s => String(s.memberId || '') === memberIdStr)
       if (!isInitiator && !isParticipant) return
-      const dateStr = (b.date || b.startDate || '').toString().split('T')[0]
+      const rawDate = b.date || b.startDate || ''
+      const dateStr = typeof rawDate === 'string'
+        ? rawDate.split('T')[0]
+        : (rawDate && rawDate.toISOString ? rawDate.toISOString().split('T')[0] : String(rawDate).split('T')[0])
       results.push({
-        booking: { ...b, dateStr },
+        booking: { ...b, dateStr: dateStr || undefined },
         club,
         clubName: club.name,
         clubNameAr: club.nameAr

@@ -42,8 +42,12 @@ const MyBookingsPage = () => {
   }, [member?.id])
 
   const today = new Date().toISOString().split('T')[0]
-  const upcoming = bookings.filter(r => (r.booking.dateStr || r.booking.date || '') >= today)
-  const past = bookings.filter(r => (r.booking.dateStr || r.booking.date || '') < today)
+  const normDate = (r) => {
+    const d = r.booking.dateStr || r.booking.date || r.booking.startDate || ''
+    return typeof d === 'string' ? d.split('T')[0] : (d && d.toISOString ? d.toISOString().split('T')[0] : '')
+  }
+  const upcoming = bookings.filter(r => normDate(r) >= today)
+  const past = bookings.filter(r => normDate(r) < today)
   const displayed = filter === 'upcoming' ? upcoming : past
 
   const formatDate = (dateStr) => {
@@ -237,19 +241,26 @@ const MyBookingsPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {displayed.map(({ booking, club }, i) => (
-                  <tr key={`${club.id}-${booking.id}-${i}`}>
-                    <td>{formatDate(booking.dateStr || booking.date)}</td>
-                    <td>{(booking.startTime || '') + (booking.endTime ? ` – ${booking.endTime}` : '')}</td>
-                    <td>{booking.resource || booking.courtName || booking.court || '—'}</td>
+                {displayed.map(({ booking, club }, i) => {
+                  const dateStr = booking.dateStr || booking.date || (booking.startDate && (typeof booking.startDate === 'string' ? booking.startDate : booking.startDate.toISOString?.()?.split('T')[0])) || ''
+                  const timeStr = (booking.startTime || booking.timeSlot || '') + (booking.endTime ? ` – ${booking.endTime}` : '')
+                  const courtName = booking.resource || booking.courtName || booking.court || (Array.isArray(club.courts) && booking.courtId && club.courts.find(c => String(c.id) === String(booking.courtId))?.name) || booking.courtId || '—'
+                  const priceVal = booking.price != null ? booking.price : (booking.totalAmount != null && booking.totalAmount !== 0 ? booking.totalAmount : null)
+                  const currencyStr = booking.currency || club?.settings?.currency || 'SAR'
+                  return (
+                  <tr key={`${club?.id}-${booking.id}-${i}`}>
+                    <td>{formatDate(dateStr)}</td>
+                    <td>{timeStr || '—'}</td>
+                    <td>{courtName}</td>
                     <td>
-                      <Link to={`/clubs/${club.id}`} className="my-bookings-club-link">
-                        {language === 'ar' && club.nameAr ? club.nameAr : club.name}
-                      </Link>
+                      {club ? (
+                        <Link to={`/clubs/${club.id}`} className="my-bookings-club-link">
+                          {language === 'ar' && club.nameAr ? club.nameAr : club.name}
+                        </Link>
+                      ) : '—'}
                     </td>
                     <td>
-                      {(booking.price != null ? booking.price : '—')}
-                      {booking.currency ? ` ${booking.currency}` : ' SAR'}
+                      {priceVal != null ? `${Number(priceVal)} ${currencyStr}` : '—'}
                     </td>
                     <td>
                       <span className={`my-bookings-status ${getStatusClass(booking.status)}`}>
@@ -270,8 +281,8 @@ const MyBookingsPage = () => {
                       )}
                       {Array.isArray(booking.paymentShares) && booking.paymentShares.length > 0 && (
                         <div className="my-bookings-shares">
-                          {booking.paymentShares.map((s, idx) => (
-                            <div key={idx} className="my-bookings-share-row">
+                          {booking.paymentShares.slice(0, 10).map((s, idx) => (
+                            <div key={s.id || idx} className="my-bookings-share-row">
                               <span>{s.memberName || s.phone || (s.type === 'unregistered' ? c.pending : '—')}</span>
                               <span className={s.paidAt ? 'my-bookings-paid' : ''}>
                                 {s.paidAt ? '✓ ' + c.paid : c.pending}
@@ -283,23 +294,31 @@ const MyBookingsPage = () => {
                               )}
                             </div>
                           ))}
+                          {booking.paymentShares.length > 10 && (
+                            <div className="my-bookings-share-row my-bookings-share-more">
+                              +{booking.paymentShares.length - 10} {language === 'en' ? 'more' : 'المزيد'}
+                            </div>
+                          )}
                         </div>
                       )}
                     </td>
                     {filter === 'upcoming' && (
                       <td>
-                        <button
-                          type="button"
-                          className="my-bookings-cancel-btn"
-                          onClick={() => handleCancel(club.id, booking.id, booking, club)}
-                          disabled={cancelling === booking.id || ['cancelled', 'expired'].includes((booking.status || '').toString())}
-                        >
-                          {cancelling === booking.id ? '…' : c.cancel}
-                        </button>
+                        {club && (
+                          <button
+                            type="button"
+                            className="my-bookings-cancel-btn"
+                            onClick={() => handleCancel(club.id, booking.id, booking, club)}
+                            disabled={cancelling === booking.id || ['cancelled', 'expired'].includes((booking.status || '').toString())}
+                          >
+                            {cancelling === booking.id ? '…' : c.cancel}
+                          </button>
+                        )}
                       </td>
                     )}
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

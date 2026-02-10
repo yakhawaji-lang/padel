@@ -222,6 +222,16 @@
   color: #64748b;
 }
 
+.my-bookings-shares {
+  max-height: 120px;
+  overflow-y: auto;
+}
+.my-bookings-share-more {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-style: italic;
+}
+
 @media (max-width: 640px) {
   .my-bookings-table-wrap {
     overflow-x: auto;
