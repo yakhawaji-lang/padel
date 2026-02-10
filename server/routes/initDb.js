@@ -409,6 +409,21 @@ router.get('/migrate-to-normalized', async (req, res) => {
     res.status(500).json({ error: e.message })
   }
 })
+/** GET/POST /api/init-db/migrate-booking-v2 - Booking System V2 (soft lock, status, refunds) */
+const migrateBookingV2Handler = async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ error: 'Database not connected' })
+    const { runMigration } = await import('../db/bookingMigration.js')
+    await runMigration()
+    res.json({ ok: true, message: 'Booking V2 migration completed' })
+  } catch (e) {
+    console.error('migrate-booking-v2:', e)
+    res.status(500).json({ error: e.message })
+  }
+}
+router.get('/migrate-booking-v2', migrateBookingV2Handler)
+router.post('/migrate-booking-v2', migrateBookingV2Handler)
+
 router.post('/migrate-to-normalized', async (req, res) => {
   try {
     if (!isConnected()) return res.status(503).json({ error: 'Database not connected' })

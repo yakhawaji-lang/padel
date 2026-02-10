@@ -20,6 +20,7 @@
     "postgres:dev": "node scripts/start-with-postgres.js",
     "sync:setup": "node scripts/sync-setup.js",
     "db:migrate:payment-shares": "node server/scripts/run-booking-payment-shares-migration.js",
+    "db:migrate:booking-v2": "node server/scripts/run-booking-system-v2-migration.js",
     "sync-to-cloud": "node scripts/sync-to-cloud.js",
     "sync-from-cloud": "node scripts/sync-from-cloud.js"
   },

@@ -208,6 +208,51 @@ export async function confirmPasswordReset(token, newPassword) {
   })
 }
 
+// ---- Bookings (lock, confirm, cancel) ----
+
+export async function getBookingLocks(clubId, date) {
+  const params = new URLSearchParams()
+  if (clubId) params.set('clubId', clubId)
+  if (date) params.set('date', date)
+  const q = params.toString()
+  return fetchJson(`/api/bookings/locks${q ? '?' + q : ''}`)
+}
+
+export async function acquireBookingLock({ clubId, courtId, date, startTime, endTime, memberId, lockMinutes }) {
+  return fetchJson('/api/bookings/lock', {
+    method: 'POST',
+    body: JSON.stringify({ clubId, courtId, date, startTime, endTime, memberId, lockMinutes })
+  })
+}
+
+export async function releaseBookingLock(lockId) {
+  return fetchJson('/api/bookings/release-lock', {
+    method: 'POST',
+    body: JSON.stringify({ lockId })
+  })
+}
+
+export async function confirmBooking({ lockId, clubId, courtId, date, startTime, endTime, memberId, memberName, totalAmount, paymentShares, idempotencyKey }) {
+  return fetchJson('/api/bookings/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ lockId, clubId, date, startTime, endTime, memberId, memberName, totalAmount, paymentShares, idempotencyKey, courtId })
+  })
+}
+
+export async function cancelBooking(bookingId) {
+  return fetchJson('/api/bookings/cancel', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId })
+  })
+}
+
+export async function cancelBookingLock(lockId) {
+  return fetchJson('/api/bookings/cancel', {
+    method: 'POST',
+    body: JSON.stringify({ lockId })
+  })
+}
+
 // ---- Health check ----
 
 export async function healthCheck() {

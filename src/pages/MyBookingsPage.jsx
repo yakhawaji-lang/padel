@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
-import { getMemberBookings, deleteBookingFromClub, loadClubs } from '../storage/adminStorage'
+import { getMemberBookings, deleteBookingFromClub, loadClubs, refreshClubsFromApi } from '../storage/adminStorage'
+import * as bookingApi from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './MyBookingsPage.css'
@@ -29,7 +30,8 @@ const MyBookingsPage = () => {
 
   useEffect(() => {
     if (!member?.id) return
-    const load = () => {
+    const load = async () => {
+      await refreshClubsFromApi()
       loadClubs()
       setBookings(getMemberBookings(member.id))
     }
@@ -57,18 +59,45 @@ const MyBookingsPage = () => {
     }
   }
 
-  const handleCancel = async (clubId, bookingId) => {
-    if (!window.confirm(language === 'en' ? 'Cancel this booking?' : 'إلغاء هذا الحجز؟')) return
+  const handleCancel = async (clubId, bookingId, booking) => {
+    const msg = language === 'en'
+      ? 'Cancel this booking? Refund will be processed within the configured period.'
+      : 'إلغاء هذا الحجز؟ سيتم استرداد المبلغ خلال المدة المحددة في الإعدادات.'
+    if (!window.confirm(msg)) return
     setCancelling(bookingId)
     try {
-      const ok = await deleteBookingFromClub(clubId, bookingId)
+      let ok = false
+      try {
+        await bookingApi.cancelBooking(bookingId)
+        ok = true
+      } catch (_) {
+        ok = await deleteBookingFromClub(clubId, bookingId)
+      }
       if (ok) {
+        await refreshClubsFromApi()
         loadClubs()
         setBookings(getMemberBookings(member.id))
       }
     } finally {
       setCancelling(null)
     }
+  }
+
+  const getStatusLabel = (status) => {
+    const s = (status || 'confirmed').toString()
+    const labels = {
+      en: { initiated: 'In progress', locked: 'Reserved', pending_payments: 'Awaiting payments', partially_paid: 'Partial payment', confirmed: 'Confirmed', cancelled: 'Cancelled', expired: 'Expired' },
+      ar: { initiated: 'قيد الإجراء', locked: 'محجوز', pending_payments: 'بانتظار الدفعات', partially_paid: 'دفع جزئي', confirmed: 'مؤكد', cancelled: 'ملغي', expired: 'منتهي' }
+    }
+    return (labels[language] || labels.en)[s] || s
+  }
+
+  const getStatusClass = (status) => {
+    const s = (status || 'confirmed').toString()
+    if (['confirmed'].includes(s)) return 'status-confirmed'
+    if (['initiated', 'locked', 'pending_payments', 'partially_paid'].includes(s)) return 'status-pending'
+    if (['cancelled', 'expired'].includes(s)) return 'status-cancelled'
+    return ''
   }
 
   const t = {
@@ -171,6 +200,7 @@ const MyBookingsPage = () => {
                   <th>{c.court}</th>
                   <th>{c.club}</th>
                   <th>{c.price}</th>
+                  <th>{c.status}</th>
                   {filter === 'upcoming' && <th>{c.actions}</th>}
                 </tr>
               </thead>
@@ -189,13 +219,18 @@ const MyBookingsPage = () => {
                       {(booking.price != null ? booking.price : '—')}
                       {booking.currency ? ` ${booking.currency}` : ' SAR'}
                     </td>
+                    <td>
+                      <span className={`my-bookings-status ${getStatusClass(booking.status)}`}>
+                        {getStatusLabel(booking.status)}
+                      </span>
+                    </td>
                     {filter === 'upcoming' && (
                       <td>
                         <button
                           type="button"
                           className="my-bookings-cancel-btn"
-                          onClick={() => handleCancel(club.id, booking.id)}
-                          disabled={cancelling === booking.id}
+                          onClick={() => handleCancel(club.id, booking.id, booking)}
+                          disabled={cancelling === booking.id || ['cancelled', 'expired'].includes((booking.status || '').toString())}
                         >
                           {cancelling === booking.id ? '…' : c.cancel}
                         </button>

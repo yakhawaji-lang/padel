@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { loadClubs, getClubById, getClubMembersFromStorage, addMemberToClub, addBookingToClub, refreshClubsFromApi } from '../storage/adminStorage'
 import { calculateBookingPrice } from '../utils/bookingPricing'
+import * as bookingApi from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
 import SocialIcon from '../components/SocialIcon'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
@@ -95,6 +96,9 @@ const ClubPublicPage = () => {
   const [courtGridDate, setCourtGridDate] = useState(() => new Date().toISOString().split('T')[0])
   const [bookingModal, setBookingModal] = useState(null)
   const [paymentShares, setPaymentShares] = useState([])
+  const [activeLock, setActiveLock] = useState(null)
+  const [activeLocks, setActiveLocks] = useState([])
+  const [lockError, setLockError] = useState(null)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -133,6 +137,11 @@ const ClubPublicPage = () => {
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [refreshClub])
+
+  useEffect(() => {
+    if (!clubId || !courtGridDate) return
+    bookingApi.getBookingLocks(clubId, courtGridDate).then(setActiveLocks).catch(() => setActiveLocks([]))
+  }, [clubId, courtGridDate, club?.bookings])
 
   useEffect(() => {
     setPlatformUser(getCurrentPlatformUser())
@@ -447,6 +456,50 @@ const ClubPublicPage = () => {
     }
   }
 
+  const handleSlotClick = useCallback(async (court, dateStr, startTime) => {
+    if (!platformUser || !isMember) return
+    setLockError(null)
+    const dur = club?.settings?.bookingDuration || 60
+    const [h, m] = (startTime || '00:00').split(':').map(Number)
+    const endM = (h || 0) * 60 + (m || 0) + dur
+    const endTime = `${String(Math.floor(endM / 60)).padStart(2, '0')}:${String(endM % 60).padStart(2, '0')}`
+    const courtId = (court?.name || court?.id || '').toString()
+    const courtName = (court?.name || '').toString().trim()
+    const lockMinutes = club?.settings?.lockMinutes ?? 10
+    try {
+      const result = await bookingApi.acquireBookingLock({
+        clubId,
+        courtId,
+        date: dateStr,
+        startTime,
+        endTime,
+        memberId: platformUser.id,
+        lockMinutes
+      })
+      if (result.lockId) {
+        setActiveLock({ lockId: result.lockId, expiresAt: result.expiresAt })
+        setBookingModal({ court, dateStr, startTime })
+      }
+    } catch (e) {
+      if (e.status === 409 || e.message?.includes('SLOT_TAKEN')) {
+        setLockError(language === 'en' ? 'This slot was just taken. Please choose another.' : 'هذا الوقت تم حجزه للتو. اختر وقتاً آخر.')
+        refreshClub()
+      } else {
+        setLockError(language === 'en' ? 'Could not reserve slot. Please try again.' : 'تعذر حجز الوقت. حاول مجدداً.')
+      }
+    }
+  }, [clubId, platformUser, isMember, club?.settings?.bookingDuration, club?.settings?.lockMinutes, language])
+
+  const handleCloseBookingModal = useCallback(() => {
+    if (activeLock?.lockId) {
+      bookingApi.releaseBookingLock(activeLock.lockId).catch(() => {})
+      setActiveLock(null)
+    }
+    setBookingModal(null)
+    setPaymentShares([])
+    setLockError(null)
+  }, [activeLock?.lockId])
+
   const handleConfirmBooking = async () => {
     if (!bookingModal || !platformUser || !isMember) return
     const totalPrice = calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration || 60).price
@@ -456,33 +509,53 @@ const ClubPublicPage = () => {
     const [h, m] = (bookingModal.startTime || '00:00').split(':').map(Number)
     const endM = (h || 0) * 60 + (m || 0) + dur
     const endTime = `${String(Math.floor(endM / 60)).padStart(2, '0')}:${String(endM % 60).padStart(2, '0')}`
+    const courtId = (bookingModal.court?.name || bookingModal.court?.id || '').toString()
     const courtName = (bookingModal.court?.name || '').toString().trim()
     const memberName = platformUser.name || platformUser.email || platformUser.displayName || ''
     const priceResult = calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, dur)
     setBookingSubmitting(true)
+    setLockError(null)
     try {
-      await addBookingToClub(clubId, {
-        date: bookingModal.dateStr,
-        startDate: bookingModal.dateStr,
-        startTime: bookingModal.startTime,
-        endTime,
-        resource: courtName,
-        court: courtName,
-        courtName,
-        memberId: platformUser.id,
-        memberName,
-        customerName: memberName,
-        customer: memberName,
-        price: priceResult.price,
-        currency: priceResult.currency,
-        durationMinutes: dur,
-        paymentShares: paymentShares.length > 0 ? paymentShares : undefined
-      })
+      if (activeLock?.lockId) {
+        await bookingApi.confirmBooking({
+          lockId: activeLock.lockId,
+          clubId,
+          courtId,
+          date: bookingModal.dateStr,
+          startTime: bookingModal.startTime,
+          endTime,
+          memberId: platformUser.id,
+          memberName,
+          totalAmount: priceResult.price,
+          paymentShares: paymentShares.length > 0 ? paymentShares : undefined
+        })
+        setActiveLock(null)
+      } else {
+        await addBookingToClub(clubId, {
+          date: bookingModal.dateStr,
+          startDate: bookingModal.dateStr,
+          startTime: bookingModal.startTime,
+          endTime,
+          resource: courtName,
+          court: courtName,
+          courtName,
+          memberId: platformUser.id,
+          memberName,
+          customerName: memberName,
+          customer: memberName,
+          price: priceResult.price,
+          currency: priceResult.currency,
+          durationMinutes: dur,
+          paymentShares: paymentShares.length > 0 ? paymentShares : undefined
+        })
+      }
       setBookingModal(null)
       setPaymentShares([])
+      await refreshClubsFromApi()
       refreshClub()
     } catch (e) {
       console.error('Booking failed:', e)
+      setLockError(e?.message || (language === 'en' ? 'Booking failed. Please try again.' : 'فشل الحجز. حاول مجدداً.'))
     } finally {
       setBookingSubmitting(false)
     }
@@ -637,32 +710,43 @@ const ClubPublicPage = () => {
                         </div>
                         {timeSlots.map(timeSlot => {
                           const courtName = (court.name || '').toString().trim()
+                          const courtIdForMatch = (court.id || court.name || '').toString()
                           const dateStr = courtGridDate
                           const isBooked = bookings.some(b => {
                             if (b.isTournament) return false
+                            const status = (b.status || '').toString()
+                            if (['cancelled', 'expired'].includes(status)) return false
                             const bDate = (b.date || b.startDate || '').toString().split('T')[0]
                             if (bDate !== dateStr) return false
-                            const res = (b.resource || b.court || '').toString().trim()
-                            if (res !== courtName) return false
-                            const start = (b.startTime || '').toString().trim()
+                            const res = (b.resource || b.court || b.courtId || '').toString().trim()
+                            if (res !== courtName && res !== courtIdForMatch) return false
+                            const start = (b.startTime || b.timeSlot || '').toString().trim()
                             let end = (b.endTime || '').toString().trim()
-                            if (!end) {
+                            if (!end && start) {
                               const [h, m] = start.split(':').map(Number)
-                              const endM = (h || 0) * 60 + (m || 0) + 30
+                              const endM = (h || 0) * 60 + (m || 0) + (club?.settings?.bookingDuration || 60)
                               end = `${String(Math.floor(endM / 60)).padStart(2, '0')}:${String(endM % 60).padStart(2, '0')}`
                             }
-                            return isTimeSlotCoveredByBooking(timeSlot, start, end)
+                            return isTimeSlotCoveredByBooking(timeSlot, start, end || start)
                           })
-                          const canBook = !isBooked && isMember && platformUser
+                          const isLocked = activeLocks.some(l => {
+                            const lCourt = (l.court_id || '').toString()
+                            if (lCourt !== courtName && lCourt !== courtIdForMatch) return false
+                            const lDate = (l.booking_date || '').toString().split('T')[0]
+                            if (lDate !== dateStr) return false
+                            return isTimeSlotCoveredByBooking(timeSlot, l.start_time || '', l.end_time || '')
+                          })
+                          const canBook = !isBooked && !isLocked && isMember && platformUser
+                          const cellStatus = isLocked ? 'in-progress' : isBooked ? 'booked' : 'available'
                           return (
                             <div
                               key={timeSlot}
                               role={canBook ? 'button' : undefined}
                               tabIndex={canBook ? 0 : undefined}
-                              className={`club-public-court-grid-cell ${isBooked ? 'booked' : 'available'} ${canBook ? 'clickable' : ''}`}
-                              title={isBooked ? c.booked : canBook ? c.bookNow : c.available}
-                              onClick={canBook ? () => setBookingModal({ court, dateStr, startTime: timeSlot }) : undefined}
-                              onKeyDown={canBook ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setBookingModal({ court, dateStr, startTime: timeSlot }) } } : undefined}
+                              className={`club-public-court-grid-cell ${cellStatus} ${canBook ? 'clickable' : ''}`}
+                              title={isLocked ? (language === 'en' ? 'In progress' : 'قيد الإجراء') : isBooked ? c.booked : canBook ? c.bookNow : c.available}
+                              onClick={canBook ? () => handleSlotClick(court, dateStr, timeSlot) : undefined}
+                              onKeyDown={canBook ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSlotClick(court, dateStr, timeSlot) } } : undefined}
                             >
                               {''}
                             </div>
@@ -677,8 +761,14 @@ const ClubPublicPage = () => {
           </div>
         </section>
 
+        {lockError && (
+          <div className="club-public-lock-error" role="alert">
+            {lockError}
+            <button type="button" onClick={() => setLockError(null)} aria-label="Dismiss">×</button>
+          </div>
+        )}
         {bookingModal && (
-          <div className="club-public-booking-modal-backdrop" onClick={() => { if (!bookingSubmitting) { setBookingModal(null); setPaymentShares([]) } }} role="presentation">
+          <div className="club-public-booking-modal-backdrop" onClick={() => { if (!bookingSubmitting) handleCloseBookingModal() }} role="presentation">
             <div className="club-public-booking-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="booking-modal-title">
               <h3 id="booking-modal-title" className="club-public-booking-modal-title">{c.courtBooking}</h3>
               <div className="club-public-booking-modal-body">
@@ -728,8 +818,13 @@ const ClubPublicPage = () => {
                   onChange={setPaymentShares}
                 />
               </div>
+              {activeLock && (
+                <p className="club-public-booking-lock-notice">
+                  {language === 'en' ? '⏱ Slot reserved. Complete payment within 10 minutes.' : '⏱ الوقت محجوز. أكمل الدفع خلال 10 دقائق.'}
+                </p>
+              )}
               <div className="club-public-booking-modal-actions">
-                <button type="button" className="club-public-booking-modal-cancel" onClick={() => { if (!bookingSubmitting) { setBookingModal(null); setPaymentShares([]) } }} disabled={bookingSubmitting}>
+                <button type="button" className="club-public-booking-modal-cancel" onClick={() => { if (!bookingSubmitting) handleCloseBookingModal() }} disabled={bookingSubmitting}>
                   {language === 'en' ? 'Cancel' : 'إلغاء'}
                 </button>
                 <button

@@ -91,7 +91,8 @@ export async function query(text, params = []) {
   const [result] = await pool.execute(sql, args)
   const rows = Array.isArray(result) ? result : []
   const insertId = result?.insertId
-  return { rows, insertId }
+  const affectedRows = result?.affectedRows
+  return { rows, insertId, affectedRows }
 }
 
 export function getPool() {

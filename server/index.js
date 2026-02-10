@@ -24,7 +24,9 @@ import passwordResetRouter from './routes/passwordReset.js'
 import whatsappWebhookRouter from './routes/whatsappWebhook.js'
 import initDbRouter from './routes/initDb.js'
 import dataRouter from './routes/data.js'
+import bookingsRouter from './routes/bookings.js'
 import { isConnected, getDbDiagnostics } from './db/pool.js'
+import { startBookingJobs } from './jobs/bookingJobs.js'
 
 const app = express()
 const PORT = process.env.PORT || 4000
@@ -41,6 +43,7 @@ app.use('/api/password-reset', passwordResetRouter)
 app.use('/api/whatsapp-webhook', whatsappWebhookRouter)
 app.use('/api/init-db', initDbRouter)
 app.use('/api/data', dataRouter)
+app.use('/api/bookings', bookingsRouter)
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, db: isConnected() })
@@ -102,6 +105,8 @@ app.listen(PORT, HOST, () => {
   console.log(`Padel API running on http://${HOST}:${PORT}`)
   if (!isConnected()) {
     console.warn('Database not configured. Set DATABASE_URL (mysql://...).')
+  } else {
+    startBookingJobs()
   }
 }).on('error', (err) => {
   console.error('[Express] listen error:', err.message)

@@ -364,6 +364,12 @@ async function assembleClub(clubRow, courts, settings, adminUsers, offers, booki
       bookingDuration: s.booking_duration ?? 60,
       maxBookingAdvance: s.max_booking_advance ?? 30,
       cancellationPolicy: s.cancellation_policy ?? 24,
+      lockMinutes: s.lock_minutes ?? 10,
+      paymentDeadlineMinutes: s.payment_deadline_minutes ?? 10,
+      splitManageMinutes: s.split_manage_minutes ?? 15,
+      splitPaymentDeadlineMinutes: s.split_payment_deadline_minutes ?? 30,
+      refundDays: s.refund_days ?? 3,
+      allowIncompleteBookings: !!s.allow_incomplete_bookings,
       openingTime: s.opening_time || '06:00',
       closingTime: s.closing_time || '23:00',
       headerBgColor: s.header_bg_color || '#ffffff',
@@ -409,7 +415,14 @@ async function assembleClub(clubRow, courts, settings, adminUsers, offers, booki
         date: dateStr,
         startDate: dateStr,
         timeSlot: b.time_slot,
-        status: b.status
+        startTime: b.start_time || b.time_slot,
+        endTime: b.end_time || b.time_slot,
+        status: b.status,
+        lockedAt: b.locked_at,
+        paymentDeadlineAt: b.payment_deadline_at,
+        totalAmount: parseFloat(b.total_amount) || 0,
+        paidAmount: parseFloat(b.paid_amount) || 0,
+        initiatorMemberId: b.initiator_member_id
       }
     }),
     offers: (offers || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map(o => ({
@@ -516,7 +529,10 @@ export async function getClubsFromNormalized() {
       memberName: r.member_name || undefined,
       phone: r.phone || undefined,
       amount: parseFloat(r.amount) || 0,
-      whatsappLink: r.whatsapp_link || undefined
+      whatsappLink: r.whatsapp_link || undefined,
+      inviteToken: r.invite_token || undefined,
+      paidAt: r.paid_at,
+      paymentReference: r.payment_reference || undefined
     })
   })
 
@@ -584,19 +600,31 @@ export async function saveClubsToNormalized(items, actor = {}) {
 
     const s = club.settings || {}
     const bookingPricesJson = JSON.stringify(s.bookingPrices || {})
-    await query(
-      `INSERT INTO club_settings (club_id, default_language, timezone, currency, booking_duration, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, updated_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE default_language=VALUES(default_language), timezone=VALUES(timezone), currency=VALUES(currency), booking_duration=VALUES(booking_duration), max_booking_advance=VALUES(max_booking_advance), cancellation_policy=VALUES(cancellation_policy), opening_time=VALUES(opening_time), closing_time=VALUES(closing_time), header_bg_color=VALUES(header_bg_color), header_text_color=VALUES(header_text_color), hero_bg_color=VALUES(hero_bg_color), hero_bg_opacity=VALUES(hero_bg_opacity), hero_title_color=VALUES(hero_title_color), hero_text_color=VALUES(hero_text_color), hero_stats_color=VALUES(hero_stats_color), social_links=VALUES(social_links), booking_prices=VALUES(booking_prices), updated_at=NOW(), updated_by=VALUES(updated_by)`,
-      [
-        cid, s.defaultLanguage || 'en', s.timezone || 'Asia/Riyadh', s.currency || 'SAR',
-        s.bookingDuration ?? 60, s.maxBookingAdvance ?? 30, s.cancellationPolicy ?? 24,
-        s.openingTime || '06:00', s.closingTime || '23:00',
-        s.headerBgColor || '#ffffff', s.headerTextColor || '#0f172a',
-        s.heroBgColor || '#ffffff', s.heroBgOpacity ?? 85, s.heroTitleColor || '#0f172a', s.heroTextColor || '#475569', s.heroStatsColor || '#0f172a',
-        JSON.stringify(s.socialLinks || []), bookingPricesJson, actor.actorId || null
-      ]
-    )
+    const settingsParams = [
+      cid, s.defaultLanguage || 'en', s.timezone || 'Asia/Riyadh', s.currency || 'SAR',
+      s.bookingDuration ?? 60, s.maxBookingAdvance ?? 30, s.cancellationPolicy ?? 24,
+      s.openingTime || '06:00', s.closingTime || '23:00',
+      s.headerBgColor || '#ffffff', s.headerTextColor || '#0f172a',
+      s.heroBgColor || '#ffffff', s.heroBgOpacity ?? 85, s.heroTitleColor || '#0f172a', s.heroTextColor || '#475569', s.heroStatsColor || '#0f172a',
+      JSON.stringify(s.socialLinks || []), bookingPricesJson, actor.actorId || null
+    ]
+    try {
+      await query(
+        `INSERT INTO club_settings (club_id, default_language, timezone, currency, booking_duration, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, updated_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE default_language=VALUES(default_language), timezone=VALUES(timezone), currency=VALUES(currency), booking_duration=VALUES(booking_duration), max_booking_advance=VALUES(max_booking_advance), cancellation_policy=VALUES(cancellation_policy), opening_time=VALUES(opening_time), closing_time=VALUES(closing_time), header_bg_color=VALUES(header_bg_color), header_text_color=VALUES(header_text_color), hero_bg_color=VALUES(hero_bg_color), hero_bg_opacity=VALUES(hero_bg_opacity), hero_title_color=VALUES(hero_title_color), hero_text_color=VALUES(hero_text_color), hero_stats_color=VALUES(hero_stats_color), social_links=VALUES(social_links), booking_prices=VALUES(booking_prices), lock_minutes=VALUES(lock_minutes), payment_deadline_minutes=VALUES(payment_deadline_minutes), split_manage_minutes=VALUES(split_manage_minutes), split_payment_deadline_minutes=VALUES(split_payment_deadline_minutes), refund_days=VALUES(refund_days), allow_incomplete_bookings=VALUES(allow_incomplete_bookings), updated_at=NOW(), updated_by=VALUES(updated_by)`,
+        [...settingsParams, s.lockMinutes ?? 10, s.paymentDeadlineMinutes ?? 10, s.splitManageMinutes ?? 15, s.splitPaymentDeadlineMinutes ?? 30, s.refundDays ?? 3, s.allowIncompleteBookings ? 1 : 0]
+      )
+    } catch (e) {
+      if (e?.message?.includes('Unknown column') && e?.message?.includes('lock_minutes')) {
+        await query(
+          `INSERT INTO club_settings (club_id, default_language, timezone, currency, booking_duration, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, updated_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE default_language=VALUES(default_language), timezone=VALUES(timezone), currency=VALUES(currency), booking_duration=VALUES(booking_duration), max_booking_advance=VALUES(max_booking_advance), cancellation_policy=VALUES(cancellation_policy), opening_time=VALUES(opening_time), closing_time=VALUES(closing_time), header_bg_color=VALUES(header_bg_color), header_text_color=VALUES(header_text_color), hero_bg_color=VALUES(hero_bg_color), hero_bg_opacity=VALUES(hero_bg_opacity), hero_title_color=VALUES(hero_title_color), hero_text_color=VALUES(hero_text_color), hero_stats_color=VALUES(hero_stats_color), social_links=VALUES(social_links), booking_prices=VALUES(booking_prices), updated_at=NOW(), updated_by=VALUES(updated_by)`,
+          settingsParams
+        )
+      } else throw e
+    }
 
     const courts = club.courts || []
     const courtIds = new Set(courts.map(c => c?.id).filter(Boolean))
@@ -690,13 +718,29 @@ export async function saveClubsToNormalized(items, actor = {}) {
     for (const b of bookings) {
       if (!b?.id) continue
       const bid = b.id?.toString?.()
-      const bData = { ...b }; delete bData.id; delete bData.courtId; delete bData.memberId; delete bData.date; delete bData.timeSlot; delete bData.status
-      await query(
-        `INSERT INTO club_bookings (id, club_id, court_id, member_id, booking_date, time_slot, status, data, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE court_id=VALUES(court_id), member_id=VALUES(member_id), booking_date=VALUES(booking_date), time_slot=VALUES(time_slot), status=VALUES(status), data=VALUES(data), updated_at=NOW(), updated_by=VALUES(updated_by), deleted_at=NULL, deleted_by=NULL`,
-        [bid, cid, b.courtId || null, b.memberId || null, b.date || null, b.timeSlot || null, b.status || null, JSON.stringify(bData), actor.actorId || null]
-      )
+      const bData = { ...b }
+      ;['id', 'courtId', 'memberId', 'date', 'timeSlot', 'status', 'startTime', 'endTime', 'lockedAt', 'paymentDeadlineAt', 'totalAmount', 'paidAmount', 'initiatorMemberId'].forEach(k => delete bData[k])
+      const startTime = b.startTime || b.timeSlot || null
+      const endTime = b.endTime || b.timeSlot || null
+      const totalAmount = parseFloat(b.totalAmount ?? b.price ?? b.amount) || 0
+      const paidAmount = parseFloat(b.paidAmount) || 0
+      try {
+        await query(
+          `INSERT INTO club_bookings (id, club_id, court_id, member_id, booking_date, time_slot, start_time, end_time, status, total_amount, paid_amount, initiator_member_id, data, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE court_id=VALUES(court_id), member_id=VALUES(member_id), booking_date=VALUES(booking_date), time_slot=VALUES(time_slot), start_time=VALUES(start_time), end_time=VALUES(end_time), status=VALUES(status), total_amount=VALUES(total_amount), paid_amount=VALUES(paid_amount), initiator_member_id=VALUES(initiator_member_id), data=VALUES(data), updated_at=NOW(), updated_by=VALUES(updated_by), deleted_at=NULL, deleted_by=NULL`,
+          [bid, cid, b.courtId || null, b.memberId || null, b.date || null, b.timeSlot || null, startTime, endTime, b.status || null, totalAmount, paidAmount, b.initiatorMemberId || b.memberId || null, JSON.stringify(bData), actor.actorId || null]
+        )
+      } catch (e) {
+        if (e?.message?.includes('Unknown column') && (e?.message?.includes('start_time') || e?.message?.includes('total_amount'))) {
+          await query(
+            `INSERT INTO club_bookings (id, club_id, court_id, member_id, booking_date, time_slot, status, data, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE court_id=VALUES(court_id), member_id=VALUES(member_id), booking_date=VALUES(booking_date), time_slot=VALUES(time_slot), status=VALUES(status), data=VALUES(data), updated_at=NOW(), updated_by=VALUES(updated_by), deleted_at=NULL, deleted_by=NULL`,
+            [bid, cid, b.courtId || null, b.memberId || null, b.date || null, b.timeSlot || null, b.status || null, JSON.stringify({ ...bData, startTime, endTime, totalAmount, paidAmount }), actor.actorId || null]
+          )
+        } else throw e
+      }
       const shares = Array.isArray(b.paymentShares) ? b.paymentShares : []
       try {
         await query('DELETE FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?', [bid, cid])

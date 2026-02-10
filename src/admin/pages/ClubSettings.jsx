@@ -35,6 +35,12 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
     bookingDuration: 60,
     maxBookingAdvance: 30,
     cancellationPolicy: 24,
+    lockMinutes: 10,
+    paymentDeadlineMinutes: 10,
+    splitManageMinutes: 15,
+    splitPaymentDeadlineMinutes: 30,
+    refundDays: 3,
+    allowIncompleteBookings: false,
     openingTime: '06:00',
     closingTime: '23:00'
   })
@@ -80,6 +86,12 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
         bookingDuration: club?.settings?.bookingDuration || 60,
         maxBookingAdvance: club?.settings?.maxBookingAdvance || 30,
         cancellationPolicy: club?.settings?.cancellationPolicy || 24,
+        lockMinutes: club?.settings?.lockMinutes ?? 10,
+        paymentDeadlineMinutes: club?.settings?.paymentDeadlineMinutes ?? 10,
+        splitManageMinutes: club?.settings?.splitManageMinutes ?? 15,
+        splitPaymentDeadlineMinutes: club?.settings?.splitPaymentDeadlineMinutes ?? 30,
+        refundDays: club?.settings?.refundDays ?? 3,
+        allowIncompleteBookings: !!club?.settings?.allowIncompleteBookings,
         openingTime: club?.settings?.openingTime || '06:00',
         closingTime: club?.settings?.closingTime || '23:00'
       })
@@ -124,6 +136,12 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
         bookingDuration: formData.bookingDuration,
         maxBookingAdvance: formData.maxBookingAdvance,
         cancellationPolicy: formData.cancellationPolicy,
+        lockMinutes: formData.lockMinutes ?? 10,
+        paymentDeadlineMinutes: formData.paymentDeadlineMinutes ?? 10,
+        splitManageMinutes: formData.splitManageMinutes ?? 15,
+        splitPaymentDeadlineMinutes: formData.splitPaymentDeadlineMinutes ?? 30,
+        refundDays: formData.refundDays ?? 3,
+        allowIncompleteBookings: !!formData.allowIncompleteBookings,
         openingTime: formData.openingTime,
         closingTime: formData.closingTime,
         headerBgColor: formData.headerBgColor || '#ffffff',
@@ -519,6 +537,31 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Cancellation (hours before)', 'الإلغاء (ساعات قبل)', lang)}</label>
                   <input type="number" className="settings-input" min={0} value={formData.cancellationPolicy} onChange={(e) => setFormData({ ...formData, cancellationPolicy: parseInt(e.target.value) || 24 })} />
+                </div>
+              </div>
+              <div className="form-row form-row-3" style={{ marginTop: 16 }}>
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Lock (min)', 'مهلة الحجز (دقيقة)', lang)}</label>
+                  <input type="number" className="settings-input" min={1} max={60} value={formData.lockMinutes ?? 10} onChange={(e) => setFormData({ ...formData, lockMinutes: parseInt(e.target.value) || 10 })} />
+                  <span className="field-hint">{t('Time to complete payment after selecting slot', 'مهلة إتمام الدفع بعد اختيار الوقت')}</span>
+                </div>
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Split manage (min)', 'مهلة إدارة المشاركين (دقيقة)', lang)}</label>
+                  <input type="number" className="settings-input" min={5} value={formData.splitManageMinutes ?? 15} onChange={(e) => setFormData({ ...formData, splitManageMinutes: parseInt(e.target.value) || 15 })} />
+                </div>
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Split payment deadline (min)', 'مهلة دفعات المشاركين (دقيقة)', lang)}</label>
+                  <input type="number" className="settings-input" min={10} value={formData.splitPaymentDeadlineMinutes ?? 30} onChange={(e) => setFormData({ ...formData, splitPaymentDeadlineMinutes: parseInt(e.target.value) || 30 })} />
+                </div>
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Refund (days)', 'مدة الاسترداد (أيام)', lang)}</label>
+                  <input type="number" className="settings-input" min={1} value={formData.refundDays ?? 3} onChange={(e) => setFormData({ ...formData, refundDays: parseInt(e.target.value) || 3 })} />
+                </div>
+                <div className="form-group settings-field checkbox-field" style={{ alignSelf: 'flex-end' }}>
+                  <label className="checkbox-label">
+                    <input type="checkbox" checked={!!formData.allowIncompleteBookings} onChange={(e) => setFormData({ ...formData, allowIncompleteBookings: e.target.checked })} className="settings-checkbox" />
+                    {t('Allow incomplete split bookings', 'السماح بحجوزات مشتركة غير مكتملة الدفع', lang)}
+                  </label>
                 </div>
               </div>
             </div>
