@@ -25,6 +25,7 @@ import whatsappWebhookRouter from './routes/whatsappWebhook.js'
 import initDbRouter from './routes/initDb.js'
 import dataRouter from './routes/data.js'
 import bookingsRouter from './routes/bookings.js'
+import clubsRouter from './routes/clubs.js'
 import { isConnected, getDbDiagnostics } from './db/pool.js'
 import { startBookingJobs } from './jobs/bookingJobs.js'
 
@@ -44,6 +45,7 @@ app.use('/api/whatsapp-webhook', whatsappWebhookRouter)
 app.use('/api/init-db', initDbRouter)
 app.use('/api/data', dataRouter)
 app.use('/api/bookings', bookingsRouter)
+app.use('/api/clubs', clubsRouter)
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, db: isConnected() })

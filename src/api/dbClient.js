@@ -271,6 +271,14 @@ export async function removeFavoriteMember(memberId, clubId, favoriteMemberId) {
   return fetchJson(`/api/bookings/favorites?${params}`, { method: 'DELETE' })
 }
 
+// ---- Club join ----
+export async function joinClub(clubId, memberId) {
+  return fetchJson('/api/clubs/join', {
+    method: 'POST',
+    body: JSON.stringify({ clubId, memberId })
+  })
+}
+
 // ---- Invite ----
 export async function getInviteByToken(token) {
   return fetchJson(`/api/bookings/invite/${encodeURIComponent(token)}`)

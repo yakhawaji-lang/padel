@@ -486,16 +486,14 @@ const ClubPublicPage = () => {
       return
     }
     try {
-      const ok = await addMemberToClub(platformUser.id, club.id)
-      if (ok) {
-        setJoinStatus('success')
-        await refreshClubsFromApi()
-        setPlatformUser(getCurrentPlatformUser())
-        refreshClub()
-      } else {
-        setJoinStatus('error')
-      }
+      await bookingApi.joinClub(club.id, platformUser.id)
+      await addMemberToClub(platformUser.id, club.id)
+      await refreshClubsFromApi()
+      setPlatformUser(getCurrentPlatformUser())
+      refreshClub()
+      setJoinStatus('success')
     } catch (e) {
+      console.error('Join club failed:', e)
       setJoinStatus('error')
     }
   }
