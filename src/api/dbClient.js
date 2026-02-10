@@ -42,7 +42,7 @@ async function fetchJson(path, options = {}) {
   return res.json()
 }
 
-/** Retry on 502/503/504 (server slow/overloaded) - up to 4 retries, 3s delay */
+/** Retry on 502/503/504 (server slow/overloaded) - up to 4 retries, 5s delay for gateway timeout */
 const RETRY_STATUSES = [502, 503, 504]
 function isRetryableError(e) {
   if (!e) return false
@@ -58,7 +58,8 @@ async function fetchWithRetry(path, options, maxRetries = 4) {
     } catch (e) {
       lastErr = e
       if (isRetryableError(e) && i < maxRetries) {
-        await new Promise(r => setTimeout(r, 3000))
+        const delay = (e.status === 504 || (e?.message || '').toLowerCase().includes('timeout')) ? 5000 : 3000
+        await new Promise(r => setTimeout(r, delay))
         continue
       }
       throw e
@@ -71,15 +72,16 @@ async function fetchWithRetry(path, options, maxRetries = 4) {
 
 export async function getStore(key) {
   try {
-    return await fetchJson(`/api/data/${encodeURIComponent(key)}`)
+    return await fetchWithRetry(`/api/data/${encodeURIComponent(key)}`)
   } catch (e) {
     if (e.message?.includes('Not Found') || e.message?.includes('404') || e.message?.includes('fetch') || e.message?.includes('Failed')) {
       try {
-        return await fetchJson(`/api/store/${encodeURIComponent(key)}`)
+        return await fetchWithRetry(`/api/store/${encodeURIComponent(key)}`)
       } catch (_) {
         return null
       }
     }
+    if (RETRY_STATUSES.includes(e.status)) return null
     return null
   }
 }
@@ -87,15 +89,16 @@ export async function getStore(key) {
 export async function getStoreBatch(keys) {
   if (!keys?.length) return {}
   try {
-    return await fetchJson(`/api/data?keys=${keys.map(k => encodeURIComponent(k)).join(',')}`)
+    return await fetchWithRetry(`/api/data?keys=${keys.map(k => encodeURIComponent(k)).join(',')}`)
   } catch (e) {
     if (e.message?.includes('Not Found') || e.message?.includes('404') || e.message?.includes('fetch') || e.message?.includes('Failed')) {
       try {
-        return await fetchJson(`/api/store?keys=${keys.map(k => encodeURIComponent(k)).join(',')}`)
+        return await fetchWithRetry(`/api/store?keys=${keys.map(k => encodeURIComponent(k)).join(',')}`)
       } catch (_) {
         return {}
       }
     }
+    if (RETRY_STATUSES.includes(e.status)) return {}
     return {}
   }
 }

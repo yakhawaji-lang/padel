@@ -138,6 +138,23 @@
   font-weight: 500;
 }
 
+.club-public-retry-load-btn {
+  padding: 10px 24px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.club-public-retry-load-btn:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+.club-public-retry-load-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 /* Join prompt - between banner and main content */
 .club-public-join-prompt {
   width: 100%;

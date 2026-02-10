@@ -101,6 +101,7 @@ const ClubPublicPage = () => {
   const [activeLock, setActiveLock] = useState(null)
   const [activeLocks, setActiveLocks] = useState([])
   const [lockError, setLockError] = useState(null)
+  const [loadRetrying, setLoadRetrying] = useState(false)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -320,14 +321,32 @@ const ClubPublicPage = () => {
     setLockError(null)
   }, [activeLock?.lockId, clubId, bookingModal?.dateStr])
 
+  const handleRetryLoad = useCallback(async () => {
+    if (loadRetrying) return
+    setLoadRetrying(true)
+    try {
+      await refreshClubsFromApi()
+      loadClubs()
+      const c = getClubById(clubId)
+      setClub(c || null)
+    } finally {
+      setLoadRetrying(false)
+    }
+  }, [clubId, loadRetrying])
+
   if (!club) {
     return (
       <div className="club-public-page commercial">
-        <div className="club-public-loading" style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
+        <div className="club-public-loading" style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', gap: 16 }}>
           <p>{clubId
-            ? (language === 'en' ? 'Club not found.' : 'النادي غير موجود.')
+            ? (language === 'en' ? 'Club not found or server is busy.' : 'النادي غير موجود أو الخادم مشغول.')
             : (language === 'en' ? 'Loading...' : 'جاري التحميل...')}</p>
-          <Link to="/" style={{ marginTop: 16 }}>{language === 'en' ? 'Back to home' : 'العودة للرئيسية'}</Link>
+          {clubId && (
+            <button type="button" onClick={handleRetryLoad} disabled={loadRetrying} className="club-public-retry-load-btn">
+              {loadRetrying ? (language === 'en' ? 'Retrying...' : 'جاري إعادة المحاولة...') : (language === 'en' ? 'Retry' : 'إعادة المحاولة')}
+            </button>
+          )}
+          <Link to="/" style={{ marginTop: 8 }}>{language === 'en' ? 'Back to home' : 'العودة للرئيسية'}</Link>
         </div>
       </div>
     )
