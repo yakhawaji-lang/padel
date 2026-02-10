@@ -12,7 +12,7 @@ function formatPhoneFromUrl(s) {
   return digits ? digits : s
 }
 import { getCurrentPlatformUser, setCurrentPlatformUser } from '../storage/platformAuth'
-import { upsertMember, getMergedMembersRaw } from '../storage/adminStorage'
+import { upsertMember, getMergedMembersRaw, addMemberToClub } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './Register.css'
 
@@ -121,7 +121,7 @@ const Register = () => {
       phone: formData.phone?.trim() || '',
       mobile: formData.phone?.trim() || '',
       password: formData.password,
-      clubIds: [],
+      clubIds: joinClubId ? [joinClubId] : [],
       role: 'member',
       createdAt: new Date().toISOString()
     }
@@ -129,6 +129,15 @@ const Register = () => {
     if (!ok) {
       setError(language === 'en' ? 'Registration failed.' : 'فشل التسجيل.')
       return
+    }
+    if (joinClubId) {
+      try {
+        const { default: bookingApi } = await import('../api/dbClient')
+        await bookingApi.joinClub(joinClubId, newMember.id)
+        await addMemberToClub(newMember.id, joinClubId)
+      } catch (e) {
+        console.warn('Auto-join club after register:', e)
+      }
     }
     setCurrentPlatformUser(newMember.id)
     if (joinClubId) navigate(`/clubs/${joinClubId}`, { replace: true })

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { loadClubs, getClubById, getClubMembersFromStorage, addMemberToClub, addBookingToClub, refreshClubsFromApi } from '../storage/adminStorage'
+import { loadClubs, getClubById, getClubMembersFromStorage, addMemberToClub, addBookingToClub, refreshClubsFromApi, upsertMember } from '../storage/adminStorage'
 import { calculateBookingPrice } from '../utils/bookingPricing'
 import * as bookingApi from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
@@ -487,6 +487,15 @@ const ClubPublicPage = () => {
     }
     try {
       await bookingApi.joinClub(club.id, platformUser.id)
+      // Ensure member exists in storage/cache (e.g. after register or stale cache) so addMemberToClub finds them
+      await upsertMember({
+        id: platformUser.id,
+        name: platformUser.name,
+        email: platformUser.email,
+        phone: platformUser.phone,
+        mobile: platformUser.mobile,
+        avatar: platformUser.avatar
+      })
       await addMemberToClub(platformUser.id, club.id)
       await refreshClubsFromApi()
       setPlatformUser(getCurrentPlatformUser())

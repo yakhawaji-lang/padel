@@ -923,13 +923,18 @@ export const syncMembersToClubsManually = () => {
   return clubs
 }
 
-/** Get all members that belong to a club (from storage sources) - for admin display */
+/**
+ * Get all members that belong to a club.
+ * Source of truth: getMergedMembersRaw() (all_members/padel_members from API with clubIds from member_clubs).
+ * Used for public club page count and admin members list.
+ */
 export const getClubMembersFromStorage = (clubId) => {
   try {
     if (!clubId) return []
-    const merged = getMergedMembersRaw()
     const cid = String(clubId || '')
-    return merged.filter(m => {
+    const merged = getMergedMembersRaw()
+    const fromMerged = merged.filter(m => {
+      if (!m || !m.id) return false
       if (m.clubIds && Array.isArray(m.clubIds)) return m.clubIds.some(id => String(id) === cid)
       if (m.clubId) return String(m.clubId) === cid
       return false
@@ -944,6 +949,7 @@ export const getClubMembersFromStorage = (clubId) => {
       totalPoints: m.totalPoints || 0,
       clubIds: m.clubIds || (m.clubId ? [m.clubId] : [])
     }))
+    return fromMerged
   } catch (e) {
     console.error('getClubMembersFromStorage error:', e)
     return []
