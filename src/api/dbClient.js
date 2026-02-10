@@ -70,6 +70,8 @@ async function fetchWithRetry(path, options, maxRetries = 4) {
 
 // ---- Data API (reads from entities + app_settings tables, DB-only) ----
 
+const getStoreBatchInFlight = new Map()
+
 export async function getStore(key) {
   try {
     return await fetchWithRetry(`/api/data/${encodeURIComponent(key)}`)
@@ -88,19 +90,29 @@ export async function getStore(key) {
 
 export async function getStoreBatch(keys) {
   if (!keys?.length) return {}
-  try {
-    return await fetchWithRetry(`/api/data?keys=${keys.map(k => encodeURIComponent(k)).join(',')}`)
-  } catch (e) {
-    if (e.message?.includes('Not Found') || e.message?.includes('404') || e.message?.includes('fetch') || e.message?.includes('Failed')) {
-      try {
-        return await fetchWithRetry(`/api/store?keys=${keys.map(k => encodeURIComponent(k)).join(',')}`)
-      } catch (_) {
-        return {}
+  const keyStr = [...keys].sort().join(',')
+  let promise = getStoreBatchInFlight.get(keyStr)
+  if (promise) return promise
+  promise = (async () => {
+    try {
+      const url = `/api/data?keys=${keys.map(k => encodeURIComponent(k)).join(',')}`
+      return await fetchWithRetry(url)
+    } catch (e) {
+      if (e.message?.includes('Not Found') || e.message?.includes('404') || e.message?.includes('fetch') || e.message?.includes('Failed')) {
+        try {
+          return await fetchWithRetry(`/api/store?keys=${keys.map(k => encodeURIComponent(k)).join(',')}`)
+        } catch (_) {
+          return {}
+        }
       }
+      if (RETRY_STATUSES.includes(e.status)) return {}
+      return {}
+    } finally {
+      getStoreBatchInFlight.delete(keyStr)
     }
-    if (RETRY_STATUSES.includes(e.status)) return {}
-    return {}
-  }
+  })()
+  getStoreBatchInFlight.set(keyStr, promise)
+  return promise
 }
 
 export async function setStore(key, value) {

@@ -43,13 +43,13 @@ function MainAdminPanel() {
     }
     window.addEventListener('clubs-synced', onClubsSynced)
     
-    // Refresh clubs from API every 3 seconds to catch pending registrations from other devices
+    // Refresh clubs from API periodically (reduced interval to avoid 504 gateway timeout)
     const doRefresh = async () => {
       await refreshClubsFromApi()
       const c = loadClubs()
       setClubs(Array.isArray(c) ? c : [])
     }
-    const syncInterval = setInterval(doRefresh, 3000)
+    const syncInterval = setInterval(doRefresh, 90000)
     // Refresh when user returns to the tab
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') doRefresh()

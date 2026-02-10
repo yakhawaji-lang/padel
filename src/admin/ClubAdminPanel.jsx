@@ -54,12 +54,17 @@ function ClubAdminPanel() {
   }, [clubId, navigate])
 
   useEffect(() => {
-    const onSynced = () => loadData(true)
+    const onSynced = () => {
+      const allClubs = loadClubs()
+      setClubs(allClubs)
+      const foundClub = getClubById(clubId)
+      if (foundClub) setClub(foundClub)
+    }
     window.addEventListener('clubs-synced', onSynced)
     return () => window.removeEventListener('clubs-synced', onSynced)
   }, [clubId])
 
-  // Refresh silently when tab visible or every 60s (sync data across browsers/devices)
+  // Refresh from API when tab visible (once) or every 3 min to reduce 504 load
   useEffect(() => {
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') loadData(true)
@@ -67,7 +72,7 @@ function ClubAdminPanel() {
     document.addEventListener('visibilitychange', onVisibilityChange)
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') loadData(true)
-    }, 60000)
+    }, 180000)
     return () => {
       document.removeEventListener('visibilitychange', onVisibilityChange)
       clearInterval(interval)

@@ -31,14 +31,18 @@ const MyBookingsPage = () => {
 
   useEffect(() => {
     if (!member?.id) return
-    const load = async () => {
+    const loadFromApi = async () => {
       await refreshClubsFromApi()
       loadClubs()
       setBookings(getMemberBookings(member.id))
     }
-    load()
-    window.addEventListener('clubs-synced', load)
-    return () => window.removeEventListener('clubs-synced', load)
+    const syncFromCache = () => {
+      loadClubs()
+      setBookings(getMemberBookings(member.id))
+    }
+    loadFromApi()
+    window.addEventListener('clubs-synced', syncFromCache)
+    return () => window.removeEventListener('clubs-synced', syncFromCache)
   }, [member?.id])
 
   const today = new Date().toISOString().split('T')[0]
