@@ -5,7 +5,7 @@
  */
 import React, { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { getInviteByToken } from '../api/dbClient'
+import { getInviteByToken, recordPayment } from '../api/dbClient'
 import { getAppLanguage } from '../storage/languageStorage'
 
 const PayInvitePage = () => {
@@ -13,6 +13,8 @@ const PayInvitePage = () => {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [markingPaid, setMarkingPaid] = useState(false)
+  const [markedPaid, setMarkedPaid] = useState(false)
   const language = getAppLanguage() || 'en'
 
   useEffect(() => {
@@ -55,6 +57,23 @@ const PayInvitePage = () => {
   const baseUrl = typeof window !== 'undefined' ? window.location.origin + (import.meta.env.BASE_URL || '/').replace(/\/$/, '') : ''
   const registerUrl = `${baseUrl}/register?join=${encodeURIComponent(data.clubId || '')}`
   const clubsUrl = `${baseUrl}/clubs/${encodeURIComponent(data.clubId || '')}`
+
+  const handleMarkPaid = async () => {
+    if (!token || !data?.clubId) return
+    setMarkingPaid(true)
+    try {
+      await recordPayment({ inviteToken: token, clubId: data.clubId })
+      setMarkedPaid(true)
+    } catch (e) {
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(e?.message || (language === 'ar' ? 'فشل في تسجيل الدفع' : 'Failed to record payment'))
+      }
+    } finally {
+      setMarkingPaid(false)
+    }
+  }
+
+  const isPending = data?.bookingStatus === 'pending_payments' || data?.bookingStatus === 'partially_paid'
 
   return (
     <div className="pay-invite-page" style={{ maxWidth: 420, margin: '0 auto', padding: 32 }}>
@@ -120,6 +139,30 @@ const PayInvitePage = () => {
           >
             {t('Already registered? View club', 'مسجل مسبقاً؟ عرض النادي')}
           </a>
+          {isPending && !markedPaid && (
+            <button
+              type="button"
+              onClick={handleMarkPaid}
+              disabled={markingPaid}
+              style={{
+                padding: '12px 20px',
+                background: '#dcfce7',
+                color: '#166534',
+                border: '1px solid #22c55e',
+                borderRadius: 12,
+                fontWeight: 600,
+                fontSize: '0.9rem',
+                cursor: markingPaid ? 'wait' : 'pointer'
+              }}
+            >
+              {markingPaid ? t('Saving...', 'جاري الحفظ...') : t("I've paid my share", 'قمت بدفع حصتي')}
+            </button>
+          )}
+          {markedPaid && (
+            <p style={{ margin: 0, color: '#16a34a', fontWeight: 600 }}>
+              {t('Payment recorded. Thank you!', 'تم تسجيل الدفع. شكراً لك!')}
+            </p>
+          )}
         </div>
       </div>
 

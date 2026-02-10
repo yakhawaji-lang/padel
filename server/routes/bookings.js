@@ -10,6 +10,7 @@ import { getActorFromRequest } from '../db/audit.js'
 import { logAudit } from '../db/audit.js'
 import * as lock from '../db/bookingLock.js'
 import * as idempotency from '../db/idempotency.js'
+import { getBookingSettings } from '../db/bookingSettings.js'
 import { hasNormalizedTables } from '../db/normalizedData.js'
 import * as slotCache from '../lib/slotCache.js'
 
@@ -101,10 +102,12 @@ router.post('/confirm', async (req, res) => {
     const actor = getActorFromRequest(req)
 
     const bid = `bk_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+    const settings = await getBookingSettings(clubId)
     const status = paymentShares?.length > 0 ? 'pending_payments' : 'confirmed'
     const paidAmount = paymentShares?.length > 0 ? 0 : (totalAmount || 0)
-    const paymentDeadline = paymentShares?.length > 0
-      ? new Date(Date.now() + 30 * 60 * 1000)
+    const paymentDeadlineMinutes = paymentShares?.length > 0 ? settings.splitPaymentDeadlineMinutes : null
+    const paymentDeadline = paymentDeadlineMinutes != null
+      ? new Date(Date.now() + paymentDeadlineMinutes * 60 * 1000)
       : null
 
     const bData = {
@@ -174,11 +177,12 @@ router.post('/cancel', async (req, res) => {
     const totalAmount = parseFloat(rows[0].total_amount) || 0
     const memberId = rows[0].member_id
     const bookingDate = rows[0]?.booking_date ? String(rows[0].booking_date).split('T')[0] : null
+    const settings = await getBookingSettings(clubId)
     await query('UPDATE club_bookings SET status = ?, deleted_at = NOW(), deleted_by = ? WHERE id = ? AND club_id = ?', ['cancelled', actor.actorId || null, bookingId, clubId])
     await lock.deleteLockByBooking(bookingId)
     if (bookingDate) slotCache.invalidateLocks(clubId, bookingDate)
     if (totalAmount > 0 && memberId) {
-      const refundDays = 3
+      const refundDays = settings.refundDays
       const expectedBy = new Date()
       expectedBy.setDate(expectedBy.getDate() + refundDays)
       try {
@@ -194,6 +198,51 @@ router.post('/cancel', async (req, res) => {
     res.json({ ok: true, type: 'booking' })
   } catch (e) {
     console.error('bookings cancel error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** POST /api/bookings/record-payment - Record payment for a share (update paid_at, recalc status) */
+router.post('/record-payment', async (req, res) => {
+  try {
+    const { shareId, inviteToken, clubId, paymentReference } = req.body || {}
+    if (!clubId) return res.status(400).json({ error: 'clubId required' })
+    let shareRows
+    if (shareId) {
+      const r = await query('SELECT id, booking_id, amount FROM booking_payment_shares WHERE id = ? AND club_id = ?', [shareId, clubId])
+      shareRows = r.rows
+    } else if (inviteToken) {
+      const r = await query('SELECT id, booking_id, amount FROM booking_payment_shares WHERE invite_token = ? AND club_id = ?', [inviteToken, clubId])
+      shareRows = r.rows
+    } else {
+      return res.status(400).json({ error: 'shareId or inviteToken required' })
+    }
+    if (!shareRows?.length) return res.status(404).json({ error: 'Share not found' })
+    const share = shareRows[0]
+    const bid = share.booking_id
+    await query(
+      'UPDATE booking_payment_shares SET paid_at = NOW(), payment_reference = ? WHERE id = ? AND club_id = ?',
+      [paymentReference || null, share.id, clubId]
+    )
+    const { rows: shares } = await query(
+      'SELECT amount, paid_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
+      [bid, clubId]
+    )
+    const paidAmount = (shares || []).reduce((sum, s) => sum + (s.paid_at ? parseFloat(s.amount) || 0 : 0), 0)
+    const { rows: bRows } = await query('SELECT total_amount FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL', [bid, clubId])
+    const totalAmount = parseFloat(bRows[0]?.total_amount) || 0
+    const allPaid = paidAmount >= totalAmount - 0.01
+    const status = allPaid ? 'confirmed' : (paidAmount > 0 ? 'partially_paid' : 'pending_payments')
+    await query(
+      'UPDATE club_bookings SET paid_amount = ?, status = ? WHERE id = ? AND club_id = ?',
+      [paidAmount, status, bid, clubId]
+    )
+    const { rows: bDate } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bid, clubId])
+    const dateStr = bDate[0]?.booking_date ? String(bDate[0].booking_date).split('T')[0] : null
+    if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
+    res.json({ ok: true, paidAmount, status })
+  } catch (e) {
+    console.error('bookings record-payment error:', e)
     res.status(500).json({ error: dbError(e) })
   }
 })

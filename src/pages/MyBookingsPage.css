@@ -146,6 +146,34 @@
   color: #64748b;
 }
 
+.my-bookings-shares {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.my-bookings-share-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.my-bookings-paid {
+  color: #16a34a;
+  font-weight: 500;
+}
+
+.my-bookings-resend {
+  color: #25d366;
+  text-decoration: none;
+  margin-left: 4px;
+}
+
+.my-bookings-resend:hover {
+  text-decoration: underline;
+}
+
 .my-bookings-cancel-btn {
   padding: 6px 12px;
   background: #fee2e2;

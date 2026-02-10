@@ -496,7 +496,13 @@ export async function getClubsFromNormalized() {
     query(`SELECT * FROM club_tournament_types WHERE club_id IN (${placeholders}) AND deleted_at IS NULL`, clubIds),
     query(`SELECT * FROM club_store WHERE club_id IN (${placeholders})`, clubIds),
     query(`SELECT member_id, club_id FROM member_clubs WHERE club_id IN (${placeholders})`, clubIds),
-    query(`SELECT booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link FROM booking_payment_shares WHERE club_id IN (${placeholders})`, clubIds).catch(() => ({ rows: [] }))
+    (async () => {
+      try {
+        return await query(`SELECT id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, paid_at, payment_reference FROM booking_payment_shares WHERE club_id IN (${placeholders})`, clubIds)
+      } catch (_) {
+        return await query(`SELECT booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link FROM booking_payment_shares WHERE club_id IN (${placeholders})`, clubIds)
+      }
+    })()
   ])
 
   const byClub = (arr, key = 'club_id') => {
@@ -524,6 +530,7 @@ export async function getClubsFromNormalized() {
     const key = `${r.club_id}:${r.booking_id}`
     if (!paymentSharesByBooking[key]) paymentSharesByBooking[key] = []
     paymentSharesByBooking[key].push({
+      id: r.id,
       type: r.participant_type || 'registered',
       memberId: r.member_id || undefined,
       memberName: r.member_name || undefined,

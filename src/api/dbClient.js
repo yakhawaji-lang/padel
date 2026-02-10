@@ -279,6 +279,14 @@ export async function joinClub(clubId, memberId) {
   })
 }
 
+// ---- Record payment ----
+export async function recordPayment({ shareId, inviteToken, clubId, paymentReference }) {
+  return fetchJson('/api/bookings/record-payment', {
+    method: 'POST',
+    body: JSON.stringify({ shareId, inviteToken, clubId, paymentReference })
+  })
+}
+
 // ---- Invite ----
 export async function getInviteByToken(token) {
   return fetchJson(`/api/bookings/invite/${encodeURIComponent(token)}`)

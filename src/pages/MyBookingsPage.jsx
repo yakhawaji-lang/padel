@@ -59,10 +59,11 @@ const MyBookingsPage = () => {
     }
   }
 
-  const handleCancel = async (clubId, bookingId, booking) => {
+  const handleCancel = async (clubId, bookingId, booking, club) => {
+    const refundDays = club?.settings?.refundDays ?? 3
     const msg = language === 'en'
-      ? 'Cancel this booking? Refund will be processed within the configured period.'
-      : 'إلغاء هذا الحجز؟ سيتم استرداد المبلغ خلال المدة المحددة في الإعدادات.'
+      ? `Cancel this booking? Refund will be processed within ${refundDays} business days.`
+      : `إلغاء هذا الحجز؟ سيتم استرداد المبلغ خلال ${refundDays} أيام عمل.`
     if (!window.confirm(msg)) return
     setCancelling(bookingId)
     try {
@@ -72,6 +73,9 @@ const MyBookingsPage = () => {
         ok = true
       } catch (_) {
         ok = await deleteBookingFromClub(clubId, bookingId)
+      }
+      if (ok && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('clubs-synced'))
       }
       if (ok) {
         await refreshClubsFromApi()
@@ -117,7 +121,11 @@ const MyBookingsPage = () => {
       noBookings: 'No bookings',
       noUpcoming: 'No upcoming bookings.',
       noPast: 'No past bookings.',
-      goToClub: 'View club'
+      goToClub: 'View club',
+      participants: 'Participants',
+      paid: 'Paid',
+      pending: 'Pending',
+      resendInvite: 'Resend invite'
     },
     ar: {
       myBookings: 'حجوزاتي',
@@ -135,7 +143,11 @@ const MyBookingsPage = () => {
       noBookings: 'لا توجد حجوزات',
       noUpcoming: 'لا توجد حجوزات قادمة.',
       noPast: 'لا توجد حجوزات سابقة.',
-      goToClub: 'عرض النادي'
+      goToClub: 'عرض النادي',
+      participants: 'المشاركون',
+      paid: 'دفع',
+      pending: 'قيد الانتظار',
+      resendInvite: 'إعادة إرسال الدعوة'
     }
   }
   const c = t[language] || t.en
@@ -223,13 +235,30 @@ const MyBookingsPage = () => {
                       <span className={`my-bookings-status ${getStatusClass(booking.status)}`}>
                         {getStatusLabel(booking.status)}
                       </span>
+                      {Array.isArray(booking.paymentShares) && booking.paymentShares.length > 0 && (
+                        <div className="my-bookings-shares">
+                          {booking.paymentShares.map((s, idx) => (
+                            <div key={idx} className="my-bookings-share-row">
+                              <span>{s.memberName || s.phone || (s.type === 'unregistered' ? c.pending : '—')}</span>
+                              <span className={s.paidAt ? 'my-bookings-paid' : ''}>
+                                {s.paidAt ? '✓ ' + c.paid : c.pending}
+                              </span>
+                              {s.whatsappLink && !s.paidAt && filter === 'upcoming' && (
+                                <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="my-bookings-resend" title={c.resendInvite}>
+                                  💬
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </td>
                     {filter === 'upcoming' && (
                       <td>
                         <button
                           type="button"
                           className="my-bookings-cancel-btn"
-                          onClick={() => handleCancel(club.id, booking.id, booking)}
+                          onClick={() => handleCancel(club.id, booking.id, booking, club)}
                           disabled={cancelling === booking.id || ['cancelled', 'expired'].includes((booking.status || '').toString())}
                         >
                           {cancelling === booking.id ? '…' : c.cancel}

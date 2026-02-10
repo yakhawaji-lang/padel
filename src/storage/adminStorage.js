@@ -752,8 +752,9 @@ export function getMemberBookings(memberId) {
     const list = club?.bookings && Array.isArray(club.bookings) ? club.bookings : []
     list.forEach(b => {
       if (b.isTournament) return
-      const bid = String(b.memberId || b.member_id || '')
-      if (bid !== memberIdStr) return
+      const isInitiator = String(b.memberId || b.initiatorMemberId || b.member_id || '') === memberIdStr
+      const isParticipant = Array.isArray(b.paymentShares) && b.paymentShares.some(s => String(s.memberId || '') === memberIdStr)
+      if (!isInitiator && !isParticipant) return
       const dateStr = (b.date || b.startDate || '').toString().split('T')[0]
       results.push({
         booking: { ...b, dateStr },
