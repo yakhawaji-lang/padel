@@ -122,11 +122,21 @@
   margin-bottom: 6px;
 }
 .member-edit-modal input[type="text"],
-.member-edit-modal input[type="email"] {
+.member-edit-modal input[type="email"],
+.member-edit-modal input[type="password"] {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
+}
+.member-change-password-error {
+  color: #dc2626;
+  font-size: 0.875rem;
+  margin: 0 0 12px 0;
+}
+.member-change-password-success {
+  color: #059669;
+  margin: 0 0 16px 0;
 }
 .member-edit-modal .form-image-row {
   display: flex;

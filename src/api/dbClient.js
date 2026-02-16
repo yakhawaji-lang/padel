@@ -284,6 +284,13 @@ export async function confirmPasswordReset(token, newPassword) {
   })
 }
 
+export async function changeMemberPassword(memberId, currentPassword, newPassword) {
+  return fetchJson('/api/password-reset/change', {
+    method: 'POST',
+    body: JSON.stringify({ memberId, currentPassword, newPassword })
+  })
+}
+
 // ---- Bookings (lock, confirm, cancel) ----
 
 export async function getBookingLocks(clubId, date) {

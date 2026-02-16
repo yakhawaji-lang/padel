@@ -182,7 +182,40 @@ async function handleConfirm(req, res) {
   }
 }
 
+async function handleChange(req, res) {
+  try {
+    const { memberId, currentPassword, newPassword } = req.body || {}
+    const id = (memberId || '').toString().trim()
+    const current = typeof currentPassword === 'string' ? currentPassword : ''
+    const newPw = typeof newPassword === 'string' ? newPassword : ''
+    if (!id || !current || !newPw || newPw.length < 6) {
+      return res.status(400).json({ error: 'memberId, current password and new password (min 6 chars) required' })
+    }
+
+    const members = await getEntities('member')
+    const member = members.find(m => (m.id || '').toString() === id)
+    if (!member) {
+      return res.status(404).json({ error: 'Member not found' })
+    }
+    const stored = (member.password || member.password_hash || '').toString()
+    if (stored !== current) {
+      return res.status(400).json({ error: 'Current password is incorrect' })
+    }
+
+    member.password = newPw
+    if (member.password_hash !== undefined) member.password_hash = newPw
+    const updated = members.map(m => (m.id === member.id || (m.id || '').toString() === id ? member : m))
+    await setEntities('member', updated)
+
+    return res.json({ ok: true })
+  } catch (e) {
+    console.error('password-reset change error:', e)
+    return res.status(500).json({ error: e.message || 'Server error' })
+  }
+}
+
 router.post('/request', handleRequest)
 router.post('/confirm', handleConfirm)
+router.post('/change', handleChange)
 
 export default router
