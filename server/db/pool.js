@@ -1,6 +1,7 @@
 /**
  * MySQL connection pool.
- * Uses DATABASE_URL (mysql://user:pass@host/db) or database.config.json
+ * Uses DATABASE_URL (mysql://user:pass@host/db) or database.config.json.
+ * The database name in the URL (e.g. padel_db) is the one used for all queries — all data is read from and written to that database.
  */
 import { config } from 'dotenv'
 import { existsSync, readFileSync } from 'fs'
@@ -70,7 +71,8 @@ if (connectionString && isMySQL && !hasPlaceholderHost) {
       queueLimit: 0,
       connectTimeout: 60000,
       enableKeepAlive: true,
-      keepAliveInitialDelay: 10000
+      keepAliveInitialDelay: 10000,
+      dateStrings: true
     })
   } catch (err) {
     console.error('[pool] MySQL pool init failed:', err.message)
@@ -101,6 +103,25 @@ export function getPool() {
 
 export function isConnected() {
   return !!pool
+}
+
+/** Database name from connection URL (e.g. padel_db from mysql://.../padel_db) */
+function databaseNameFromUrl(url) {
+  if (!url || typeof url !== 'string') return null
+  const parts = url.trim().split('/').filter(Boolean)
+  const last = parts[parts.length - 1]
+  return (last && last.split('?')[0]) || null
+}
+
+/** Return current MySQL database name (e.g. padel_db). Resolves to null if not connected. */
+export async function getCurrentDatabase() {
+  if (!pool) return null
+  try {
+    const { rows } = await query('SELECT DATABASE() AS db')
+    return (rows && rows[0] && rows[0].db) || null
+  } catch {
+    return null
+  }
 }
 
 /** للتشخيص: أين يُقرأ الاتصال من؟ */
@@ -138,6 +159,7 @@ export function getDbDiagnostics() {
     configPaths: configPaths.map(p => ({ path: p, exists: existsSync(p) })),
     hasConnectionString: !!used,
     connectionHost: used ? (used.match(/@([^\/]+)\//) || [])[1] : null,
+    databaseNameFromUrl: databaseNameFromUrl(used),
     poolExists: !!pool
   }
 }

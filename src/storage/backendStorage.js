@@ -72,21 +72,44 @@ export async function setStore(key, value) {
   }
 }
 
-/** Refresh specific keys from API and update cache. Use for cross-device sync. */
+const REFRESH_COOLDOWN_MS = 2000
+const RESOURCE_ERROR_BACKOFF_MS = 15000
+let _lastRefreshTime = 0
+let _lastRefreshPromise = null
+let _refreshBackoffUntil = 0
+
+function isResourceExhaustionError(e) {
+  const msg = (e?.message || String(e)).toLowerCase()
+  return /insufficient_resources|failed to fetch|load failed|networkerror|network error/i.test(msg)
+}
+
+/** Refresh specific keys from API and update cache. Use for cross-device sync. Cooldown to avoid request storms. */
 export async function refreshStoreKeys(keys) {
   if (!keys?.length) return
-  try {
-    const data = await api.getStoreBatch(keys)
-    Object.entries(data || {}).forEach(([k, v]) => {
-      if (v === null || v === undefined) return
-      if ((k === 'admin_clubs' || k === 'all_members' || k === 'padel_members') && !Array.isArray(v)) {
-        v = (typeof v === 'string' ? (() => { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } })() : [])
-      }
-      cache.set(k, v)
-    })
-  } catch (e) {
-    console.warn('refreshStoreKeys failed:', e)
+  const now = Date.now()
+  if (now < _refreshBackoffUntil) return
+  if (now - _lastRefreshTime < REFRESH_COOLDOWN_MS && _lastRefreshPromise) {
+    return _lastRefreshPromise
   }
+  _lastRefreshTime = now
+  _lastRefreshPromise = (async () => {
+    try {
+      const data = await api.getStoreBatch(keys)
+      Object.entries(data || {}).forEach(([k, v]) => {
+        if (v === null || v === undefined) return
+        if ((k === 'admin_clubs' || k === 'all_members' || k === 'padel_members') && !Array.isArray(v)) {
+          v = (typeof v === 'string' ? (() => { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } })() : [])
+        }
+        cache.set(k, v)
+      })
+    } catch (e) {
+      console.warn('refreshStoreKeys failed:', e)
+      if (isResourceExhaustionError(e)) _refreshBackoffUntil = Date.now() + RESOURCE_ERROR_BACKOFF_MS
+    } finally {
+      _lastRefreshPromise = null
+    }
+  })()
+  return _lastRefreshPromise
 }
 
 /** Get any key (fetches from API if not in cache) */

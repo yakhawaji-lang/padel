@@ -4,6 +4,7 @@
 import { Router } from 'express'
 import { query } from '../db/pool.js'
 import { hasNormalizedTables } from '../db/normalizedData.js'
+import { addMemberToClub } from '../services/membershipService.js'
 
 const router = Router()
 
@@ -61,7 +62,7 @@ router.post('/join', async (req, res) => {
         return res.status(404).json({ error: 'Member not found. Register first.' })
       }
     }
-    await query('INSERT IGNORE INTO member_clubs (member_id, club_id) VALUES (?, ?)', [mid, cid])
+    await addMemberToClub(mid, cid)
     res.json({ ok: true })
   } catch (e) {
     console.error('clubs join error:', e)

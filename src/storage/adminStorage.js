@@ -272,7 +272,7 @@ export async function refreshClubsFromApi() {
     })
     if (hasLocalRestored) saveClubs(clubs).catch(e => console.error('refreshClubsFromApi save:', e))
     _clubsCache = deduplicateClubs(clubs)
-    syncMembersToClubs(_clubsCache)
+    syncMembersToClubs(_clubsCache, { persist: false })
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('clubs-synced'))
     }
@@ -382,8 +382,9 @@ export const loadClubs = () => {
   }
 }
 
-// Sync members from DB into clubs
-export const syncMembersToClubs = (clubs) => {
+// Sync members from DB into clubs. When persist: false (e.g. after refresh from API), do not POST back to server.
+export const syncMembersToClubs = (clubs, options = {}) => {
+  const { persist = true } = options
   try {
     if (!Array.isArray(clubs)) return
     const mergedMembers = getMergedMembersRaw()
@@ -476,7 +477,7 @@ export const syncMembersToClubs = (clubs) => {
       }
     }
     
-    if (hasChanges) {
+    if (hasChanges && persist) {
       saveClubs(clubs).catch(e => console.error('saveClubs:', e))
     }
   } catch (error) {
@@ -793,7 +794,7 @@ export async function updateBookingInClub(clubId, bookingId, updates) {
   return updated
 }
 
-/** Delete a court booking from a club. Returns true on success. */
+/** Delete a court booking from a club. Returns true on success. Only updates bookings; preserves club.members so membership is not affected. */
 export async function deleteBookingFromClub(clubId, bookingId) {
   const clubs = loadClubs()
   const club = clubs.find(c => c.id === clubId)
@@ -981,13 +982,18 @@ export const addMemberToClubs = (memberId, clubIds) => {
   return addMemberToClub(memberId, clubIds)
 }
 
-/** Remove member from club(s). Uses centralized saveMembers; sync updates clubs. */
+/** Remove member from club(s). Calls API to remove from DB first, then updates local state via saveMembers. */
 export const removeMemberFromClubs = async (memberId, clubIds) => {
   try {
+    const toRemove = Array.isArray(clubIds) ? clubIds : [clubIds]
+    if (_backendStorage?.api?.removeMemberFromClubApi) {
+      for (const cid of toRemove) {
+        if (cid) await _backendStorage.api.removeMemberFromClubApi(memberId, cid)
+      }
+    }
     const members = getMergedMembersRaw()
     const member = members.find(m => m.id === memberId)
-    if (!member) return false
-    const toRemove = Array.isArray(clubIds) ? clubIds : [clubIds]
+    if (!member) return true
     const currentIds = member.clubIds || (member.clubId ? [member.clubId] : [])
     member.clubIds = currentIds.filter(id => !toRemove.includes(id))
     member.clubId = member.clubIds[0]

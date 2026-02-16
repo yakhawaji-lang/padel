@@ -26,7 +26,7 @@ import initDbRouter from './routes/initDb.js'
 import dataRouter from './routes/data.js'
 import bookingsRouter from './routes/bookings.js'
 import clubsRouter from './routes/clubs.js'
-import { isConnected, getDbDiagnostics } from './db/pool.js'
+import { isConnected, getDbDiagnostics, getCurrentDatabase } from './db/pool.js'
 import { startBookingJobs } from './jobs/bookingJobs.js'
 
 const app = express()
@@ -50,6 +50,31 @@ app.use('/api/clubs', clubsRouter)
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, db: isConnected() })
 })
+app.get('/api/health/integrity', async (req, res) => {
+  const { query } = await import('./db/pool.js')
+  const issues = []
+  const checks = []
+  try {
+    const { rows: mcRows } = await query(`
+      SELECT mc.member_id, mc.club_id FROM member_clubs mc
+      LEFT JOIN members m ON m.id = mc.member_id AND m.deleted_at IS NULL
+      LEFT JOIN clubs c ON c.id = mc.club_id AND c.deleted_at IS NULL
+      WHERE m.id IS NULL OR c.id IS NULL
+    `)
+    if (mcRows.length > 0) issues.push({ table: 'member_clubs', message: 'عضوية تشير لعضو أو نادي محذوف', count: mcRows.length })
+    else checks.push({ table: 'member_clubs', ok: true })
+    const { rows: cbOrphan } = await query(`
+      SELECT cb.id FROM club_bookings cb
+      LEFT JOIN clubs c ON c.id = cb.club_id AND c.deleted_at IS NULL
+      WHERE c.id IS NULL AND cb.deleted_at IS NULL
+    `)
+    if (cbOrphan.length > 0) issues.push({ table: 'club_bookings', message: 'حجوزات لنوادي محذوفة', count: cbOrphan.length })
+    else checks.push({ table: 'club_bookings', ok: true })
+    res.json({ ok: issues.length === 0, issues, checks })
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e?.message || 'Integrity check failed' })
+  }
+})
 app.get('/api/ping', (req, res) => {
   res.json({ pong: true })
 })
@@ -57,16 +82,19 @@ app.get('/api/ping', (req, res) => {
 app.get('/api/db-check', async (req, res) => {
   const diag = getDbDiagnostics()
   let testError = null
+  let currentDatabase = null
   if (isConnected()) {
     try {
-      const { query } = await import('./db/pool.js')
-      await query('SELECT 1')
+      const poolModule = await import('./db/pool.js')
+      await poolModule.query('SELECT 1')
+      currentDatabase = await poolModule.getCurrentDatabase()
     } catch (e) {
       testError = e.message
     }
   }
   res.json({
     ...diag,
+    currentDatabase,
     db: isConnected() && !testError,
     testError: testError || null,
     hint: !diag.hasConnectionString
@@ -74,7 +102,7 @@ app.get('/api/db-check', async (req, res) => {
       : testError
         ? 'Connection string found but MySQL rejected: ' + testError
         : diag.db
-          ? 'OK'
+          ? (currentDatabase ? `OK — data is read/written from database: ${currentDatabase}` : 'OK')
           : 'Check config file path or MySQL host/credentials'
   })
 })
@@ -103,11 +131,13 @@ if (existsSync(distIndex)) {
   })
 }
 
-app.listen(PORT, HOST, () => {
+app.listen(PORT, HOST, async () => {
   console.log(`Padel API running on http://${HOST}:${PORT}`)
   if (!isConnected()) {
     console.warn('Database not configured. Set DATABASE_URL (mysql://...).')
   } else {
+    const dbName = await getCurrentDatabase()
+    console.log(`Database: ${dbName || '(unknown)'} — all data is read from and written to this database`)
     startBookingJobs()
   }
 }).on('error', (err) => {

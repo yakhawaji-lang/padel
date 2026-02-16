@@ -16,11 +16,18 @@ import { upsertMember, getMergedMembersRaw, addMemberToClub } from '../storage/a
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './Register.css'
 
+/** Normalize phone to digits for comparison */
+function phoneDigits(s) {
+  return (s || '').replace(/\D/g, '')
+}
+
 const Register = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const joinClubId = searchParams.get('join')
   const phoneFromUrl = searchParams.get('phone')
+  const returnTo = searchParams.get('returnTo') || ''
+  const isPhoneOnlyFlow = !!(joinClubId && phoneFromUrl && phoneDigits(phoneFromUrl).length >= 8)
   const [language, setLanguage] = useState(getAppLanguage())
   const [formData, setFormData] = useState({
     name: '',
@@ -38,23 +45,29 @@ const Register = () => {
   useEffect(() => {
     const user = getCurrentPlatformUser()
     if (user) {
+      if (returnTo && returnTo.startsWith('/')) {
+        navigate(returnTo, { replace: true })
+        return
+      }
       if (joinClubId) navigate(`/clubs/${joinClubId}`, { replace: true })
       else navigate('/', { replace: true })
     }
-  }, [joinClubId, navigate])
+  }, [joinClubId, returnTo, navigate])
 
   const t = {
     en: {
-      title: 'Register on PlayTix',
-      subtitle: joinClubId
-        ? 'Create an account to join the club.'
-        : 'Create an account to browse clubs, book courts, buy products and participate in tournaments.',
-      googleSignIn: 'Sign in with Google',
-      or: 'Or create with email',
+      title: isPhoneOnlyFlow ? 'Quick register — payment share' : 'Register on PlayTix',
+      subtitle: isPhoneOnlyFlow
+        ? 'Register with your phone number to participate in the booking. Temporary password = your phone number.'
+        : joinClubId
+          ? 'Create an account to join the club.'
+          : 'Create an account to browse clubs, book courts, buy products and participate in tournaments.',
+      or: 'Create with email',
       name: 'Full name',
       email: 'Email',
       phone: 'Mobile number',
       password: 'Password',
+      tempPasswordHint: 'Temporary password = your phone number (you can change it later)',
       submit: 'Register',
       backToHome: 'Back to home',
       alreadyHave: 'Already have an account?',
@@ -67,19 +80,21 @@ const Register = () => {
       privacyPolicy: 'Privacy Policy',
       and: 'and',
       termsOfService: 'Terms of Service',
-      googleComingSoon: 'Google sign-in will be available soon'
+      phoneAlreadyRegistered: 'This phone number is already registered. Please log in.'
     },
     ar: {
-      title: 'التسجيل في PlayTix',
-      subtitle: joinClubId
-        ? 'أنشئ حساباً للانضمام للنادي.'
-        : 'أنشئ حساباً لتصفح النوادي وحجز الملاعب وشراء المنتجات والمشاركة في البطولات.',
-      googleSignIn: 'تسجيل الدخول بحساب Google',
-      or: 'أو إنشاء حساب بالإيميل',
+      title: isPhoneOnlyFlow ? 'تسجيل سريع — مشاركة بالدفع' : 'التسجيل في PlayTix',
+      subtitle: isPhoneOnlyFlow
+        ? 'سجّل برقم جوالك للمشاركة في الحجز. كلمة المرور المؤقتة = رقم جوالك.'
+        : joinClubId
+          ? 'أنشئ حساباً للانضمام للنادي.'
+          : 'أنشئ حساباً لتصفح النوادي وحجز الملاعب وشراء المنتجات والمشاركة في البطولات.',
+      or: 'إنشاء حساب بالإيميل',
       name: 'الاسم الكامل',
       email: 'البريد الإلكتروني',
       phone: 'رقم الجوال',
       password: 'كلمة المرور',
+      tempPasswordHint: 'كلمة المرور المؤقتة = رقم جوالك (يمكنك تغييرها لاحقاً)',
       submit: 'تسجيل',
       backToHome: 'العودة للرئيسية',
       alreadyHave: 'لديك حساب مسبقاً؟',
@@ -92,7 +107,7 @@ const Register = () => {
       privacyPolicy: 'سياسة الخصوصية',
       and: 'و',
       termsOfService: 'شروط الخدمة',
-      googleComingSoon: 'تسجيل الدخول بـ Google قريباً'
+      phoneAlreadyRegistered: 'رقم الجوال مسجّل مسبقاً. يرجى تسجيل الدخول.'
     }
   }
   const c = t[language]
@@ -104,23 +119,36 @@ const Register = () => {
       setError(language === 'en' ? 'You must agree to the Privacy Policy and Terms of Service.' : 'يجب الموافقة على سياسة الخصوصية وشروط الخدمة.')
       return
     }
-    if (!formData.name || !formData.email || !formData.password) {
-      setError(language === 'en' ? 'Please fill all fields.' : 'يرجى تعبئة جميع الحقول.')
+    const members = getMergedMembersRaw()
+    const phoneOnly = isPhoneOnlyFlow && formData.phone && phoneDigits(formData.phone).length >= 8
+    const effectivePassword = phoneOnly ? (formData.phone?.trim() || phoneDigits(formData.phone)) : formData.password
+    if (!phoneOnly && (!formData.name || !formData.email || !formData.password)) {
+      setError(language === 'en' ? 'Please fill all required fields.' : 'يرجى تعبئة جميع الحقول المطلوبة.')
       return
     }
-    const members = getMergedMembersRaw()
-    const existing = members.find(m => (m.email || '').toLowerCase() === formData.email.trim().toLowerCase())
-    if (existing) {
+    if (phoneOnly && !formData.phone?.trim()) {
+      setError(language === 'en' ? 'Phone number is required.' : 'رقم الجوال مطلوب.')
+      return
+    }
+    const existingByEmail = !phoneOnly && members.find(m => (m.email || '').toLowerCase() === formData.email.trim().toLowerCase())
+    const existingByPhone = members.find(m => phoneDigits(m.phone || m.mobile || '') === phoneDigits(formData.phone || ''))
+    if (existingByEmail) {
       setError(language === 'en' ? 'This email is already registered.' : 'هذا البريد مسجّل مسبقاً.')
       return
     }
+    if (existingByPhone) {
+      setError(c.phoneAlreadyRegistered)
+      return
+    }
+    const name = (formData.name || '').trim() || (language === 'ar' ? 'مشارك' : 'Participant')
+    const email = (formData.email || '').trim() || (phoneOnly ? `p${phoneDigits(formData.phone)}@pay-invite.playtix` : '')
     const newMember = {
       id: Date.now().toString(),
-      name: formData.name.trim(),
-      email: formData.email.trim(),
+      name,
+      email,
       phone: formData.phone?.trim() || '',
       mobile: formData.phone?.trim() || '',
-      password: formData.password,
+      password: effectivePassword,
       clubIds: joinClubId ? [joinClubId] : [],
       role: 'member',
       createdAt: new Date().toISOString()
@@ -140,6 +168,10 @@ const Register = () => {
       }
     }
     setCurrentPlatformUser(newMember.id)
+    if (returnTo && returnTo.startsWith('/')) {
+      navigate(returnTo, { replace: true })
+      return
+    }
     if (joinClubId) navigate(`/clubs/${joinClubId}`, { replace: true })
     else navigate('/', { replace: true })
   }
@@ -159,52 +191,65 @@ const Register = () => {
         <div className="register-card">
           <h1 className="register-title">{c.title}</h1>
           <p className="register-subtitle">{c.subtitle}</p>
-          <button
-            type="button"
-            className="register-google-btn"
-            onClick={() => alert(c.googleComingSoon)}
-          >
-            <span className="register-google-icon">G</span>
-            {c.googleSignIn}
-          </button>
-          <p className="register-or">{c.or}</p>
+          {!isPhoneOnlyFlow && <p className="register-or">{c.or}</p>}
           <form onSubmit={handleSubmit} className="register-form">
             {error && <p className="register-error">{error}</p>}
+            {!isPhoneOnlyFlow && (
+              <div className="form-group">
+                <label htmlFor="name">{c.name} *</label>
+                <input
+                  id="name"
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder={c.namePlaceholder}
+                  required
+                  autoComplete="name"
+                />
+              </div>
+            )}
+            {isPhoneOnlyFlow && (
+              <div className="form-group">
+                <label htmlFor="name">{c.name}</label>
+                <input
+                  id="name"
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder={c.namePlaceholder}
+                  autoComplete="name"
+                />
+              </div>
+            )}
+            {!isPhoneOnlyFlow && (
+              <div className="form-group">
+                <label htmlFor="email">{c.email} *</label>
+                <input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder={c.emailPlaceholder}
+                  required
+                  autoComplete="email"
+                />
+              </div>
+            )}
             <div className="form-group">
-              <label htmlFor="name">{c.name} *</label>
-              <input
-                id="name"
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder={c.namePlaceholder}
-                required
-                autoComplete="name"
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="email">{c.email} *</label>
-              <input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder={c.emailPlaceholder}
-                required
-                autoComplete="email"
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="phone">{c.phone}</label>
+              <label htmlFor="phone">{c.phone} {isPhoneOnlyFlow ? '*' : ''}</label>
               <input
                 id="phone"
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 placeholder={c.phonePlaceholder}
+                required={isPhoneOnlyFlow}
                 autoComplete="tel"
               />
             </div>
+            {isPhoneOnlyFlow && (
+              <p className="register-temp-password-hint">{c.tempPasswordHint}</p>
+            )}
             <div className="form-group form-group-checkbox">
               <label className="checkbox-label">
                 <input
@@ -216,19 +261,21 @@ const Register = () => {
                 <span>{c.agreeTerms} <Link to="/privacy-policy" target="_blank" rel="noopener noreferrer">{c.privacyPolicy}</Link> {c.and} <Link to="/terms-of-service" target="_blank" rel="noopener noreferrer">{c.termsOfService}</Link></span>
               </label>
             </div>
-            <div className="form-group">
-              <label htmlFor="password">{c.password} *</label>
-              <input
-                id="password"
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder={c.passwordPlaceholder}
-                required
-                minLength={6}
-                autoComplete="new-password"
-              />
-            </div>
+            {!isPhoneOnlyFlow && (
+              <div className="form-group">
+                <label htmlFor="password">{c.password} *</label>
+                <input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder={c.passwordPlaceholder}
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                />
+              </div>
+            )}
             <button type="submit" className="register-submit">{c.submit}</button>
           </form>
           <p className="register-login-hint">

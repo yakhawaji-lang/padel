@@ -16,13 +16,20 @@ function normalizePhone(s) {
   return s.replace(/\s/g, '').replace(/^00/, '+').replace(/^0/, '+966')
 }
 
-/** Build registration URL with club join and optional phone for pre-fill */
+/** Base path of the app (e.g. /app) — same as Vite base / Router basename, no trailing slash */
+function getAppBasePath() {
+  if (typeof window === 'undefined') return ''
+  const base = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) || ''
+  const path = base.replace(/\/$/, '') || ''
+  return path
+}
+
+/** Build registration URL with club join and optional phone for pre-fill — works locally and on deployed domain */
 function getRegisterUrl(clubId, phone) {
   if (!clubId) return ''
   if (typeof window === 'undefined') return ''
-  const pathname = window.location.pathname || ''
-  const base = pathname.startsWith('/app/') ? '/app' : ''
-  let url = window.location.origin + base + '/register?join=' + encodeURIComponent(clubId)
+  const basePath = getAppBasePath()
+  let url = window.location.origin + (basePath ? basePath + '/' : '') + 'register?join=' + encodeURIComponent(clubId)
   if (phone) {
     const digits = String(phone).replace(/\D/g, '')
     if (digits.length >= 8) url += '&phone=' + encodeURIComponent(digits)

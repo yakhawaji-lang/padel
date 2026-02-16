@@ -33,6 +33,7 @@
   align-items: center;
   justify-content: space-between;
   min-height: 64px;
+  gap: 16px;
 }
 
 .site-logo {
@@ -84,7 +85,18 @@
 .site-nav {
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+
+.site-nav-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 8px 24px;
+  justify-content: center;
 }
 
 .site-nav a,
@@ -101,6 +113,13 @@
 
 .site-nav a:hover {
   color: #1d4ed8;
+}
+
+.site-nav .nav-lang {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .nav-sep {
@@ -160,6 +179,17 @@
 
   .site-nav.open {
     display: flex;
+  }
+
+  .site-nav .nav-lang {
+    position: static;
+    transform: none;
+    align-self: flex-start;
+  }
+
+  .site-nav-links {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .nav-sep {
@@ -430,35 +460,17 @@
   background: #eff6ff;
 }
 
-.join-cta-google {
-  background: #fff !important;
-  color: #1f2937 !important;
-  border: 1px solid #d1d5db !important;
-}
-
-.join-cta-google:hover {
-  background: #f9fafb !important;
-}
-
-.join-google-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  margin-inline-end: 8px;
-  background: linear-gradient(135deg, #4285f4 0%, #ea4335 50%, #fbbc05 75%, #34a853 100%);
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 700;
-  border-radius: 4px;
-}
 
 .join-card-actions {
   display: flex;
   flex-direction: column;
   gap: 12px;
   margin-top: 8px;
+}
+
+.join-card-actions.join-card-btns {
+  flex-direction: row;
+  flex-wrap: wrap;
 }
 
 .join-or {

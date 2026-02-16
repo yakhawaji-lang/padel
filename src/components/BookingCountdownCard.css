@@ -1,0 +1,247 @@
+/* BookingCountdownCard — بطاقة حجز مع عداد تنازلي — تصميم محدّث */
+
+.booking-countdown-card {
+  position: relative;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  transition: box-shadow 0.25s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.booking-countdown-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+/* شريط لوني جانبي */
+.booking-countdown-card__accent {
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 4px 0 0 4px;
+}
+
+[dir="rtl"] .booking-countdown-card__accent {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+  border-radius: 0 4px 4px 0;
+}
+
+.booking-countdown-card--playing .booking-countdown-card__accent {
+  background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+  width: 5px;
+}
+
+.booking-countdown-card--ended .booking-countdown-card__accent {
+  background: #94a3b8;
+  opacity: 0.7;
+}
+
+.booking-countdown-card__body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0;
+  padding: 20px 20px 20px 24px;
+}
+
+[dir="rtl"] .booking-countdown-card__body {
+  padding: 20px 24px 20px 20px;
+}
+
+.booking-countdown-card__main {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+}
+
+.booking-countdown-card__court-icon {
+  flex-shrink: 0;
+  font-size: 1.75rem;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+.booking-countdown-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.booking-countdown-card__court {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1.125rem;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.booking-countdown-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 0.9375rem;
+  color: #475569;
+}
+
+.booking-countdown-card__date {
+  font-weight: 500;
+  color: #475569;
+}
+
+.booking-countdown-card__time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.booking-countdown-card__customer {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.booking-countdown-card__countdown {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 10px;
+  padding-inline-start: 20px;
+  margin-inline-start: 20px;
+  border-inline-start: 1px solid #f1f5f9;
+}
+
+[dir="rtl"] .booking-countdown-card__countdown {
+  align-items: flex-start;
+  padding-inline-start: 0;
+  padding-inline-end: 20px;
+  margin-inline-start: 0;
+  margin-inline-end: 20px;
+  border-inline-start: none;
+  border-inline-end: 1px solid #f1f5f9;
+}
+
+.booking-countdown-card__label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+
+.booking-countdown-card__units {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.booking-countdown-card__unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  padding: 8px 6px;
+  background: linear-gradient(145deg, #eff6ff 0%, #dbeafe 100%);
+  border-radius: 10px;
+  border: 1px solid rgba(37, 99, 235, 0.15);
+}
+
+.booking-countdown-card__unit-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #1d4ed8;
+  line-height: 1.2;
+}
+
+.booking-countdown-card__unit-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #3b82f6;
+  margin-top: 2px;
+}
+
+.booking-countdown-card__playing {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #16a34a;
+  padding: 10px 16px;
+  background: linear-gradient(145deg, #dcfce7 0%, #bbf7d0 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.booking-countdown-card__ended {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* شبكة القسم في الصفحة */
+.club-public-upcoming-countdown {
+  margin-top: 0;
+  padding-top: 24px;
+}
+
+.club-public-upcoming-countdown-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+}
+
+@media (max-width: 640px) {
+  .booking-countdown-card__body {
+    flex-direction: column;
+    padding: 18px 18px 18px 22px;
+  }
+
+  [dir="rtl"] .booking-countdown-card__body {
+    padding: 18px 22px 18px 18px;
+  }
+
+  .booking-countdown-card__countdown {
+    align-items: flex-start;
+    padding-top: 16px;
+    padding-inline-start: 0;
+    margin-inline-start: 0;
+    margin-top: 16px;
+    border-inline-start: none;
+    border-inline-end: none;
+    border-top: 1px solid #f1f5f9;
+  }
+
+  [dir="rtl"] .booking-countdown-card__countdown {
+    padding-inline-end: 0;
+    margin-inline-end: 0;
+  }
+
+  .booking-countdown-card__units {
+    flex-wrap: wrap;
+  }
+
+  .booking-countdown-card__unit {
+    min-width: 40px;
+    padding: 6px 4px;
+  }
+
+  .booking-countdown-card__unit-value {
+    font-size: 1.125rem;
+  }
+}

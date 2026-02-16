@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PlayTix</string>
+    <string name="title_activity_main">PlayTix</string>
+    <string name="package_name">com.playtix.padel</string>
+    <string name="custom_url_scheme">com.playtix.padel</string>
+</resources>

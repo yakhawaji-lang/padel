@@ -39,15 +39,29 @@ DATABASE_URL=mysql://root:@localhost:3306/padel_db
 
 ---
 
-## الخطوة 4: تهيئة الجداول
+## الخطوة 4: تهيئة الجداول (لتتوافق مع u502561206_padel_db)
 
-من PowerShell في مجلد المشروع:
+لتطابق القاعدة المحلية `padel_db` مع هيكل قاعدة الإنتاج `u502561206_padel_db`، استخدم أحد الطريقتين:
+
+### الطريقة أ: من phpMyAdmin (مُوصى بها للهيكل الكامل)
+
+1. افتح **http://localhost/phpmyadmin** واختر قاعدة البيانات **padel_db**.
+2. ادخل إلى تبويب **SQL** (أو **استيراد** إذا أردت استيراد الملف).
+3. انسخ محتوى الملف `server/db/LOCAL_PADEL_DB_FULL_SCHEMA.sql` والصقه في مربع الاستعلام، ثم اضغط **Go**.
+4. إذا ظهر خطأ **Duplicate column** أو **Duplicate key** تجاهله وتابع — المعتاد عند تشغيل السكربت أكثر من مرة.
+
+أو من صفحة عمليات القاعدة:
+- **http://localhost/phpmyadmin/index.php?route=/database/operations&db=padel_db** ثم استخدم تبويب **استيراد** لرفع الملف `LOCAL_PADEL_DB_FULL_SCHEMA.sql`.
+
+### الطريقة ب: من واجهة البرمجة (API)
+
+بعد تشغيل السيرفر (`npm run dev:api`):
 
 ```powershell
 Invoke-RestMethod -Uri "http://localhost:4000/api/init-db" -Method POST
 ```
 
-أو افتح المتصفح: **http://localhost:4000/api/init-db** (يُفضّل استخدام POST من أدوات التطوير).
+أو افتح **http://localhost:4000/api/init-db** وأضف `?init=1` للتهيئة من المتصفح.
 
 ---
 

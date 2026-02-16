@@ -1,9 +1,25 @@
-import React, { lazy, Suspense } from 'react'
+import React, { lazy, Suspense, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { loadClubsAsync, loadClubs, initBackendStorage } from './storage/adminStorage.js'
 import { initAppSettingsStorage } from './storage/appSettingsStorage.js'
 import './index.css'
+
+/** Ensure all number inputs and .western-numerals elements use Western numerals (0-9) across the system */
+function useWesternNumerals() {
+  useEffect(() => {
+    const apply = () => {
+      document.querySelectorAll('input[type="number"], .western-numerals').forEach(el => {
+        el.setAttribute('lang', 'en')
+        el.setAttribute('dir', 'ltr')
+      })
+    }
+    apply()
+    const obs = new MutationObserver(apply)
+    obs.observe(document.body, { childList: true, subtree: true })
+    return () => obs.disconnect()
+  }, [])
+}
 
 const USE_POSTGRES = true
 
@@ -46,6 +62,7 @@ function LoadingFallback() {
 }
 
 function Root() {
+  useWesternNumerals()
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL || '/'} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Suspense fallback={<LoadingFallback />}>

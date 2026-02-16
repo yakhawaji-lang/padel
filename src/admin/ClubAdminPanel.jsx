@@ -17,10 +17,12 @@ import ClubBookingPrices from './pages/ClubBookingPrices'
 import ClubBookingsManagement from './pages/ClubBookingsManagement'
 import ClubPageGuard from '../components/ClubPageGuard'
 import { loadClubs, saveClubs, getClubById, syncMembersToClubsManually, refreshClubsFromApi } from '../storage/adminStorage'
+import { saveClubSettings } from '../api/dbClient'
 
 function ClubAdminPanel() {
   const { clubId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const [club, setClub] = useState(null)
   const [clubs, setClubs] = useState([])
   const [language, setLanguage] = useState(() => getAppLanguage())
@@ -88,12 +90,36 @@ function ClubAdminPanel() {
   }, [clubId, language])
 
   const handleClubUpdate = async (updates) => {
-    const updatedClub = { ...club, ...updates, updatedAt: new Date().toISOString() }
+    let updatedClub = { ...club, ...updates, updatedAt: new Date().toISOString() }
+    if (updates.settings) {
+      updatedClub.settings = { ...updatedClub.settings, ...updates.settings }
+    }
     setClub(updatedClub)
-    
-    const updatedClubs = clubs.map(c => c.id === clubId ? updatedClub : c)
+    let updatedClubs = clubs.map(c => c.id === clubId ? updatedClub : c)
     setClubs(updatedClubs)
-    await saveClubs(updatedClubs)
+    let settingsSaved = false
+    try {
+      if (updates.settings) {
+        await saveClubSettings(clubId, updates.settings)
+        settingsSaved = true
+      }
+      await saveClubs(updatedClubs)
+      await refreshClubsFromApi()
+      const allClubs = loadClubs()
+      setClubs(allClubs)
+      const found = getClubById(clubId)
+      if (found) setClub(found)
+    } catch (e) {
+      console.error('Save clubs failed:', e)
+      if (settingsSaved) {
+        await refreshClubsFromApi()
+        const allClubs = loadClubs()
+        setClubs(allClubs)
+        const found = getClubById(clubId)
+        if (found) setClub(found)
+      }
+      throw e
+    }
   }
 
   if (isLoading) {
@@ -108,7 +134,6 @@ function ClubAdminPanel() {
     return null
   }
 
-  const location = useLocation()
   const section = location.pathname.split('/').filter(Boolean).pop() || 'dashboard'
 
   return (

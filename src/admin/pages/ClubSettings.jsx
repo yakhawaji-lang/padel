@@ -6,8 +6,35 @@ import SocialIcon, { PLATFORMS } from '../../components/SocialIcon'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
+// الحقول الخمسة لإعدادات الحجز — تُحفظ في padel_db (club_settings) وتُسترجع منها
+const BOOKING_NUMBER_FIELDS = [
+  { key: 'lockMinutes', default: 10, max: 60, labelEn: 'Lock (min)', labelAr: 'مهلة الحجز (دقيقة)', hintEn: 'Time to complete payment after selecting slot', hintAr: 'مهلة إتمام الدفع بعد اختيار الوقت' },
+  { key: 'paymentDeadlineMinutes', default: 10, labelEn: 'Payment deadline (min)', labelAr: 'مهلة الدفع (دقيقة)' },
+  { key: 'splitManageMinutes', default: 15, labelEn: 'Split manage (min)', labelAr: 'مهلة إدارة المشاركين (دقيقة)' },
+  { key: 'splitPaymentDeadlineMinutes', default: 30, labelEn: 'Split payment deadline (min)', labelAr: 'مهلة دفعات المشاركين (دقيقة)' },
+  { key: 'refundDays', default: 3, labelEn: 'Refund (days)', labelAr: 'مدة الاسترداد (أيام)' }
+]
+const BOOKING_CHECKBOX_FIELD = 'allowIncompleteBookings'
+// الحقول الأربعة المعروضة: Lock، Split manage، Split payment deadline، Refund (paymentDeadlineMinutes يُحفظ ويُسترجع لكن لا يُعرض هنا)
+const BOOKING_VISIBLE_NUMBER_FIELDS = BOOKING_NUMBER_FIELDS.filter(f => f.key !== 'paymentDeadlineMinutes')
+
+/** Always return a number for display in number inputs (avoids dot/empty); 0 is valid. */
+const numDisplay = (val, fallback) => {
+  if (val === undefined || val === null || val === '') return fallback
+  const n = Number(val)
+  return Number.isNaN(n) ? fallback : n
+}
+
+/** For save payload: number or default; 0 is valid and must be sent to DB. */
+const toNum = (val, fallback) => {
+  if (val === undefined || val === null || val === '') return fallback
+  const n = Number(val)
+  return Number.isNaN(n) ? fallback : n
+}
+
 const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageChange }) => {
   const lang = language || 'en'
+  const formDataRef = React.useRef(null)
   const [formData, setFormData] = useState({
     name: '',
     nameAr: '',
@@ -35,12 +62,8 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
     bookingDuration: 60,
     maxBookingAdvance: 30,
     cancellationPolicy: 24,
-    lockMinutes: 10,
-    paymentDeadlineMinutes: 10,
-    splitManageMinutes: 15,
-    splitPaymentDeadlineMinutes: 30,
-    refundDays: 3,
-    allowIncompleteBookings: false,
+    ...BOOKING_NUMBER_FIELDS.reduce((acc, { key, default: d }) => ({ ...acc, [key]: d }), {}),
+    [BOOKING_CHECKBOX_FIELD]: false,
     openingTime: '06:00',
     closingTime: '23:00'
   })
@@ -56,7 +79,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
     image: ''
   })
 
-  // Sync from club only when switching clubs (club?.id). Avoid overwriting local edits when clubs-synced fires.
+  // Sync form from club when club loads or after refresh (club?.id, club?.updatedAt so we pick up fresh DB data)
   useEffect(() => {
     if (club) {
       setFormData({
@@ -86,19 +109,17 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
         bookingDuration: club?.settings?.bookingDuration || 60,
         maxBookingAdvance: club?.settings?.maxBookingAdvance || 30,
         cancellationPolicy: club?.settings?.cancellationPolicy || 24,
-        lockMinutes: club?.settings?.lockMinutes ?? 10,
-        paymentDeadlineMinutes: club?.settings?.paymentDeadlineMinutes ?? 10,
-        splitManageMinutes: club?.settings?.splitManageMinutes ?? 15,
-        splitPaymentDeadlineMinutes: club?.settings?.splitPaymentDeadlineMinutes ?? 30,
-        refundDays: club?.settings?.refundDays ?? 3,
-        allowIncompleteBookings: !!club?.settings?.allowIncompleteBookings,
+        ...BOOKING_NUMBER_FIELDS.reduce((acc, { key, default: d }) => ({ ...acc, [key]: numDisplay(club?.settings?.[key], d) }), {}),
+        [BOOKING_CHECKBOX_FIELD]: !!club?.settings?.[BOOKING_CHECKBOX_FIELD],
         openingTime: club?.settings?.openingTime || '06:00',
         closingTime: club?.settings?.closingTime || '23:00'
       })
       setCourts(club?.courts || [])
       setSocialLinks(club?.settings?.socialLinks || [])
     }
-  }, [club?.id])
+  }, [club?.id, club?.updatedAt])
+
+  formDataRef.current = formData
 
   if (!club) {
     return (
@@ -108,60 +129,86 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
     )
   }
 
-  const handleSave = () => {
-    if (formData.openingTime && formData.closingTime && formData.openingTime >= formData.closingTime) {
-      alert(t('Closing time must be after opening time.', 'وقت الإغلاق يجب أن يكون بعد وقت الفتح.', lang))
-      return
-    }
-    const updates = {
-      name: formData.name,
-      nameAr: formData.nameAr,
-      logo: formData.logo || '',
-      banner: formData.banner || '',
-      tagline: formData.tagline,
-      taglineAr: formData.taglineAr,
-      address: formData.address,
-      addressAr: formData.addressAr,
-      phone: formData.phone,
-      email: formData.email,
-      website: formData.website,
-      playtomicVenueId: formData.playtomicVenueId,
-      playtomicApiKey: formData.playtomicApiKey,
+  const [isSaving, setIsSaving] = useState(false)
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false)
+  const [pendingUpdates, setPendingUpdates] = useState(null)
+
+  const buildUpdates = (data) => {
+    const fd = data ?? formDataRef.current ?? formData
+    return {
+      name: fd.name,
+      nameAr: fd.nameAr,
+      logo: fd.logo || '',
+      banner: fd.banner || '',
+      tagline: fd.tagline,
+      taglineAr: fd.taglineAr,
+      address: fd.address,
+      addressAr: fd.addressAr,
+      phone: fd.phone,
+      email: fd.email,
+      website: fd.website,
+      playtomicVenueId: fd.playtomicVenueId,
+      playtomicApiKey: fd.playtomicApiKey,
       courts: courts,
       settings: {
         ...club?.settings,
-        defaultLanguage: formData.defaultLanguage,
-        timezone: formData.timezone,
-        currency: formData.currency,
-        bookingDuration: formData.bookingDuration,
-        maxBookingAdvance: formData.maxBookingAdvance,
-        cancellationPolicy: formData.cancellationPolicy,
-        lockMinutes: formData.lockMinutes ?? 10,
-        paymentDeadlineMinutes: formData.paymentDeadlineMinutes ?? 10,
-        splitManageMinutes: formData.splitManageMinutes ?? 15,
-        splitPaymentDeadlineMinutes: formData.splitPaymentDeadlineMinutes ?? 30,
-        refundDays: formData.refundDays ?? 3,
-        allowIncompleteBookings: !!formData.allowIncompleteBookings,
-        openingTime: formData.openingTime,
-        closingTime: formData.closingTime,
-        headerBgColor: formData.headerBgColor || '#ffffff',
-        headerTextColor: formData.headerTextColor || '#0f172a',
-        heroBgColor: formData.heroBgColor || '#ffffff',
-        heroBgOpacity: formData.heroBgOpacity ?? 85,
-        heroTitleColor: formData.heroTitleColor || '#0f172a',
-        heroTextColor: formData.heroTextColor || '#475569',
-        heroStatsColor: formData.heroStatsColor || '#0f172a',
+        defaultLanguage: fd.defaultLanguage,
+        timezone: fd.timezone,
+        currency: fd.currency,
+        bookingDuration: fd.bookingDuration,
+        maxBookingAdvance: fd.maxBookingAdvance,
+        cancellationPolicy: fd.cancellationPolicy,
+        ...BOOKING_NUMBER_FIELDS.reduce((acc, { key, default: d }) => ({ ...acc, [key]: toNum(fd[key], d) }), {}),
+        [BOOKING_CHECKBOX_FIELD]: !!fd[BOOKING_CHECKBOX_FIELD],
+        openingTime: fd.openingTime,
+        closingTime: fd.closingTime,
+        headerBgColor: fd.headerBgColor || '#ffffff',
+        headerTextColor: fd.headerTextColor || '#0f172a',
+        heroBgColor: fd.heroBgColor || '#ffffff',
+        heroBgOpacity: fd.heroBgOpacity ?? 85,
+        heroTitleColor: fd.heroTitleColor || '#0f172a',
+        heroTextColor: fd.heroTextColor || '#475569',
+        heroStatsColor: fd.heroStatsColor || '#0f172a',
         socialLinks: socialLinks
       }
     }
-    onUpdateClub(updates)
-    if (typeof onDefaultLanguageChange === 'function' && updates.settings?.defaultLanguage) {
-      onDefaultLanguageChange(updates.settings.defaultLanguage)
+  }
+
+  const handleSaveClick = () => {
+    const fd = formDataRef.current ?? formData
+    if (fd.openingTime && fd.closingTime && fd.openingTime >= fd.closingTime) {
+      alert(t('Closing time must be after opening time.', 'وقت الإغلاق يجب أن يكون بعد وقت الفتح.', lang))
+      return
     }
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('clubs-synced'))
+    setPendingUpdates(buildUpdates(fd))
+    setShowSaveConfirm(true)
+  }
+
+  const handleSaveConfirm = async () => {
+    if (!showSaveConfirm) return
+    setShowSaveConfirm(false)
+    setIsSaving(true)
+    const updates = buildUpdates(formDataRef.current ?? formData)
+    setPendingUpdates(null)
+    try {
+      await onUpdateClub(updates)
+      if (typeof onDefaultLanguageChange === 'function' && updates.settings?.defaultLanguage) {
+        onDefaultLanguageChange(updates.settings.defaultLanguage)
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('clubs-synced'))
+      }
+      alert(t('Settings saved successfully!', 'تم حفظ الإعدادات بنجاح!', lang))
+    } catch (e) {
+      console.error('Save failed:', e)
+      const raw = e?.message || t('Failed to save settings. Please try again.', 'فشل حفظ الإعدادات. يرجى المحاولة مرة أخرى.', lang)
+      const hint = (e?.status === 404 || /not found|404/i.test(String(raw)))
+        ? t(' (Make sure the API server is running: npm run dev:api on port 4000)', ' (تأكد من تشغيل خادم الـ API: npm run dev:api على المنفذ 4000)', lang)
+        : ''
+      alert(raw + hint)
+    } finally {
+      setIsSaving(false)
     }
-    alert(t('Settings saved successfully!', 'تم حفظ الإعدادات بنجاح!', lang))
   }
 
   const handleAddCourt = () => {
@@ -254,11 +301,46 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
           <p className="cxp-subtitle">{t('Manage your club profile and preferences', 'إدارة الملف الشخصي والإعدادات للنادي', lang)}</p>
         </div>
         <div className="cxp-header-actions">
-          <button type="button" className="cxp-btn cxp-btn--primary" onClick={handleSave}>
-            ✓ {t('Save Settings', 'حفظ الإعدادات', lang)}
+          <button type="button" className="cxp-btn cxp-btn--primary" onClick={handleSaveClick} disabled={isSaving}>
+            {isSaving ? t('Saving...', 'جاري الحفظ...', lang) : `✓ ${t('Save Settings', 'حفظ الإعدادات', lang)}`}
           </button>
         </div>
       </header>
+
+      {showSaveConfirm && pendingUpdates?.settings && (
+        <div className="cxp-modal-backdrop" onClick={() => { setShowSaveConfirm(false); setPendingUpdates(null) }} role="presentation">
+          <div className="cxp-modal" onClick={e => e.stopPropagation()} role="dialog" aria-labelledby="save-confirm-title" aria-modal="true">
+            <div className="cxp-modal-header">
+              <h3 id="save-confirm-title">{t('Confirm Save', 'تأكيد الحفظ', lang)}</h3>
+              <button type="button" className="cxp-modal-close" onClick={() => { setShowSaveConfirm(false); setPendingUpdates(null) }} aria-label="Close">&times;</button>
+            </div>
+            <div className="cxp-modal-body">
+              <p className="field-hint field-hint-block" style={{ marginBottom: 16 }}>{t('Review booking settings before saving:', 'مراجعة إعدادات الحجز قبل الحفظ:', lang)}</p>
+              <ul className="save-confirm-values" style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '0.95rem' }}>
+                {BOOKING_VISIBLE_NUMBER_FIELDS.map(({ key, labelEn, labelAr, default: def }) => (
+                  <li key={key} style={{ padding: '8px 0', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+                    <span>{t(labelEn, labelAr, lang)}</span>
+                    <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{String(numDisplay(pendingUpdates.settings[key], def))}</strong>
+                  </li>
+                ))}
+                <li style={{ padding: '8px 0', display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center' }}>
+                  <span>{t('Allow incomplete split bookings', 'السماح بحجوزات مشتركة غير مكتملة الدفع', lang)}</span>
+                  <strong>{pendingUpdates.settings[BOOKING_CHECKBOX_FIELD] ? '✓ ' + t('Yes', 'نعم', lang) : '— ' + t('No', 'لا', lang)}</strong>
+                </li>
+              </ul>
+              <div style={{ display: 'flex', gap: 12, marginTop: 20, justifyContent: 'flex-end' }}>
+                <button type="button" className="cxp-btn cxp-btn--secondary" onClick={() => { setShowSaveConfirm(false); setPendingUpdates(null) }}>
+                  {t('Cancel', 'إلغاء', lang)}
+                </button>
+                <button type="button" className="cxp-btn cxp-btn--primary" onClick={handleSaveConfirm}>
+                  {t('Confirm & Save', 'تأكيد والحفظ', lang)}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="club-settings">
         <div className="club-settings-tabs">
           {tabs.map(({ id, label, icon }) => (
@@ -292,7 +374,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                     className="settings-input"
                     placeholder={t('e.g. Premium Padel Club', 'مثال: نادي البادل المميز')}
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   />
                 </div>
                 <div className="form-group settings-field">
@@ -302,7 +384,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                     className="settings-input"
                     placeholder={t('e.g. نادي البادل المميز', 'مثال: نادي البادل المميز')}
                     value={formData.nameAr}
-                    onChange={(e) => setFormData({ ...formData, nameAr: e.target.value })}
+                    onChange={(e) => setFormData(prev => ({ ...prev, nameAr: e.target.value }))}
                   />
                 </div>
               </div>
@@ -318,7 +400,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                   type="text"
                   placeholder="https://..."
                   value={formData.logo}
-                  onChange={(e) => setFormData({ ...formData, logo: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, logo: e.target.value }))}
                   className="media-url-input"
                 />
                 <label className="btn-upload">
@@ -341,7 +423,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
               <label className="field-label">{t('Club Banner', 'بنر النادي', lang)}</label>
               <p className="field-hint">{t('Displayed at top of club page. Recommended: 1200×400px.', 'يُعرض في أعلى صفحة النادي. يُفضّل: 1200×400 بكسل.')}</p>
               <div className="media-input-row">
-                <input type="text" placeholder="https://..." value={formData.banner} onChange={(e) => setFormData({ ...formData, banner: e.target.value })} className="media-url-input" />
+                <input type="text" placeholder="https://..." value={formData.banner} onChange={(e) => setFormData(prev => ({ ...prev, banner: e.target.value }))} className="media-url-input" />
                 <label className="btn-upload">
                   <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
                     const file = e.target.files?.[0]
@@ -367,15 +449,15 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                 <div className="color-field">
                   <label>{t('Background', 'الخلفية', lang)}</label>
                   <div className="color-input-wrap">
-                    <input type="color" value={formData.headerBgColor} onChange={(e) => setFormData({ ...formData, headerBgColor: e.target.value })} className="color-picker" />
-                    <input type="text" value={formData.headerBgColor} onChange={(e) => setFormData({ ...formData, headerBgColor: e.target.value })} placeholder="#ffffff" className="color-hex-input" />
+                    <input type="color" value={formData.headerBgColor} onChange={(e) => setFormData(prev => ({ ...prev, headerBgColor: e.target.value }))} className="color-picker" />
+                    <input type="text" value={formData.headerBgColor} onChange={(e) => setFormData(prev => ({ ...prev, headerBgColor: e.target.value }))} placeholder="#ffffff" className="color-hex-input" />
                   </div>
                 </div>
                 <div className="color-field">
                   <label>{t('Text', 'النص', lang)}</label>
                   <div className="color-input-wrap">
-                    <input type="color" value={formData.headerTextColor} onChange={(e) => setFormData({ ...formData, headerTextColor: e.target.value })} className="color-picker" />
-                    <input type="text" value={formData.headerTextColor} onChange={(e) => setFormData({ ...formData, headerTextColor: e.target.value })} placeholder="#0f172a" className="color-hex-input" />
+                    <input type="color" value={formData.headerTextColor} onChange={(e) => setFormData(prev => ({ ...prev, headerTextColor: e.target.value }))} className="color-picker" />
+                    <input type="text" value={formData.headerTextColor} onChange={(e) => setFormData(prev => ({ ...prev, headerTextColor: e.target.value }))} placeholder="#0f172a" className="color-hex-input" />
                   </div>
                 </div>
               </div>
@@ -387,34 +469,34 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
               <div className="form-row form-row-multi hero-color-row">
                 <div className="form-group settings-field compact">
                   <label className="field-label">{t('Opacity (%)', 'الشفافية', lang)}</label>
-                  <input type="number" min="0" max="100" value={formData.heroBgOpacity} onChange={(e) => setFormData({ ...formData, heroBgOpacity: Number(e.target.value) || 85 })} className="settings-input" />
+                  <input type="number" min="0" max="100" value={formData.heroBgOpacity} onChange={(e) => setFormData(prev => ({ ...prev, heroBgOpacity: Number(e.target.value) || 85 }))} className="settings-input" />
                 </div>
                 <div className="color-field">
                   <label>{t('Background', 'الخلفية', lang)}</label>
                   <div className="color-input-wrap">
-                    <input type="color" value={formData.heroBgColor} onChange={(e) => setFormData({ ...formData, heroBgColor: e.target.value })} className="color-picker" />
-                    <input type="text" value={formData.heroBgColor} onChange={(e) => setFormData({ ...formData, heroBgColor: e.target.value })} className="color-hex-input" />
+                    <input type="color" value={formData.heroBgColor} onChange={(e) => setFormData(prev => ({ ...prev, heroBgColor: e.target.value }))} className="color-picker" />
+                    <input type="text" value={formData.heroBgColor} onChange={(e) => setFormData(prev => ({ ...prev, heroBgColor: e.target.value }))} className="color-hex-input" />
                   </div>
                 </div>
                 <div className="color-field">
                   <label>{t('Title', 'العنوان', lang)}</label>
                   <div className="color-input-wrap">
-                    <input type="color" value={formData.heroTitleColor} onChange={(e) => setFormData({ ...formData, heroTitleColor: e.target.value })} className="color-picker" />
-                    <input type="text" value={formData.heroTitleColor} onChange={(e) => setFormData({ ...formData, heroTitleColor: e.target.value })} className="color-hex-input" />
+                    <input type="color" value={formData.heroTitleColor} onChange={(e) => setFormData(prev => ({ ...prev, heroTitleColor: e.target.value }))} className="color-picker" />
+                    <input type="text" value={formData.heroTitleColor} onChange={(e) => setFormData(prev => ({ ...prev, heroTitleColor: e.target.value }))} className="color-hex-input" />
                   </div>
                 </div>
                 <div className="color-field">
                   <label>{t('Description', 'الوصف', lang)}</label>
                   <div className="color-input-wrap">
-                    <input type="color" value={formData.heroTextColor} onChange={(e) => setFormData({ ...formData, heroTextColor: e.target.value })} className="color-picker" />
-                    <input type="text" value={formData.heroTextColor} onChange={(e) => setFormData({ ...formData, heroTextColor: e.target.value })} className="color-hex-input" />
+                    <input type="color" value={formData.heroTextColor} onChange={(e) => setFormData(prev => ({ ...prev, heroTextColor: e.target.value }))} className="color-picker" />
+                    <input type="text" value={formData.heroTextColor} onChange={(e) => setFormData(prev => ({ ...prev, heroTextColor: e.target.value }))} className="color-hex-input" />
                   </div>
                 </div>
                 <div className="color-field">
                   <label>{t('Stats', 'الإحصائيات', lang)}</label>
                   <div className="color-input-wrap">
-                    <input type="color" value={formData.heroStatsColor} onChange={(e) => setFormData({ ...formData, heroStatsColor: e.target.value })} className="color-picker" />
-                    <input type="text" value={formData.heroStatsColor} onChange={(e) => setFormData({ ...formData, heroStatsColor: e.target.value })} className="color-hex-input" />
+                    <input type="color" value={formData.heroStatsColor} onChange={(e) => setFormData(prev => ({ ...prev, heroStatsColor: e.target.value }))} className="color-picker" />
+                    <input type="text" value={formData.heroStatsColor} onChange={(e) => setFormData(prev => ({ ...prev, heroStatsColor: e.target.value }))} className="color-hex-input" />
                   </div>
                 </div>
               </div>
@@ -425,11 +507,11 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
               <div className="form-row form-row-2">
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Tagline (English)', 'الشعار (إنجليزي)', lang)}</label>
-                  <input type="text" className="settings-input" placeholder={t('e.g. Indoor courts • King of the Court', 'مثال: ملاعب داخلية • ملك الملعب')} value={formData.tagline} onChange={(e) => setFormData({ ...formData, tagline: e.target.value })} />
+                  <input type="text" className="settings-input" placeholder={t('e.g. Indoor courts • King of the Court', 'مثال: ملاعب داخلية • ملك الملعب')} value={formData.tagline} onChange={(e) => setFormData(prev => ({ ...prev, tagline: e.target.value }))} />
                 </div>
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Tagline (Arabic)', 'الشعار (عربي)', lang)}</label>
-                  <input type="text" className="settings-input" placeholder={t('مثال: ملاعب داخلية • ملك الملعب', 'مثال: ملاعب داخلية • ملك الملعب')} value={formData.taglineAr} onChange={(e) => setFormData({ ...formData, taglineAr: e.target.value })} />
+                  <input type="text" className="settings-input" placeholder={t('مثال: ملاعب داخلية • ملك الملعب', 'مثال: ملاعب داخلية • ملك الملعب')} value={formData.taglineAr} onChange={(e) => setFormData(prev => ({ ...prev, taglineAr: e.target.value }))} />
                 </div>
               </div>
             </div>
@@ -439,23 +521,23 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
               <div className="form-row form-row-2">
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Address (English)', 'العنوان (إنجليزي)', lang)}</label>
-                  <input type="text" className="settings-input" placeholder={t('Street, City', 'الشارع، المدينة')} value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} />
+                  <input type="text" className="settings-input" placeholder={t('Street, City', 'الشارع، المدينة')} value={formData.address} onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))} />
                 </div>
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Address (Arabic)', 'العنوان (عربي)', lang)}</label>
-                  <input type="text" className="settings-input" value={formData.addressAr} onChange={(e) => setFormData({ ...formData, addressAr: e.target.value })} />
+                  <input type="text" className="settings-input" value={formData.addressAr} onChange={(e) => setFormData(prev => ({ ...prev, addressAr: e.target.value }))} />
                 </div>
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Phone', 'الهاتف', lang)}</label>
-                  <input type="tel" className="settings-input" placeholder="+966..." value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+                  <input type="tel" className="settings-input" placeholder="+966..." value={formData.phone} onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))} />
                 </div>
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Email', 'البريد الإلكتروني', lang)}</label>
-                  <input type="email" className="settings-input" placeholder="info@club.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                  <input type="email" className="settings-input" placeholder="info@club.com" value={formData.email} onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))} />
                 </div>
                 <div className="form-group settings-field full-width">
                   <label className="field-label">{t('Website', 'الموقع الإلكتروني', lang)}</label>
-                  <input type="url" className="settings-input" placeholder="https://..." value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} />
+                  <input type="url" className="settings-input" placeholder="https://..." value={formData.website} onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))} />
                 </div>
               </div>
             </div>
@@ -473,11 +555,11 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
               <div className="form-row form-row-2">
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Playtomic Venue ID', 'معرف المكان')}</label>
-                  <input type="text" className="settings-input" placeholder="e.g. hala-padel" value={formData.playtomicVenueId} onChange={(e) => setFormData({ ...formData, playtomicVenueId: e.target.value })} />
+                  <input type="text" className="settings-input" placeholder="e.g. hala-padel" value={formData.playtomicVenueId} onChange={(e) => setFormData(prev => ({ ...prev, playtomicVenueId: e.target.value }))} />
                 </div>
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Playtomic API Key', 'مفتاح API')}</label>
-                  <input type="password" className="settings-input" placeholder={t('Enter your API key', 'أدخل مفتاح API')} value={formData.playtomicApiKey} onChange={(e) => setFormData({ ...formData, playtomicApiKey: e.target.value })} />
+                  <input type="password" className="settings-input" placeholder={t('Enter your API key', 'أدخل مفتاح API')} value={formData.playtomicApiKey} onChange={(e) => setFormData(prev => ({ ...prev, playtomicApiKey: e.target.value }))} />
                 </div>
               </div>
             </div>
@@ -494,18 +576,18 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
               <div className="form-row form-row-2">
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Default Language', 'اللغة الافتراضية', lang)}</label>
-                  <select className="settings-select" value={formData.defaultLanguage} onChange={(e) => setFormData({ ...formData, defaultLanguage: e.target.value })}>
+                  <select className="settings-select" value={formData.defaultLanguage} onChange={(e) => setFormData(prev => ({ ...prev, defaultLanguage: e.target.value }))}>
                     <option value="en">English</option>
                     <option value="ar">العربية</option>
                   </select>
                 </div>
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Timezone', 'المنطقة الزمنية', lang)}</label>
-                  <input type="text" className="settings-input" placeholder="Asia/Riyadh" value={formData.timezone} onChange={(e) => setFormData({ ...formData, timezone: e.target.value })} />
+                  <input type="text" className="settings-input" placeholder="Asia/Riyadh" value={formData.timezone} onChange={(e) => setFormData(prev => ({ ...prev, timezone: e.target.value }))} />
                 </div>
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Currency', 'العملة', lang)}</label>
-                  <select className="settings-select" value={formData.currency} onChange={(e) => setFormData({ ...formData, currency: e.target.value })}>
+                  <select className="settings-select" value={formData.currency} onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value }))}>
                     <option value="SAR">SAR</option>
                     <option value="USD">USD</option>
                     <option value="EUR">EUR</option>
@@ -527,39 +609,44 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
             <div className="settings-field-group">
               <div className="form-row form-row-3">
                 <div className="form-group settings-field">
-                  <label className="field-label">{t('Booking Duration (min)', 'مدة الحجز (دقيقة)', lang)}</label>
-                  <input type="number" className="settings-input" min={30} step={30} value={formData.bookingDuration} onChange={(e) => setFormData({ ...formData, bookingDuration: parseInt(e.target.value) || 60 })} />
+                  <label className="field-label">{t('Minimum booking duration (min)', 'أقل مدة للحجز (دقيقة)', lang)}</label>
+                  <input type="text" inputMode="numeric" pattern="[0-9]*" className="settings-input" dir="ltr" lang="en" minLength={1} maxLength={3} value={String(formData.bookingDuration)} onChange={(e) => { const v = parseInt(e.target.value.replace(/\D/g, ''), 10); setFormData(prev => ({ ...prev, bookingDuration: isNaN(v) ? 60 : Math.min(180, Math.max(15, v)) })) }} title={t('Minimum duration; no booking can be shorter.', 'أقل مدة؛ لا يمكن طلب حجز أقل من هذه القيمة.')} />
+                  <span className="field-hint">{t('Minimum booking duration. No booking can be shorter than this value.', 'أقل مدة للحجز. لا يمكن طلب حجز أقل من هذه القيمة.')}</span>
                 </div>
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Max Advance (days)', 'الحد الأقصى للحجز مسبقاً (يوم)', lang)}</label>
-                  <input type="number" className="settings-input" min={1} value={formData.maxBookingAdvance} onChange={(e) => setFormData({ ...formData, maxBookingAdvance: parseInt(e.target.value) || 30 })} />
+                  <input type="text" inputMode="numeric" pattern="[0-9]*" className="settings-input" dir="ltr" lang="en" value={String(formData.maxBookingAdvance)} onChange={(e) => { const v = parseInt(e.target.value.replace(/\D/g, ''), 10); setFormData(prev => ({ ...prev, maxBookingAdvance: isNaN(v) ? 30 : Math.max(1, v) })) }} />
                 </div>
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Cancellation (hours before)', 'الإلغاء (ساعات قبل)', lang)}</label>
-                  <input type="number" className="settings-input" min={0} value={formData.cancellationPolicy} onChange={(e) => setFormData({ ...formData, cancellationPolicy: parseInt(e.target.value) || 24 })} />
+                  <input type="text" inputMode="numeric" pattern="[0-9]*" className="settings-input" dir="ltr" lang="en" value={String(formData.cancellationPolicy)} onChange={(e) => { const v = parseInt(e.target.value.replace(/\D/g, ''), 10); setFormData(prev => ({ ...prev, cancellationPolicy: isNaN(v) ? 24 : Math.max(0, v) })) }} />
                 </div>
               </div>
               <div className="form-row form-row-3" style={{ marginTop: 16 }}>
-                <div className="form-group settings-field">
-                  <label className="field-label">{t('Lock (min)', 'مهلة الحجز (دقيقة)', lang)}</label>
-                  <input type="number" className="settings-input" min={1} max={60} value={formData.lockMinutes ?? 10} onChange={(e) => setFormData({ ...formData, lockMinutes: parseInt(e.target.value) || 10 })} />
-                  <span className="field-hint">{t('Time to complete payment after selecting slot', 'مهلة إتمام الدفع بعد اختيار الوقت')}</span>
-                </div>
-                <div className="form-group settings-field">
-                  <label className="field-label">{t('Split manage (min)', 'مهلة إدارة المشاركين (دقيقة)', lang)}</label>
-                  <input type="number" className="settings-input" min={5} value={formData.splitManageMinutes ?? 15} onChange={(e) => setFormData({ ...formData, splitManageMinutes: parseInt(e.target.value) || 15 })} />
-                </div>
-                <div className="form-group settings-field">
-                  <label className="field-label">{t('Split payment deadline (min)', 'مهلة دفعات المشاركين (دقيقة)', lang)}</label>
-                  <input type="number" className="settings-input" min={10} value={formData.splitPaymentDeadlineMinutes ?? 30} onChange={(e) => setFormData({ ...formData, splitPaymentDeadlineMinutes: parseInt(e.target.value) || 30 })} />
-                </div>
-                <div className="form-group settings-field">
-                  <label className="field-label">{t('Refund (days)', 'مدة الاسترداد (أيام)', lang)}</label>
-                  <input type="number" className="settings-input" min={1} value={formData.refundDays ?? 3} onChange={(e) => setFormData({ ...formData, refundDays: parseInt(e.target.value) || 3 })} />
-                </div>
+                {BOOKING_VISIBLE_NUMBER_FIELDS.map(({ key, default: def, max, labelEn, labelAr, hintEn, hintAr }) => (
+                  <div key={key} className="form-group settings-field">
+                    <label className="field-label">{t(labelEn, labelAr, lang)}</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      className="settings-input"
+                      dir="ltr"
+                      lang="en"
+                      value={String(numDisplay(formData[key], def))}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/\D/g, '')
+                        const v = raw === '' ? def : parseInt(raw, 10)
+                        const clamped = max ? Math.min(max, Math.max(0, isNaN(v) ? def : v)) : Math.max(0, isNaN(v) ? def : v)
+                        setFormData(prev => ({ ...prev, [key]: clamped }))
+                      }}
+                    />
+                    {hintEn && <span className="field-hint">{t(hintEn, hintAr, lang)}</span>}
+                  </div>
+                ))}
                 <div className="form-group settings-field checkbox-field" style={{ alignSelf: 'flex-end' }}>
                   <label className="checkbox-label">
-                    <input type="checkbox" checked={!!formData.allowIncompleteBookings} onChange={(e) => setFormData({ ...formData, allowIncompleteBookings: e.target.checked })} className="settings-checkbox" />
+                    <input type="checkbox" checked={!!formData[BOOKING_CHECKBOX_FIELD]} onChange={(e) => setFormData(prev => ({ ...prev, [BOOKING_CHECKBOX_FIELD]: e.target.checked }))} className="settings-checkbox" />
                     {t('Allow incomplete split bookings', 'السماح بحجوزات مشتركة غير مكتملة الدفع', lang)}
                   </label>
                 </div>
@@ -702,11 +789,11 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
               <div className="form-row form-row-2">
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Opening Time', 'من الساعة', lang)}</label>
-                  <input type="time" className="settings-input settings-time-input" value={formData.openingTime} onChange={(e) => setFormData({ ...formData, openingTime: e.target.value })} />
+                  <input type="time" className="settings-input settings-time-input" value={formData.openingTime} onChange={(e) => setFormData(prev => ({ ...prev, openingTime: e.target.value }))} />
                 </div>
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Closing Time', 'إلى الساعة', lang)}</label>
-                  <input type="time" className="settings-input settings-time-input" value={formData.closingTime} onChange={(e) => setFormData({ ...formData, closingTime: e.target.value })} />
+                  <input type="time" className="settings-input settings-time-input" value={formData.closingTime} onChange={(e) => setFormData(prev => ({ ...prev, closingTime: e.target.value }))} />
                 </div>
               </div>
               {formData.openingTime && formData.closingTime && formData.openingTime >= formData.closingTime && (

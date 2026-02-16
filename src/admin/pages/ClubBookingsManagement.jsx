@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { loadClubs, getClubById, getClubMembersFromStorage, deleteBookingFromClub, updateBookingInClub } from '../../storage/adminStorage'
+import CalendarPicker from '../../components/CalendarPicker'
 import { calculateBookingPrice } from '../../utils/bookingPricing'
 import './club-pages-common.css'
 import './BookingsManagement.css'
@@ -11,21 +12,25 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   const [editBooking, setEditBooking] = useState(null)
   const [editForm, setEditForm] = useState({})
 
-  const refresh = () => {
+  const refreshFromCache = () => {
     loadClubs()
     const c = getClubById(club?.id)
     const list = (c?.bookings || []).filter(b => !b.isTournament)
     setBookings(list)
-    if (onRefresh) onRefresh()
   }
 
   useEffect(() => {
     if (!club?.id) return
-    refresh()
-    const onSynced = () => refresh()
+    refreshFromCache()
+    const onSynced = () => refreshFromCache()
     window.addEventListener('clubs-synced', onSynced)
     return () => window.removeEventListener('clubs-synced', onSynced)
   }, [club?.id])
+
+  const refreshFromServer = () => {
+    refreshFromCache()
+    if (onRefresh) onRefresh()
+  }
 
   const today = new Date().toISOString().split('T')[0]
   const withDate = bookings.map(b => ({
@@ -105,7 +110,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
         durationMinutes: dur
       })
       setEditBooking(null)
-      refresh()
+      refreshFromServer()
     } catch (e) {
       const msg = language === 'en'
         ? `Failed to save: ${e?.message || 'Server error. Try again.'}`
@@ -121,7 +126,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     setActionLoading(b.id)
     try {
       await updateBookingInClub(club.id, b.id, { status: 'cancelled' })
-      refresh()
+      refreshFromServer()
     } catch (e) {
       const msg = language === 'en'
         ? `Failed to cancel: ${e?.message || 'Server error. Try again.'}`
@@ -137,7 +142,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     setActionLoading(bookingId)
     try {
       await deleteBookingFromClub(club.id, bookingId)
-      refresh()
+      refreshFromServer()
     } catch (e) {
       const msg = language === 'en'
         ? `Failed to delete: ${e?.message || 'Server error. Try again.'}`
@@ -155,7 +160,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     setActionLoading('perm-' + bookingId)
     try {
       await deleteBookingFromClub(club.id, bookingId)
-      refresh()
+      refreshFromServer()
     } catch (e) {
       const msg = language === 'en'
         ? `Failed to delete: ${e?.message || 'Server error. Try again.'}`
@@ -236,7 +241,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
           </p>
         </div>
         <div className="cxp-header-actions">
-          <button type="button" className="cxp-btn cxp-btn--secondary" onClick={refresh}>
+          <button type="button" className="cxp-btn cxp-btn--secondary" onClick={refreshFromServer}>
             ↻ {c.refresh}
           </button>
         </div>
@@ -358,10 +363,10 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
             <div className="bookings-edit-form">
               <div className="form-row">
                 <label>{c.date}</label>
-                <input
-                  type="date"
+                <CalendarPicker
                   value={editForm.dateStr}
-                  onChange={e => setEditForm(f => ({ ...f, dateStr: e.target.value }))}
+                  onChange={v => setEditForm(f => ({ ...f, dateStr: v }))}
+                  language={language}
                 />
               </div>
               <div className="form-row">

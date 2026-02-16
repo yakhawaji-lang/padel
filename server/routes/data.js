@@ -6,7 +6,7 @@
 import { Router } from 'express'
 import { query } from '../db/pool.js'
 import { getActorFromRequest } from '../db/audit.js'
-import { hasNormalizedTables, getClubsFromNormalized, getMembersFromNormalized, getPlatformAdminsFromNormalized, saveClubsToNormalized, saveMembersToNormalized, savePlatformAdminsToNormalized, deleteClubPermanent } from '../db/normalizedData.js'
+import { hasNormalizedTables, getClubsFromNormalized, getMembersFromNormalized, getPlatformAdminsFromNormalized, saveClubsToNormalized, saveMembersToNormalized, savePlatformAdminsToNormalized, deleteClubPermanent, removeMemberFromClub, updateClubSettingsInDb } from '../db/normalizedData.js'
 
 const router = Router()
 
@@ -16,6 +16,28 @@ function dbErrorMsg(e) {
     return 'Database host not found. In Hostinger Environment Variables, set DATABASE_URL with the actual MySQL host (e.g. srv2069.hstgr.io or localhost) — do NOT use the placeholder HOST.'
   }
   return msg
+}
+
+function isDeadlock(e) {
+  const msg = (e?.message || '').toLowerCase()
+  return e?.errno === 1213 || e?.code === 'ER_LOCK_DEADLOCK' || msg.includes('deadlock')
+}
+
+async function withDeadlockRetry(fn, maxAttempts = 3) {
+  let lastErr
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn()
+    } catch (e) {
+      lastErr = e
+      if (isDeadlock(e) && attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, 50 * attempt))
+        continue
+      }
+      throw e
+    }
+  }
+  throw lastErr
 }
 
 const ENTITY_KEYS = ['admin_clubs', 'all_members', 'padel_members', 'platform_admins']
@@ -50,6 +72,23 @@ async function getFromEntities(key) {
   })
 }
 
+/** POST /api/data/member-remove-from-club - Remove a member from one club (explicit). Body: { memberId, clubId } */
+router.post('/member-remove-from-club', async (req, res) => {
+  try {
+    const { memberId, clubId } = req.body || {}
+    if (!memberId || !clubId) return res.status(400).json({ error: 'Missing memberId or clubId' })
+    const normalized = await useNormalized()
+    if (!normalized) return res.status(400).json({ error: 'Requires normalized tables' })
+    const actor = getActorFromRequest(req)
+    const ok = await removeMemberFromClub(memberId, clubId, { actorType: actor.actorType || 'system', actorId: actor.actorId, actorName: actor.actorName, clubId, ipAddress: actor.ipAddress })
+    if (!ok) return res.status(500).json({ error: 'Remove failed' })
+    res.json({ ok: true })
+  } catch (e) {
+    console.error('member-remove-from-club error:', e)
+    res.status(500).json({ error: dbErrorMsg(e) })
+  }
+})
+
 /** POST /api/data/club-delete-permanent - Permanently delete a club from DB. Body: { clubId } */
 router.post('/club-delete-permanent', async (req, res) => {
   try {
@@ -65,6 +104,36 @@ router.post('/club-delete-permanent', async (req, res) => {
     res.json({ ok: true })
   } catch (e) {
     console.error('club-delete-permanent error:', e)
+    res.status(500).json({ error: dbErrorMsg(e) })
+  }
+})
+
+/** POST /api/data/club-settings — حفظ إعدادات نادٍ واحد مباشرة في padel_db. Body: { clubId, settings, booking? }.
+ *  إعدادات الحجز (lockMinutes, allowIncompleteBookings, ...) تُؤخذ من booking إن وُجدت لضمان حفظ 0 و false. */
+router.post('/club-settings', async (req, res) => {
+  try {
+    const { clubId, settings: rawSettings, booking: rawBooking } = req.body || {}
+    if (!clubId || !rawSettings || typeof rawSettings !== 'object') {
+      return res.status(400).json({ error: 'Missing clubId or settings' })
+    }
+    const settings = { ...rawSettings }
+    if (rawBooking && typeof rawBooking === 'object') {
+      if (rawBooking.lockMinutes !== undefined) settings.lockMinutes = Number(rawBooking.lockMinutes)
+      if (rawBooking.paymentDeadlineMinutes !== undefined) settings.paymentDeadlineMinutes = Number(rawBooking.paymentDeadlineMinutes)
+      if (rawBooking.splitManageMinutes !== undefined) settings.splitManageMinutes = Number(rawBooking.splitManageMinutes)
+      if (rawBooking.splitPaymentDeadlineMinutes !== undefined) settings.splitPaymentDeadlineMinutes = Number(rawBooking.splitPaymentDeadlineMinutes)
+      if (rawBooking.refundDays !== undefined) settings.refundDays = Number(rawBooking.refundDays)
+      if (rawBooking.allowIncompleteBookings !== undefined) settings.allowIncompleteBookings = !!rawBooking.allowIncompleteBookings
+    }
+    const normalized = await useNormalized()
+    if (!normalized) return res.status(400).json({ error: 'Requires normalized tables' })
+    const actor = getActorFromRequest(req)
+    const act = { actorType: actor.actorType || 'system', actorId: actor.actorId, actorName: actor.actorName, clubId, ipAddress: actor.ipAddress }
+    const saved = await updateClubSettingsInDb(clubId, settings, act)
+    if (!saved) return res.status(500).json({ error: 'Failed to save club settings' })
+    return res.json({ ok: true, clubId: String(clubId), settings: saved })
+  } catch (e) {
+    console.error('club-settings save error:', e)
     res.status(500).json({ error: dbErrorMsg(e) })
   }
 })
@@ -139,9 +208,9 @@ router.post('/', async (req, res) => {
 
         if (normalized) {
           const act = { actorType: actor.actorType || 'system', actorId: actor.actorId, actorName: actor.actorName, clubId: actor.clubId, ipAddress: actor.ipAddress }
-          if (key === 'admin_clubs') await saveClubsToNormalized(arr, act)
-          else if (key === 'all_members' || key === 'padel_members') await saveMembersToNormalized(arr, act)
-          else if (key === 'platform_admins') await savePlatformAdminsToNormalized(arr, act)
+          if (key === 'admin_clubs') await withDeadlockRetry(() => saveClubsToNormalized(arr, act))
+          else if (key === 'all_members' || key === 'padel_members') await withDeadlockRetry(() => saveMembersToNormalized(arr, act))
+          else if (key === 'platform_admins') await withDeadlockRetry(() => savePlatformAdminsToNormalized(arr, act))
         } else {
           const type = ENTITY_TYPE_MAP[key]
           await query('DELETE FROM entities WHERE entity_type = ?', [type])

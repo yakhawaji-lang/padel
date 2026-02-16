@@ -9,6 +9,7 @@ import { query } from '../db/pool.js'
 import { getActorFromRequest } from '../db/audit.js'
 import { logAudit } from '../db/audit.js'
 import * as lock from '../db/bookingLock.js'
+import * as bookingService from '../services/bookingService.js'
 import * as idempotency from '../db/idempotency.js'
 import { getBookingSettings } from '../db/bookingSettings.js'
 import { hasNormalizedTables } from '../db/normalizedData.js'
@@ -50,12 +51,31 @@ router.get('/locks', async (req, res) => {
   }
 })
 
+function isBookingInPast(dateStr, startTime) {
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false
+  const now = new Date()
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  if (dateStr < today) return true
+  if (dateStr > today) return false
+  const [h, m] = (startTime || '00:00').toString().trim().split(':').map(Number)
+  const slotM = (h || 0) * 60 + (m || 0)
+  const nowM = now.getHours() * 60 + now.getMinutes()
+  return slotM <= nowM
+}
+
 /** POST /api/bookings/lock - Acquire soft lock */
 router.post('/lock', async (req, res) => {
   try {
-    const { clubId, courtId, date, startTime, endTime, memberId, lockMinutes } = req.body || {}
-    if (!clubId || !courtId || !date || !startTime || !endTime || !memberId) {
+    const { clubId, courtId, date: dateRaw, startTime, endTime, memberId, lockMinutes } = req.body || {}
+    if (!clubId || !courtId || !dateRaw || !startTime || !endTime || !memberId) {
       return res.status(400).json({ error: 'clubId, courtId, date, startTime, endTime, memberId required' })
+    }
+    const date = (dateRaw || '').toString().replace(/T.*$/, '').trim().substring(0, 10)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD.' })
+    }
+    if (isBookingInPast(date, startTime)) {
+      return res.status(400).json({ error: 'Cannot book a date or time in the past.' })
     }
     const result = await lock.acquireLock(clubId, courtId, date, startTime, endTime, memberId, lockMinutes || 10)
     if (!result.ok) {
@@ -89,10 +109,11 @@ router.post('/confirm', async (req, res) => {
     const normalized = await hasNormalizedTables()
     if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
 
-    const { lockId, clubId, courtId, date, startTime, endTime, memberId, memberName, totalAmount, paymentMethod, paymentShares, idempotencyKey } = req.body || {}
-    if (!lockId || !clubId || !courtId || !date || !startTime || !endTime || !memberId) {
+    const { lockId, clubId, courtId, date: dateRaw, startTime, endTime, memberId, memberName, totalAmount, paymentMethod, paymentShares, idempotencyKey } = req.body || {}
+    if (!lockId || !clubId || !courtId || !dateRaw || !startTime || !endTime || !memberId) {
       return res.status(400).json({ error: 'lockId, clubId, courtId, date, startTime, endTime, memberId required' })
     }
+    const date = (dateRaw || '').toString().replace(/T.*$/, '').trim().substring(0, 10)
 
     if (idempotencyKey) {
       const existing = await idempotency.checkIdempotency(idempotencyKey)
@@ -112,6 +133,13 @@ router.post('/confirm', async (req, res) => {
       ? new Date(Date.now() + paymentDeadlineMinutes * 60 * 1000)
       : null
 
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD.' })
+    }
+    if (isBookingInPast(date, startTime)) {
+      return res.status(400).json({ error: 'Cannot book a date or time in the past.' })
+    }
+
     const bData = {
       resource: courtId,
       court: courtId,
@@ -127,22 +155,37 @@ router.post('/confirm', async (req, res) => {
       paymentShares: paymentShares || []
     }
 
-    await query(
-      `INSERT INTO club_bookings (id, club_id, court_id, member_id, booking_date, time_slot, start_time, end_time, status, total_amount, paid_amount, initiator_member_id, locked_at, payment_deadline_at, data, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?)`,
-      [bid, clubId, courtId, memberId, date, startTime, startTime, endTime, status, totalAmount || 0, paidAmount, memberId, paymentDeadline, JSON.stringify(bData), actor.actorId || null]
-    )
+    await bookingService.createBooking({
+      id: bid,
+      clubId,
+      courtId,
+      memberId,
+      date,
+      timeSlot: startTime,
+      startTime,
+      endTime,
+      status,
+      totalAmount: totalAmount || 0,
+      paidAmount,
+      initiatorMemberId: memberId,
+      paymentDeadline,
+      dataJson: JSON.stringify(bData),
+      createdBy: actor.actorId || null
+    })
 
     await lock.convertLockToBooking(lockId, bid)
     await lock.releaseLock(lockId)
     slotCache.invalidateLocks(clubId, date)
 
-    const baseUrl = (req.headers.origin || req.headers.referer || '').replace(/\/$/, '') || 'https://playtix.app'
+    const basePath = (process.env.BASE_PATH || '/app').replace(/\/$/, '')
+    const ref = req.headers.origin || req.headers.referer || ''
+    const origin = ref ? (() => { try { return new URL(ref).origin } catch (_) { return ref.replace(/\/$/, '') } })() : ''
+    const baseUrl = process.env.BASE_URL || process.env.PUBLIC_BASE_URL || (origin ? `${origin}${basePath}` : 'https://playtix.app/app')
     const createdShares = []
 
     for (const s of paymentShares || []) {
       const token = s.type === 'unregistered' ? `inv_${crypto.randomBytes(16).toString('hex')}` : null
-      const payUrl = token ? `${baseUrl}/pay-invite/${token}` : null
+      const payUrl = token ? `${baseUrl.replace(/\/$/, '')}/pay-invite/${token}` : null
       const waLink = (payUrl ? `https://wa.me/?text=${encodeURIComponent(payUrl)}` : null) || s.whatsappLink
       await query(
         `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token)
@@ -180,7 +223,7 @@ router.post('/cancel', async (req, res) => {
     const memberId = rows[0].member_id
     const bookingDate = rows[0]?.booking_date ? String(rows[0].booking_date).split('T')[0] : null
     const settings = await getBookingSettings(clubId)
-    await query('UPDATE club_bookings SET status = ?, deleted_at = NOW(), deleted_by = ? WHERE id = ? AND club_id = ?', ['cancelled', actor.actorId || null, bookingId, clubId])
+    await bookingService.cancelBooking(bookingId, clubId, actor)
     await lock.deleteLockByBooking(bookingId)
     if (bookingDate) slotCache.invalidateLocks(clubId, bookingDate)
     if (totalAmount > 0 && memberId) {
@@ -196,7 +239,6 @@ router.post('/cancel', async (req, res) => {
         if (!e?.message?.includes("doesn't exist")) console.warn('booking_refunds insert:', e?.message)
       }
     }
-    await logAudit({ tableName: 'club_bookings', recordId: bookingId, action: 'UPDATE', ...actor, clubId, newValue: { status: 'cancelled' } })
     res.json({ ok: true, type: 'booking' })
   } catch (e) {
     console.error('bookings cancel error:', e)
@@ -235,10 +277,7 @@ router.post('/record-payment', async (req, res) => {
     const totalAmount = parseFloat(bRows[0]?.total_amount) || 0
     const allPaid = paidAmount >= totalAmount - 0.01
     const status = allPaid ? 'confirmed' : (paidAmount > 0 ? 'partially_paid' : 'pending_payments')
-    await query(
-      'UPDATE club_bookings SET paid_amount = ?, status = ? WHERE id = ? AND club_id = ?',
-      [paidAmount, status, bid, clubId]
-    )
+    await bookingService.updateBookingPayment(bid, clubId, paidAmount, status)
     const { rows: bDate } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bid, clubId])
     const dateStr = bDate[0]?.booking_date ? String(bDate[0].booking_date).split('T')[0] : null
     if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
@@ -267,10 +306,7 @@ router.post('/mark-pay-at-club', async (req, res) => {
     }
     const dateStr = b.booking_date ? String(b.booking_date).split('T')[0] : null
     const deadlineEndOfDay = dateStr ? new Date(dateStr + 'T23:59:59') : new Date(Date.now() + 24 * 60 * 60 * 1000)
-    await query(
-      'UPDATE club_bookings SET payment_deadline_at = ? WHERE id = ? AND club_id = ?',
-      [deadlineEndOfDay, bookingId, clubId]
-    )
+    await bookingService.updateBookingPaymentDeadline(bookingId, clubId, deadlineEndOfDay)
     if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
     res.json({ ok: true, paymentDeadlineAt: deadlineEndOfDay })
   } catch (e) {

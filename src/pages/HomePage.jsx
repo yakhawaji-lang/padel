@@ -211,9 +211,8 @@ const HomePage = () => {
         title: 'Register as Padel Member',
         text: 'Create a PlayTix account to join clubs with fewer steps, book courts, buy club products and participate in tournaments. Use the same account on the main platform and club pages.',
         cta: 'Register as member',
-        or: 'Or',
-        googleSignIn: 'Sign in with Google',
-        createNew: 'Create new account'
+        createNew: 'Create new member',
+        loginMember: 'Member login'
       }
     },
     ar: {
@@ -318,9 +317,8 @@ const HomePage = () => {
         title: 'تسجيل أعضاء بادل',
         text: 'أنشئ حساب PlayTix للانضمام للنوادي بخطوات أقل، وحجز الملاعب، وشراء منتجات الأندية، والمشاركة في البطولات. استخدم نفس الحساب في المنصة الرئيسية وصفحات النوادي.',
         cta: 'تسجيل كعضو',
-        or: 'أو',
-        googleSignIn: 'تسجيل الدخول بحساب Google',
-        createNew: 'إنشاء حساب جديد'
+        createNew: 'إنشاء عضو جديد',
+        loginMember: 'دخول العضو'
       }
     }
   }
@@ -345,16 +343,15 @@ const HomePage = () => {
             <span></span><span></span><span></span>
           </button>
           <nav className={`site-nav ${navOpen ? 'open' : ''}`}>
-            <a href="#hero" onClick={(e) => { e.preventDefault(); scrollTo('hero') }}>{c.nav.home}</a>
-            <a href="#services" onClick={(e) => { e.preventDefault(); scrollTo('services') }}>{c.nav.services}</a>
-            <a href="#features" onClick={(e) => { e.preventDefault(); scrollTo('features') }}>{c.nav.features}</a>
-            <a href="#highlights" onClick={(e) => { e.preventDefault(); scrollTo('highlights') }}>{language === 'en' ? 'Why PlayTix' : 'لماذا PlayTix'}</a>
-            <a href="#about" onClick={(e) => { e.preventDefault(); scrollTo('about') }}>{c.nav.about}</a>
-            <a href="#join" onClick={(e) => { e.preventDefault(); scrollTo('join') }}>{language === 'en' ? 'Join' : 'انضم'}</a>
-            <a href="#clubs" onClick={(e) => { e.preventDefault(); scrollTo('clubs') }}>{language === 'en' ? 'Clubs' : 'النوادي'}</a>
-            <span className="nav-sep"></span>
-            <a href="/register" className="nav-register">{c.nav.register}</a>
-            <a href="/login" className="nav-login">{c.nav.login}</a>
+            <div className="site-nav-links">
+              <a href="#hero" onClick={(e) => { e.preventDefault(); scrollTo('hero') }}>{c.nav.home}</a>
+              <a href="#services" onClick={(e) => { e.preventDefault(); scrollTo('services') }}>{c.nav.services}</a>
+              <a href="#features" onClick={(e) => { e.preventDefault(); scrollTo('features') }}>{c.nav.features}</a>
+              <a href="#highlights" onClick={(e) => { e.preventDefault(); scrollTo('highlights') }}>{language === 'en' ? 'Why PlayTix' : 'لماذا PlayTix'}</a>
+              <a href="#about" onClick={(e) => { e.preventDefault(); scrollTo('about') }}>{c.nav.about}</a>
+              <a href="#join" onClick={(e) => { e.preventDefault(); scrollTo('join') }}>{language === 'en' ? 'Join' : 'انضم'}</a>
+              <a href="#clubs" onClick={(e) => { e.preventDefault(); scrollTo('clubs') }}>{language === 'en' ? 'Clubs' : 'النوادي'}</a>
+            </div>
             <button type="button" className="nav-lang" onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')} title={language === 'en' ? 'العربية' : 'English'} aria-label={language === 'en' ? 'Switch to Arabic' : 'التبديل للإنجليزية'}>
               <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={18} />
             </button>
@@ -403,23 +400,18 @@ const HomePage = () => {
                   <Link to="/club-login" className="join-card-cta btn-outline">
                     {c.joinClubs.login}
                   </Link>
-                  <Link to="/super-admin" className="join-card-cta btn-outline" style={{ fontSize: '0.9rem', marginTop: 8 }}>
-                    {language === 'en' ? 'Super Admin Login' : 'دخول مدير النظام'}
-                  </Link>
                 </div>
               </div>
               <div className="join-card join-card-members">
                 <div className="join-card-icon">👥</div>
                 <h3 className="join-card-title">{c.joinMembers.title}</h3>
                 <p className="join-card-text">{c.joinMembers.text}</p>
-                <div className="join-card-actions">
-                  <Link to="/register" className="join-card-cta join-cta-google">
-                    <span className="join-google-icon">G</span>
-                    {c.joinMembers.googleSignIn}
-                  </Link>
-                  <span className="join-or">{c.joinMembers.or}</span>
-                  <Link to="/register" className="join-card-cta btn-secondary">
+                <div className="join-card-actions join-card-btns">
+                  <Link to="/register" className="join-card-cta btn-primary">
                     {c.joinMembers.createNew}
+                  </Link>
+                  <Link to="/login" className="join-card-cta btn-outline">
+                    {c.joinMembers.loginMember}
                   </Link>
                 </div>
               </div>

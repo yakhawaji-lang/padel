@@ -4,10 +4,12 @@ import { loadClubs, getClubById, getClubMembersFromStorage, addMemberToClub, add
 import { calculateBookingPrice } from '../utils/bookingPricing'
 import * as bookingApi from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
+import CalendarPicker from '../components/CalendarPicker'
 import SocialIcon from '../components/SocialIcon'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { getClubAdminSession } from '../storage/clubAuth'
 import MemberAccountDropdown from '../components/MemberAccountDropdown'
+import BookingCountdownCard from '../components/BookingCountdownCard'
 import BookingPaymentShare from '../components/BookingPaymentShare'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './ClubPublicPage.css'
@@ -35,6 +37,77 @@ const isTimeSlotCoveredByBooking = (timeSlot, startTime, endTime) => {
   const startM = timeToMinutes(startTime)
   const endM = timeToMinutes(endTime)
   return slotM >= startM && slotM < endM
+}
+
+/** إضافة دقائق إلى وقت "HH:mm" وإرجاع "HH:mm" */
+const addMinutesToTime = (timeStr, minutes) => {
+  const m = timeToMinutes(timeStr) + (minutes || 0)
+  const h = Math.floor(m / 60) % 24
+  const min = m % 60
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
+}
+
+/** هل الشريحة (التاريخ + وقت البداية) في الماضي أو الآن؟ لا نسمح بالحجز في الماضي */
+const isSlotInPast = (dateStr, startTime) => {
+  if (!dateStr) return true
+  const now = new Date()
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  if (dateStr < todayStr) return true
+  if (dateStr > todayStr) return false
+  const [h, m] = (startTime || '00:00').toString().trim().split(':').map(Number)
+  const slotMinutes = (h || 0) * 60 + (m || 0)
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  return slotMinutes <= nowMinutes
+}
+
+/** هل النطاق [ourStart, ourEnd) يتداخل مع أي نطاق في القائمة؟ (تداخل = other.start < ourEnd && other.end > ourStart) */
+const overlapsAny = (ourStartM, ourEndM, ranges) => {
+  return ranges.some(({ startM, endM }) => ourStartM < endM && ourEndM > startM)
+}
+
+/** استخراج نطاقات محجوزة أو مقفلة لملعب وتاريخ معين (بالدقائق من منتصف الليل) */
+const getBlockedRangesForCourtAndDate = (courtNameOrId, dateStr, bookings, activeLocks, excludeLockId = null) => {
+  const courtStr = (courtNameOrId || '').toString().trim()
+  const ranges = []
+  const push = (startTime, endTime) => {
+    const startM = timeToMinutes(startTime)
+    let endM = timeToMinutes(endTime)
+    if (endM <= startM && startTime) endM = startM + 60
+    if (endM > startM) ranges.push({ startM, endM })
+  }
+  ;(bookings || []).forEach(b => {
+    if (b.isTournament) return
+    if (['cancelled', 'expired'].includes((b.status || '').toString())) return
+    const bDate = (b.date || b.startDate || '').toString().split('T')[0]
+    if (bDate !== dateStr) return
+    const res = (b.resource || b.court || b.courtId || '').toString().trim()
+    if (res !== courtStr && res !== (courtNameOrId?.name || courtNameOrId?.id || '').toString().trim()) return
+    const start = (b.startTime || b.timeSlot || '').toString().trim()
+    let end = (b.endTime || '').toString().trim()
+    if (!end && start) end = addMinutesToTime(start, 60)
+    push(start, end)
+  })
+  ;(activeLocks || []).forEach(l => {
+    if (excludeLockId && l.id === excludeLockId) return
+    const lCourt = (l.court_id || '').toString()
+    if (lCourt !== courtStr && lCourt !== (courtNameOrId?.name || courtNameOrId?.id || '').toString().trim()) return
+    const lDate = (l.booking_date || '').toString().split('T')[0]
+    if (lDate !== dateStr) return
+    push(l.start_time || '', l.end_time || '')
+  })
+  return ranges
+}
+
+/** مدد متاحة (مضاعفات 30) من minDur حتى نهاية العمل، ولا تتداخل مع نطاقات محجوزة/مقفلة */
+const getAvailableDurations = (minDur, startTime, closingTime, blockedRanges, maxDurationCap = 180) => {
+  const startM = timeToMinutes(startTime)
+  const closingM = timeToMinutes(closingTime || '23:00')
+  const maxDur = Math.min(maxDurationCap, Math.max(0, closingM - startM))
+  const out = []
+  for (let d = minDur; d <= maxDur; d += 30) {
+    if (!overlapsAny(startM, startM + d, blockedRanges)) out.push(d)
+  }
+  return out
 }
 
 const getTimeSlotsForClub = (club) => {
@@ -93,11 +166,15 @@ const ClubPublicPage = () => {
   })
   const [joinStatus, setJoinStatus] = useState(null)
   const [platformUser, setPlatformUser] = useState(null)
-  const [courtGridDate, setCourtGridDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [courtGridDate, setCourtGridDate] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  })
   const [bookingModal, setBookingModal] = useState(null)
   const [paymentShares, setPaymentShares] = useState([])
   const [paymentMethod, setPaymentMethod] = useState('at_club') // 'at_club' | 'split'
   const [bookingSuccessId, setBookingSuccessId] = useState(null) // show success and link to my-bookings
+  const bookingsSectionRef = React.useRef(null)
   const [activeLock, setActiveLock] = useState(null)
   const [activeLocks, setActiveLocks] = useState([])
   const [lockError, setLockError] = useState(null)
@@ -168,15 +245,23 @@ const ClubPublicPage = () => {
   useEffect(() => {
     if (!bookingSuccessId) return
     const t = setTimeout(() => setBookingSuccessId(null), 8000)
-    return () => clearTimeout(t)
+    const scrollT = setTimeout(() => bookingsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 400)
+    return () => { clearTimeout(t); clearTimeout(scrollT) }
   }, [bookingSuccessId])
 
-  const bookings = useMemo(() => getClubBookings(clubId), [clubId])
-  const today = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const bookings = useMemo(() => {
+    const list = (club?.bookings && Array.isArray(club.bookings)) ? club.bookings : getClubBookings(clubId)
+    return list || []
+  }, [clubId, club?.id, club?.bookings])
+  const today = useMemo(() => {
+    const n = new Date()
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
+  }, [])
 
   const courtBookings = useMemo(() =>
     bookings
       .filter(b => !b.isTournament && (b.date || b.startDate))
+      .filter(b => !['cancelled', 'expired'].includes((b.status || '').toString()))
       .map(b => ({ ...b, dateStr: (b.date || b.startDate || '').toString().split('T')[0] }))
       .filter(b => b.dateStr >= today)
       .sort((a, b) => a.dateStr.localeCompare(b.dateStr) || (a.startTime || '').localeCompare(b.startTime || ''))
@@ -261,14 +346,31 @@ const ClubPublicPage = () => {
   const [bookingSubmitting, setBookingSubmitting] = useState(false)
   const [bookingDuration, setBookingDuration] = useState(60)
   const durationOptions = useMemo(() => {
-    const dp = club?.settings?.bookingPrices?.durationPrices
-    const arr = Array.isArray(dp) ? dp : [{ durationMinutes: 60, price: 100 }]
-    return arr.slice().sort((a, b) => (a.durationMinutes || 0) - (b.durationMinutes || 0))
-  }, [club?.settings?.bookingPrices?.durationPrices])
+    const min = club?.settings?.bookingDuration ?? 60
+    const durationPrices = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
+    const fromSettings = durationPrices
+      .filter(d => (d.durationMinutes || 0) >= min)
+      .map(d => ({ durationMinutes: d.durationMinutes || 60, price: parseFloat(d.price) || 0 }))
+      .sort((a, b) => a.durationMinutes - b.durationMinutes)
+    if (!bookingModal?.court || !bookingModal?.dateStr || !bookingModal?.startTime) {
+      return fromSettings.length > 0 ? fromSettings : [{ durationMinutes: min, price: 0 }]
+    }
+    const court = bookingModal.court
+    const courtId = (court?.name || court?.id || '').toString()
+    const blocked = getBlockedRangesForCourtAndDate(courtId, bookingModal.dateStr, bookings, activeLocks, activeLock?.lockId || null)
+    const closing = club?.settings?.closingTime || '23:00'
+    const availableSet = new Set(getAvailableDurations(min, bookingModal.startTime, closing, blocked))
+    const filtered = fromSettings.filter(d => availableSet.has(d.durationMinutes))
+    return filtered.length > 0 ? filtered : (fromSettings.length > 0 ? fromSettings : [{ durationMinutes: min, price: 0 }])
+  }, [club?.settings?.bookingDuration, club?.settings?.closingTime, club?.settings?.bookingPrices, bookingModal, bookings, activeLocks, activeLock?.lockId])
 
   useEffect(() => {
     if (bookingModal && durationOptions.length > 0) {
-      setBookingDuration(durationOptions[0].durationMinutes || 60)
+      const first = durationOptions[0].durationMinutes || 60
+      setBookingDuration(prev => {
+        const valid = durationOptions.some(d => d.durationMinutes === prev)
+        return valid ? prev : first
+      })
     }
   }, [bookingModal?.dateStr, bookingModal?.startTime, durationOptions])
 
@@ -280,12 +382,26 @@ const ClubPublicPage = () => {
 
   const handleSlotClick = useCallback(async (court, dateStr, startTime) => {
     if (!platformUser || !isMember) return
+    if (isSlotInPast(dateStr, startTime)) {
+      setLockError(language === 'en' ? 'Cannot book a date or time in the past. Please select a future slot.' : 'لا يمكن حجز تاريخ أو وقت سابق. يرجى اختيار وقت قادم.')
+      return
+    }
     setLockError(null)
-    const dur = club?.settings?.bookingDuration || 60
-    const [h, m] = (startTime || '00:00').split(':').map(Number)
-    const endM = (h || 0) * 60 + (m || 0) + dur
-    const endTime = `${String(Math.floor(endM / 60)).padStart(2, '0')}:${String(endM % 60).padStart(2, '0')}`
+    const minDur = club?.settings?.bookingDuration ?? 60
+    const durationPrices = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
+    const configured = (durationPrices || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
     const courtId = (court?.name || court?.id || '').toString()
+    const blocked = getBlockedRangesForCourtAndDate(courtId, dateStr, bookings, activeLocks)
+    const closing = club?.settings?.closingTime || '23:00'
+    const available = getAvailableDurations(minDur, startTime, closing, blocked)
+    const availableSet = new Set(available)
+    const allowed = configured.filter(d => availableSet.has(d))
+    if (allowed.length === 0) {
+      setLockError(language === 'en' ? 'No duration available; slot conflicts with another booking.' : 'لا توجد مدة متاحة؛ الوقت يتعارض مع حجز آخر.')
+      return
+    }
+    const lockDur = Math.max(...allowed)
+    const endTime = addMinutesToTime(startTime, lockDur)
     const lockMinutes = club?.settings?.lockMinutes ?? 10
     try {
       const result = await bookingApi.acquireBookingLock({
@@ -309,7 +425,7 @@ const ClubPublicPage = () => {
         setLockError(language === 'en' ? 'Could not reserve slot. Please try again.' : 'تعذر حجز الوقت. حاول مجدداً.')
       }
     }
-  }, [clubId, platformUser, isMember, club?.settings?.bookingDuration, club?.settings?.lockMinutes, language, refreshClub])
+  }, [clubId, platformUser, isMember, club?.settings?.bookingDuration, club?.settings?.bookingPrices?.durationPrices, club?.settings?.closingTime, club?.settings?.lockMinutes, language, refreshClub, bookings, activeLocks])
 
   const handleCloseBookingModal = useCallback(() => {
     if (activeLock?.lockId) {
@@ -428,11 +544,11 @@ const ClubPublicPage = () => {
       viewMyBookings: 'View my bookings',
       loginToBook: 'Login to book courts',
       courtPrices: 'Court booking prices',
-      managePricesLink: 'Manage prices (admin)',
       duration: 'Duration',
       price: 'Price',
       joinPromptTitle: 'You\'re one step away!',
       joinPromptText: 'Join this club now to book courts, participate in tournaments, and enjoy member benefits.',
+      joinPreviouslyMemberHint: 'Previously a member? Refresh the page or ask the club to re-add you.',
     },
     ar: {
       backToHome: 'العودة للرئيسية',
@@ -491,11 +607,11 @@ const ClubPublicPage = () => {
       viewMyBookings: 'عرض حجوزاتي',
       loginToBook: 'سجّل الدخول لحجز الملاعب',
       courtPrices: 'أسعار حجوزات الملاعب',
-      managePricesLink: 'تعديل الأسعار (إداري)',
       duration: 'المدة',
       price: 'السعر',
       joinPromptTitle: 'أنت على بُعد خطوة واحدة!',
       joinPromptText: 'انضم للنادي الآن لحجز الملاعب والمشاركة في البطولات والاستفادة من مزايا العضوية.',
+      joinPreviouslyMemberHint: 'كنت عضواً سابقاً؟ حدّث الصفحة أو اطلب من إدارة النادي إعادة ربط العضوية.',
     }
   }
   const c = t[language] || t.en
@@ -503,7 +619,10 @@ const ClubPublicPage = () => {
   const formatDate = (dateStr) => {
     if (!dateStr) return '—'
     try {
-      return new Date(dateStr).toLocaleDateString(language === 'en' ? 'en-US' : 'ar-SA', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })
+      const iso = (dateStr || '').toString().trim()
+      const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(iso)
+      const d = dateOnly ? new Date(iso + 'T12:00:00') : new Date(iso)
+      return d.toLocaleDateString(language === 'en' ? 'en-US' : 'ar-SA', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })
     } catch (e) {
       return dateStr
     }
@@ -522,7 +641,6 @@ const ClubPublicPage = () => {
     }
     try {
       await bookingApi.joinClub(club.id, platformUser.id)
-      // Ensure member exists in storage/cache (e.g. after register or stale cache) so addMemberToClub finds them
       await upsertMember({
         id: platformUser.id,
         name: platformUser.name,
@@ -544,7 +662,16 @@ const ClubPublicPage = () => {
 
   const handleConfirmBooking = async () => {
     if (!bookingModal || !platformUser || !isMember) return
-    const totalPrice = calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration || 60).price
+    const bookingDate = (bookingModal.dateStr || '').toString().replace(/T.*$/, '')
+    if (!bookingDate || !/^\d{4}-\d{2}-\d{2}$/.test(bookingDate)) {
+      setLockError(language === 'en' ? 'Invalid date. Please select the date again.' : 'تاريخ غير صالح. يرجى اختيار التاريخ مرة أخرى.')
+      return
+    }
+    if (isSlotInPast(bookingDate, bookingModal.startTime)) {
+      setLockError(language === 'en' ? 'This slot is in the past. Please select a future date and time.' : 'هذا الوقت منتهٍ. يرجى اختيار تاريخ ووقت قادمين.')
+      return
+    }
+    const totalPrice = calculateBookingPrice(club, bookingDate, bookingModal.startTime, bookingDuration || 60).price
     const sharedSum = (paymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
     if (paymentShares?.length > 0 && sharedSum > totalPrice) return
     const dur = bookingDuration || 60
@@ -554,55 +681,59 @@ const ClubPublicPage = () => {
     const courtId = (bookingModal.court?.name || bookingModal.court?.id || '').toString()
     const courtName = (bookingModal.court?.name || '').toString().trim()
     const memberName = platformUser.name || platformUser.email || platformUser.displayName || ''
-    const priceResult = calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, dur)
+    const priceResult = calculateBookingPrice(club, bookingDate, bookingModal.startTime, dur)
     setBookingSubmitting(true)
     setLockError(null)
     try {
-      if (activeLock?.lockId) {
-        const idempotencyKey = `confirm_${activeLock.lockId}`
-        const payAtClub = paymentMethod === 'at_club'
-        const res = await bookingApi.confirmBooking({
-          lockId: activeLock.lockId,
-          clubId,
-          courtId,
-          date: bookingModal.dateStr,
-          startTime: bookingModal.startTime,
-          endTime,
-          memberId: platformUser.id,
-          memberName,
-          totalAmount: priceResult.price,
-          paymentMethod: payAtClub ? 'at_club' : undefined,
-          paymentShares: payAtClub ? undefined : (paymentShares.length > 0 ? paymentShares : undefined),
-          idempotencyKey
-        })
-        setActiveLock(null)
-        setBookingSuccessId(res?.bookingId || true)
-      } else {
-        await addBookingToClub(clubId, {
-          date: bookingModal.dateStr,
-          startDate: bookingModal.dateStr,
-          startTime: bookingModal.startTime,
-          endTime,
-          resource: courtName,
-          court: courtName,
-          courtName,
-          memberId: platformUser.id,
-          memberName,
-          customerName: memberName,
-          customer: memberName,
-          price: priceResult.price,
-          currency: priceResult.currency,
-          durationMinutes: dur,
-          paymentShares: paymentMethod === 'split' && paymentShares.length > 0 ? paymentShares : undefined,
-          status: paymentMethod === 'at_club' ? 'confirmed' : undefined
-        })
-        setBookingSuccessId(true)
+      if (!activeLock?.lockId) {
+        setLockError(language === 'en' ? 'Reservation expired. Please select the time slot again.' : 'انتهت صلاحية الحجز. يرجى اختيار الوقت مرة أخرى.')
+        setBookingSubmitting(false)
+        return
       }
+      const idempotencyKey = `confirm_${activeLock.lockId}`
+      const payAtClub = paymentMethod === 'at_club'
+      const res = await bookingApi.confirmBooking({
+        lockId: activeLock.lockId,
+        clubId,
+        courtId,
+        date: bookingDate,
+        startTime: bookingModal.startTime,
+        endTime,
+        memberId: platformUser.id,
+        memberName,
+        totalAmount: priceResult.price,
+        paymentMethod: payAtClub ? 'at_club' : undefined,
+        paymentShares: payAtClub ? undefined : (paymentShares.length > 0 ? paymentShares : undefined),
+        idempotencyKey
+      })
+      const bookingId = res?.bookingId
+      setActiveLock(null)
+      setBookingSuccessId(bookingId || true)
       setBookingModal(null)
       setPaymentShares([])
       setPaymentMethod('at_club')
+      setClub(prev => {
+        if (!prev || prev.id !== clubId) return prev
+        const newBooking = {
+          id: bookingId,
+          date: bookingDate,
+          startDate: bookingDate,
+          startTime: bookingModal.startTime,
+          endTime,
+          courtId,
+          courtName,
+          memberId: platformUser.id,
+          status: res?.status || 'confirmed',
+          totalAmount: priceResult.price,
+          paidAmount: priceResult.price
+        }
+        const existing = Array.isArray(prev.bookings) ? prev.bookings : []
+        return { ...prev, bookings: [...existing, newBooking] }
+      })
       await refreshClubsFromApi()
       loadClubs()
+      const updatedClub = getClubById(clubId)
+      if (updatedClub) setClub(updatedClub)
       refreshClub()
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
     } catch (e) {
@@ -723,6 +854,7 @@ const ClubPublicPage = () => {
             <button type="button" className="club-public-join-prompt-btn" onClick={handleJoinClub}>
               {c.joinClub}
             </button>
+            <p className="club-public-join-prompt-hint">{c.joinPreviouslyMemberHint}</p>
           </div>
         </section>
       )}
@@ -738,12 +870,13 @@ const ClubPublicPage = () => {
                   📅 {language === 'en' ? 'My Bookings' : 'حجوزاتي'}
                 </Link>
               )}
-              <input
-                type="date"
+              <CalendarPicker
                 value={courtGridDate}
-                onChange={(e) => setCourtGridDate(e.target.value)}
-                className="club-public-court-booking-date-input"
+                onChange={setCourtGridDate}
                 min={today}
+                language={language}
+                className="club-public-court-booking-date-input"
+                aria-label={language === 'en' ? 'Select date' : 'اختر التاريخ'}
               />
             </div>
             {courts.length === 0 ? (
@@ -797,15 +930,16 @@ const ClubPublicPage = () => {
                             if (lDate !== dateStr) return false
                             return isTimeSlotCoveredByBooking(timeSlot, l.start_time || '', l.end_time || '')
                           })
-                          const canBook = !isBooked && !isLocked && isMember && platformUser
-                          const cellStatus = isLocked ? 'in-progress' : isBooked ? 'booked' : 'available'
+                          const isPast = isSlotInPast(dateStr, timeSlot)
+                          const canBook = !isBooked && !isLocked && !isPast && isMember && platformUser
+                          const cellStatus = isLocked ? 'in-progress' : isBooked ? 'booked' : isPast ? 'past' : 'available'
                           return (
                             <div
                               key={timeSlot}
                               role={canBook ? 'button' : undefined}
                               tabIndex={canBook ? 0 : undefined}
                               className={`club-public-court-grid-cell ${cellStatus} ${canBook ? 'clickable' : ''}`}
-                              title={isLocked ? (language === 'en' ? 'In progress' : 'قيد الإجراء') : isBooked ? c.booked : canBook ? c.bookNow : c.available}
+                              title={isLocked ? (language === 'en' ? 'In progress' : 'قيد الإجراء') : isBooked ? (c.booked || 'Booked') : isPast ? (language === 'en' ? 'Past' : 'منتهي') : canBook ? (c.bookNow || 'Book now') : (c.available || 'Available')}
                               onClick={canBook ? () => handleSlotClick(court, dateStr, timeSlot) : undefined}
                               onKeyDown={canBook ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSlotClick(court, dateStr, timeSlot) } } : undefined}
                             >
@@ -854,7 +988,7 @@ const ClubPublicPage = () => {
                   >
                     {durationOptions.map(d => (
                       <option key={d.durationMinutes} value={d.durationMinutes}>
-                        {d.durationMinutes} {language === 'en' ? 'min' : 'دقيقة'} — {parseFloat(d.price || 0).toFixed(0)} {currency}
+                        {d.durationMinutes} {language === 'en' ? 'min' : 'دقيقة'} — {parseFloat(d.price != null ? d.price : 0).toFixed(0)} {currency}
                       </option>
                     ))}
                   </select>
@@ -914,6 +1048,29 @@ const ClubPublicPage = () => {
           </div>
         )}
 
+        <section ref={bookingsSectionRef} className="club-public-section club-public-upcoming-block">
+          <div className="club-public-section-inner">
+            {courtBookings.length === 0 ? (
+              <p className="club-public-no-data club-public-upcoming-empty">{c.bookingsEmpty}</p>
+            ) : (
+              <>
+                <div className="club-public-upcoming-countdown">
+                  <div className="club-public-upcoming-countdown-grid">
+                    {courtBookings.map((b, i) => (
+                      <BookingCountdownCard
+                        key={b.id || i}
+                        booking={b}
+                        formatDate={formatDate}
+                        language={language}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+
         <section className="club-public-section club-public-court-prices">
           <div className="club-public-section-inner">
             <h2 className="section-heading">
@@ -922,7 +1079,8 @@ const ClubPublicPage = () => {
             </h2>
             {(() => {
               const bp = club?.settings?.bookingPrices && typeof club.settings.bookingPrices === 'object' ? club.settings.bookingPrices : {}
-              const durationPrices = Array.isArray(bp.durationPrices) ? bp.durationPrices : [{ durationMinutes: 60, price: 100 }]
+              const durationPrices = (Array.isArray(bp.durationPrices) ? bp.durationPrices : [{ durationMinutes: 60, price: 100 }])
+                .sort((a, b) => (a.durationMinutes || 0) - (b.durationMinutes || 0))
               const dm = Array.isArray(bp.dayModifiers) ? bp.dayModifiers : []
               const tm = Array.isArray(bp.timeModifiers) ? bp.timeModifiers : []
               const sm = Array.isArray(bp.seasonModifiers) ? bp.seasonModifiers : []
@@ -931,33 +1089,18 @@ const ClubPublicPage = () => {
                 (sm.length > 0 && sm.some(s => (s.multiplier || 1) !== 1))
               return (
                 <div className="club-public-prices-wrap">
-                  <div className="club-public-prices-table-wrap">
-                    <table className="club-public-prices-table">
-                      <thead>
-                        <tr>
-                          <th>{c.duration}</th>
-                          <th>{c.price}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(durationPrices || []).sort((a, b) => (a.durationMinutes || 0) - (b.durationMinutes || 0)).map((d, i) => (
-                          <tr key={i}>
-                            <td>{d.durationMinutes} {language === 'en' ? 'min' : 'دقيقة'}</td>
-                            <td className="club-public-price-cell">{parseFloat(d.price || 0).toFixed(0)} {currency}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="club-public-prices-grid">
+                    {durationPrices.map((d, i) => (
+                      <div key={i} className="club-public-price-card">
+                        <span className="club-public-price-card__duration">{d.durationMinutes} {language === 'en' ? 'min' : 'دقيقة'}</span>
+                        <span className="club-public-price-card__price">{parseFloat(d.price || 0).toFixed(0)} {currency}</span>
+                      </div>
+                    ))}
                   </div>
                   {hasModifiers && (
                     <p className="club-public-prices-note">
                       {language === 'en' ? 'Prices may vary by day, time, and season.' : 'قد تختلف الأسعار حسب اليوم والوقت والموسم.'}
                     </p>
-                  )}
-                  {isClubAdmin && (
-                    <Link to={`/admin/club/${clubId}/booking-prices`} className="club-public-manage-prices-link">
-                      {c.managePricesLink}
-                    </Link>
                   )}
                 </div>
               )
@@ -1033,48 +1176,6 @@ const ClubPublicPage = () => {
                 <p className="club-public-no-data">{language === 'en' ? 'No courts listed.' : 'لا توجد ملاعب مسجلة.'}</p>
               )}
             </div>
-          </div>
-        </section>
-
-        <section className="club-public-section club-public-bookings">
-          <div className="club-public-section-inner">
-            <h2 className="section-heading">{c.bookingsTable}</h2>
-            {courtBookings.length === 0 ? (
-              <p className="club-public-no-data">{c.bookingsEmpty}</p>
-            ) : (
-              <div className="club-public-table-wrap">
-                <table className="club-public-table">
-                  <thead>
-                    <tr>
-                      <th>{c.date}</th>
-                      <th>{c.time}</th>
-                      <th>{c.court}</th>
-                      <th>{c.customer}</th>
-                      <th>{c.price}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {courtBookings.map((b, i) => {
-                      const dur = b.durationMinutes || (() => {
-                        const [sh, sm] = (b.startTime || '0:0').split(':').map(Number)
-                        const [eh, em] = (b.endTime || '0:0').split(':').map(Number)
-                        return (eh * 60 + em) - (sh * 60 + sm) || 60
-                      })()
-                      const priceInfo = b.price != null ? { price: b.price, currency: b.currency || currency } : calculateBookingPrice(club, b.dateStr, b.startTime, dur)
-                      return (
-                        <tr key={b.id || i}>
-                          <td>{formatDate(b.dateStr)}</td>
-                          <td>{(b.startTime || '') + (b.endTime ? ` – ${b.endTime}` : '')}</td>
-                          <td>{b.resource || b.courtName || b.court || '—'}</td>
-                          <td>{b.memberName || b.customerName || b.customer || '—'}</td>
-                          <td className="club-public-booking-price-cell">{priceInfo.price} {priceInfo.currency}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
         </section>
 

@@ -200,6 +200,11 @@
   grid-column: 1 / -1;
 }
 
+/* Force Western numerals (0-9) in number inputs for both EN and AR */
+.settings-input[type="number"] {
+  font-variant-numeric: tabular-nums;
+}
+
 .settings-input,
 .settings-select {
   width: 100%;

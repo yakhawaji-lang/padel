@@ -88,40 +88,6 @@
   line-height: 1.6;
 }
 
-.register-google-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding: 12px 20px;
-  background: #fff;
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: #374151;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.register-google-btn:hover {
-  background: #f9fafb;
-}
-
-.register-google-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  margin-inline-end: 10px;
-  background: linear-gradient(135deg, #4285f4 0%, #ea4335 50%, #fbbc05 75%, #34a853 100%);
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 700;
-  border-radius: 4px;
-}
-
 .register-or {
   margin: 20px 0 8px;
   text-align: center;
@@ -143,6 +109,13 @@
   font-size: 0.875rem;
   border-radius: 8px;
   border: 1px solid #fecaca;
+}
+
+.register-temp-password-hint {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin: -8px 0 12px;
+  line-height: 1.4;
 }
 
 .register-form .form-group {

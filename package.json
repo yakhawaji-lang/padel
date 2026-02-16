@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "dev:api": "dotenv -e .env -- node server/index.js",
+    "dev:all": "concurrently -n api,vite -c blue,green \"npm run dev:api\" \"npm run dev\"",
     "build": "vite build",
     "preview": "vite preview",
     "start": "node server.js",
@@ -22,9 +23,16 @@
     "db:migrate:payment-shares": "node server/scripts/run-booking-payment-shares-migration.js",
     "db:migrate:booking-v2": "node server/scripts/run-booking-system-v2-migration.js",
     "sync-to-cloud": "node scripts/sync-to-cloud.js",
-    "sync-from-cloud": "node scripts/sync-from-cloud.js"
+    "sync-from-cloud": "node scripts/sync-from-cloud.js",
+    "cap:sync": "npm run build && npx cap sync",
+    "cap:android": "npx cap open android",
+    "cap:ios": "npx cap open ios"
   },
   "dependencies": {
+    "@capacitor/android": "^8.1.0",
+    "@capacitor/cli": "^8.1.0",
+    "@capacitor/core": "^8.1.0",
+    "@capacitor/ios": "^8.1.0",
     "@supabase/supabase-js": "^2.45.0",
     "@vitejs/plugin-react": "^4.2.1",
     "axios": "^1.13.4",
@@ -46,6 +54,7 @@
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^9.2.1",
     "dotenv-cli": "^11.0.0",
     "eslint": "^8.55.0",
     "eslint-plugin-react": "^7.33.2",

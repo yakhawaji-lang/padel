@@ -4,6 +4,7 @@
 import * as lock from '../db/bookingLock.js'
 import * as slotCache from '../lib/slotCache.js'
 import { query } from '../db/pool.js'
+import * as bookingService from '../services/bookingService.js'
 
 let intervalId = null
 
@@ -28,14 +29,8 @@ async function expireUnpaidBookings() {
       const dateStr = b.booking_date ? String(b.booking_date).split('T')[0] : null
       if (b.club_id && dateStr) slotCache.invalidateLocks(b.club_id, dateStr)
     }
-    if (rows?.length > 0) {
-      await query(`
-        UPDATE club_bookings SET status = 'expired'
-        WHERE status IN ('initiated', 'locked', 'pending_payments', 'partially_paid')
-        AND payment_deadline_at IS NOT NULL AND payment_deadline_at < NOW()
-      `)
-      console.log('[jobs] Expired', rows.length, 'unpaid bookings')
-    }
+    const count = await bookingService.expireUnpaidBookings()
+    if (count > 0) console.log('[jobs] Expired', count, 'unpaid bookings')
   } catch (e) {
     if (!e?.message?.includes('Unknown column')) console.error('[jobs] expireUnpaidBookings error:', e.message)
   }

@@ -3,10 +3,12 @@
  * All methods are async. Uses VITE_API_URL (default: http://localhost:4000) for backend.
  */
 
-const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ??
-  (typeof window !== 'undefined'
-    ? (/localhost|127\.0\.0\.1/.test(window.location?.hostname || '') && ['3000', '5173', '5174'].includes(window.location?.port || ''))
-      ? 'http://localhost:4000'
+/** In dev (Vite on 3000/3001/etc): use '' so /api goes through Vite proxy to 4000. Avoids CORS and 404 when API not on same host. */
+const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL !== undefined && import.meta.env?.VITE_API_URL !== '')
+  ? import.meta.env.VITE_API_URL
+  : (typeof window !== 'undefined'
+    ? (/localhost|127\.0\.0\.1/.test(window.location?.hostname || '') && ['3000', '3001', '3002', '5173', '5174'].includes(window.location?.port || ''))
+      ? ''
       : ''
     : 'http://localhost:4000')
 
@@ -42,13 +44,30 @@ async function fetchJson(path, options = {}) {
   return res.json()
 }
 
-/** Retry on 502/503/504 (server slow/overloaded) - up to 4 retries, 5s delay for gateway timeout */
+/** Retry only on server/gateway errors (502/503/504, 500 deadlock). Do NOT retry on client errors (e.g. ERR_INSUFFICIENT_RESOURCES) to avoid request storms. */
 const RETRY_STATUSES = [502, 503, 504]
 function isRetryableError(e) {
   if (!e) return false
   if (RETRY_STATUSES.includes(e.status)) return true
   const msg = (e?.message || '').toLowerCase()
-  return /50[234]|gateway timeout|timeout|bad gateway|service unavailable|failed to fetch|networkerror|network error/i.test(msg)
+  if (e.status === 500 && /deadlock|try restarting transaction/i.test(msg)) return true
+  if (/insufficient_resources|failed to fetch|networkerror|network error/i.test(msg)) return false
+  return /50[234]|gateway timeout|bad gateway|service unavailable/i.test(msg)
+}
+
+/** Browser ran out of sockets/resources; do not retry or fallback to /api/store to avoid request storm. */
+const RESOURCE_BACKOFF_MS = 15000
+let _resourceErrorBackoffUntil = 0
+function isResourceExhaustionError(e) {
+  if (!e) return false
+  const msg = (e?.message || String(e)).toLowerCase()
+  return /insufficient_resources|failed to fetch|load failed|networkerror|network error/i.test(msg)
+}
+function setResourceBackoff() {
+  _resourceErrorBackoffUntil = Date.now() + RESOURCE_BACKOFF_MS
+}
+function isInResourceBackoff() {
+  return Date.now() < _resourceErrorBackoffUntil
 }
 async function fetchWithRetry(path, options, maxRetries = 4) {
   let lastErr
@@ -58,7 +77,8 @@ async function fetchWithRetry(path, options, maxRetries = 4) {
     } catch (e) {
       lastErr = e
       if (isRetryableError(e) && i < maxRetries) {
-        const delay = (e.status === 504 || (e?.message || '').toLowerCase().includes('timeout')) ? 5000 : 3000
+        const isDeadlock = e.status === 500 && /deadlock|try restarting transaction/i.test(e?.message || '')
+        const delay = isDeadlock ? 150 * (i + 1) : (e.status === 504 || (e?.message || '').toLowerCase().includes('timeout') ? 5000 : 3000)
         await new Promise(r => setTimeout(r, delay))
         continue
       }
@@ -73,10 +93,16 @@ async function fetchWithRetry(path, options, maxRetries = 4) {
 const getStoreBatchInFlight = new Map()
 
 export async function getStore(key) {
+  if (isInResourceBackoff()) return null
   try {
     return await fetchWithRetry(`/api/data/${encodeURIComponent(key)}`)
   } catch (e) {
-    if (e.message?.includes('Not Found') || e.message?.includes('404') || e.message?.includes('fetch') || e.message?.includes('Failed')) {
+    if (isResourceExhaustionError(e)) {
+      setResourceBackoff()
+      return null
+    }
+    if (DATA_ENTITY_KEYS.includes(key)) return null
+    if (e.status === 404 || (e.message && /not found|404/i.test(e.message))) {
       try {
         return await fetchWithRetry(`/api/store/${encodeURIComponent(key)}`)
       } catch (_) {
@@ -88,17 +114,26 @@ export async function getStore(key) {
   }
 }
 
+const DATA_ENTITY_KEYS = ['admin_clubs', 'all_members', 'padel_members', 'platform_admins']
+
 export async function getStoreBatch(keys) {
   if (!keys?.length) return {}
   const keyStr = [...keys].sort().join(',')
   let promise = getStoreBatchInFlight.get(keyStr)
   if (promise) return promise
+  const onlyEntityKeys = keys.length > 0 && keys.every(k => DATA_ENTITY_KEYS.includes(k))
   promise = (async () => {
+    if (isInResourceBackoff()) return {}
     try {
       const url = `/api/data?keys=${keys.map(k => encodeURIComponent(k)).join(',')}`
       return await fetchWithRetry(url)
     } catch (e) {
-      if (e.message?.includes('Not Found') || e.message?.includes('404') || e.message?.includes('fetch') || e.message?.includes('Failed')) {
+      if (isResourceExhaustionError(e)) {
+        setResourceBackoff()
+        return {}
+      }
+      if (onlyEntityKeys) return {}
+      if (e.status === 404 || (e.message && /not found|404/i.test(e.message))) {
         try {
           return await fetchWithRetry(`/api/store?keys=${keys.map(k => encodeURIComponent(k)).join(',')}`)
         } catch (_) {
@@ -146,6 +181,32 @@ export async function deleteClubPermanent(clubId) {
     method: 'POST',
     body: JSON.stringify({ clubId })
   })
+}
+
+/** Remove a member from one club in the database (explicit removal). Use when admin clicks "Remove from club". */
+export async function removeMemberFromClubApi(memberId, clubId) {
+  return fetchJson('/api/data/member-remove-from-club', {
+    method: 'POST',
+    body: JSON.stringify({ memberId, clubId })
+  })
+}
+
+/** حفظ إعدادات نادٍ واحد في padel_db. يُرجع الإعدادات المحفوظة من القاعدة. */
+export async function saveClubSettings(clubId, settings) {
+  const toNum = (v, d) => (v !== undefined && v !== null && v !== '' && !Number.isNaN(Number(v))) ? Number(v) : d
+  const booking = {
+    lockMinutes: toNum(settings.lockMinutes, 10),
+    paymentDeadlineMinutes: toNum(settings.paymentDeadlineMinutes, 10),
+    splitManageMinutes: toNum(settings.splitManageMinutes, 15),
+    splitPaymentDeadlineMinutes: toNum(settings.splitPaymentDeadlineMinutes, 30),
+    refundDays: toNum(settings.refundDays, 3),
+    allowIncompleteBookings: !!settings.allowIncompleteBookings
+  }
+  const res = await fetchWithRetry('/api/data/club-settings', {
+    method: 'POST',
+    body: JSON.stringify({ clubId, settings, booking })
+  })
+  return res?.settings ?? null
 }
 
 // ---- Matches (replaces IndexedDB matches) ----

@@ -70,3 +70,20 @@ html[dir="rtl"] {
 html[dir="rtl"] body {
   text-align: right;
 }
+
+/* Western numerals (0-9) in all number inputs across the system - Arabic and English */
+input[type="number"] {
+  direction: ltr;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Force Western numerals for number inputs when page is RTL */
+html[dir="rtl"] input[type="number"] {
+  direction: ltr;
+  text-align: left;
+}
+
+/* Use .western-numerals class on any element that displays numbers for Western numerals (0-9) */
+.western-numerals {
+  font-variant-numeric: tabular-nums;
+}

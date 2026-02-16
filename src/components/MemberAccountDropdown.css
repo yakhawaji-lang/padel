@@ -27,33 +27,23 @@
   font-weight: 700;
   font-size: 1rem;
 }
+/* القائمة تفتح من جهة الزر دون الخروج عن الشاشة — LTR: من يسار الزر، RTL: من يمين الزر */
 .member-account-menu {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
+  left: 0;
+  right: auto;
   min-width: 200px;
-  max-width: calc(100vw - 24px);
+  max-width: min(320px, calc(100vw - 24px));
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-  z-index: 100;
+  z-index: 1000;
   overflow: hidden;
 }
 [dir="rtl"] .member-account-menu {
-  right: auto;
-  left: 0;
-}
-
-/* Mobile: open to the right so menu stays visible (trigger is on left, default opens left and gets cut off) */
-@media (max-width: 640px) {
-  .member-account-menu {
-    left: 0;
-    right: auto;
-  }
-  [dir="rtl"] .member-account-menu {
-    left: auto;
-    right: 0;
-  }
+  left: auto;
+  right: 0;
 }
 .member-account-menu-header {
   padding: 16px;

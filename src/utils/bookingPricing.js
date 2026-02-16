@@ -47,64 +47,17 @@ export function calculateBookingPrice(club, dateStr, startTime, durationMinutes)
   const currency = club?.settings?.currency || 'SAR'
   const breakdown = []
 
-  // 1. Base price from duration
-  const durationPrices = bp.durationPrices || [{ durationMinutes: 60, price: 100 }]
-  const sorted = [...durationPrices].sort((a, b) => (a.durationMinutes || 0) - (b.durationMinutes || 0))
+  // 1. السعر من الإعدادات فقط — تطابق تام للمدة، لا حسابات تلقائية
+  const durationPrices = bp.durationPrices || []
+  const exact = durationPrices.find(d => (d.durationMinutes || 0) === durationMinutes)
   let basePrice = 0
-  for (let i = sorted.length - 1; i >= 0; i--) {
-    if (durationMinutes >= (sorted[i].durationMinutes || 60)) {
-      basePrice = parseFloat(sorted[i].price) || 0
-      breakdown.push(`${durationMinutes} min → ${basePrice} ${currency}`)
-      break
-    }
-  }
-  if (basePrice === 0 && sorted[0]) {
-    basePrice = parseFloat(sorted[0].price) || 0
-    breakdown.push(`${durationMinutes} min (≈${sorted[0].durationMinutes}) → ${basePrice} ${currency}`)
+  if (exact != null && exact.price != null) {
+    basePrice = Math.round(parseFloat(exact.price)) || 0
+    breakdown.push(`${durationMinutes} min → ${basePrice} ${currency}`)
   }
 
-  // 2. Day modifier
-  const day = getDayOfWeek(dateStr)
-  const dayModifiers = bp.dayModifiers || []
-  let dayMult = 1
-  for (const dm of dayModifiers) {
-    const days = dm.days || []
-    if (days.includes(day)) {
-      dayMult = parseFloat(dm.multiplier) || 1
-      if (dayMult !== 1) breakdown.push(`Day (×${dayMult})`)
-      break
-    }
-  }
-
-  // 3. Time-of-day modifier
-  const startM = timeToMinutes(startTime)
-  const timeModifiers = bp.timeModifiers || []
-  let timeMult = 1
-  for (const tm of timeModifiers) {
-    const s = timeToMinutes(tm.start)
-    const e = timeToMinutes(tm.end)
-    if (startM >= s && startM < e) {
-      timeMult = parseFloat(tm.multiplier) || 1
-      if (timeMult !== 1) breakdown.push(`Time (×${timeMult})`)
-      break
-    }
-  }
-
-  // 4. Season modifier
-  const seasonModifiers = bp.seasonModifiers || []
-  let seasonMult = 1
-  for (const sm of seasonModifiers) {
-    const startD = sm.startDate || ''
-    const endD = sm.endDate || ''
-    if (startD && endD && isInSeason(dateStr, startD, endD)) {
-      seasonMult = parseFloat(sm.multiplier) || 1
-      if (seasonMult !== 1) breakdown.push(`Season (×${seasonMult})`)
-      break
-    }
-  }
-
-  const finalPrice = Math.round(basePrice * dayMult * timeMult * seasonMult * 100) / 100
-  return { price: finalPrice, currency, breakdown }
+  // لا تطبيق معدّلات (أيام/وقت/موسم) — السعر من إعدادات المدة فقط
+  return { price: basePrice, currency, breakdown }
 }
 
 /** Get default booking prices structure */
