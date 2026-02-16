@@ -84,6 +84,32 @@ mysql://u502561206_padel_user:MyPass123@127.0.0.1/u502561206_padel_db
 
 ## المرحلة 2: إعداد التطبيق Node.js على Hostinger
 
+### 2.0 تشغيل التطبيق خارج public_html (مهم)
+
+اجعل مجلد المشروع (الذي يُحدَّث من GitHub) **خارج** `public_html` حتى لا يُستبدَل ملف `.env` أو `database.config.json` عند كل رفع من Git.
+
+**الهيكل المطلوب:**
+```
+domains/
+  playtix.app/
+    .env                      ← هنا (خارج مجلد المشروع، لا يُحذف عند Git pull)
+    database.config.json       ← هنا
+    padel/                    ← استنساخ Git هنا (Root directory للتطبيق)
+      server.js
+      dist/
+      ...
+    public_html/              ← يُحدَّث من server.js بنسخ dist فقط (لا يمسّه Git)
+      app/
+      index.html
+```
+
+**كيفية التطبيق:**
+- في Hostinger عند إنشاء تطبيق Node.js، إن أمكن: حدد **جذر التطبيق (Root directory)** بمجلد فرعي مثل `padel` أو `app` بحيث يكون المستودع يُستنسخ في `domains/playtix.app/padel` وليس داخل `public_html`.
+- إذا كان الاستنساخ يذهب تلقائياً إلى `public_html`: أنشئ مجلداً مثل `padel` بجانب `public_html` (في `domains/playtix.app/`) وربط استنساخ Git بهذا المجلد، ثم حدد هذا المجلد كجذر لتطبيق Node.js.
+- ضع ملف **`.env`** وملف **`database.config.json`** في مجلد **`domains/playtix.app/`** (المجلد الأب لمجلد المشروع) حتى لا يحذفهما Git عند السحب.
+
+التطبيق يقرأ `.env` من المجلد الحالي أو من المجلد الأب تلقائياً.
+
 ### 2.1 إنشاء تطبيق Node.js
 1. hPanel → **Websites** → اختر الموقع (أو أنشئ موقعاً جديداً)
 2. **Node.js** أو **Add Website** → **Node.js Web App**
@@ -92,6 +118,7 @@ mysql://u502561206_padel_user:MyPass123@127.0.0.1/u502561206_padel_db
 ### 2.2 ربط مستودع GitHub
 1. **Deploy from Git** / **Import Git repository**
 2. **Connect with GitHub** واختر المستودع والفرع (`main`)
+3. إن أمكن، حدد **Root directory** بمجلد خارج `public_html` (انظر 2.0)
 
 ### 2.3 إعدادات البناء
 
@@ -208,23 +235,25 @@ Invoke-RestMethod -Uri "https://playtix.app/api/init-db/migrate-club-settings" -
 
 ---
 
-## المرحلة 5: ملف database.config.json (خارج public_html)
+## المرحلة 5: ملف database.config.json و .env (خارج مجلد المشروع / public_html)
 
-على Hostinger، الطريقة الموصى بها لضمان قراءة الاتصال: إنشاء الملف **خارج** `public_html` حتى لا يُحذف عند كل Deploy من GitHub.
+على Hostinger، الطريقة الموصى بها: إنشاء الملفات **خارج** مجلد المشروع (الذي يُحدَّث من Git) حتى لا تُحذف عند كل Deploy من GitHub. ضعها في مجلد الدومين `domains/playtix.app/` (انظر الهيكل في المرحلة 2.0).
 
 ### الهيكل المطلوب
 ```
 domains/
   playtix.app/
-    database.config.json   ← هنا (خارج public_html)
-    public_html/           ← مجلد النشر من Git
+    .env                    ← اختياري (أو استخدم Environment variables في لوحة Hostinger)
+    database.config.json   ← هنا (خارج public_html وخارج مجلد المشروع)
+    padel/                  ← مجلد المشروع من Git
+    public_html/            ← يُملأ من server.js بنسخ dist
       ...
 ```
 
 ### الخطوات
 1. hPanel → **File Manager**
 2. ادخل إلى مجلد الدومين: `domains/playtix.app`
-3. **لا تدخل** إلى `public_html` — ابقَ في مجلد `playtix.app`
+3. **لا تدخل** إلى `public_html` ولا إلى مجلد المشروع — ابقَ في مجلد `playtix.app`
 4. أنشئ ملفاً باسم `database.config.json`
 5. المحتوى:
 ```json
@@ -232,7 +261,7 @@ domains/
 ```
 6. احفظ ثم **Restart** للتطبيق
 
-التطبيق يبحث عن الملف في المجلد الأب لـ `public_html` تلقائياً.
+التطبيق يبحث عن الملف في المجلد الحالي أو المجلد الأب تلقائياً. نفس الفكرة تنطبق على `.env`: ضعه في مجلد `playtix.app` (الأب لمجلد المشروع) حتى لا يحذفه Git عند السحب.
 
 ---
 

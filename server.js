@@ -22,7 +22,8 @@ if (!existsSync(distIndex)) {
     console.log('[server.js] Starting API only (no frontend)')
   }
 }
-// Copy redirect only to public_html (Hostinger). Do NOT overwrite project root index.html (needed for Vite build).
+// Copy redirect + dist to public_html (Hostinger). App should run from a folder OUTSIDE public_html
+// so that Git deploy updates only the repo folder; .env and database.config.json stay in parent.
 const redirectPath = join(root, 'index.redirect.html')
 const deployTargets = []
 if (existsSync(join(process.cwd(), '..', 'public_html'))) deployTargets.push(join(process.cwd(), '..', 'public_html'))

@@ -18,6 +18,7 @@ config() // load from cwd (default)
   join(process.cwd(), '.env.local'),
   join(process.cwd(), '.env'),
   join(process.cwd(), '..', '.env'),
+  join(process.cwd(), '..', '..', '.env'),
 ].forEach((p) => { if (existsSync(p)) config({ path: p }) })
 
 // Fallback: قراءة من ملف (عند فشل Environment Variables على Hostinger)
