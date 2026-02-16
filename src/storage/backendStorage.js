@@ -1,12 +1,25 @@
 /**
  * PostgreSQL-backed storage. Replaces localStorage for app_store keys.
- * Uses in-memory cache; bootstrap() must be awaited before app uses data.
+ * Session keys (current_member_id, *_session) are per-browser only (localStorage), not from API.
  */
 
 import * as api from '../api/dbClient.js'
+import { LOCAL_ONLY_KEYS } from './appSettingsStorage.js'
 
 const cache = new Map()
 let bootstrapped = false
+const LOCAL_PREFIX = 'playtix_'
+
+function fromLocal(key) {
+  if (typeof localStorage === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(LOCAL_PREFIX + key)
+    if (raw === null) return null
+    return JSON.parse(raw)
+  } catch {
+    return localStorage.getItem(LOCAL_PREFIX + key)
+  }
+}
 
 export async function bootstrap() {
   if (bootstrapped) return
@@ -20,18 +33,23 @@ export async function bootstrap() {
     })
     const keys = [
       'admin_clubs', 'all_members', 'padel_members', 'admin_settings', 'platform_admins',
-      'app_language', 'current_member_id', 'admin_current_club_id', 'bookings',
-      'platform_admin_session', 'club_admin_session', 'current_club_admin_id'
+      'app_language', 'admin_current_club_id', 'bookings'
     ]
     const data = await api.getStoreBatch(keys)
     if (data && typeof data === 'object') {
       Object.entries(data).forEach(([k, v]) => {
+        if (LOCAL_ONLY_KEYS.includes(k)) return
         if ((k === 'admin_clubs' || k === 'all_members' || k === 'padel_members' || k === 'platform_admins' || k === 'bookings') && !Array.isArray(v)) {
           v = (typeof v === 'string' ? (() => { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } })() : [])
         }
         if (v !== null && v !== undefined) cache.set(k, v)
       })
     }
+    // Per-browser session: from localStorage only (each device has its own login)
+    LOCAL_ONLY_KEYS.forEach(k => {
+      const local = fromLocal(k)
+      if (local !== null && local !== undefined) cache.set(k, local)
+    })
     // Ensure admin_clubs exists and is always an array — النظام يبدأ فارغاً بدون نوادي افتراضية
     let clubs = cache.get('admin_clubs')
     if (!Array.isArray(clubs)) clubs = []
@@ -40,6 +58,10 @@ export async function bootstrap() {
   } catch (e) {
     console.warn('Backend bootstrap failed, using empty cache:', e.message)
     if (!cache.has('admin_clubs')) cache.set('admin_clubs', [])
+    LOCAL_ONLY_KEYS.forEach(k => {
+      const local = fromLocal(k)
+      if (local !== null && local !== undefined) cache.set(k, local)
+    })
     bootstrapped = true
   }
 }
@@ -64,6 +86,7 @@ export async function getStore(key) {
 
 export async function setStore(key, value) {
   cache.set(key, value)
+  if (LOCAL_ONLY_KEYS.includes(key)) return
   try {
     await api.setStore(key, value)
   } catch (e) {
@@ -96,6 +119,7 @@ export async function refreshStoreKeys(keys) {
     try {
       const data = await api.getStoreBatch(keys)
       Object.entries(data || {}).forEach(([k, v]) => {
+        if (LOCAL_ONLY_KEYS.includes(k)) return
         if (v === null || v === undefined) return
         if ((k === 'admin_clubs' || k === 'all_members' || k === 'padel_members') && !Array.isArray(v)) {
           v = (typeof v === 'string' ? (() => { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } })() : [])

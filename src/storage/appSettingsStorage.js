@@ -1,16 +1,53 @@
 /**
- * App settings storage - always uses database (u502561206_padel_db) via API.
- * Replaces localStorage for: app_language, admin_current_club_id, current_member_id,
- * platform_admin_session, club_admin_session, club_X_language, etc.
+ * App settings storage - database via API for shared settings;
+ * localStorage only for per-browser session (current_member_id, admin sessions).
+ * So each device/browser has its own logged-in user; no cross-device session sharing.
  */
 
 let _backend = null
+
+/** Keys stored only in localStorage (per browser). Never sent to server. */
+export const LOCAL_ONLY_KEYS = ['current_member_id', 'platform_admin_session', 'club_admin_session', 'current_club_admin_id']
+const LOCAL_PREFIX = 'playtix_'
+
+function fromLocal(key) {
+  if (typeof localStorage === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(LOCAL_PREFIX + key)
+    if (raw === null) return null
+    const parsed = JSON.parse(raw)
+    return parsed
+  } catch {
+    return localStorage.getItem(LOCAL_PREFIX + key)
+  }
+}
+
+function toLocal(key, value) {
+  if (typeof localStorage === 'undefined') return
+  try {
+    if (value === null || value === undefined) {
+      localStorage.removeItem(LOCAL_PREFIX + key)
+    } else {
+      localStorage.setItem(LOCAL_PREFIX + key, JSON.stringify(value))
+    }
+  } catch (e) {
+    console.error('appSettingsStorage toLocal failed:', key, e)
+  }
+}
 
 export function initAppSettingsStorage(backend) {
   _backend = backend
 }
 
 async function get(key) {
+  if (LOCAL_ONLY_KEYS.includes(key)) {
+    const local = fromLocal(key)
+    if (local !== null && local !== undefined) {
+      _backend?.setCache?.(key, local)
+      return local
+    }
+    return _backend?.getCache?.(key) ?? null
+  }
   if (!_backend) return null
   try {
     const v = _backend.getCache?.(key)
@@ -27,6 +64,11 @@ async function get(key) {
 }
 
 async function set(key, value) {
+  if (LOCAL_ONLY_KEYS.includes(key)) {
+    toLocal(key, value)
+    _backend?.setCache?.(key, value)
+    return
+  }
   if (!_backend) return
   _backend.setCache?.(key, value)
   try {
@@ -36,8 +78,15 @@ async function set(key, value) {
   }
 }
 
-// Sync get from cache (must be called after bootstrap)
+// Sync get from cache (must be called after bootstrap). For local-only keys, prefer localStorage.
 export function getCached(key) {
+  if (LOCAL_ONLY_KEYS.includes(key)) {
+    const local = fromLocal(key)
+    if (local !== null && local !== undefined) {
+      _backend?.setCache?.(key, local)
+      return local
+    }
+  }
   return _backend?.getCache?.(key) ?? null
 }
 
