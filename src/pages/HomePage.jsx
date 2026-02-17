@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import LanguageIcon from '../components/LanguageIcon'
 import { loadClubs } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
+import { getStore } from '../api/dbClient'
 import './HomePage.css'
 
 const getClubTournamentStats = (club) => {
@@ -41,12 +42,19 @@ const HomePage = () => {
   const [language, setLanguage] = useState(getAppLanguage())
   const [navOpen, setNavOpen] = useState(false)
   const [heroImageError, setHeroImageError] = useState(false)
+  const [bannerPhrase, setBannerPhrase] = useState({ ar: '', en: '' })
 
   useEffect(() => {
     const load = () => setClubs(loadClubs())
     load()
     window.addEventListener('clubs-synced', load)
     return () => window.removeEventListener('clubs-synced', load)
+  }, [])
+
+  useEffect(() => {
+    getStore('homepage_banner_phrase').then((v) => {
+      if (v && typeof v === 'object') setBannerPhrase({ ar: v.ar || '', en: v.en || '' })
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -373,6 +381,20 @@ const HomePage = () => {
       </header>
 
       <main>
+        {/* بنر رئيسي — صورة كاملة مع عبارة دعائية قابلة للتحكم من لوحة التحكم */}
+        <section id="homepage-banner" className="homepage-banner" aria-label="Banner">
+          <div className="homepage-banner-bg" style={{ backgroundImage: `url(${baseUrl}/homepage/banner.png)` }} />
+          <div className="homepage-banner-overlay" />
+          <div className="homepage-banner-content">
+            <p className="homepage-banner-phrase">
+              {(language === 'ar' ? bannerPhrase.ar : bannerPhrase.en) || (language === 'ar' ? 'منصتك الاحترافية لأندية البادل — حجز، بطولات، ومجتمع' : 'Your professional padel club platform — booking, tournaments, and community')}
+            </p>
+            <button type="button" className="homepage-banner-cta" onClick={() => scrollTo('join')}>
+              {language === 'en' ? 'Get started' : 'ابدأ الآن'}
+            </button>
+          </div>
+        </section>
+
         {/* قسم دعائي رئيسي */}
         <section id="hero" className="hero">
           <div className={`hero-inner hero-inner-with-visual ${heroImageError ? 'hero-no-visual' : ''}`}>

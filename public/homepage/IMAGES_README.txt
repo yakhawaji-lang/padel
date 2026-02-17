@@ -7,4 +7,7 @@ Place the 7 homepage images here with these exact names (jpg or png):
   gallery-5.jpg  - Night padel, group with QR code
   gallery-6.jpg  - Celebratory group with success screen
 
+Banner (promotional phrase controlled from admin):
+  banner.png     - Main homepage banner image (collage: padel, app, QR, sunset). Used as full-width responsive banner.
+
 You can use .png instead of .jpg if needed; update HomePage.jsx image extensions to match.

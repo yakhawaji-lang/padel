@@ -106,6 +106,17 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
             </span>
           </Link>
         )}
+        {session && (
+          <Link
+            to="/admin/banner-settings"
+            className={`main-admin-nav-item ${isActive('/admin/banner-settings') ? 'active' : ''}`}
+          >
+            <span className="nav-icon">🖼️</span>
+            <span className="nav-label">
+              {language === 'en' ? 'Banner' : 'البنر'}
+            </span>
+          </Link>
+        )}
       </nav>
 
       <div className="clubs-quick-list">

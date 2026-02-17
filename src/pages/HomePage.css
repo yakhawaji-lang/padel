@@ -197,6 +197,78 @@
   }
 }
 
+/* ========== البنر الرئيسي (متجاوب، أجزاء شفافة) ========== */
+.homepage-banner {
+  position: relative;
+  width: 100%;
+  min-height: 40vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+@media (min-width: 768px) {
+  .homepage-banner { min-height: 50vh; }
+}
+@media (min-width: 1024px) {
+  .homepage-banner { min-height: 55vh; }
+}
+@media (min-width: 1280px) {
+  .homepage-banner { min-height: 60vh; }
+}
+.homepage-banner-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: #0f172a;
+}
+.homepage-banner-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(15, 23, 42, 0.25) 0%, rgba(15, 23, 42, 0.5) 40%, rgba(15, 23, 42, 0.75) 100%);
+  pointer-events: none;
+}
+.homepage-banner-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  max-width: 720px;
+}
+.homepage-banner-phrase {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  margin: 0 0 1.25rem;
+  line-height: 1.5;
+}
+@media (min-width: 768px) {
+  .homepage-banner-phrase { font-size: 1.5rem; }
+}
+@media (min-width: 1024px) {
+  .homepage-banner-phrase { font-size: 1.75rem; }
+}
+.homepage-banner-cta {
+  background: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  transition: background 0.2s, transform 0.2s;
+}
+.homepage-banner-cta:hover {
+  background: #fff;
+  transform: translateY(-2px);
+}
+
 /* ========== القسم الدعائي الرئيسي ========== */
 .hero {
   background: linear-gradient(165deg, #f0f9ff 0%, #e0f2fe 30%, #f8fafc 70%, #ffffff 100%);
