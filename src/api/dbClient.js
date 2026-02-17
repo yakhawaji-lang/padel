@@ -300,17 +300,11 @@ export async function sendWhatsAppTestMessage(phone, text) {
 
 /** Upload homepage image (banner or gallery-1..6). image = data URL (data:image/png;base64,...) */
 export async function uploadHomepageImage(key, image) {
-  const res = await fetch(`${API_URL}/api/settings/homepage-image`, {
+  return fetchJson('/api/settings/homepage-image', {
     method: 'POST',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ key, image })
   })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || res.statusText)
-  }
-  return res.json()
 }
 
 // ---- Bookings (lock, confirm, cancel) ----

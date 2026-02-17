@@ -23,6 +23,7 @@ export default function PlatformSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState(null)
+  const [messageError, setMessageError] = useState(false)
   const [uploading, setUploading] = useState(null)
   const [selectedBannerFile, setSelectedBannerFile] = useState(null)
   const [selectedGalleryFiles, setSelectedGalleryFiles] = useState({})
@@ -39,12 +40,14 @@ export default function PlatformSettingsPage() {
   const handleSavePhrase = async (e) => {
     e.preventDefault()
     setMessage(null)
+    setMessageError(false)
     setSaving(true)
     try {
       await setStore(BANNER_PHRASE_KEY, { ar: phraseAr.trim(), en: phraseEn.trim() })
       setMessage(language === 'ar' ? 'تم الحفظ.' : 'Saved.')
     } catch (err) {
       setMessage(language === 'ar' ? 'فشل الحفظ.' : 'Save failed.')
+      setMessageError(true)
     } finally {
       setSaving(false)
     }
@@ -54,14 +57,21 @@ export default function PlatformSettingsPage() {
     if (!file || !file.type.startsWith('image/')) return
     setUploading(key)
     setMessage(null)
+    setMessageError(false)
     try {
       const dataUrl = await readFileAsDataUrl(file)
+      if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
+        throw new Error(language === 'ar' ? 'قراءة الملف فشلت.' : 'Failed to read file.')
+      }
       await uploadHomepageImage(key, dataUrl)
       setMessage(language === 'ar' ? `تم رفع ${key}.` : `Uploaded ${key}.`)
+      setMessageError(false)
       if (key === 'banner') setSelectedBannerFile(null)
       else setSelectedGalleryFiles((prev) => ({ ...prev, [key]: null }))
     } catch (err) {
-      setMessage(err?.message || (language === 'ar' ? 'فشل الرفع.' : 'Upload failed.'))
+      const msg = err?.message || (language === 'ar' ? 'فشل الرفع.' : 'Upload failed.')
+      setMessage(msg)
+      setMessageError(true)
     } finally {
       setUploading(null)
     }
@@ -88,7 +98,7 @@ export default function PlatformSettingsPage() {
   return (
     <div className="main-admin-page" style={{ padding: 24, maxWidth: 640 }}>
       <h1 className="main-admin-page-title" style={{ marginBottom: 24 }}>{c.title}</h1>
-      {message && <p style={{ marginBottom: 16, color: '#059669', fontSize: '0.9rem' }}>{message}</p>}
+      {message && <p style={{ marginBottom: 16, color: messageError ? '#dc2626' : '#059669', fontSize: '0.9rem' }}>{message}</p>}
 
       <section style={{ marginBottom: 32 }}>
         <h2 style={{ fontSize: '1.125rem', marginBottom: 8 }}>{c.bannerTitle}</h2>

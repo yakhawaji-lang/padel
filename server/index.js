@@ -35,6 +35,8 @@ const PORT = process.env.PORT || 4000
 const HOST = process.env.HOST || '0.0.0.0'
 
 app.use(cors({ origin: true, credentials: true }))
+// Settings upload uses large base64 bodies; must be before global json parser
+app.use('/api/settings', express.json({ limit: '50mb' }), settingsUploadRouter)
 app.use(express.json({ limit: '10mb' }))
 
 app.use('/api/store', storeRouter)
@@ -47,7 +49,6 @@ app.use('/api/init-db', initDbRouter)
 app.use('/api/data', dataRouter)
 app.use('/api/bookings', bookingsRouter)
 app.use('/api/clubs', clubsRouter)
-app.use('/api/settings', settingsUploadRouter)
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, db: isConnected() })

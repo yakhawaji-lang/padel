@@ -17,7 +17,11 @@ const router = Router()
 
 router.post('/homepage-image', (req, res) => {
   try {
-    const { key, image } = req.body || {}
+    const body = req.body
+    if (!body || typeof body !== 'object') {
+      return res.status(400).json({ error: 'Missing or invalid body (check Content-Type and size limit)' })
+    }
+    const { key, image } = body
     if (!key || !ALLOWED_KEYS.includes(key)) {
       return res.status(400).json({ error: 'Invalid key. Use: banner, gallery-1, ... gallery-6' })
     }
@@ -36,6 +40,7 @@ router.post('/homepage-image', (req, res) => {
     if (!existsSync(HOMEPAGE_DIR)) mkdirSync(HOMEPAGE_DIR, { recursive: true })
     const filePath = join(HOMEPAGE_DIR, `${key}.${ext}`)
     writeFileSync(filePath, buf)
+    console.log('[settingsUpload] Saved', filePath)
     return res.json({ ok: true, path: `/homepage/${key}.${ext}` })
   } catch (e) {
     console.error('[settingsUpload]', e)
