@@ -24,6 +24,8 @@ export default function PlatformSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState(null)
   const [uploading, setUploading] = useState(null)
+  const [selectedBannerFile, setSelectedBannerFile] = useState(null)
+  const [selectedGalleryFiles, setSelectedGalleryFiles] = useState({})
 
   useEffect(() => {
     getStore(BANNER_PHRASE_KEY).then((v) => {
@@ -51,12 +53,15 @@ export default function PlatformSettingsPage() {
   const handleFileUpload = async (key, file) => {
     if (!file || !file.type.startsWith('image/')) return
     setUploading(key)
+    setMessage(null)
     try {
       const dataUrl = await readFileAsDataUrl(file)
       await uploadHomepageImage(key, dataUrl)
       setMessage(language === 'ar' ? `تم رفع ${key}.` : `Uploaded ${key}.`)
+      if (key === 'banner') setSelectedBannerFile(null)
+      else setSelectedGalleryFiles((prev) => ({ ...prev, [key]: null }))
     } catch (err) {
-      setMessage((err?.message || (language === 'ar' ? 'فشل الرفع.' : 'Upload failed.')))
+      setMessage(err?.message || (language === 'ar' ? 'فشل الرفع.' : 'Upload failed.'))
     } finally {
       setUploading(null)
     }
@@ -103,8 +108,13 @@ export default function PlatformSettingsPage() {
         </form>
         <div className="form-group">
           <label style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>{c.uploadBanner}</label>
-          <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload('banner', f); e.target.value = ''; }} disabled={uploading === 'banner'} />
-          {uploading === 'banner' && <span style={{ marginLeft: 8, fontSize: '0.85rem', color: '#64748b' }}>{language === 'ar' ? 'جاري الرفع...' : 'Uploading...'}</span>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) setSelectedBannerFile(f); e.target.value = ''; }} disabled={!!uploading} />
+            <button type="button" disabled={!selectedBannerFile || uploading === 'banner'} onClick={() => selectedBannerFile && handleFileUpload('banner', selectedBannerFile)} style={{ padding: '8px 16px', background: selectedBannerFile && uploading !== 'banner' ? '#0f172a' : '#94a3b8', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 500, cursor: selectedBannerFile && uploading !== 'banner' ? 'pointer' : 'not-allowed' }}>
+              {uploading === 'banner' ? (language === 'ar' ? 'جاري الرفع...' : 'Uploading...') : c.upload}
+            </button>
+          </div>
+          {selectedBannerFile && uploading !== 'banner' && <p style={{ marginTop: 6, fontSize: '0.85rem', color: '#64748b' }}>{selectedBannerFile.name}</p>}
         </div>
       </section>
 
@@ -115,8 +125,11 @@ export default function PlatformSettingsPage() {
           {GALLERY_KEYS.map((key) => (
             <div key={key} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
               <label style={{ display: 'block', fontWeight: 500, marginBottom: 6 }}>{key}</label>
-              <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(key, f); e.target.value = ''; }} disabled={!!uploading} style={{ fontSize: '0.85rem' }} />
-              {uploading === key && <p style={{ marginTop: 6, fontSize: '0.8rem', color: '#64748b' }}>{language === 'ar' ? 'جاري الرفع...' : 'Uploading...'}</p>}
+              <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) setSelectedGalleryFiles((prev) => ({ ...prev, [key]: f })); e.target.value = ''; }} disabled={!!uploading} style={{ fontSize: '0.85rem', marginBottom: 6 }} />
+              <button type="button" disabled={!selectedGalleryFiles[key] || !!uploading} onClick={() => selectedGalleryFiles[key] && handleFileUpload(key, selectedGalleryFiles[key])} style={{ padding: '6px 12px', background: selectedGalleryFiles[key] && !uploading ? '#0f172a' : '#94a3b8', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 500, cursor: selectedGalleryFiles[key] && !uploading ? 'pointer' : 'not-allowed', fontSize: '0.85rem', width: '100%' }}>
+                {uploading === key ? (language === 'ar' ? 'جاري الرفع...' : 'Uploading...') : c.upload}
+              </button>
+              {selectedGalleryFiles[key] && uploading !== key && <p style={{ marginTop: 6, fontSize: '0.8rem', color: '#64748b', wordBreak: 'break-all' }}>{selectedGalleryFiles[key].name}</p>}
             </div>
           ))}
         </div>
