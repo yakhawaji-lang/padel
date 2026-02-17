@@ -95,6 +95,17 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
             </span>
           </Link>
         )}
+        {session && (
+          <Link
+            to="/admin/whatsapp-test"
+            className={`main-admin-nav-item ${isActive('/admin/whatsapp-test') ? 'active' : ''}`}
+          >
+            <span className="nav-icon">💬</span>
+            <span className="nav-label">
+              {language === 'en' ? 'WhatsApp test' : 'تجربة واتساب'}
+            </span>
+          </Link>
+        )}
       </nav>
 
       <div className="clubs-quick-list">

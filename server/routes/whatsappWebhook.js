@@ -3,6 +3,7 @@
  * Mirrors api/whatsapp-webhook.js for development
  */
 import { Router } from 'express'
+import { sendWhatsAppText } from '../services/whatsappSend.js'
 
 const router = Router()
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'playtix_whatsapp_verify'
@@ -34,6 +35,26 @@ router.post('/', (req, res) => {
         value.statuses.forEach(s => console.log('[WhatsApp] Status', s.status))
       }
     }
+  }
+})
+
+/** POST /api/whatsapp-webhook/send - send a test WhatsApp text message (for admin test page) */
+router.post('/send', async (req, res) => {
+  try {
+    const { phone, text } = req.body || {}
+    const phoneStr = typeof phone === 'string' ? phone.trim() : (phone != null ? String(phone) : '')
+    const textStr = typeof text === 'string' ? text.trim() : (text != null ? String(text) : '')
+    if (!phoneStr || !textStr) {
+      return res.status(400).json({ error: 'phone and text are required' })
+    }
+    const result = await sendWhatsAppText(phoneStr, textStr)
+    if (!result.ok) {
+      return res.status(400).json({ error: result.error || 'Send failed' })
+    }
+    return res.json({ ok: true, messageId: result.messageId })
+  } catch (e) {
+    console.error('[WhatsApp send API]', e)
+    return res.status(500).json({ error: e.message || 'Server error' })
   }
 })
 

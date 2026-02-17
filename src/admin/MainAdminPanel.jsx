@@ -9,6 +9,7 @@ import AllClubsManagement from './pages/AllClubsManagement'
 import AdminUsersManagement from './pages/AdminUsersManagement'
 import AllMembersManagement from './pages/AllMembersManagement'
 import AllBookingsDashboard from './pages/AllBookingsDashboard'
+import WhatsAppTestPage from './pages/WhatsAppTestPage'
 import PlatformPageGuard from '../components/PlatformPageGuard'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { AdminPanelProvider } from './AdminPanelContext'
@@ -171,6 +172,9 @@ function MainAdminPanel() {
     }
     if (path === 'all-bookings') {
       return <PlatformPageGuard permission="all-clubs"><AllBookingsDashboard language={language} /></PlatformPageGuard>
+    }
+    if (path === 'whatsapp-test') {
+      return <WhatsAppTestPage />
     }
     return <AllClubsDashboard />
   }

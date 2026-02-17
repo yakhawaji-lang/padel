@@ -291,6 +291,13 @@ export async function changeMemberPassword(memberId, currentPassword, newPasswor
   })
 }
 
+export async function sendWhatsAppTestMessage(phone, text) {
+  return fetchJson('/api/whatsapp-webhook/send', {
+    method: 'POST',
+    body: JSON.stringify({ phone, text })
+  })
+}
+
 // ---- Bookings (lock, confirm, cancel) ----
 
 export async function getBookingLocks(clubId, date) {
