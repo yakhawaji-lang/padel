@@ -40,6 +40,7 @@ const HomePage = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [language, setLanguage] = useState(getAppLanguage())
   const [navOpen, setNavOpen] = useState(false)
+  const [heroImageError, setHeroImageError] = useState(false)
 
   useEffect(() => {
     const load = () => setClubs(loadClubs())
@@ -325,6 +326,17 @@ const HomePage = () => {
 
   const c = t[language]
 
+  const baseUrl = typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL ? import.meta.env.BASE_URL.replace(/\/$/, '') : ''
+  const homepageImages = [
+    { src: `${baseUrl}/homepage/hero.jpg`, alt: 'PlayTix on padel court' },
+    { src: `${baseUrl}/homepage/gallery-1.jpg`, alt: 'PlayTix stadium and app' },
+    { src: `${baseUrl}/homepage/gallery-2.jpg`, alt: 'PlayTix community and management' },
+    { src: `${baseUrl}/homepage/gallery-3.jpg`, alt: 'PlayTix booking and entry' },
+    { src: `${baseUrl}/homepage/gallery-4.jpg`, alt: 'PlayTix with friends' },
+    { src: `${baseUrl}/homepage/gallery-5.jpg`, alt: 'PlayTix QR and court' },
+    { src: `${baseUrl}/homepage/gallery-6.jpg`, alt: 'PlayTix success' }
+  ]
+
   const scrollTo = (id) => {
     const el = document.getElementById(id)
     if (el) el.scrollIntoView({ behavior: 'smooth' })
@@ -348,6 +360,7 @@ const HomePage = () => {
               <a href="#services" onClick={(e) => { e.preventDefault(); scrollTo('services') }}>{c.nav.services}</a>
               <a href="#features" onClick={(e) => { e.preventDefault(); scrollTo('features') }}>{c.nav.features}</a>
               <a href="#highlights" onClick={(e) => { e.preventDefault(); scrollTo('highlights') }}>{language === 'en' ? 'Why PlayTix' : 'لماذا PlayTix'}</a>
+              <a href="#homepage-gallery" onClick={(e) => { e.preventDefault(); scrollTo('homepage-gallery') }}>{language === 'en' ? 'Gallery' : 'المعرض'}</a>
               <a href="#about" onClick={(e) => { e.preventDefault(); scrollTo('about') }}>{c.nav.about}</a>
               <a href="#join" onClick={(e) => { e.preventDefault(); scrollTo('join') }}>{language === 'en' ? 'Join' : 'انضم'}</a>
               <a href="#clubs" onClick={(e) => { e.preventDefault(); scrollTo('clubs') }}>{language === 'en' ? 'Clubs' : 'النوادي'}</a>
@@ -362,14 +375,44 @@ const HomePage = () => {
       <main>
         {/* قسم دعائي رئيسي */}
         <section id="hero" className="hero">
-          <div className="hero-inner">
-            <img src="/logo-playtix.png" alt="PlayTix" className="hero-logo" />
-            <h1 className="hero-title">{c.hero.title}</h1>
-            <p className="hero-subtitle">{c.hero.subtitle}</p>
-            <button type="button" className="hero-cta" onClick={() => scrollTo('join')}>
-              {c.hero.cta}
-            </button>
-            <p className="hero-tagline">{c.hero.tagline}</p>
+          <div className={`hero-inner hero-inner-with-visual ${heroImageError ? 'hero-no-visual' : ''}`}>
+            <div className="hero-content">
+              <img src="/logo-playtix.png" alt="PlayTix" className="hero-logo" />
+              <h1 className="hero-title">{c.hero.title}</h1>
+              <p className="hero-subtitle">{c.hero.subtitle}</p>
+              <button type="button" className="hero-cta" onClick={() => scrollTo('join')}>
+                {c.hero.cta}
+              </button>
+              <p className="hero-tagline">{c.hero.tagline}</p>
+            </div>
+            <div className="hero-visual" style={{ display: heroImageError ? 'none' : undefined }}>
+              <img
+                src={homepageImages[0].src}
+                alt={homepageImages[0].alt}
+                className="hero-img"
+                loading="eager"
+                onError={() => setHeroImageError(true)}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* معرض الصور — لحظات من PlayTix */}
+        <section id="homepage-gallery" className="section homepage-gallery">
+          <div className="section-inner">
+            <h2 className="section-title">
+              {language === 'en' ? 'Experience PlayTix' : 'لحظات من PlayTix'}
+            </h2>
+            <p className="section-intro">
+              {language === 'en' ? 'Community, courts, and seamless booking — see how clubs and players use PlayTix.' : 'مجتمع، ملاعب، وحجز سلس — شاهد كيف يستخدم النوادي واللاعبون PlayTix.'}
+            </p>
+            <div className="homepage-gallery-grid">
+              {homepageImages.slice(1, 7).map((img, i) => (
+                <div key={i} className="homepage-gallery-item">
+                  <img src={img.src} alt={img.alt} loading="lazy" />
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
