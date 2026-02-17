@@ -6,13 +6,19 @@
 
 const GRAPH_BASE = 'https://graph.facebook.com/v21.0'
 
+/** Default country code when user enters local number (e.g. 05xxxxxxxx). Set WHATSAPP_DEFAULT_COUNTRY_CODE=966 for Saudi. */
+const DEFAULT_COUNTRY_CODE = (process.env.WHATSAPP_DEFAULT_COUNTRY_CODE || '966').replace(/\D/g, '') || '966'
+
 /** Normalize phone to E.164 digits only (no +). WhatsApp expects recipient number like 966501234567 */
 function toE164Digits(phone) {
   if (phone == null || typeof phone !== 'string') return null
   const digits = phone.replace(/\D/g, '')
   if (digits.length < 9) return null
-  // If starts with 0, assume local; caller can pass country code. Otherwise use as-is.
-  const normalized = digits.startsWith('0') ? digits.slice(1) : digits
+  let normalized = digits.startsWith('0') ? digits.slice(1) : digits
+  // If 9 digits and starts with 5 (e.g. Saudi mobile 5xxxxxxxx), prepend country code
+  if (normalized.length === 9 && normalized.startsWith('5') && DEFAULT_COUNTRY_CODE) {
+    normalized = DEFAULT_COUNTRY_CODE + normalized
+  }
   return normalized || null
 }
 
@@ -64,6 +70,7 @@ export async function sendWhatsAppText(toPhone, text) {
       return { ok: false, error: errMsg }
     }
     const messageId = data?.messages?.[0]?.id
+    if (messageId) console.log('[WhatsApp send] accepted message_id=', messageId, 'to=', to)
     return { ok: true, messageId }
   } catch (e) {
     console.error('[WhatsApp send]', e.message)

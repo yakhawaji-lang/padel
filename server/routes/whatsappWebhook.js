@@ -32,7 +32,9 @@ router.post('/', (req, res) => {
         value.messages.forEach(m => console.log('[WhatsApp] Message from', m.from, m.type))
       }
       if (value.statuses) {
-        value.statuses.forEach(s => console.log('[WhatsApp] Status', s.status))
+        value.statuses.forEach(s => {
+          console.log('[WhatsApp] Status', s.status, 'id=', s.id, 'recipient=', s.recipient_id, s.errors ? 'errors=' + JSON.stringify(s.errors) : '')
+        })
       }
     }
   }

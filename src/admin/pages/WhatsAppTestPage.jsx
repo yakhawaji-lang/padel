@@ -45,11 +45,22 @@ export default function WhatsAppTestPage() {
   return (
     <div className="main-admin-page" style={{ padding: 24, maxWidth: 480 }}>
       <h1 className="main-admin-page-title" style={{ marginBottom: 16 }}>{c.title}</h1>
-      <p style={{ color: '#64748b', marginBottom: 24, fontSize: '0.9rem' }}>
+      <p style={{ color: '#64748b', marginBottom: 12, fontSize: '0.9rem' }}>
         {language === 'ar'
           ? 'أدخل رقم الجوال (بدون + أو مسافات) ونص الرسالة. الرقم يجب أن يكون مسجلاً على واتساب.'
           : 'Enter phone number (without + or spaces) and message. The number must be registered on WhatsApp.'}
       </p>
+      <div style={{ marginBottom: 24, padding: 12, background: '#fef3c7', borderRadius: 8, fontSize: '0.85rem', color: '#92400e' }}>
+        {language === 'ar' ? (
+          <>• في <strong>وضع الاختبار</strong> يمكن الإرسال فقط إلى أرقام أضفتها كمتلقين اختبار في Meta (WhatsApp → API Setup).<br />
+          • استخدم رمز الدولة مع الرقم (مثل 966501234567 للسعودية).<br />
+          • الرسالة النصية الحرة تُقبل فقط خلال <strong>24 ساعة</strong> من آخر رسالة أرسلها المستلم إلى رقم واتساب الأعمال؛ وإلا استخدم قالب رسالة معتمد.</>
+        ) : (
+          <>• In <strong>test mode</strong> you can only send to phone numbers you added as test recipients in Meta (WhatsApp → API Setup).<br />
+          • Include country code (e.g. 966501234567 for Saudi).<br />
+          • Free-form text is only delivered within <strong>24 hours</strong> of the recipient’s last message to your business number; otherwise use an approved message template.</>
+        )}
+      </div>
       <form onSubmit={handleSubmit}>
         <div className="form-group" style={{ marginBottom: 16 }}>
           <label htmlFor="wa-phone" style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>{c.phone}</label>
