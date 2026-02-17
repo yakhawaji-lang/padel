@@ -4,7 +4,7 @@
  * If either is missing, send is skipped (no error thrown).
  */
 
-const GRAPH_BASE = 'https://graph.facebook.com/v18.0'
+const GRAPH_BASE = 'https://graph.facebook.com/v21.0'
 
 /** Normalize phone to E.164 digits only (no +). WhatsApp expects recipient number like 966501234567 */
 function toE164Digits(phone) {
@@ -56,7 +56,10 @@ export async function sendWhatsAppText(toPhone, text) {
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-      const errMsg = data?.error?.message || data?.error?.error_user_msg || `HTTP ${res.status}`
+      let errMsg = data?.error?.message || data?.error?.error_user_msg || `HTTP ${res.status}`
+      if (/Object with ID .* does not exist|missing permissions|does not support this operation/i.test(errMsg)) {
+        errMsg += ' — تأكد: 1) استخدام Phone number ID من WhatsApp → API Setup (وليس معرف الحساب WABA). 2) صلاحيات التوكن: whatsapp_business_messaging و business_management. 3) التوكن المؤقت ينتهي بعد 24 ساعة؛ أنشئ توكناً دائماً من System User.'
+      }
       console.error('[WhatsApp send]', res.status, errMsg, data)
       return { ok: false, error: errMsg }
     }

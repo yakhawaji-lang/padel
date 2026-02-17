@@ -98,6 +98,33 @@ WHATSAPP_PHONE_NUMBER_ID=...   # معرف رقم الهاتف من نفس الص
 
 ---
 
+## استكشاف الأخطاء: "Object with ID does not exist" أو "missing permissions"
+
+عند إرسال رسالة واتساب من النظام أو من صفحة التجربة، إن ظهر خطأ مثل:
+**"Unsupported post request. Object with ID '...' does not exist, cannot be loaded due to missing permissions"**
+
+تحقق من التالي:
+
+1. **استخدام Phone number ID الصحيح (وليس WABA ID)**  
+   في [developers.facebook.com](https://developers.facebook.com) → تطبيقك → **WhatsApp** → **API Setup** ستجد:
+   - **WhatsApp Business Account ID** (معرف الحساب) — **لا تستخدمه** في `WHATSAPP_PHONE_NUMBER_ID`.
+   - **Phone number ID** (معرف رقم الهاتف) — رقم مختلف، يظهر بجانب رقم الهاتف الاختباري. **هذا** هو الذي تضعه في `WHATSAPP_PHONE_NUMBER_ID` في `.env`.
+
+2. **صلاحيات التوكن (Access token)**  
+   التوكن يجب أن يضم صلاحيات مثل:
+   - `whatsapp_business_messaging`
+   - `whatsapp_business_management`
+   - `business_management`  
+   أنشئ توكناً من **System User** في Business Settings وربطه بتطبيقك مع هذه الصلاحيات، أو استخدم التوكن من API Setup مع التأكد من الصلاحيات.
+
+3. **انتهاء التوكن المؤقت**  
+   التوكن المؤقت من لوحة API Setup ينتهي بعد مدة (مثلاً 24 ساعة). للاستخدام الدائم أنشئ **System User** في Meta Business Suite وولّد توكناً دائماً وضعه في `WHATSAPP_ACCESS_TOKEN`.
+
+4. **رقم الهاتف مسجّل ومفعّل**  
+   من API Setup تأكد أن رقم واتساب التجاري بحالة "Connected" أو "Registered" وليس "Pending" أو غير مسجّل.
+
+---
+
 ## ملاحظات
 
 - **التطبيق غير منشور:** Meta يرسل اختبارات فقط من لوحة التطبيق. لن تصل رسائل حقيقية حتى ينشر التطبيق.
