@@ -41,7 +41,6 @@ const HomePage = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [language, setLanguage] = useState(getAppLanguage())
   const [navOpen, setNavOpen] = useState(false)
-  const [heroImageError, setHeroImageError] = useState(false)
   const [bannerPhrase, setBannerPhrase] = useState({ ar: '', en: '' })
 
   useEffect(() => {
@@ -335,8 +334,7 @@ const HomePage = () => {
   const c = t[language]
 
   const baseUrl = typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL ? import.meta.env.BASE_URL.replace(/\/$/, '') : ''
-  const homepageImages = [
-    { src: `${baseUrl}/homepage/hero.jpg`, alt: 'PlayTix on padel court' },
+  const galleryImages = [
     { src: `${baseUrl}/homepage/gallery-1.jpg`, alt: 'PlayTix stadium and app' },
     { src: `${baseUrl}/homepage/gallery-2.jpg`, alt: 'PlayTix community and management' },
     { src: `${baseUrl}/homepage/gallery-3.jpg`, alt: 'PlayTix booking and entry' },
@@ -356,7 +354,7 @@ const HomePage = () => {
       {/* قائمة علوية احترافية */}
       <header className="site-header">
         <div className="header-inner">
-          <a href="#" className="site-logo" onClick={(e) => { e.preventDefault(); scrollTo('hero') }}>
+          <a href="#" className="site-logo" onClick={(e) => { e.preventDefault(); scrollTo('homepage-banner') }}>
             <img src="/logo-playtix.png" alt="PlayTix" className="site-logo-img" />
           </a>
           <button type="button" className="nav-toggle" aria-label="Menu" onClick={() => setNavOpen(!navOpen)}>
@@ -364,7 +362,7 @@ const HomePage = () => {
           </button>
           <nav className={`site-nav ${navOpen ? 'open' : ''}`}>
             <div className="site-nav-links">
-              <a href="#hero" onClick={(e) => { e.preventDefault(); scrollTo('hero') }}>{c.nav.home}</a>
+              <a href="#homepage-banner" onClick={(e) => { e.preventDefault(); scrollTo('homepage-banner') }}>{c.nav.home}</a>
               <a href="#services" onClick={(e) => { e.preventDefault(); scrollTo('services') }}>{c.nav.services}</a>
               <a href="#features" onClick={(e) => { e.preventDefault(); scrollTo('features') }}>{c.nav.features}</a>
               <a href="#highlights" onClick={(e) => { e.preventDefault(); scrollTo('highlights') }}>{language === 'en' ? 'Why PlayTix' : 'لماذا PlayTix'}</a>
@@ -395,31 +393,7 @@ const HomePage = () => {
           </div>
         </section>
 
-        {/* قسم دعائي رئيسي */}
-        <section id="hero" className="hero">
-          <div className={`hero-inner hero-inner-with-visual ${heroImageError ? 'hero-no-visual' : ''}`}>
-            <div className="hero-content">
-              <img src="/logo-playtix.png" alt="PlayTix" className="hero-logo" />
-              <h1 className="hero-title">{c.hero.title}</h1>
-              <p className="hero-subtitle">{c.hero.subtitle}</p>
-              <button type="button" className="hero-cta" onClick={() => scrollTo('join')}>
-                {c.hero.cta}
-              </button>
-              <p className="hero-tagline">{c.hero.tagline}</p>
-            </div>
-            <div className="hero-visual" style={{ display: heroImageError ? 'none' : undefined }}>
-              <img
-                src={homepageImages[0].src}
-                alt={homepageImages[0].alt}
-                className="hero-img"
-                loading="eager"
-                onError={() => setHeroImageError(true)}
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* معرض الصور — لحظات من PlayTix */}
+        {/* معرض الصور — Experience PlayTix */}
         <section id="homepage-gallery" className="section homepage-gallery">
           <div className="section-inner">
             <h2 className="section-title">
@@ -429,7 +403,7 @@ const HomePage = () => {
               {language === 'en' ? 'Community, courts, and seamless booking — see how clubs and players use PlayTix.' : 'مجتمع، ملاعب، وحجز سلس — شاهد كيف يستخدم النوادي واللاعبون PlayTix.'}
             </p>
             <div className="homepage-gallery-grid">
-              {homepageImages.slice(1, 7).map((img, i) => (
+              {galleryImages.map((img, i) => (
                 <div key={i} className="homepage-gallery-item">
                   <img src={img.src} alt={img.alt} loading="lazy" />
                 </div>

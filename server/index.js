@@ -26,6 +26,7 @@ import initDbRouter from './routes/initDb.js'
 import dataRouter from './routes/data.js'
 import bookingsRouter from './routes/bookings.js'
 import clubsRouter from './routes/clubs.js'
+import settingsUploadRouter from './routes/settingsUpload.js'
 import { isConnected, getDbDiagnostics, getCurrentDatabase } from './db/pool.js'
 import { startBookingJobs } from './jobs/bookingJobs.js'
 
@@ -46,6 +47,7 @@ app.use('/api/init-db', initDbRouter)
 app.use('/api/data', dataRouter)
 app.use('/api/bookings', bookingsRouter)
 app.use('/api/clubs', clubsRouter)
+app.use('/api/settings', settingsUploadRouter)
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, db: isConnected() })

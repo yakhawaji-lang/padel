@@ -298,6 +298,14 @@ export async function sendWhatsAppTestMessage(phone, text) {
   })
 }
 
+/** Upload homepage image (banner or gallery-1..6). image = data URL (data:image/png;base64,...) */
+export async function uploadHomepageImage(key, image) {
+  return fetchJson('/api/settings/homepage-image', {
+    method: 'POST',
+    body: JSON.stringify({ key, image })
+  })
+}
+
 // ---- Bookings (lock, confirm, cancel) ----
 
 export async function getBookingLocks(clubId, date) {
