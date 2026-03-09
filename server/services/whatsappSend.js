@@ -157,3 +157,23 @@ export async function sendWhatsAppText(toPhone, text) {
   }
   return sendViaMeta(toPhone, body)
 }
+
+/** Professional welcome message for new platform registration */
+export function getRegistrationWelcomeMessage(name = '') {
+  const greeting = name ? `مرحباً ${name.trim()}،` : 'مرحباً بك،'
+  return `${greeting}
+
+نرحب بانضمامك إلى منصة PlayTix لإدارة رياضة البادل. يمكنك الآن تصفح النوادي، حجز الملاعب، والمشاركة في البطولات والمنافسات.
+
+نتمنى لك تجربة استثنائية على منصتنا!`
+}
+
+/** Professional welcome message when joining a club */
+export function getClubWelcomeMessage(clubName) {
+  const club = (clubName || 'النادي').toString().trim()
+  return `مرحباً بك في نادي ${club}!
+
+نرحب بانضمامك كعضو في النادي. يمكنك الآن حجز الملاعب، المشاركة في البطولات، والاستفادة من مزايا العضوية الحصرية.
+
+نتمنى لك أوقاتاً ممتعة على الملاعب!`
+}

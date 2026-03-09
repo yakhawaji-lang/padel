@@ -13,6 +13,7 @@ function formatPhoneFromUrl(s) {
 }
 import { getCurrentPlatformUser, setCurrentPlatformUser } from '../storage/platformAuth'
 import { upsertMember, getMergedMembersRaw, addMemberToClub } from '../storage/adminStorage'
+import { sendRegistrationWelcome } from '../api/dbClient'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './Register.css'
 
@@ -168,6 +169,10 @@ const Register = () => {
       }
     }
     setCurrentPlatformUser(newMember.id)
+    const phone = (newMember.phone || newMember.mobile || formData.phone || '').trim()
+    if (phone && phone.replace(/\D/g, '').length >= 9) {
+      sendRegistrationWelcome(phone, newMember.name).catch(() => {})
+    }
     if (returnTo && returnTo.startsWith('/')) {
       navigate(returnTo, { replace: true })
       return

@@ -3,7 +3,7 @@
  * Mirrors api/whatsapp-webhook.js for development
  */
 import { Router } from 'express'
-import { sendWhatsAppText } from '../services/whatsappSend.js'
+import { sendWhatsAppText, getRegistrationWelcomeMessage } from '../services/whatsappSend.js'
 
 const router = Router()
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'playtix_whatsapp_verify'
@@ -37,6 +37,26 @@ router.post('/', (req, res) => {
         })
       }
     }
+  }
+})
+
+/** POST /api/whatsapp-webhook/welcome - send registration welcome (called from Register.jsx) */
+router.post('/welcome', async (req, res) => {
+  try {
+    const { phone, name } = req.body || {}
+    const phoneStr = typeof phone === 'string' ? phone.trim() : (phone != null ? String(phone) : '')
+    if (!phoneStr || phoneStr.replace(/\D/g, '').length < 9) {
+      return res.status(400).json({ error: 'Valid phone required' })
+    }
+    const msg = getRegistrationWelcomeMessage(name || '')
+    const result = await sendWhatsAppText(phoneStr, msg)
+    if (!result.ok) {
+      return res.status(400).json({ error: result.error || 'Send failed' })
+    }
+    return res.json({ ok: true, messageId: result.messageId })
+  } catch (e) {
+    console.error('[WhatsApp welcome API]', e)
+    return res.status(500).json({ error: e.message || 'Server error' })
   }
 })
 

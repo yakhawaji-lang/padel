@@ -306,6 +306,18 @@ export async function sendWhatsAppTestMessage(phone, text) {
   })
 }
 
+/** Send registration welcome WhatsApp (fire-and-forget, don't block UI) */
+export async function sendRegistrationWelcome(phone, name) {
+  try {
+    await fetchJson('/api/whatsapp-webhook/welcome', {
+      method: 'POST',
+      body: JSON.stringify({ phone: phone || '', name: name || '' })
+    })
+  } catch (e) {
+    console.warn('[sendRegistrationWelcome]', e?.message)
+  }
+}
+
 /** Upload homepage image (banner or gallery-1..6). image = data URL (data:image/png;base64,...) */
 export async function uploadHomepageImage(key, image) {
   return fetchJson('/api/settings/homepage-image', {

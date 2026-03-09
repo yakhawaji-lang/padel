@@ -5,6 +5,7 @@ import { Router } from 'express'
 import { query } from '../db/pool.js'
 import { hasNormalizedTables } from '../db/normalizedData.js'
 import { addMemberToClub } from '../services/membershipService.js'
+import { sendWhatsAppText, getClubWelcomeMessage } from '../services/whatsappSend.js'
 
 const router = Router()
 
@@ -63,6 +64,21 @@ router.post('/join', async (req, res) => {
       }
     }
     await addMemberToClub(mid, cid)
+
+    // Send club welcome WhatsApp (fire-and-forget)
+    try {
+      const { rows: memberRows2 } = await query('SELECT mobile FROM members WHERE id = ? AND deleted_at IS NULL', [mid])
+      const phone = memberRows2?.[0]?.mobile
+      if (phone && String(phone).replace(/\D/g, '').length >= 9) {
+        const { rows: clubRows2 } = await query('SELECT name, name_ar FROM clubs WHERE id = ? AND deleted_at IS NULL', [cid])
+        const clubName = clubRows2?.[0]?.name_ar || clubRows2?.[0]?.name || ''
+        const msg = getClubWelcomeMessage(clubName)
+        sendWhatsAppText(phone, msg).catch(e => console.warn('[WhatsApp club welcome]', e?.message))
+      }
+    } catch (waErr) {
+      console.warn('[WhatsApp club welcome]', waErr?.message)
+    }
+
     res.json({ ok: true })
   } catch (e) {
     console.error('clubs join error:', e)
