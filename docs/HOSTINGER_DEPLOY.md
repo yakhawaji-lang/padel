@@ -1,0 +1,324 @@
+# نشر PlayTix على Hostinger — playtix.app
+
+## دليل بناء الموقع من الصفر خطوة بخطوة
+
+---
+
+## نظرة عامة
+
+| البند | القيمة |
+|-------|--------|
+| **الدومين** | `playtix.app` |
+| **المنصة** | Hostinger Business (Cloud Hosting أو VPS يدعم Node.js) |
+| **قاعدة البيانات** | MySQL (من Hostinger) |
+| **المكدس** | Node.js 18+، React/Vite، Express |
+
+---
+
+## المرحلة 0: بناء محلي (اختياري — للتجربة قبل النشر)
+
+```bash
+git clone https://github.com/YOUR_USER/padel.git
+cd padel
+npm install
+```
+
+أنشئ ملف `.env` (انسخ من `.env.example`) وضع:
+```
+DATABASE_URL=mysql://root:@localhost:3306/padel_db
+VITE_USE_POSTGRES=true
+```
+
+```bash
+npm run build
+npm start
+```
+
+افتح `http://localhost:4000` — التطبيق يعمل محلياً.
+
+---
+
+## المرحلة 0: المتطلبات المسبقة
+
+- [ ] حساب Hostinger Business أو VPS
+- [ ] الدومين `playtix.app` مُسجَّل ومُوجَّه إلى Hostinger (أو جاهز للربط)
+- [ ] مستودع GitHub للمشروع
+- [ ] معرفة بيانات MySQL من hPanel
+
+---
+
+## المرحلة 1: إنشاء قاعدة بيانات MySQL
+
+### 1.1 الدخول إلى لوحة التحكم
+1. hPanel → **Databases** → **MySQL Databases**
+2. اضغط **Create New Database**
+
+### 1.2 إدخال البيانات
+| الحقل | مثال | ملاحظة |
+|-------|------|--------|
+| Database name | `u502561206_padel_db` | Hostinger يضيف بادئة تلقائياً |
+| Username | `u502561206_padel_user` | |
+| Password | كلمة مرور قوية | احفظها |
+
+### 1.3 الحصول على بيانات الاتصال
+- من **Remote MySQL** أو **Manage** انسخ:
+  - **Host:** `srv2069.hstgr.io` أو `localhost` أو `127.0.0.1`
+  - اسم القاعدة والمستخدم
+
+### 1.4 صيغة DATABASE_URL
+```
+mysql://USERNAME:PASSWORD@HOST/DATABASE_NAME
+```
+
+**أمثلة:**
+```
+mysql://u502561206_padel_user:MyPass123@srv2069.hstgr.io/u502561206_padel_db
+mysql://u502561206_padel_user:MyPass123@127.0.0.1/u502561206_padel_db
+```
+
+**تحذيرات مهمة:**
+- عند ظهور `Access denied @'::1'` → استخدم `127.0.0.1` بدلاً من `localhost` (تفادي IPv6)
+- رمّز الأحرف الخاصة: `@` → `%40`، `%` → `%25`، `#` → `%23`
+
+---
+
+## المرحلة 2: إعداد التطبيق Node.js على Hostinger
+
+### 2.0 تشغيل التطبيق خارج public_html (مهم)
+
+اجعل مجلد المشروع (الذي يُحدَّث من GitHub) **خارج** `public_html` حتى لا يُستبدَل ملف `.env` أو `database.config.json` عند كل رفع من Git.
+
+**الهيكل المطلوب:**
+```
+domains/
+  playtix.app/
+    .env                      ← هنا (خارج مجلد المشروع، لا يُحذف عند Git pull)
+    database.config.json       ← هنا
+    padel/                    ← استنساخ Git هنا (Root directory للتطبيق)
+      server.js
+      dist/
+      ...
+    public_html/              ← يُحدَّث من server.js بنسخ dist فقط (لا يمسّه Git)
+      app/
+      index.html
+```
+
+**كيفية التطبيق:**
+- في Hostinger عند إنشاء تطبيق Node.js، إن أمكن: حدد **جذر التطبيق (Root directory)** بمجلد فرعي مثل `padel` أو `app` بحيث يكون المستودع يُستنسخ في `domains/playtix.app/padel` وليس داخل `public_html`.
+- إذا كان الاستنساخ يذهب تلقائياً إلى `public_html`: أنشئ مجلداً مثل `padel` بجانب `public_html` (في `domains/playtix.app/`) وربط استنساخ Git بهذا المجلد، ثم حدد هذا المجلد كجذر لتطبيق Node.js.
+- ضع ملف **`.env`** وملف **`database.config.json`** في مجلد **`domains/playtix.app/`** (المجلد الأب لمجلد المشروع) حتى لا يحذفهما Git عند السحب.
+
+التطبيق يقرأ `.env` من المجلد الحالي أو من المجلد الأب تلقائياً.
+
+### 2.1 إنشاء تطبيق Node.js
+1. hPanel → **Websites** → اختر الموقع (أو أنشئ موقعاً جديداً)
+2. **Node.js** أو **Add Website** → **Node.js Web App**
+3. اختر الدومين `playtix.app` أو أضفه لاحقاً
+
+### 2.2 ربط مستودع GitHub
+1. **Deploy from Git** / **Import Git repository**
+2. **Connect with GitHub** واختر المستودع والفرع (`main`)
+3. إن أمكن، حدد **Root directory** بمجلد خارج `public_html` (انظر 2.0)
+
+### 2.3 إعدادات البناء
+
+| الإعداد | القيمة |
+|---------|--------|
+| Framework preset | Express |
+| Entry file | `server.js` |
+| Node version | 20.x |
+| Build command | `npm run build` |
+| Start command | `npm start` |
+| Root directory | (اتركه فارغاً إن كان المشروع في الجذر) |
+
+### 2.4 متغيرات البيئة (Environment Variables)
+
+| Name | Value |
+|------|-------|
+| `DATABASE_URL` | `mysql://USER:PASS@127.0.0.1/DATABASE` ← استبدل بالقيم الفعلية |
+| `VITE_USE_POSTGRES` | `true` |
+| `BASE_URL` | `https://playtix.app/app` |
+
+**اختياري — استعادة كلمة المرور (Resend):**
+| Name | Value |
+|------|-------|
+| `RESEND_API_KEY` | مفتاح API من resend.com |
+| `RESEND_FROM` | `PlayTix <noreply@playtix.app>` (بعد التحقق من الدومين) |
+
+### 2.5 النشر
+اضغط **Deploy** وانتظر اكتمال البناء. راقب **Build logs** للتأكد من عدم وجود أخطاء.
+
+---
+
+## المرحلة 3: تهيئة قاعدة البيانات
+
+### 3.1 التحقق من الاتصال
+افتح في المتصفح:
+```
+https://playtix.app/api/health
+```
+يجب أن يعيد: `{"ok":true,"db":true}`
+
+### 3.2 التشخيص (إذا كانت db: false)
+```
+https://playtix.app/api/db-check
+```
+- `hasUrl: false` → أضف `DATABASE_URL` في Environment variables
+- `ENOTFOUND HOST` → استبدل أي placeholder بـ HOST الفعلي
+- `Access denied @'::1'` → استخدم `127.0.0.1` بدلاً من `localhost`
+
+### 3.2.1 إصلاح Connect timed out
+إذا ظهرت رسالة **Connect timed out** أو **The driver has not received any packets** (مع DBeaver أو التطبيق):
+
+1. **Remote MySQL في Hostinger:** hPanel → Databases → MySQL Databases → **Remote MySQL** → أضف عنوان IP:
+   - للتطبيق على Hostinger: استخدم `127.0.0.1` أو `localhost` (لا حاجة لـ Remote MySQL)
+   - للتطبيق خارج Hostinger أو DBeaver من جهازك: أضف IP جهازك أو السيرفر
+   - للتجربة السريعة: أضف `%` (يسمح لأي IP — استبدله لاحقاً بأمان)
+2. **تحقق من Host:** تأكد أنك تستخدم الـ host المعروض في hPanel (مثل `srvXXXX.hstgr.io` أو IP `77.37.35.74`) — قد يتغيّر
+3. **تأخير الشبكة:** تمت إضافة `connectTimeout: 60000` في الكود لزيادة مهلة الاتصال
+
+### 3.3 تهيئة الجداول
+**من المتصفح (الأسهل):**
+```
+https://playtix.app/api/init-db?init=1
+```
+
+**إعادة تهيئة كاملة (حذف كل البيانات وإعادة الإنشاء):**
+```
+https://playtix.app/api/init-db?reset=1
+```
+⚠️ يحذف جميع البيانات في `u502561206_padel_db` ويعيد إنشاء الجداول والبيانات الافتراضية.
+
+**من PowerShell:**
+```powershell
+Invoke-RestMethod -Uri "https://playtix.app/api/init-db?init=1"
+```
+
+**أو POST:**
+```powershell
+Invoke-RestMethod -Uri "https://playtix.app/api/init-db" -Method POST
+```
+
+### 3.4 التحقق من الجداول
+```
+https://playtix.app/api/init-db/tables
+```
+تأكد أن كل الجداول تظهر `exists: true`.
+
+### 3.5 ترحيل إعدادات الأندية وإضافة الملاعب الناقصة
+إذا كان لديك أندية من نسخة سابقة أو ناقصة ملاعب (مثل الملعب 4)، شغّل الترحيل:
+```
+https://playtix.app/api/init-db/migrate-club-settings
+```
+أو من PowerShell:
+```powershell
+Invoke-RestMethod -Uri "https://playtix.app/api/init-db/migrate-club-settings" -Method POST
+```
+
+### 3.6 تسجيل الدخول كمدير منصة
+- **البريد:** `2@2.com`
+- **كلمة المرور:** `123456`
+- **الرابط:** `https://playtix.app/app/admin-login`
+
+---
+
+## المرحلة 4: ربط الدومين playtix.app
+
+### 4.1 من لوحة Hostinger
+1. إعدادات التطبيق Node.js → **Domains**
+2. أضف `playtix.app` و `www.playtix.app` (اختياري)
+
+### 4.2 من مسجّل الدومين (Namecheap, Cloudflare, إلخ)
+- **A record:** يشير إلى عنوان IP المُعرَّض في Hostinger Domains
+- أو استخدم **Nameservers** الخاصة بـ Hostinger
+- انتظر انتشار DNS (عادة 15 دقيقة — 48 ساعة)
+
+---
+
+## المرحلة 5: ملف database.config.json و .env (خارج مجلد المشروع / public_html)
+
+على Hostinger، الطريقة الموصى بها: إنشاء الملفات **خارج** مجلد المشروع (الذي يُحدَّث من Git) حتى لا تُحذف عند كل Deploy من GitHub. ضعها في مجلد الدومين `domains/playtix.app/` (انظر الهيكل في المرحلة 2.0).
+
+### الهيكل المطلوب
+```
+domains/
+  playtix.app/
+    .env                    ← اختياري (أو استخدم Environment variables في لوحة Hostinger)
+    database.config.json   ← هنا (خارج public_html وخارج مجلد المشروع)
+    padel/                  ← مجلد المشروع من Git
+    public_html/            ← يُملأ من server.js بنسخ dist
+      ...
+```
+
+### الخطوات
+1. hPanel → **File Manager**
+2. ادخل إلى مجلد الدومين: `domains/playtix.app`
+3. **لا تدخل** إلى `public_html` ولا إلى مجلد المشروع — ابقَ في مجلد `playtix.app`
+4. أنشئ ملفاً باسم `database.config.json`
+5. المحتوى:
+```json
+{"url": "mysql://USERNAME:PASSWORD@127.0.0.1/DATABASE_NAME"}
+```
+6. احفظ ثم **Restart** للتطبيق
+
+التطبيق يبحث عن الملف في المجلد الحالي أو المجلد الأب تلقائياً. نفس الفكرة تنطبق على `.env`: ضعه في مجلد `playtix.app` (الأب لمجلد المشروع) حتى لا يحذفه Git عند السحب.
+
+---
+
+## استكشاف الأخطاء
+
+### 503 Service Unavailable
+1. **Application logs** — ابحث عن `[server.js] Starting...` و `Padel API running on`
+2. **Build logs** — تأكد أن البناء نجح (✓ built)
+3. **Entry file** = `server.js`، **Start command** = `npm start`
+4. تأكد أن خطة الاستضافة تدعم Node.js (Cloud Hosting أو VPS)
+
+### قاعدة البيانات لا تتصل
+- استخدم `/api/db-check` للتشخيص
+- راجع صيغة `DATABASE_URL` (يبدأ بـ `mysql://`)
+- جرّب `127.0.0.1` بدلاً من `localhost`
+- جرّب `database.config.json` كبديل
+
+### ملف .env يُحذف
+لا تعتمد على `.env` في Hostinger. استخدم **Environment variables** أو `database.config.json`.
+
+---
+
+## ملخص الروابط — playtix.app
+
+| الرابط | الوصف |
+|--------|-------|
+| `https://playtix.app/` | يُحوّل إلى `/app/` |
+| `https://playtix.app/app/` | التطبيق الرئيسي |
+| `https://playtix.app/app/admin-login` | دخول مدير المنصة |
+| `https://playtix.app/api/health` | فحص الحالة وقاعدة البيانات |
+| `https://playtix.app/api/db-check` | تشخيص قاعدة البيانات |
+| `https://playtix.app/api/init-db?init=1` | تهيئة الجداول (من المتصفح) |
+| `https://playtix.app/api/init-db?reset=1` | إعادة تهيئة كاملة (حذف وإعادة إنشاء) |
+| `https://playtix.app/api/init-db/tables` | التحقق من وجود الجداول |
+| `https://playtix.app/api/init-db/migrate-club-settings` | ترحيل إعدادات الأندية + إضافة الملاعب الناقصة (GET/POST) |
+| `https://playtix.app/api/init-db/migrate-to-normalized` | إنشاء الجداول المنظمة وترحيل البيانات من entities |
+| `https://playtix.app/api/init-db/init-relational` | تهيئة الجداول العلائقية الإضافية |
+| `https://playtix.app/api/init-db/stats` | إحصائيات (عدد الأندية، الأعضاء، المباريات) |
+| `https://playtix.app/api/init-db/purge-soft-deleted` | حذف السجلات المحذوفة نهائياً (بعد 3 أشهر) |
+
+### جدولة Purge (Cron)
+لحذف السجلات المحذوفة تلقائياً بعد 3 أشهر، أضف Cron Job يومي في Hostinger:
+- **المسار:** `curl -s "https://playtix.app/api/init-db/purge-soft-deleted"`
+- **التكرار:** يومياً (مثلاً الساعة 3 صباحاً)
+
+---
+
+## الجداول التي يتم إنشاؤها
+
+| الجدول | الوظيفة |
+|--------|---------|
+| `entities` | الأندية، الأعضاء، مدراء المنصة (للمرحمة) |
+| `clubs`, `members`, `platform_admins` | الجداول المنظمة الرئيسية |
+| `club_courts`, `club_settings`, `club_offers`, ... | جداول النادي المنظمة |
+| `audit_log` | سجل التدقيق |
+| `app_settings` | الإعدادات، اللغة، الجلسات |
+| `app_store` | ترحيل من نسخ قديمة |
+| `matches` | مباريات البطولات |
+| `member_stats` | إحصائيات الأعضاء |
+| `tournament_summaries` | ملخصات البطولات |

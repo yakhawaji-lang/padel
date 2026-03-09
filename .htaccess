@@ -1,0 +1,5 @@
+PassengerAppRoot /home/u502561206/domains/playtix.app/public_html
+PassengerAppType node
+PassengerNodejs /opt/alt/alt-nodejs20/root/bin/node
+PassengerStartupFile server.js
+PassengerBaseURI /

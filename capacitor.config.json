@@ -1,0 +1,18 @@
+{
+  "appId": "com.playtix.padel",
+  "appName": "PlayTix",
+  "webDir": "dist",
+  "server": {
+    "url": "http://10.0.2.2:3000/app/",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0,
+      "launchAutoHide": true
+    }
+  }
+}

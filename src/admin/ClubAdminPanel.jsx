@@ -1,0 +1,175 @@
+import React, { useState, useEffect } from 'react'
+import { Routes, Route, Navigate, useParams, useNavigate, useLocation } from 'react-router-dom'
+import './ClubAdminPanel.css'
+import './admin-rtl.css'
+import './pages/club-pages-common.css'
+import ClubAdminHeader from './components/ClubAdminHeader'
+import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
+import { setClubLanguage, getClubLanguageCached } from '../storage/appSettingsStorage'
+import ClubDashboard from './pages/ClubDashboard'
+import ClubMembersManagement from './pages/ClubMembersManagement'
+import ClubOffersManagement from './pages/ClubOffersManagement'
+import ClubStoreManagement from './pages/ClubStoreManagement'
+import ClubAccountingManagement from './pages/ClubAccountingManagement'
+import ClubSettings from './pages/ClubSettings'
+import ClubUsersManagement from './pages/ClubUsersManagement'
+import ClubBookingPrices from './pages/ClubBookingPrices'
+import ClubBookingsManagement from './pages/ClubBookingsManagement'
+import ClubPageGuard from '../components/ClubPageGuard'
+import { loadClubs, saveClubs, getClubById, syncMembersToClubsManually, refreshClubsFromApi } from '../storage/adminStorage'
+import { saveClubSettings } from '../api/dbClient'
+
+function ClubAdminPanel() {
+  const { clubId } = useParams()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [club, setClub] = useState(null)
+  const [clubs, setClubs] = useState([])
+  const [language, setLanguage] = useState(() => getAppLanguage())
+  const [isLoading, setIsLoading] = useState(true)
+
+  const loadData = async (silent = false) => {
+    if (!silent) setIsLoading(true)
+    try {
+      await refreshClubsFromApi()
+      syncMembersToClubsManually()
+      const allClubs = loadClubs()
+      setClubs(allClubs)
+      const foundClub = getClubById(clubId)
+      if (foundClub) {
+        setClub(foundClub)
+        if (!silent) {
+          const savedLang = getClubLanguageCached(clubId) || getAppLanguage()
+          setLanguage(savedLang)
+          setAppLanguage(savedLang)
+        }
+      } else {
+        navigate('/admin/all-clubs')
+      }
+    } finally {
+      if (!silent) setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [clubId, navigate])
+
+  useEffect(() => {
+    const onSynced = () => {
+      const allClubs = loadClubs()
+      setClubs(allClubs)
+      const foundClub = getClubById(clubId)
+      if (foundClub) setClub(foundClub)
+    }
+    window.addEventListener('clubs-synced', onSynced)
+    return () => window.removeEventListener('clubs-synced', onSynced)
+  }, [clubId])
+
+  // Refresh from API when tab visible (once) or every 3 min to reduce 504 load
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') loadData(true)
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') loadData(true)
+    }, 180000)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      clearInterval(interval)
+    }
+  }, [clubId])
+  
+  // Save language preference when it changes
+  useEffect(() => {
+    if (language) {
+      setAppLanguage(language)
+      if (clubId) setClubLanguage(clubId, language)
+    }
+  }, [clubId, language])
+
+  const handleClubUpdate = async (updates) => {
+    let updatedClub = { ...club, ...updates, updatedAt: new Date().toISOString() }
+    if (updates.settings) {
+      updatedClub.settings = { ...updatedClub.settings, ...updates.settings }
+    }
+    setClub(updatedClub)
+    let updatedClubs = clubs.map(c => c.id === clubId ? updatedClub : c)
+    setClubs(updatedClubs)
+    let settingsSaved = false
+    try {
+      if (updates.settings) {
+        await saveClubSettings(clubId, updates.settings)
+        settingsSaved = true
+      }
+      await saveClubs(updatedClubs)
+      await refreshClubsFromApi()
+      const allClubs = loadClubs()
+      setClubs(allClubs)
+      const found = getClubById(clubId)
+      if (found) setClub(found)
+    } catch (e) {
+      console.error('Save clubs failed:', e)
+      if (settingsSaved) {
+        await refreshClubsFromApi()
+        const allClubs = loadClubs()
+        setClubs(allClubs)
+        const found = getClubById(clubId)
+        if (found) setClub(found)
+      }
+      throw e
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div>Loading...</div>
+      </div>
+    )
+  }
+
+  if (!club) {
+    return null
+  }
+
+  const section = location.pathname.split('/').filter(Boolean).pop() || 'dashboard'
+
+  return (
+    <div className={`club-admin-panel club-admin-panel--${section} ${language === 'ar' ? 'rtl' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+      <div className="club-admin-content">
+        <ClubAdminHeader 
+          club={club}
+          language={language}
+          onLanguageChange={setLanguage}
+        />
+        {club.status === 'pending' && (
+          <div className="club-pending-banner" role="status">
+            <span className="club-pending-icon">⏳</span>
+            <div className="club-pending-content">
+              <strong>{language === 'en' ? 'Club pending approval' : 'النادي بانتظار الموافقة'}</strong>
+              <p>{language === 'en' ? 'Your registration is under review. You can explore the dashboard and prepare your club. Full access will be enabled once the platform admin approves your club.' : 'تسجيل ناديك قيد المراجعة. يمكنك استكشاف لوحة التحكم وإعداد النادي. سيتم تفعيل الوصول الكامل بعد موافقة مدير المنصة.'}</p>
+            </div>
+          </div>
+        )}
+        <main className="club-admin-main" data-section={section}>
+        <Routes>
+          <Route path="/" element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<ClubPageGuard permission="dashboard"><ClubDashboard club={club} /></ClubPageGuard>} />
+          <Route path="members" element={<ClubPageGuard permission="members"><ClubMembersManagement club={club} language={language} /></ClubPageGuard>} />
+          <Route path="bookings" element={<ClubPageGuard permission="dashboard"><ClubBookingsManagement club={club} language={language} onRefresh={() => loadData(true)} /></ClubPageGuard>} />
+          <Route path="offers" element={<ClubPageGuard permission="offers"><ClubOffersManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
+          <Route path="store" element={<ClubPageGuard permission="store"><ClubStoreManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
+          <Route path="accounting" element={<ClubPageGuard permission="accounting"><ClubAccountingManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
+          <Route path="booking-prices" element={<ClubPageGuard permission="settings"><ClubBookingPrices club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
+          <Route path="settings" element={<ClubPageGuard permission="settings"><ClubSettings club={club} language={language} onUpdateClub={handleClubUpdate} onDefaultLanguageChange={(lang) => { setLanguage(lang); setAppLanguage(lang); if (clubId) setClubLanguage(clubId, lang) }} /></ClubPageGuard>} />
+          <Route path="users" element={<ClubPageGuard permission="users"><ClubUsersManagement club={club} onUpdateClub={handleClubUpdate} language={language} /></ClubPageGuard>} />
+        </Routes>
+        </main>
+      </div>
+    </div>
+  )
+}
+
+export default ClubAdminPanel

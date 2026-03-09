@@ -1,0 +1,725 @@
+/* All Clubs Dashboard - Professional Design */
+
+.acd-page {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+/* ─── Header ─── */
+.acd-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.acd-header-content {
+  flex: 1;
+  min-width: 200px;
+}
+
+.acd-title {
+  margin: 0 0 6px 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.acd-subtitle {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.acd-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.acd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.acd-btn--primary {
+  background: #1e3a5f;
+  color: #fff;
+}
+
+.acd-btn--primary:hover {
+  background: #152a47;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(30, 58, 95, 0.25);
+}
+
+.acd-btn--secondary {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.acd-btn--secondary:hover {
+  background: #cbd5e1;
+  color: #1e293b;
+}
+
+.acd-btn--danger {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.acd-btn--danger:hover {
+  background: #fee2e2;
+}
+
+.acd-btn--danger-outline {
+  background: transparent;
+  color: #dc2626;
+  border: 1px solid #dc2626;
+}
+
+.acd-btn--danger-outline:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+.acd-btn--danger-solid {
+  background: #dc2626;
+  color: #fff;
+}
+
+.acd-btn--danger-solid:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.acd-btn--small {
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+}
+
+/* ─── Stats Grid ─── */
+.acd-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.acd-stat {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 18px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s;
+}
+
+.acd-stat:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.acd-stat-icon {
+  font-size: 2rem;
+  opacity: 0.9;
+}
+
+.acd-stat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.acd-stat-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.acd-stat-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.acd-stat-sublabel {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.acd-stat--primary { border-inline-start: 4px solid #3b82f6; }
+.acd-stat--success { border-inline-start: 4px solid #22c55e; }
+.acd-stat--info { border-inline-start: 4px solid #06b6d4; }
+.acd-stat--warning { border-inline-start: 4px solid #f59e0b; }
+.acd-stat--revenue { border-inline-start: 4px solid #8b5cf6; }
+.acd-stat--secondary { border-inline-start: 4px solid #64748b; }
+
+/* ─── Pending Section ─── */
+.acd-pending {
+  margin-bottom: 28px;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1px solid #fcd34d;
+  border-radius: 14px;
+}
+
+.acd-pending-title {
+  margin: 0 0 16px 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.acd-pending-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.acd-pending-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 20px;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #fde68a;
+}
+
+.acd-pending-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.acd-pending-info strong {
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.acd-pending-info span {
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.acd-pending-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ─── Controls ─── */
+.acd-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.acd-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+}
+
+.acd-search-input {
+  width: 100%;
+  padding: 10px 14px 10px 40px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  color: #0f172a;
+  transition: border-color 0.2s;
+}
+
+.acd-search-input:focus {
+  outline: none;
+  border-color: #1e3a5f;
+  box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
+}
+
+.acd-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1rem;
+  opacity: 0.5;
+}
+
+[dir="rtl"] .acd-search-input { padding-inline: 40px 14px; }
+[dir="rtl"] .acd-search-icon { left: auto; right: 12px; }
+
+.acd-sort-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.acd-sort-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.acd-sort-select {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  background: #fff;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.acd-sort-select:focus {
+  outline: none;
+  border-color: #1e3a5f;
+}
+
+.acd-sort-order {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.acd-sort-order:hover {
+  border-color: #1e3a5f;
+  color: #1e3a5f;
+}
+
+/* ─── Clubs Section ─── */
+.acd-clubs-section {
+  margin-bottom: 24px;
+}
+
+.acd-section-title {
+  margin: 0 0 20px 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #0f172a;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.acd-search-hint {
+  font-size: 0.9375rem;
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+.acd-clubs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.acd-club-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s;
+}
+
+.acd-club-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.acd-club-main {
+  display: flex;
+  gap: 16px;
+  min-width: 0;
+}
+
+.acd-club-logo {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.acd-club-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.acd-club-logo span {
+  font-size: 1.5rem;
+  opacity: 0.5;
+}
+
+.acd-club-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.acd-club-name {
+  margin: 0 0 4px 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.acd-club-name-ar {
+  margin: 0 0 6px 0;
+  font-size: 0.8125rem;
+  color: #64748b;
+  font-style: italic;
+  direction: rtl;
+}
+
+.acd-club-address {
+  margin: 0 0 8px 0;
+  font-size: 0.8125rem;
+  color: #64748b;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.acd-club-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.acd-badge {
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.acd-badge--playtomic {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+}
+
+.acd-store-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #64748b;
+  cursor: pointer;
+  user-select: none;
+}
+
+.acd-store-toggle input {
+  accent-color: #059669;
+  cursor: pointer;
+}
+
+.acd-club-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.8125rem;
+  color: #475569;
+}
+
+.acd-club-stats strong {
+  color: #0f172a;
+  margin-inline-end: 4px;
+}
+
+.acd-club-meta {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.acd-club-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.acd-btn-icon {
+  flex: 1;
+  min-width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.acd-btn-icon:hover {
+  background: #e2e8f0;
+  color: #1e3a5f;
+}
+
+/* ─── Empty State ─── */
+.acd-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  background: #f8fafc;
+  border-radius: 14px;
+  border: 2px dashed #e2e8f0;
+  text-align: center;
+}
+
+.acd-empty-icon {
+  font-size: 4rem;
+  opacity: 0.5;
+  margin-bottom: 16px;
+}
+
+.acd-empty h4 {
+  margin: 0 0 8px 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.acd-empty p {
+  margin: 0 0 24px 0;
+  font-size: 0.9375rem;
+  color: #64748b;
+}
+
+/* ─── Modal ─── */
+.acd-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+  animation: acd-fade-in 0.2s ease;
+}
+
+@keyframes acd-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.acd-modal {
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.15);
+  animation: acd-slide-up 0.25s ease;
+}
+
+@keyframes acd-slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.acd-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.acd-modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.acd-modal-close {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: #f1f5f9;
+  border-radius: 10px;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.acd-modal-close:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.acd-modal-body {
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.acd-modal-details {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.acd-detail-row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 12px;
+  align-items: start;
+  font-size: 0.9375rem;
+}
+
+.acd-detail-row span:first-child {
+  font-weight: 500;
+  color: #64748b;
+}
+
+.acd-detail-row span:last-child {
+  color: #0f172a;
+}
+
+.acd-detail-full {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.acd-detail-full span {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.acd-cr-img {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.acd-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+  .acd-header {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .acd-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .acd-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .acd-search-wrap {
+    min-width: 0;
+  }
+
+  .acd-clubs-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .acd-detail-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .acd-title {
+    font-size: 1.5rem;
+  }
+
+  .acd-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .acd-stat {
+    padding: 16px;
+  }
+
+  .acd-empty {
+    padding: 40px 20px;
+  }
+
+  .acd-empty-icon {
+    font-size: 3rem;
+  }
+
+  .acd-club-card {
+    padding: 16px;
+  }
+
+  .acd-club-logo {
+    width: 44px;
+    height: 44px;
+  }
+}

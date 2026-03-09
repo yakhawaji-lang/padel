@@ -1,0 +1,30 @@
+.all-bookings-dashboard .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.all-bookings-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.all-bookings-club-select {
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.all-bookings-club-link {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.all-bookings-club-link:hover {
+  text-decoration: underline;
+}

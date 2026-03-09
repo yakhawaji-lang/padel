@@ -1,0 +1,10 @@
+ارفع التغييرات إلى GitHub — نفّذ في Terminal أو PowerShell من مجلد المشروع:
+
+cd c:\padel\padel
+git add .
+git commit -m "Hostinger deployment: init-db tables check, mobile-responsive Bookings, HOSTINGER_DEPLOY guide"
+git push origin main
+
+إذا طُلب منك تسجيل الدخول إلى GitHub، أدخل بياناتك أو استخدم Personal Access Token.
+
+بعد الرفع: ادخل Hostinger → Deploy (أو سيُحدّث تلقائياً) → ثم POST /api/init-db

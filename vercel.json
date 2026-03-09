@@ -1,0 +1,14 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "installCommand": "npm install",
+  "redirects": [
+    { "source": "/", "destination": "/app/", "permanent": false }
+  ],
+  "rewrites": [
+    { "source": "/app/assets/:path*", "destination": "/assets/:path*" },
+    { "source": "/app", "destination": "/index.html" },
+    { "source": "/app/:path*", "destination": "/index.html" }
+  ]
+}

@@ -1,0 +1,490 @@
+/* Club Admin Pages - تنسيق موحد واحترافي مع دعم العربية والإنجليزية (RTL/LTR) */
+
+/* ترويسة الصفحة */
+.cxp-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 28px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cxp-header-title-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.cxp-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cxp-header .cxp-btn {
+  flex-shrink: 0;
+  min-height: 44px;
+}
+
+.cxp-title {
+  margin: 0 0 8px 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  line-height: 1.3;
+}
+
+.cxp-subtitle {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+/* شبكة الإحصائيات */
+.cxp-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.cxp-stat {
+  padding: 20px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.cxp-stat:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+.cxp-stat-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.cxp-stat-revenue {
+  border-inline-start: 4px solid #22c55e;
+}
+
+.cxp-stat-revenue .cxp-stat-value {
+  color: #16a34a;
+}
+
+.cxp-stat-expenses {
+  border-inline-start: 4px solid #ef4444;
+}
+
+.cxp-stat-expenses .cxp-stat-value {
+  color: #dc2626;
+}
+
+.cxp-stat-net {
+  border-inline-start: 4px solid #1e3a5f;
+}
+
+.cxp-stat-net .cxp-stat-value {
+  color: #16a34a;
+}
+
+.cxp-stat-net.negative .cxp-stat-value {
+  color: #dc2626;
+}
+
+.cxp-stat-label {
+  font-size: 0.8125rem;
+  color: #64748b;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+/* بطاقات المحتوى */
+.cxp-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.cxp-card {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  padding: 20px;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.cxp-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+/* أزرار موحدة */
+.cxp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.cxp-btn--primary {
+  background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(30, 58, 95, 0.25);
+}
+
+.cxp-btn--primary:hover {
+  background: linear-gradient(135deg, #152a47 0%, #1d4ed8 100%);
+  box-shadow: 0 4px 14px rgba(30, 58, 95, 0.3);
+}
+
+.cxp-btn--secondary {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.cxp-btn--secondary:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.cxp-btn--danger {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.cxp-btn--danger:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.cxp-btn-icon {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cxp-btn-icon:hover {
+  background: #e2e8f0;
+  color: #1e3a5f;
+}
+
+.cxp-btn-icon--danger:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* نافذة منبثقة */
+.cxp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.cxp-modal {
+  width: 100%;
+  max-width: 460px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.15);
+  border: 1px solid #e2e8f0;
+}
+
+.cxp-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cxp-modal-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.cxp-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.cxp-modal-close {
+  width: 38px;
+  height: 38px;
+  border: none;
+  background: #f1f5f9;
+  border-radius: 10px;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: #64748b;
+  transition: background 0.2s, color 0.2s;
+}
+
+.cxp-modal-close:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* نماذج */
+.cxp-form-group {
+  margin-bottom: 18px;
+}
+
+.cxp-form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #334155;
+}
+
+.cxp-form-group input,
+.cxp-form-group select,
+.cxp-form-group textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  box-sizing: border-box;
+}
+
+.cxp-form-group input:focus,
+.cxp-form-group select:focus,
+.cxp-form-group textarea:focus {
+  outline: none;
+  border-color: #1e3a5f;
+  box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
+}
+
+.cxp-form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* حالة فارغة */
+.cxp-empty {
+  text-align: center;
+  padding: 56px 28px;
+  background: #f8fafc;
+  border-radius: 16px;
+  border: 2px dashed #e2e8f0;
+}
+
+.cxp-empty-icon {
+  font-size: 3rem;
+  opacity: 0.5;
+  margin-bottom: 14px;
+}
+
+.cxp-empty h4 {
+  margin: 0 0 10px 0;
+  font-size: 1.2rem;
+  color: #0f172a;
+}
+
+.cxp-empty p {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+/* بحث */
+.cxp-search-wrap {
+  position: relative;
+  margin-bottom: 22px;
+}
+
+.cxp-search-icon {
+  position: absolute;
+  inset-inline-start: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.cxp-search-input {
+  width: 100%;
+  padding: 12px 16px;
+  padding-inline-start: 44px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 0.9375rem;
+  box-sizing: border-box;
+}
+
+.cxp-search-input:focus {
+  outline: none;
+  border-color: #1e3a5f;
+  box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
+}
+
+/* صف الإجراءات (أزرار تحت الترويسة) - محاذاة حسب الاتجاه */
+.cxp-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+/* جداول: محاذاة حسب الاتجاه (عربي/إنجليزي) */
+.cxp-card table,
+.club-admin-page table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.club-admin-page th,
+.club-admin-page td,
+.cxp-card th,
+.cxp-card td {
+  text-align: start;
+  padding: 12px 16px;
+}
+.club-admin-page thead th,
+.cxp-card thead th {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #334155;
+  border-bottom: 2px solid #e2e8f0;
+  background: #f8fafc;
+}
+.club-admin-page tbody td,
+.cxp-card tbody td {
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.9375rem;
+}
+
+/* RTL: محاذاة النصوص والأزرار */
+[dir="rtl"] .cxp-header-actions {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .cxp-form-actions {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .cxp-title {
+  flex-direction: row-reverse;
+}
+
+/* تابلت */
+@media (max-width: 1024px) {
+  .cxp-header {
+    margin-bottom: 22px;
+    padding-bottom: 18px;
+  }
+  .cxp-title {
+    font-size: 1.35rem;
+  }
+  .cxp-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .cxp-cards {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+  }
+}
+
+/* جوال */
+@media (max-width: 768px) {
+  .cxp-header {
+    gap: 14px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+  }
+  .cxp-title {
+    font-size: 1.25rem;
+  }
+  .cxp-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .cxp-stat {
+    padding: 16px;
+  }
+  .cxp-stat-value {
+    font-size: 1.35rem;
+  }
+  .cxp-cards {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .cxp-modal {
+    max-height: 92vh;
+    border-radius: 14px;
+  }
+  .cxp-modal-header,
+  .cxp-modal-body {
+    padding: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cxp-stats {
+    grid-template-columns: 1fr;
+  }
+  .cxp-header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  [dir="rtl"] .cxp-header-actions {
+    justify-content: flex-start;
+  }
+}

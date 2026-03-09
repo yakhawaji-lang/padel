@@ -1,0 +1,265 @@
+/* Legal pages: Privacy Policy, Terms of Service, Data Deletion */
+
+.legal-page {
+  min-height: 100vh;
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+.legal-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.legal-logo-link {
+  display: flex;
+  align-items: center;
+}
+
+.legal-logo {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+}
+
+.legal-nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.legal-nav a {
+  color: #4b5563;
+  text-decoration: none;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.legal-nav a:hover {
+  color: #1d4ed8;
+}
+
+.legal-lang-btn {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #4b5563;
+}
+
+.legal-lang-btn:hover {
+  opacity: 0.8;
+}
+
+.legal-main {
+  flex: 1;
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 40px 24px 60px;
+  width: 100%;
+}
+
+.legal-article {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 40px 48px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e5e7eb;
+}
+
+.legal-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 8px 0;
+}
+
+.legal-subtitle {
+  font-size: 1rem;
+  color: #64748b;
+  margin: 0 0 8px 0;
+}
+
+.legal-meta {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  margin: 0 0 24px 0;
+}
+
+.legal-intro {
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  color: #334155;
+  margin: 0 0 32px 0;
+}
+
+.legal-section {
+  margin-bottom: 28px;
+}
+
+.legal-section:last-child {
+  margin-bottom: 0;
+}
+
+.legal-section-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 10px 0;
+}
+
+.legal-section-text {
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: #475569;
+  margin: 0;
+}
+
+/* Data deletion form */
+.legal-form-section {
+  margin-top: 32px;
+  padding-top: 28px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.legal-deletion-form {
+  margin-top: 20px;
+}
+
+.legal-form-group {
+  margin-bottom: 20px;
+}
+
+.legal-form-group label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.legal-form-group input,
+.legal-form-group select,
+.legal-form-group textarea {
+  width: 100%;
+  max-width: 400px;
+  padding: 10px 14px;
+  font-size: 0.9375rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.legal-form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.legal-form-group input:focus,
+.legal-form-group select:focus,
+.legal-form-group textarea:focus {
+  outline: none;
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+}
+
+.legal-form-error {
+  color: #dc2626;
+  font-size: 0.875rem;
+  margin: 0 0 16px 0;
+}
+
+.legal-cta-btn {
+  display: inline-block;
+  padding: 12px 24px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: #1d4ed8;
+  border: none;
+  border-radius: 8px;
+  text-decoration: none;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.legal-cta-btn:hover {
+  background: #1e40af;
+}
+
+.legal-cta-danger {
+  background: #dc2626;
+}
+
+.legal-cta-danger:hover {
+  background: #b91c1c;
+}
+
+.legal-success-box {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 16px;
+}
+
+.legal-success-box p {
+  margin: 0 0 16px 0;
+  color: #166534;
+  font-size: 0.9375rem;
+}
+
+.legal-footer {
+  background: #ffffff;
+  border-top: 1px solid #e5e7eb;
+  padding: 24px;
+  text-align: center;
+}
+
+.legal-footer p {
+  margin: 0 0 8px 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.legal-footer a {
+  color: #1d4ed8;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.legal-footer a:hover {
+  text-decoration: underline;
+}
+
+/* RTL */
+[dir="rtl"] .legal-article {
+  text-align: right;
+}
+
+[dir="rtl"] .legal-form-group input,
+[dir="rtl"] .legal-form-group select,
+[dir="rtl"] .legal-form-group textarea {
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .legal-article {
+    padding: 24px 20px;
+  }
+  .legal-title {
+    font-size: 1.5rem;
+  }
+}
