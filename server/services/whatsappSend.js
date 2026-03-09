@@ -10,6 +10,9 @@ const TWILIO_API_BASE = 'https://api.twilio.com/2010-04-01'
 /** Default country code when user enters local number (e.g. 05xxxxxxxx). Set WHATSAPP_DEFAULT_COUNTRY_CODE=966 for Saudi. */
 const DEFAULT_COUNTRY_CODE = (process.env.WHATSAPP_DEFAULT_COUNTRY_CODE || '966').replace(/\D/g, '') || '966'
 
+/** Sender name shown at end of messages (e.g. "— PlayTix"). Set WHATSAPP_SENDER_NAME to override. */
+const SENDER_NAME = (process.env.WHATSAPP_SENDER_NAME || 'PlayTix').trim()
+
 /** Normalize phone to E.164 digits only (no +). WhatsApp expects recipient number like 966501234567 */
 function toE164Digits(phone) {
   if (phone == null || typeof phone !== 'string') return null
@@ -140,9 +143,17 @@ async function sendViaMeta(toPhone, text) {
  * @param {string} text - Message body
  * @returns {Promise<{ ok: boolean, messageId?: string, error?: string }>}
  */
+/** Append sender signature so messages appear under PlayTix name */
+function withSenderSignature(text) {
+  if (!text || typeof text !== 'string') return text
+  const sig = SENDER_NAME ? `\n\n— ${SENDER_NAME}` : ''
+  return text.trimEnd() + sig
+}
+
 export async function sendWhatsAppText(toPhone, text) {
+  const body = withSenderSignature(text)
   if (isTwilioConfigured()) {
-    return sendViaTwilio(toPhone, text)
+    return sendViaTwilio(toPhone, body)
   }
-  return sendViaMeta(toPhone, text)
+  return sendViaMeta(toPhone, body)
 }

@@ -107,6 +107,11 @@ export default function WhatsAppTestPage() {
                   <td style={{ padding: 8, color: '#64748b' }}>{language === 'ar' ? 'مرسل PlayTix للإنتاج' : 'PlayTix sender for production'}</td>
                 </tr>
                 <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '8px 8px 8px 0', fontFamily: 'monospace' }}>WHATSAPP_SENDER_NAME</td>
+                  <td style={{ padding: 8, fontFamily: 'monospace', fontSize: '0.8rem' }}>PlayTix</td>
+                  <td style={{ padding: 8, color: '#64748b' }}>{language === 'ar' ? 'اسم المرسل (يُضاف تلقائياً في نهاية الرسالة)' : 'Sender name (appended to messages)'}</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={{ padding: '8px 8px 8px 0', fontFamily: 'monospace' }}>WHATSAPP_VERIFY_TOKEN</td>
                   <td style={{ padding: 8, fontFamily: 'monospace', fontSize: '0.8rem' }}>playtix_whatsapp_verify</td>
                   <td style={{ padding: 8, color: '#64748b' }}>{language === 'ar' ? 'لـ Meta Webhook (اختياري)' : 'For Meta Webhook (optional)'}</td>
