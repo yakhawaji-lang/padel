@@ -14,7 +14,7 @@ import * as idempotency from '../db/idempotency.js'
 import { getBookingSettings } from '../db/bookingSettings.js'
 import { hasNormalizedTables } from '../db/normalizedData.js'
 import * as slotCache from '../lib/slotCache.js'
-import { sendWhatsAppText } from '../services/whatsappSend.js'
+import { sendPlatformMessage } from '../services/messageSend.js'
 
 const router = Router()
 
@@ -200,17 +200,17 @@ router.post('/confirm', async (req, res) => {
 
     await logAudit({ tableName: 'club_bookings', recordId: bid, action: 'INSERT', ...actor, clubId, newValue: { status, memberId } })
 
-    // Optional: send WhatsApp confirmation to booker (if phone exists and WhatsApp configured)
+    // Optional: send SMS/WhatsApp confirmation to booker (if phone exists and channel configured)
     try {
       const { rows: memberRows } = await query('SELECT mobile FROM members WHERE id = ? AND deleted_at IS NULL', [memberId])
       const phone = memberRows?.[0]?.mobile
       if (phone) {
         const msg = `تم تأكيد حجزك.\nرقم الحجز: ${bid}\nالتاريخ: ${date}\nالوقت: ${startTime} - ${endTime}`
-        const wa = await sendWhatsAppText(phone, msg)
-        if (!wa.ok) console.warn('[Bookings] WhatsApp send skipped or failed:', wa.error)
+        const wa = await sendPlatformMessage(phone, msg)
+        if (!wa.ok) console.warn('[Bookings] Message send skipped or failed:', wa.error)
       }
     } catch (waErr) {
-      console.warn('[Bookings] WhatsApp send error:', waErr?.message)
+      console.warn('[Bookings] Message send error:', waErr?.message)
     }
 
     res.json({ ok: true, bookingId: bid, status, paymentShares: createdShares })

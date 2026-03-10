@@ -108,6 +108,17 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
         )}
         {session && (
           <Link
+            to="/admin/sms-test"
+            className={`main-admin-nav-item ${isActive('/admin/sms-test') ? 'active' : ''}`}
+          >
+            <span className="nav-icon">📱</span>
+            <span className="nav-label">
+              {language === 'en' ? 'SMS test' : 'تجربة SMS'}
+            </span>
+          </Link>
+        )}
+        {session && (
+          <Link
             to="/admin/settings"
             className={`main-admin-nav-item ${isActive('/admin/settings') ? 'active' : ''}`}
           >

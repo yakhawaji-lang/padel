@@ -3,7 +3,8 @@
  * Mirrors api/whatsapp-webhook.js for development
  */
 import { Router } from 'express'
-import { sendWhatsAppText, getRegistrationWelcomeMessage } from '../services/whatsappSend.js'
+import { sendPlatformMessage } from '../services/messageSend.js'
+import { getRegistrationWelcomeMessage } from '../services/whatsappSend.js'
 
 const router = Router()
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'playtix_whatsapp_verify'
@@ -49,7 +50,7 @@ router.post('/welcome', async (req, res) => {
       return res.status(400).json({ error: 'Valid phone required' })
     }
     const msg = getRegistrationWelcomeMessage(name || '')
-    const result = await sendWhatsAppText(phoneStr, msg)
+    const result = await sendPlatformMessage(phoneStr, msg)
     if (!result.ok) {
       return res.status(400).json({ error: result.error || 'Send failed' })
     }
@@ -63,6 +64,7 @@ router.post('/welcome', async (req, res) => {
 /** POST /api/whatsapp-webhook/send - send a test WhatsApp text message (for admin test page) */
 router.post('/send', async (req, res) => {
   try {
+    const { sendWhatsAppText } = await import('../services/whatsappSend.js')
     const { phone, text } = req.body || {}
     const phoneStr = typeof phone === 'string' ? phone.trim() : (phone != null ? String(phone) : '')
     const textStr = typeof text === 'string' ? text.trim() : (text != null ? String(text) : '')

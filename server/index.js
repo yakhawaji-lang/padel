@@ -22,6 +22,7 @@ import memberStatsRouter from './routes/memberStats.js'
 import tournamentSummariesRouter from './routes/tournamentSummaries.js'
 import passwordResetRouter from './routes/passwordReset.js'
 import whatsappWebhookRouter from './routes/whatsappWebhook.js'
+import smsWebhookRouter from './routes/smsWebhook.js'
 import initDbRouter from './routes/initDb.js'
 import dataRouter from './routes/data.js'
 import bookingsRouter from './routes/bookings.js'
@@ -46,6 +47,7 @@ app.use('/api/member-stats', memberStatsRouter)
 app.use('/api/tournament-summaries', tournamentSummariesRouter)
 app.use('/api/password-reset', passwordResetRouter)
 app.use('/api/whatsapp-webhook', whatsappWebhookRouter)
+app.use('/api/sms-webhook', smsWebhookRouter)
 app.use('/api/init-db', initDbRouter)
 app.use('/api/data', dataRouter)
 app.use('/api/bookings', bookingsRouter)

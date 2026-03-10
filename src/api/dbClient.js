@@ -306,6 +306,13 @@ export async function sendWhatsAppTestMessage(phone, text) {
   })
 }
 
+export async function sendSmsTestMessage(phone, text) {
+  return fetchJson('/api/sms-webhook/send', {
+    method: 'POST',
+    body: JSON.stringify({ phone, text })
+  })
+}
+
 /** Send registration welcome WhatsApp (fire-and-forget, don't block UI) */
 export async function sendRegistrationWelcome(phone, name) {
   try {

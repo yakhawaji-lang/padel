@@ -5,6 +5,7 @@ import './common.css'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 const BANNER_PHRASE_KEY = 'homepage_banner_phrase'
+const PLATFORM_MESSAGE_TYPE_KEY = 'platform_message_type'
 const GALLERY_KEYS = ['gallery-1', 'gallery-2', 'gallery-3', 'gallery-4', 'gallery-5', 'gallery-6']
 
 function readFileAsDataUrl(file) {
@@ -27,13 +28,24 @@ export default function PlatformSettingsPage() {
   const [uploading, setUploading] = useState(null)
   const [selectedBannerFile, setSelectedBannerFile] = useState(null)
   const [selectedGalleryFiles, setSelectedGalleryFiles] = useState({})
+  const [messageType, setMessageType] = useState('whatsapp')
 
   useEffect(() => {
-    getStore(BANNER_PHRASE_KEY).then((v) => {
-      if (v && typeof v === 'object') {
-        setPhraseAr(v.ar || '')
-        setPhraseEn(v.en || '')
+    Promise.all([
+      getStore(BANNER_PHRASE_KEY),
+      getStore(PLATFORM_MESSAGE_TYPE_KEY)
+    ]).then(([phraseVal, msgVal]) => {
+      if (phraseVal && typeof phraseVal === 'object') {
+        setPhraseAr(phraseVal.ar || '')
+        setPhraseEn(phraseVal.en || '')
       }
+      let mt = msgVal
+      if (typeof mt === 'string' && mt.startsWith('"')) {
+        try { mt = JSON.parse(mt) } catch { /* keep */ }
+      }
+      mt = typeof mt === 'object' && mt != null ? (mt.channel ?? mt.type) : mt
+      mt = String(mt || 'whatsapp').trim().toLowerCase()
+      if (mt === 'sms' || mt === 'whatsapp') setMessageType(mt)
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
@@ -44,6 +56,21 @@ export default function PlatformSettingsPage() {
     setSaving(true)
     try {
       await setStore(BANNER_PHRASE_KEY, { ar: phraseAr.trim(), en: phraseEn.trim() })
+      setMessage(language === 'ar' ? 'تم الحفظ.' : 'Saved.')
+    } catch (err) {
+      setMessage(language === 'ar' ? 'فشل الحفظ.' : 'Save failed.')
+      setMessageError(true)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSaveMessageType = async () => {
+    setMessage(null)
+    setMessageError(false)
+    setSaving(true)
+    try {
+      await setStore(PLATFORM_MESSAGE_TYPE_KEY, messageType)
       setMessage(language === 'ar' ? 'تم الحفظ.' : 'Saved.')
     } catch (err) {
       setMessage(language === 'ar' ? 'فشل الحفظ.' : 'Save failed.')
@@ -89,6 +116,10 @@ export default function PlatformSettingsPage() {
     upload: t('Upload', 'رفع', language),
     save: t('Save', 'حفظ', language),
     saving: t('Saving...', 'جاري الحفظ...', language),
+    messageChannel: t('Message channel', 'قناة الرسائل', language),
+    messageChannelIntro: t('Choose how to send registration, club welcome, and booking messages.', 'اختر طريقة إرسال رسائل التسجيل وترحيب النادي والحجوزات.', language),
+    sms: t('SMS', 'رسائل SMS', language),
+    whatsapp: t('WhatsApp', 'واتساب', language),
   }
 
   if (loading) {
@@ -99,6 +130,24 @@ export default function PlatformSettingsPage() {
     <div className="main-admin-page" style={{ padding: 24, maxWidth: 640 }}>
       <h1 className="main-admin-page-title" style={{ marginBottom: 24 }}>{c.title}</h1>
       {message && <p style={{ marginBottom: 16, color: messageError ? '#dc2626' : '#059669', fontSize: '0.9rem' }}>{message}</p>}
+
+      <section style={{ marginBottom: 32 }}>
+        <h2 style={{ fontSize: '1.125rem', marginBottom: 8 }}>{c.messageChannel}</h2>
+        <p style={{ color: '#64748b', marginBottom: 16, fontSize: '0.9rem' }}>{c.messageChannelIntro}</p>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input type="radio" name="messageType" value="whatsapp" checked={messageType === 'whatsapp'} onChange={() => setMessageType('whatsapp')} disabled={saving} />
+            <span>{c.whatsapp}</span>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input type="radio" name="messageType" value="sms" checked={messageType === 'sms'} onChange={() => setMessageType('sms')} disabled={saving} />
+            <span>{c.sms}</span>
+          </label>
+          <button type="button" onClick={handleSaveMessageType} disabled={saving} style={{ padding: '8px 16px', background: saving ? '#94a3b8' : '#0f172a', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer' }}>
+            {saving ? c.saving : c.save}
+          </button>
+        </div>
+      </section>
 
       <section style={{ marginBottom: 32 }}>
         <h2 style={{ fontSize: '1.125rem', marginBottom: 8 }}>{c.bannerTitle}</h2>

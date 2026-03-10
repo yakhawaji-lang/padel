@@ -10,6 +10,7 @@ import AdminUsersManagement from './pages/AdminUsersManagement'
 import AllMembersManagement from './pages/AllMembersManagement'
 import AllBookingsDashboard from './pages/AllBookingsDashboard'
 import WhatsAppTestPage from './pages/WhatsAppTestPage'
+import SMSTestPage from './pages/SMSTestPage'
 import PlatformSettingsPage from './pages/PlatformSettingsPage'
 import PlatformPageGuard from '../components/PlatformPageGuard'
 import { ErrorBoundary } from '../components/ErrorBoundary'
@@ -176,6 +177,9 @@ function MainAdminPanel() {
     }
     if (path === 'whatsapp-test') {
       return <WhatsAppTestPage />
+    }
+    if (path === 'sms-test') {
+      return <SMSTestPage />
     }
     if (path === 'settings') {
       return <PlatformSettingsPage />

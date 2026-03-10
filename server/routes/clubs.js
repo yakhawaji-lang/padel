@@ -5,7 +5,8 @@ import { Router } from 'express'
 import { query } from '../db/pool.js'
 import { hasNormalizedTables } from '../db/normalizedData.js'
 import { addMemberToClub } from '../services/membershipService.js'
-import { sendWhatsAppText, getClubWelcomeMessage } from '../services/whatsappSend.js'
+import { sendPlatformMessage } from '../services/messageSend.js'
+import { getClubWelcomeMessage } from '../services/whatsappSend.js'
 
 const router = Router()
 
@@ -73,10 +74,10 @@ router.post('/join', async (req, res) => {
         const { rows: clubRows2 } = await query('SELECT name, name_ar FROM clubs WHERE id = ? AND deleted_at IS NULL', [cid])
         const clubName = clubRows2?.[0]?.name_ar || clubRows2?.[0]?.name || ''
         const msg = getClubWelcomeMessage(clubName)
-        sendWhatsAppText(phone, msg).catch(e => console.warn('[WhatsApp club welcome]', e?.message))
+        sendPlatformMessage(phone, msg).catch(e => console.warn('[Platform message club welcome]', e?.message))
       }
     } catch (waErr) {
-      console.warn('[WhatsApp club welcome]', waErr?.message)
+      console.warn('[Platform message club welcome]', waErr?.message)
     }
 
     res.json({ ok: true })
