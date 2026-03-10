@@ -81,6 +81,7 @@ const Login = () => {
       ? (language === 'en' ? 'Sign in to join the club.' : 'سجّل الدخول للانضمام للنادي.')
       : (language === 'en' ? 'Sign in to browse clubs, book courts and make purchases.' : 'سجّل الدخول لتصفح النوادي وحجز الملاعب وإجراء المشتريات.'),
     backToHome: language === 'en' ? 'Back to home' : 'العودة للرئيسية',
+    backToClub: language === 'en' ? 'Back to club' : 'العودة للنادي',
     emailOrName: language === 'en' ? 'Email, name or phone' : 'البريد أو الاسم أو الجوال',
     emailPlaceholder: language === 'en' ? 'Enter email, name or phone' : 'أدخل البريد أو الاسم أو رقم الجوال',
     password: language === 'en' ? 'Password' : 'كلمة المرور',
@@ -97,7 +98,12 @@ const Login = () => {
         <Link to="/" className="login-logo-link">
           <img src={`${import.meta.env.BASE_URL}logo-playtix.png`} alt="PlayTix" className="login-logo" />
         </Link>
-        <Link to="/" className="login-back">{c.backToHome}</Link>
+        <Link
+          to={joinClubId ? `/clubs/${joinClubId}` : (returnUrl && returnUrl.startsWith('/') ? returnUrl : '/')}
+          className="login-back"
+        >
+          {joinClubId ? c.backToClub : c.backToHome}
+        </Link>
         <button
           type="button"
           className="login-lang"
