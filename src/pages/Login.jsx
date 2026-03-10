@@ -75,70 +75,83 @@ const Login = () => {
     }
   }
 
-  return (
-    <div className={`login-page ${language === 'ar' ? 'rtl' : ''}`}>
-      <div className="login-container">
-        <div className="login-header">
-          <Link to="/" className="login-logo-link">
-            <img src={`${import.meta.env.BASE_URL}logo-playtix.png`} alt="PlayTix" className="login-logo" />
-          </Link>
-          <Link to="/" className="login-back-link">{language === 'en' ? 'Back to home' : 'العودة للرئيسية'}</Link>
-          <div className="login-lang-wrap">
-            <button
-              type="button"
-              className="login-lang-btn"
-              onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
-              title={language === 'en' ? 'العربية' : 'English'}
-            >
-              <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={20} />
-            </button>
-          </div>
-          <h1>{language === 'en' ? 'PlayTix Member Login' : 'تسجيل دخول أعضاء PlayTix'}</h1>
-          <p>{joinClubId
-            ? (language === 'en' ? 'Sign in to join the club' : 'سجّل الدخول للانضمام للنادي')
-            : (language === 'en' ? 'Sign in to browse clubs, book courts and make purchases' : 'سجّل الدخول لتصفح النوادي وحجز الملاعب وإجراء المشتريات')}</p>
-        </div>
+  const c = {
+    title: language === 'en' ? 'Sign in to PlayTix' : 'تسجيل الدخول إلى PlayTix',
+    subtitle: joinClubId
+      ? (language === 'en' ? 'Sign in to join the club.' : 'سجّل الدخول للانضمام للنادي.')
+      : (language === 'en' ? 'Sign in to browse clubs, book courts and make purchases.' : 'سجّل الدخول لتصفح النوادي وحجز الملاعب وإجراء المشتريات.'),
+    backToHome: language === 'en' ? 'Back to home' : 'العودة للرئيسية',
+    emailOrName: language === 'en' ? 'Email, name or phone' : 'البريد أو الاسم أو الجوال',
+    emailPlaceholder: language === 'en' ? 'Enter email, name or phone' : 'أدخل البريد أو الاسم أو رقم الجوال',
+    password: language === 'en' ? 'Password' : 'كلمة المرور',
+    passwordPlaceholder: language === 'en' ? 'Enter password' : 'أدخل كلمة المرور',
+    submit: loading ? (language === 'en' ? 'Signing in...' : 'جاري تسجيل الدخول...') : (language === 'en' ? 'Sign in' : 'تسجيل الدخول'),
+    forgotPassword: language === 'en' ? 'Forgot password?' : 'نسيت كلمة المرور؟',
+    noAccount: language === 'en' ? "Don't have an account? " : 'ليس لديك حساب؟ ',
+    register: language === 'en' ? 'Register' : 'تسجيل',
+  }
 
-        <div className="login-form-container">
+  return (
+    <div className={`login-page ${language === 'ar' ? 'rtl' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+      <header className="login-header">
+        <Link to="/" className="login-logo-link">
+          <img src={`${import.meta.env.BASE_URL}logo-playtix.png`} alt="PlayTix" className="login-logo" />
+        </Link>
+        <Link to="/" className="login-back">{c.backToHome}</Link>
+        <button
+          type="button"
+          className="login-lang"
+          onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
+          title={language === 'en' ? 'العربية' : 'English'}
+        >
+          <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={20} />
+        </button>
+      </header>
+      <main className="login-main">
+        <div className="login-card">
+          <h1 className="login-title">{c.title}</h1>
+          <p className="login-subtitle">{c.subtitle}</p>
           <form onSubmit={handleMemberLogin} className="login-form">
             {error && <p className="login-error" role="alert">{error}</p>}
             <div className="form-group">
-              <label>{language === 'en' ? 'Email or name' : 'البريد أو الاسم'}</label>
+              <label htmlFor="login-email">{c.emailOrName} *</label>
               <input
+                id="login-email"
                 type="text"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder={language === 'en' ? 'Enter email or name' : 'أدخل البريد أو الاسم'}
+                placeholder={c.emailPlaceholder}
                 required
+                autoComplete="username"
               />
             </div>
             <div className="form-group">
-              <label>{language === 'en' ? 'Password' : 'كلمة المرور'}</label>
+              <label htmlFor="login-password">{c.password} *</label>
               <input
+                id="login-password"
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder={language === 'en' ? 'Enter password' : 'أدخل كلمة المرور'}
+                placeholder={c.passwordPlaceholder}
                 required
+                autoComplete="current-password"
               />
             </div>
-            <button type="submit" className="btn-primary btn-block" disabled={loading}>
-              {loading ? (language === 'en' ? 'Logging in...' : 'جاري تسجيل الدخول...') : (language === 'en' ? 'Login' : 'تسجيل الدخول')}
+            <button type="submit" className="login-submit" disabled={loading}>
+              {c.submit}
             </button>
           </form>
           <p className="login-forgot-hint">
-            <Link to="/forgot-password?type=member">
-              {language === 'en' ? 'Forgot password?' : 'نسيت كلمة المرور؟'}
-            </Link>
+            <Link to="/forgot-password?type=member">{c.forgotPassword}</Link>
           </p>
           <p className="login-register-hint">
-            {language === 'en' ? "Don't have an account? " : 'ليس لديك حساب؟ '}
-            <Link to={joinClubId ? `/register?join=${joinClubId}` : '/register'}>
-              {language === 'en' ? 'Register' : 'تسجيل'}
+            {c.noAccount}
+            <Link to={joinClubId ? `/register?join=${joinClubId}` : (returnUrl ? `/register?returnTo=${encodeURIComponent(returnUrl)}` : '/register')}>
+              {c.register}
             </Link>
           </p>
         </div>
-      </div>
+      </main>
     </div>
   )
 }
