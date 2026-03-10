@@ -145,6 +145,15 @@ domains/
 | `RESEND_API_KEY` | مفتاح API من resend.com |
 | `RESEND_FROM` | `PlayTix <noreply@playtix.app>` (بعد التحقق من الدومين) |
 
+**اختياري — إرسال الرسائل (Twilio WhatsApp + SMS):** راجع [TWILIO_MESSAGING_SETUP.md](./TWILIO_MESSAGING_SETUP.md)
+| Name | Value |
+|------|-------|
+| `TWILIO_ACCOUNT_SID` | من Twilio Console |
+| `TWILIO_AUTH_TOKEN` | من Twilio Console |
+| `TWILIO_WHATSAPP_FROM` | `whatsapp:+15557047727` (مرسل PlayTix) |
+| `TWILIO_MESSAGING_SERVICE_SID` | للـ SMS (MG...) |
+| `WHATSAPP_SENDER_NAME` | `PlayTix` (اسم المرسل في نهاية الرسائل) |
+
 ### 2.5 النشر
 اضغط **Deploy** وانتظر اكتمال البناء. راقب **Build logs** للتأكد من عدم وجود أخطاء.
 

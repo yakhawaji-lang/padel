@@ -300,7 +300,9 @@ npm run sync-from-cloud
 
 ---
 
-## تكوين واتساب (Twilio أو Meta)
+## تكوين إرسال الرسائل (Twilio أو Meta)
+
+> **دليل كامل:** راجع [docs/TWILIO_MESSAGING_SETUP.md](docs/TWILIO_MESSAGING_SETUP.md) — يشمل WhatsApp، SMS، وتوثيق اسم المرسل PlayTix.
 
 ### خيار 1: Twilio (مفضّل)
 
@@ -312,8 +314,10 @@ npm run sync-from-cloud
 | **TWILIO_AUTH_TOKEN** | رمزك السري | من Twilio Console |
 | **TWILIO_WHATSAPP_FROM** | `whatsapp:+14155238886` | Sandbox للتجربة |
 | **TWILIO_WHATSAPP_FROM** | `whatsapp:+15557047727` | مرسل PlayTix للإنتاج |
+| **TWILIO_MESSAGING_SERVICE_SID** | MGxxxxxxxx | للـ SMS (من Messaging → Services) |
+| **WHATSAPP_SENDER_NAME** | `PlayTix` | اسم المرسل في نهاية الرسائل |
 
-صفحة الاختبار: `https://playtix.app/app/admin/whatsapp-test`
+صفحات الاختبار: `https://playtix.app/app/admin/whatsapp-test` و `https://playtix.app/app/admin/sms-test`
 
 ### خيار 2: Meta (WhatsApp Business API)
 

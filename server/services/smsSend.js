@@ -1,7 +1,10 @@
 /**
- * Send SMS via Twilio Messaging Service.
- * Requires TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_MESSAGING_SERVICE_SID.
+ * Send SMS via Twilio or Authentica.
+ * Authentica (Saudi): AUTHENTICA_API_KEY — preferred for Saudi numbers.
+ * Twilio: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_MESSAGING_SERVICE_SID.
  */
+
+import { sendAuthenticaSms, isAuthenticaConfigured } from './authenticaSend.js'
 
 const TWILIO_API_BASE = 'https://api.twilio.com/2010-04-01'
 
@@ -22,11 +25,15 @@ function toE164Digits(phone) {
   return normalized || null
 }
 
-function isSmsConfigured() {
+function isTwilioSmsConfigured() {
   const sid = process.env.TWILIO_ACCOUNT_SID
   const token = process.env.TWILIO_AUTH_TOKEN
   const messagingSid = process.env.TWILIO_MESSAGING_SERVICE_SID
   return !!(sid && token && messagingSid)
+}
+
+function isSmsConfigured() {
+  return isAuthenticaConfigured() || isTwilioSmsConfigured()
 }
 
 function withSenderSignature(text) {
@@ -36,18 +43,26 @@ function withSenderSignature(text) {
 }
 
 /**
- * Send SMS via Twilio Messaging Service.
+ * Send SMS via Authentica (if configured) or Twilio.
+ * Authentica is preferred when AUTHENTICA_API_KEY is set (better for Saudi Arabia).
  * @param {string} toPhone - Recipient phone (with or without +, spaces, etc.)
  * @param {string} text - Message body
  * @returns {Promise<{ ok: boolean, messageId?: string, error?: string }>}
  */
 export async function sendSmsText(toPhone, text) {
+  if (isAuthenticaConfigured()) {
+    return sendAuthenticaSms(toPhone, text)
+  }
+  return sendViaTwilio(toPhone, text)
+}
+
+async function sendViaTwilio(toPhone, text) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID
   const authToken = process.env.TWILIO_AUTH_TOKEN
   const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID?.trim()
 
   if (!accountSid || !authToken || !messagingServiceSid) {
-    return { ok: false, error: 'SMS not configured (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_MESSAGING_SERVICE_SID)' }
+    return { ok: false, error: 'SMS not configured. Add AUTHENTICA_API_KEY (for Saudi) or Twilio credentials.' }
   }
 
   const to = toE164Digits(toPhone)

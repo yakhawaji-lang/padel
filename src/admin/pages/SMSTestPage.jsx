@@ -40,9 +40,10 @@ export default function SMSTestPage() {
     send: t('Send', 'إرسال', language),
     sending: t('Sending...', 'جاري الإرسال...', language),
     success: t('Message sent successfully.', 'تم إرسال الرسالة بنجاح.', language),
-    notConfigured: t('SMS is not configured. Add TWILIO_MESSAGING_SERVICE_SID along with TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN on the server.', 'SMS غير مضبوط. أضف TWILIO_MESSAGING_SERVICE_SID مع TWILIO_ACCOUNT_SID و TWILIO_AUTH_TOKEN على السيرفر.', language),
-    settingsTitle: t('Twilio SMS Settings', 'إعدادات Twilio للـ SMS', language),
+    notConfigured: t('SMS is not configured. Add AUTHENTICA_API_KEY (for Saudi) or Twilio credentials (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_MESSAGING_SERVICE_SID) on the server.', 'SMS غير مضبوط. أضف AUTHENTICA_API_KEY (للسعودية) أو بيانات Twilio على السيرفر.', language),
+    settingsTitle: t('SMS Settings (Authentica or Twilio)', 'إعدادات SMS (Authentica أو Twilio)', language),
     settingsHint: t('Add these Environment Variables on Hostinger (hPanel → Node.js → Environment Variables):', 'أضف هذه المتغيرات في Hostinger (hPanel → Node.js → Environment Variables):', language),
+    authenticaTitle: t('Authentica (Saudi Arabia — preferred)', 'Authentica (السعودية — مفضّل)', language),
   }
 
   return (
@@ -73,6 +74,26 @@ export default function SMSTestPage() {
         {showSettings && (
           <div style={{ padding: 20, background: '#fff', borderTop: '1px solid #e2e8f0', fontSize: '0.9rem' }}>
             <p style={{ color: '#64748b', marginBottom: 16 }}>{c.settingsHint}</p>
+            <p style={{ fontWeight: 600, marginBottom: 8, color: '#059669' }}>{c.authenticaTitle}</p>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', marginBottom: 16 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <th style={{ textAlign: 'left', padding: '8px 0', color: '#64748b' }}>{language === 'ar' ? 'المتغير' : 'Variable'}</th>
+                  <th style={{ textAlign: 'left', padding: '8px 0', color: '#64748b' }}>{language === 'ar' ? 'الوصف' : 'Description'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '8px 8px 8px 0', fontFamily: 'monospace' }}>AUTHENTICA_API_KEY</td>
+                  <td style={{ padding: 8, color: '#64748b' }}>{language === 'ar' ? 'من portal.authentica.sa' : 'From portal.authentica.sa'}</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '8px 8px 8px 0', fontFamily: 'monospace' }}>AUTHENTICA_SENDER_NAME</td>
+                  <td style={{ padding: 8, color: '#64748b' }}>{language === 'ar' ? 'اسم المرسل المسجّل (افتراضي: PlayTix)' : 'Registered sender name (default: PlayTix)'}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p style={{ fontWeight: 600, marginBottom: 8, marginTop: 16 }}>{language === 'ar' ? 'Twilio' : 'Twilio'}</p>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', marginBottom: 16 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #e2e8f0' }}>

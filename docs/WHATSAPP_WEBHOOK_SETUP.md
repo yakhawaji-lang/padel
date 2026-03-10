@@ -1,6 +1,8 @@
 # تكوين Webhook واتساب — خطوة بخطوة
 
-دليل إعداد Webhook لاستقبال رسائل واتساب في Playtix.
+دليل إعداد Webhook لاستقبال رسائل واتساب في PlayTix.
+
+> **إرسال الرسائل (WhatsApp + SMS):** راجع [TWILIO_MESSAGING_SETUP.md](./TWILIO_MESSAGING_SETUP.md) لإعداد Twilio واسم المرسل PlayTix.
 
 ---
 
