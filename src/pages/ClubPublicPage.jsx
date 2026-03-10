@@ -774,7 +774,6 @@ const ClubPublicPage = () => {
               />
             ) : (
               <div className="club-public-auth-links">
-                <Link to={`/register?join=${clubId}`} className="club-public-register-link">{c.registerMembers}</Link>
                 <Link to={`/login?join=${clubId}`} className="club-public-login-link">{c.loginPlatform}</Link>
               </div>
             )}
