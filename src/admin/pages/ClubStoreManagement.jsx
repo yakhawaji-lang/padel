@@ -1377,9 +1377,6 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
               </ul>
             )}
           </div>
-          {activeTab === 'products' && (
-            <p className="products-horse-icon" style={{ fontSize: 48, marginTop: 24, opacity: 0.6, textAlign: 'center' }} aria-hidden="true">🏇</p>
-          )}
         </div>
       )}
 
