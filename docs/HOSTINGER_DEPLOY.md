@@ -150,7 +150,7 @@ domains/
 |------|-------|
 | `TWILIO_ACCOUNT_SID` | من Twilio Console |
 | `TWILIO_AUTH_TOKEN` | من Twilio Console |
-| `TWILIO_WHATSAPP_FROM` | `whatsapp:+15557047727` (مرسل PlayTix) |
+| `TWILIO_WHATSAPP_FROM` | `whatsapp:+15755776222` (رقمك) |
 | `TWILIO_MESSAGING_SERVICE_SID` | للـ SMS (MG...) |
 | `WHATSAPP_SENDER_NAME` | `PlayTix` (اسم المرسل في نهاية الرسائل) |
 

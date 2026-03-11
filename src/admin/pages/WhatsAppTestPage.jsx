@@ -77,6 +77,7 @@ export default function WhatsAppTestPage() {
         {showSettings && (
           <div style={{ padding: 20, background: '#fff', borderTop: '1px solid #e2e8f0', fontSize: '0.9rem' }}>
             <p style={{ color: '#64748b', marginBottom: 16 }}>{c.settingsHint}</p>
+            <p style={{ marginBottom: 12, fontSize: '0.85rem' }}>{language === 'ar' ? 'للإعداد الكامل مع الرقم +15755776222:' : 'For complete setup with +15755776222:'} <a href="https://github.com/yakhawaji-lang/padel/blob/main/docs/TWILIO_SETUP_COMPLETE.md" target="_blank" rel="noopener noreferrer" style={{ color: '#0f172a' }}>TWILIO_SETUP_COMPLETE.md</a></p>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', marginBottom: 16 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
@@ -103,8 +104,8 @@ export default function WhatsAppTestPage() {
                 </tr>
                 <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={{ padding: '8px 8px 8px 0', fontFamily: 'monospace' }}>TWILIO_WHATSAPP_FROM</td>
-                  <td style={{ padding: 8, fontFamily: 'monospace', fontSize: '0.8rem' }}>whatsapp:+15557047727</td>
-                  <td style={{ padding: 8, color: '#64748b' }}>{language === 'ar' ? 'مرسل PlayTix للإنتاج' : 'PlayTix sender for production'}</td>
+                  <td style={{ padding: 8, fontFamily: 'monospace', fontSize: '0.8rem' }}>whatsapp:+15755776222</td>
+                  <td style={{ padding: 8, color: '#64748b' }}>{language === 'ar' ? 'رقمك (بعد تفعيل WhatsApp)' : 'Your number (after WhatsApp enabled)'}</td>
                 </tr>
                 <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={{ padding: '8px 8px 8px 0', fontFamily: 'monospace' }}>WHATSAPP_SENDER_NAME</td>
@@ -142,11 +143,11 @@ export default function WhatsAppTestPage() {
         {language === 'ar' ? (
           <>• <strong>Twilio Sandbox:</strong> المستلم يجب أن يرسل "join direction-give" إلى +14155238886 أولاً.<br />
           • استخدم رمز الدولة مع الرقم (مثل 966501234567 للسعودية).<br />
-          • <strong>مرسل PlayTix:</strong> استخدم TWILIO_WHATSAPP_FROM=whatsapp:+15557047727 للإنتاج.<br />
+          • <strong>رقمك:</strong> استخدم TWILIO_WHATSAPP_FROM=whatsapp:+15755776222 بعد تفعيل WhatsApp على الرقم.<br />
           • الرسالة النصية الحرة تُقبل فقط خلال <strong>24 ساعة</strong> من آخر رسالة أرسلها المستلم؛ وإلا استخدم قالب معتمد.</>
         ) : (
           <>• <strong>Twilio Sandbox:</strong> Recipient must send "join direction-give" to +14155238886 first.<br />
-          • <strong>PlayTix sender:</strong> Use TWILIO_WHATSAPP_FROM=whatsapp:+15557047727 for production.<br />
+          • <strong>Your number:</strong> Use TWILIO_WHATSAPP_FROM=whatsapp:+15755776222 after enabling WhatsApp on it.<br />
           • Include country code (e.g. 966501234567 for Saudi).<br />
           • Free-form text works only within <strong>24 hours</strong> of the recipient’s last message; otherwise use an approved template.</>
         )}

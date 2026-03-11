@@ -2,6 +2,8 @@
 
 دليل إعداد WhatsApp و SMS عبر Twilio أو Authentica (السعودية).
 
+> **إعداد كامل خطوة بخطوة:** راجع [TWILIO_SETUP_COMPLETE.md](./TWILIO_SETUP_COMPLETE.md) — يشمل الرقم +15755776222 وخدمة PlayTix SMS.
+
 ---
 
 ## نظرة عامة
@@ -46,12 +48,12 @@ TWILIO_AUTH_TOKEN=your_auth_token
 TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
 ```
 
-### 2.2 مرسل PlayTix للإنتاج
+### 2.2 رقمك للإنتاج
 
-للإنتاج، استخدم رقم WhatsApp Business المعتمد لـ PlayTix:
+بعد تفعيل WhatsApp على رقمك (+15755776222):
 
 ```env
-TWILIO_WHATSAPP_FROM=whatsapp:+15557047727
+TWILIO_WHATSAPP_FROM=whatsapp:+15755776222
 ```
 
 ---
@@ -121,7 +123,7 @@ WHATSAPP_SENDER_NAME=PlayTix
 ```env
 TWILIO_ACCOUNT_SID=ACxxxxxxxx
 TWILIO_AUTH_TOKEN=your_auth_token
-TWILIO_WHATSAPP_FROM=whatsapp:+15557047727
+TWILIO_WHATSAPP_FROM=whatsapp:+15755776222
 WHATSAPP_SENDER_NAME=PlayTix
 ```
 
@@ -139,7 +141,7 @@ WHATSAPP_SENDER_NAME=PlayTix
 ```env
 TWILIO_ACCOUNT_SID=ACxxxxxxxx
 TWILIO_AUTH_TOKEN=your_auth_token
-TWILIO_WHATSAPP_FROM=whatsapp:+15557047727
+TWILIO_WHATSAPP_FROM=whatsapp:+15755776222
 TWILIO_MESSAGING_SERVICE_SID=MGxxxxxxxx
 WHATSAPP_SENDER_NAME=PlayTix
 ```
@@ -208,7 +210,7 @@ WHATSAPP_DEFAULT_COUNTRY_CODE=966
 |---------|----------|-------------------|-------|
 | `TWILIO_ACCOUNT_SID` | WhatsApp, SMS | — | من Twilio Console |
 | `TWILIO_AUTH_TOKEN` | WhatsApp, SMS | — | من Twilio Console |
-| `TWILIO_WHATSAPP_FROM` | WhatsApp | — | `whatsapp:+15557047727` للإنتاج |
+| `TWILIO_WHATSAPP_FROM` | WhatsApp | — | `whatsapp:+15755776222` (رقمك) |
 | `TWILIO_MESSAGING_SERVICE_SID` | SMS | — | من Messaging → Services (MG...) |
 | `WHATSAPP_SENDER_NAME` | كلاهما | `PlayTix` | اسم المرسل في نهاية الرسالة |
 | `WHATSAPP_DEFAULT_COUNTRY_CODE` | كلاهما | `966` | رمز الدولة للأرقام المحلية |

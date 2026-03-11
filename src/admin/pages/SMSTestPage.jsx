@@ -74,6 +74,7 @@ export default function SMSTestPage() {
         {showSettings && (
           <div style={{ padding: 20, background: '#fff', borderTop: '1px solid #e2e8f0', fontSize: '0.9rem' }}>
             <p style={{ color: '#64748b', marginBottom: 16 }}>{c.settingsHint}</p>
+            <p style={{ marginBottom: 12, fontSize: '0.85rem' }}>{language === 'ar' ? 'للإعداد الكامل مع PlayTix SMS:' : 'For complete setup with PlayTix SMS:'} <a href="https://github.com/yakhawaji-lang/padel/blob/main/docs/TWILIO_SETUP_COMPLETE.md" target="_blank" rel="noopener noreferrer" style={{ color: '#0f172a' }}>TWILIO_SETUP_COMPLETE.md</a></p>
             <p style={{ fontWeight: 600, marginBottom: 8, color: '#059669' }}>{c.authenticaTitle}</p>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', marginBottom: 16 }}>
               <thead>
@@ -93,7 +94,7 @@ export default function SMSTestPage() {
                 </tr>
               </tbody>
             </table>
-            <p style={{ fontWeight: 600, marginBottom: 8, marginTop: 16 }}>{language === 'ar' ? 'Twilio' : 'Twilio'}</p>
+            <p style={{ fontWeight: 600, marginBottom: 8, marginTop: 16 }}>{language === 'ar' ? 'Twilio (PlayTix SMS)' : 'Twilio (PlayTix SMS)'}</p>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', marginBottom: 16 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
@@ -112,7 +113,7 @@ export default function SMSTestPage() {
                 </tr>
                 <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={{ padding: '8px 8px 8px 0', fontFamily: 'monospace' }}>TWILIO_MESSAGING_SERVICE_SID</td>
-                  <td style={{ padding: 8, color: '#64748b' }}>{language === 'ar' ? 'من Messaging → Services (SID يبدأ بـ MG)' : 'From Messaging → Services (SID starts with MG)'}</td>
+                  <td style={{ padding: 8, color: '#64748b' }}>{language === 'ar' ? 'من Messaging → Services → PlayTix SMS (MG...)' : 'From Messaging → Services → PlayTix SMS (MG...)'}</td>
                 </tr>
               </tbody>
             </table>

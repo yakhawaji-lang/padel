@@ -313,7 +313,7 @@ npm run sync-from-cloud
 | **TWILIO_ACCOUNT_SID** | ACxxxxxxxx | من [Twilio Console](https://console.twilio.com) |
 | **TWILIO_AUTH_TOKEN** | رمزك السري | من Twilio Console |
 | **TWILIO_WHATSAPP_FROM** | `whatsapp:+14155238886` | Sandbox للتجربة |
-| **TWILIO_WHATSAPP_FROM** | `whatsapp:+15557047727` | مرسل PlayTix للإنتاج |
+| **TWILIO_WHATSAPP_FROM** | `whatsapp:+15755776222` | رقمك (بعد تفعيل WhatsApp) |
 | **TWILIO_MESSAGING_SERVICE_SID** | MGxxxxxxxx | للـ SMS (من Messaging → Services) |
 | **WHATSAPP_SENDER_NAME** | `PlayTix` | اسم المرسل في نهاية الرسائل |
 
