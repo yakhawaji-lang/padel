@@ -4,6 +4,7 @@ import './ClubDashboard.css'
 import { loadFromLocalStorage } from '../../storage'
 import { getClubMembersFromStorage } from '../../storage/adminStorage'
 import { getClubLanguageCached, setClubLanguage } from '../../storage/appSettingsStorage'
+import { getClubAdminSession, hasClubPermission } from '../../storage/clubAuth'
 import LanguageIcon from '../../components/LanguageIcon'
 
 const ClubDashboard = ({ club }) => {
@@ -68,6 +69,7 @@ const ClubDashboard = ({ club }) => {
       openClubPage: 'Open Club Page',
       manageMembers: 'Manage Members',
       manageOffers: 'Manage Offers',
+      manageStore: 'Store & Products',
       viewAccounting: 'View Accounting',
       clubSettings: 'Club Settings',
       noData: 'No data available',
@@ -102,6 +104,7 @@ const ClubDashboard = ({ club }) => {
       openClubPage: 'فتح صفحة النادي',
       manageMembers: 'إدارة الأعضاء',
       manageOffers: 'إدارة العروض',
+      manageStore: 'المتجر والمنتجات',
       viewAccounting: 'عرض المحاسبة',
       clubSettings: 'إعدادات النادي',
       noData: 'لا توجد بيانات',
@@ -422,6 +425,15 @@ const ClubDashboard = ({ club }) => {
                   <span className="action-icon">🎁</span>
                   <span className="action-label">{t.manageOffers}</span>
                 </button>
+                {hasClubPermission(getClubAdminSession(), 'store') && (
+                  <button 
+                    className="quick-action-btn action-secondary"
+                    onClick={() => navigate(`/admin/club/${club.id}/store?tab=products`)}
+                  >
+                    <span className="action-icon">🛒</span>
+                    <span className="action-label">{t.manageStore}</span>
+                  </button>
+                )}
                 <button 
                   className="quick-action-btn action-secondary"
                   onClick={() => navigate(`/admin/club/${club.id}/accounting`)}

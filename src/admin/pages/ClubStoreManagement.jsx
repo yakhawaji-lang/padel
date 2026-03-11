@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import './club-pages-common.css'
 import '../pages/common.css'
 import './ClubStoreManagement.css'
@@ -8,7 +9,11 @@ import { getClubLanguageCached } from '../../storage/appSettingsStorage'
 const defaultStore = () => ({ name: '', nameAr: '', categories: [], products: [], sales: [], inventoryMovements: [], offers: [], coupons: [], minStockAlert: 5 })
 
 const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
-  const [activeTab, setActiveTab] = useState('dashboard')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const validTabs = ['dashboard', 'inventory', 'offers', 'coupons', 'info', 'categories', 'products', 'newSale', 'salesHistory']
+  const initialTab = validTabs.includes(tabParam) ? tabParam : 'dashboard'
+  const [activeTab, setActiveTab] = useState(initialTab)
   const [store, setStore] = useState(() => club?.store || defaultStore())
   const [categoryForm, setCategoryForm] = useState({ name: '', nameAr: '', order: 0 })
   const [productForm, setProductForm] = useState({ categoryId: '', name: '', nameAr: '', description: '', descriptionAr: '', price: '', image: '', order: 0, stock: '', barcode: '' })
@@ -34,6 +39,10 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
   useEffect(() => {
     setStore(club?.store ? { ...defaultStore(), ...club.store, categories: club.store.categories || [], products: club.store.products || [], sales: club.store.sales || [], inventoryMovements: club.store.inventoryMovements || [], offers: club.store.offers || [], coupons: club.store.coupons || [], minStockAlert: club.store.minStockAlert ?? 5 } : defaultStore())
   }, [club?.id, club?.store])
+
+  useEffect(() => {
+    if (tabParam && validTabs.includes(tabParam)) setActiveTab(tabParam)
+  }, [tabParam])
 
   useEffect(() => {
     if (activeTab === 'newSale') saleBarcodeInputRef.current?.focus()
@@ -704,7 +713,10 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
             key={tab.id}
             type="button"
             className={activeTab === tab.id ? 'active' : ''}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => {
+              setActiveTab(tab.id)
+              setSearchParams({ tab: tab.id }, { replace: true })
+            }}
           >
             <span className="tab-icon">{tab.icon}</span>
             <span className="tab-label">{tab.label}</span>
@@ -784,6 +796,14 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
             </div>
           </div>
           <div className="store-dashboard-bottom">
+            {products.length === 0 && (
+              <div className="store-empty-cta" style={{ marginBottom: 16, padding: 20, background: '#f0fdf4', borderRadius: 12, border: '1px solid #86efac', textAlign: 'center' }}>
+                <p style={{ margin: '0 0 12px', color: '#166534', fontWeight: 500 }}>{c.noProducts}</p>
+                <button type="button" className="btn-primary" onClick={() => { setActiveTab('products'); setSearchParams({ tab: 'products' }, { replace: true }); }}>
+                  {c.addProduct}
+                </button>
+              </div>
+            )}
             <div className="top-products-card">
               <h3>{c.topProducts}</h3>
               {stats.topProducts.length === 0 ? (
