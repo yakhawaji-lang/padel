@@ -1348,7 +1348,10 @@ const ClubStoreManagement = ({ club, language: langProp, onUpdateClub }) => {
           <div className="store-list-card">
             <h3>{c.products}</h3>
             {products.length === 0 ? (
-              <p className="empty-msg">{c.noProducts}</p>
+              <>
+                <p className="empty-msg">{c.noProducts}</p>
+                <p className="products-horse-icon" style={{ fontSize: 48, marginTop: 16, opacity: 0.6 }} aria-hidden="true">🏇</p>
+              </>
             ) : (
               <ul className="store-list product-list">
                 {products.map(prod => {
