@@ -848,6 +848,7 @@ export async function addPendingClub(clubData) {
     store: { name: '', nameAr: '', categories: [], products: [], sales: [], inventoryMovements: [], offers: [], coupons: [], minStockAlert: 5 },
     tournamentData: { kingState: null, socialState: null, currentTournamentId: 1 },
     status: 'pending',
+    emailVerified: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   }

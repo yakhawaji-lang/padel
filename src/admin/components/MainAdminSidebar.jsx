@@ -119,6 +119,17 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
         )}
         {session && (
           <Link
+            to="/admin/email-test"
+            className={`main-admin-nav-item ${isActive('/admin/email-test') ? 'active' : ''}`}
+          >
+            <span className="nav-icon">✉️</span>
+            <span className="nav-label">
+              {language === 'en' ? 'Email test' : 'تجربة البريد'}
+            </span>
+          </Link>
+        )}
+        {session && (
+          <Link
             to="/admin/settings"
             className={`main-admin-nav-item ${isActive('/admin/settings') ? 'active' : ''}`}
           >

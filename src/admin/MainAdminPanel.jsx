@@ -11,6 +11,7 @@ import AllMembersManagement from './pages/AllMembersManagement'
 import AllBookingsDashboard from './pages/AllBookingsDashboard'
 import WhatsAppTestPage from './pages/WhatsAppTestPage'
 import SMSTestPage from './pages/SMSTestPage'
+import EmailTestPage from './pages/EmailTestPage'
 import PlatformSettingsPage from './pages/PlatformSettingsPage'
 import PlatformPageGuard from '../components/PlatformPageGuard'
 import { ErrorBoundary } from '../components/ErrorBoundary'
@@ -180,6 +181,9 @@ function MainAdminPanel() {
     }
     if (path === 'sms-test') {
       return <SMSTestPage />
+    }
+    if (path === 'email-test') {
+      return <EmailTestPage />
     }
     if (path === 'settings') {
       return <PlatformSettingsPage />

@@ -554,7 +554,16 @@ async function assembleClub(clubRow, courts, settings, adminUsers, offers, booki
     })),
     storeEnabled: !!clubRow.store_enabled,
     store: store?.data ? (typeof store.data === 'object' ? store.data : JSON.parse(store.data || '{}')) : { name: '', nameAr: '', categories: [], products: [], sales: [], inventoryMovements: [], offers: [], coupons: [], minStockAlert: 5 },
-    tournamentData: typeof clubRow.tournament_data === 'object' ? clubRow.tournament_data : (clubRow.tournament_data ? JSON.parse(clubRow.tournament_data || '{}') : { kingState: null, socialState: null, currentTournamentId: 1 }),
+    tournamentData: (() => {
+      const td = typeof clubRow.tournament_data === 'object' ? clubRow.tournament_data : (clubRow.tournament_data ? JSON.parse(clubRow.tournament_data || '{}') : { kingState: null, socialState: null, currentTournamentId: 1 })
+      return { kingState: null, socialState: null, currentTournamentId: 1, ...td }
+    })(),
+    emailVerified: (() => {
+      const t = clubRow.tournament_data
+      if (t && typeof t === 'object') return !!t.emailVerified
+      if (typeof t === 'string') { try { return !!(JSON.parse(t || '{}').emailVerified) } catch { return false } }
+      return false
+    })(),
     createdAt: clubRow.created_at?.toISOString?.(),
     updatedAt: clubRow.updated_at?.toISOString?.()
   }
@@ -705,6 +714,10 @@ export async function saveClubsToNormalized(items, actor = {}) {
     const isNew = !existingIds.has(cid)
     const oldClub = existing.find(c => c.id === cid)
 
+    const td = club.tournamentData && typeof club.tournamentData === 'object' ? { ...club.tournamentData } : { kingState: null, socialState: null, currentTournamentId: 1 }
+    if (club.emailVerified !== undefined) td.emailVerified = !!club.emailVerified
+    const tournamentDataJson = JSON.stringify(td)
+
     if (isNew) {
       await query(
         `INSERT INTO clubs (id, name, name_ar, logo, banner, tagline, tagline_ar, address, address_ar, phone, email, website, playtomic_venue_id, playtomic_api_key, status, store_enabled, tournament_data, created_by)
@@ -714,12 +727,15 @@ export async function saveClubsToNormalized(items, actor = {}) {
           club.tagline || '', club.taglineAr || '', club.address || '', club.addressAr || '',
           club.phone || '', club.email || '', club.website || '', club.playtomicVenueId || '', club.playtomicApiKey || '',
           club.status || 'active', club.storeEnabled ? 1 : 0,
-          JSON.stringify(club.tournamentData || { kingState: null, socialState: null, currentTournamentId: 1 }),
+          tournamentDataJson,
           actor.actorId || null
         ]
       )
       await logAudit({ tableName: 'clubs', recordId: cid, action: 'INSERT', ...actor, clubId: cid, newValue: { name: club.name } })
     } else {
+      const existingTd = oldClub?.tournamentData && typeof oldClub.tournamentData === 'object' ? oldClub.tournamentData : {}
+      const mergedTd = { ...existingTd, ...(club.tournamentData && typeof club.tournamentData === 'object' ? club.tournamentData : {}) }
+      if (club.emailVerified !== undefined) mergedTd.emailVerified = !!club.emailVerified
       await query(
         `UPDATE clubs SET name=?, name_ar=?, logo=?, banner=?, tagline=?, tagline_ar=?, address=?, address_ar=?, phone=?, email=?, website=?, playtomic_venue_id=?, playtomic_api_key=?, status=?, store_enabled=?, tournament_data=?, updated_at=NOW(), updated_by=?
          WHERE id=?`,
@@ -728,7 +744,7 @@ export async function saveClubsToNormalized(items, actor = {}) {
           club.tagline || '', club.taglineAr || '', club.address || '', club.addressAr || '',
           club.phone || '', club.email || '', club.website || '', club.playtomicVenueId || '', club.playtomicApiKey || '',
           club.status || 'active', club.storeEnabled ? 1 : 0,
-          JSON.stringify(club.tournamentData || {}),
+          JSON.stringify(mergedTd),
           actor.actorId || null, cid
         ]
       )

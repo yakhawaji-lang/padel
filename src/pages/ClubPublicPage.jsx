@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { loadClubs, getClubById, getClubMembersFromStorage, addMemberToClub, addBookingToClub, refreshClubsFromApi, upsertMember } from '../storage/adminStorage'
 import { calculateBookingPrice } from '../utils/bookingPricing'
 import * as bookingApi from '../api/dbClient'
-import { getImageUrl } from '../api/dbClient'
+import { getImageUrl, sendWelcomeClubJoinEmail } from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
 import CalendarPicker from '../components/CalendarPicker'
 import SocialIcon from '../components/SocialIcon'
@@ -655,6 +655,10 @@ const ClubPublicPage = () => {
       setPlatformUser(getCurrentPlatformUser())
       refreshClub()
       setJoinStatus('success')
+      const memberEmail = (platformUser.email || '').trim()
+      if (memberEmail && memberEmail.includes('@')) {
+        sendWelcomeClubJoinEmail(memberEmail, platformUser.name || '', club.name || club.nameAr || '').catch(() => {})
+      }
     } catch (e) {
       console.error('Join club failed:', e)
       setJoinStatus('error')

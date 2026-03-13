@@ -1,41 +1,72 @@
 /**
- * Platform message sending - uses SMS or WhatsApp based on platform_message_type setting.
+ * Platform message sending - uses SMS, WhatsApp, and/or Email based on platform_message_channels.
  */
-import { query } from '../db/pool.js'
+import { getSetting } from '../db/dataHelpers.js'
 import { sendWhatsAppText } from './whatsappSend.js'
 import { sendSmsText } from './smsSend.js'
 
-const PLATFORM_MESSAGE_TYPE_KEY = 'platform_message_type'
+const PLATFORM_MESSAGE_CHANNELS_KEY = 'platform_message_channels'
 
-async function getMessageChannel() {
+/**
+ * Get enabled channels. Returns { sms, whatsapp, email }.
+ * Backward compat: if old platform_message_type exists, maps to channels.
+ */
+export async function getEnabledChannels() {
   try {
-    const { rows } = await query('SELECT value FROM app_store WHERE `key` = ?', [PLATFORM_MESSAGE_TYPE_KEY])
-    if (rows?.length && rows[0].value != null) {
-      let v = rows[0].value
-      if (typeof v === 'string' && v.startsWith('"')) {
-        try { v = JSON.parse(v) } catch { /* keep as is */ }
+    const channels = await getSetting(PLATFORM_MESSAGE_CHANNELS_KEY)
+    if (channels && typeof channels === 'object' && !Array.isArray(channels)) {
+      return {
+        sms: !!channels.sms,
+        whatsapp: channels.whatsapp !== false,
+        email: !!channels.email
       }
-      if (typeof v === 'object' && v !== null) v = v.channel ?? v.type ?? v
-      v = String(v || '').trim().toLowerCase()
-      if (v === 'sms') return 'sms'
-      if (v === 'whatsapp') return 'whatsapp'
+    }
+    const legacy = await getSetting('platform_message_type')
+    if (typeof legacy === 'string') {
+      const v = String(legacy).trim().toLowerCase()
+      if (v === 'sms') return { sms: true, whatsapp: false, email: false }
+      if (v === 'whatsapp') return { sms: false, whatsapp: true, email: false }
     }
   } catch (e) {
-    console.warn('[messageSend] getMessageChannel failed:', e?.message)
+    console.warn('[messageSend] getEnabledChannels failed:', e?.message)
   }
-  return 'whatsapp' // default
+  return { sms: false, whatsapp: true, email: false }
+}
+
+/** Check if email channel is enabled */
+export async function isEmailChannelEnabled() {
+  const ch = await getEnabledChannels()
+  return !!ch.email
 }
 
 /**
- * Send platform message (registration welcome, club welcome, booking confirm) via SMS or WhatsApp.
+ * Send platform message (registration welcome, club welcome, booking confirm) via SMS and/or WhatsApp.
+ * Sends to all enabled phone channels.
  * @param {string} toPhone - Recipient phone
  * @param {string} text - Message body
  * @returns {Promise<{ ok: boolean, messageId?: string, error?: string }>}
  */
 export async function sendPlatformMessage(toPhone, text) {
-  const channel = await getMessageChannel()
-  if (channel === 'sms') {
-    return sendSmsText(toPhone, text)
+  const ch = await getEnabledChannels()
+  const results = []
+
+  if (ch.sms) {
+    const r = await sendSmsText(toPhone, text)
+    results.push({ channel: 'sms', ...r })
   }
-  return sendWhatsAppText(toPhone, text)
+  if (ch.whatsapp) {
+    const r = await sendWhatsAppText(toPhone, text)
+    results.push({ channel: 'whatsapp', ...r })
+  }
+
+  if (results.length === 0) {
+    return { ok: false, error: 'No phone channels enabled' }
+  }
+  const ok = results.some(r => r.ok)
+  const lastOk = results.find(r => r.ok)
+  return {
+    ok,
+    messageId: lastOk?.messageId,
+    error: ok ? undefined : (results.map(r => r.error).filter(Boolean).join('; ') || 'Send failed')
+  }
 }

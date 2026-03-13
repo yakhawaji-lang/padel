@@ -16,6 +16,7 @@ import ClubUsersManagement from './pages/ClubUsersManagement'
 import ClubBookingPrices from './pages/ClubBookingPrices'
 import ClubBookingsManagement from './pages/ClubBookingsManagement'
 import ClubPageGuard from '../components/ClubPageGuard'
+import ClubEmailVerificationBanner from './components/ClubEmailVerificationBanner'
 import { loadClubs, saveClubs, getClubById, syncMembersToClubsManually, refreshClubsFromApi } from '../storage/adminStorage'
 import { saveClubSettings } from '../api/dbClient'
 
@@ -152,6 +153,13 @@ function ClubAdminPanel() {
               <p>{language === 'en' ? 'Your registration is under review. You can explore the dashboard and prepare your club. Full access will be enabled once the platform admin approves your club.' : 'تسجيل ناديك قيد المراجعة. يمكنك استكشاف لوحة التحكم وإعداد النادي. سيتم تفعيل الوصول الكامل بعد موافقة مدير المنصة.'}</p>
             </div>
           </div>
+        )}
+        {club.status !== 'pending' && (
+          <ClubEmailVerificationBanner
+            club={club}
+            language={language}
+            onVerified={() => { setClub(prev => prev ? { ...prev, emailVerified: true } : null); loadData(true) }}
+          />
         )}
         <main className="club-admin-main" data-section={section}>
         <Routes>

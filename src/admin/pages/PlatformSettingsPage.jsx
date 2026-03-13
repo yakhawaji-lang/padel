@@ -5,7 +5,8 @@ import './common.css'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 const BANNER_PHRASE_KEY = 'homepage_banner_phrase'
-const PLATFORM_MESSAGE_TYPE_KEY = 'platform_message_type'
+const PLATFORM_MESSAGE_CHANNELS_KEY = 'platform_message_channels'
+const PLATFORM_EMAIL_SETTINGS_KEY = 'platform_email_settings'
 const GALLERY_KEYS = ['gallery-1', 'gallery-2', 'gallery-3', 'gallery-4', 'gallery-5', 'gallery-6']
 
 function readFileAsDataUrl(file) {
@@ -28,24 +29,39 @@ export default function PlatformSettingsPage() {
   const [uploading, setUploading] = useState(null)
   const [selectedBannerFile, setSelectedBannerFile] = useState(null)
   const [selectedGalleryFiles, setSelectedGalleryFiles] = useState({})
-  const [messageType, setMessageType] = useState('whatsapp')
+  const [channels, setChannels] = useState({ sms: false, whatsapp: true, email: false })
+  const [emailProvider, setEmailProvider] = useState('resend')
+  const [emailFrom, setEmailFrom] = useState('PlayTix <noreply@playtix.app>')
+  const [emailResendKey, setEmailResendKey] = useState('')
+  const [emailSendgridKey, setEmailSendgridKey] = useState('')
 
   useEffect(() => {
     Promise.all([
       getStore(BANNER_PHRASE_KEY),
-      getStore(PLATFORM_MESSAGE_TYPE_KEY)
-    ]).then(([phraseVal, msgVal]) => {
+      getStore(PLATFORM_MESSAGE_CHANNELS_KEY),
+      getStore(PLATFORM_EMAIL_SETTINGS_KEY)
+    ]).then(([phraseVal, msgVal, emailVal]) => {
       if (phraseVal && typeof phraseVal === 'object') {
         setPhraseAr(phraseVal.ar || '')
         setPhraseEn(phraseVal.en || '')
       }
-      let mt = msgVal
-      if (typeof mt === 'string' && mt.startsWith('"')) {
-        try { mt = JSON.parse(mt) } catch { /* keep */ }
+      if (msgVal && typeof msgVal === 'object' && !Array.isArray(msgVal)) {
+        setChannels({
+          sms: !!msgVal.sms,
+          whatsapp: msgVal.whatsapp !== false,
+          email: !!msgVal.email
+        })
+      } else if (typeof msgVal === 'string') {
+        const v = String(msgVal).trim().toLowerCase()
+        if (v === 'sms') setChannels({ sms: true, whatsapp: false, email: false })
+        else if (v === 'whatsapp') setChannels({ sms: false, whatsapp: true, email: false })
       }
-      mt = typeof mt === 'object' && mt != null ? (mt.channel ?? mt.type) : mt
-      mt = String(mt || 'whatsapp').trim().toLowerCase()
-      if (mt === 'sms' || mt === 'whatsapp') setMessageType(mt)
+      if (emailVal && typeof emailVal === 'object') {
+        setEmailProvider((emailVal.provider || 'resend').toLowerCase())
+        setEmailFrom(emailVal.from || 'PlayTix <noreply@playtix.app>')
+        setEmailResendKey(emailVal.resendApiKey ? '••••••••' : '')
+        setEmailSendgridKey(emailVal.sendgridApiKey ? '••••••••' : '')
+      }
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
@@ -65,12 +81,37 @@ export default function PlatformSettingsPage() {
     }
   }
 
-  const handleSaveMessageType = async () => {
+  const handleSaveChannels = async () => {
     setMessage(null)
     setMessageError(false)
     setSaving(true)
     try {
-      await setStore(PLATFORM_MESSAGE_TYPE_KEY, messageType)
+      await setStore(PLATFORM_MESSAGE_CHANNELS_KEY, channels)
+      setMessage(language === 'ar' ? 'تم الحفظ.' : 'Saved.')
+    } catch (err) {
+      setMessage(language === 'ar' ? 'فشل الحفظ.' : 'Save failed.')
+      setMessageError(true)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const toggleChannel = (key) => {
+    setChannels(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  const handleSaveEmailSettings = async () => {
+    setMessage(null)
+    setMessageError(false)
+    setSaving(true)
+    try {
+      const payload = {
+        provider: emailProvider,
+        from: emailFrom.trim() || 'PlayTix <noreply@playtix.app>'
+      }
+      if (emailResendKey && emailResendKey !== '••••••••') payload.resendApiKey = emailResendKey
+      if (emailSendgridKey && emailSendgridKey !== '••••••••') payload.sendgridApiKey = emailSendgridKey
+      await setStore(PLATFORM_EMAIL_SETTINGS_KEY, payload)
       setMessage(language === 'ar' ? 'تم الحفظ.' : 'Saved.')
     } catch (err) {
       setMessage(language === 'ar' ? 'فشل الحفظ.' : 'Save failed.')
@@ -116,10 +157,18 @@ export default function PlatformSettingsPage() {
     upload: t('Upload', 'رفع', language),
     save: t('Save', 'حفظ', language),
     saving: t('Saving...', 'جاري الحفظ...', language),
-    messageChannel: t('Message channel', 'قناة الرسائل', language),
-    messageChannelIntro: t('Choose how to send registration, club welcome, and booking messages.', 'اختر طريقة إرسال رسائل التسجيل وترحيب النادي والحجوزات.', language),
+    messageChannel: t('Allowed message channels', 'قنوات الرسائل المسموحة', language),
+    messageChannelIntro: t('Enable the channels you want to use. Messages will be sent to all enabled channels (SMS, WhatsApp, Email) when the recipient has the required contact info.', 'فعّل القنوات التي تريد استخدامها. تُرسل الرسائل إلى جميع القنوات المفعّلة عند توفر بيانات الاتصال.', language),
     sms: t('SMS', 'رسائل SMS', language),
     whatsapp: t('WhatsApp', 'واتساب', language),
+    email: t('Email', 'البريد الإلكتروني', language),
+    emailSection: t('Email settings', 'إعدادات البريد', language),
+    emailSectionIntro: t('Configure email for verification codes, welcome messages, and club notifications. Uses Resend or Twilio SendGrid.', 'إعداد البريد لرموز التحقق ورسائل الترحيب وإشعارات النادي. يستخدم Resend أو Twilio SendGrid.', language),
+    emailProvider: t('Provider', 'المزود', language),
+    emailFrom: t('From address', 'عنوان المرسل', language),
+    emailFromPlaceholder: t('PlayTix <noreply@playtix.app>', 'PlayTix <noreply@playtix.app>', language),
+    resendApiKey: t('Resend API Key', 'مفتاح Resend', language),
+    sendgridApiKey: t('SendGrid API Key (Twilio)', 'مفتاح SendGrid (Twilio)', language),
   }
 
   if (loading) {
@@ -134,19 +183,57 @@ export default function PlatformSettingsPage() {
       <section style={{ marginBottom: 32 }}>
         <h2 style={{ fontSize: '1.125rem', marginBottom: 8 }}>{c.messageChannel}</h2>
         <p style={{ color: '#64748b', marginBottom: 16, fontSize: '0.9rem' }}>{c.messageChannelIntro}</p>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-            <input type="radio" name="messageType" value="whatsapp" checked={messageType === 'whatsapp'} onChange={() => setMessageType('whatsapp')} disabled={saving} />
-            <span>{c.whatsapp}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+            <input type="checkbox" checked={channels.sms} onChange={() => toggleChannel('sms')} disabled={saving} />
+            <span>📱 {c.sms}</span>
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-            <input type="radio" name="messageType" value="sms" checked={messageType === 'sms'} onChange={() => setMessageType('sms')} disabled={saving} />
-            <span>{c.sms}</span>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+            <input type="checkbox" checked={channels.whatsapp} onChange={() => toggleChannel('whatsapp')} disabled={saving} />
+            <span>💬 {c.whatsapp}</span>
           </label>
-          <button type="button" onClick={handleSaveMessageType} disabled={saving} style={{ padding: '8px 16px', background: saving ? '#94a3b8' : '#0f172a', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer' }}>
-            {saving ? c.saving : c.save}
-          </button>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+            <input type="checkbox" checked={channels.email} onChange={() => toggleChannel('email')} disabled={saving} />
+            <span>✉️ {c.email}</span>
+          </label>
         </div>
+        <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: 12 }}>
+          {language === 'ar' ? 'يمكنك تفعيل قناة واحدة أو أكثر أو الكل. الرسائل تُرسل إلى كل القنوات المفعّلة.' : 'You can enable one, several, or all channels. Messages are sent to all enabled channels.'}
+        </p>
+        <button type="button" onClick={handleSaveChannels} disabled={saving} style={{ padding: '8px 16px', background: saving ? '#94a3b8' : '#0f172a', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer' }}>
+          {saving ? c.saving : c.save}
+        </button>
+      </section>
+
+      <section style={{ marginBottom: 32 }}>
+        <h2 style={{ fontSize: '1.125rem', marginBottom: 8 }}>{c.emailSection}</h2>
+        <p style={{ color: '#64748b', marginBottom: 16, fontSize: '0.9rem' }}>{c.emailSectionIntro}</p>
+        <div className="form-group" style={{ marginBottom: 12 }}>
+          <label style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>{c.emailProvider}</label>
+          <select value={emailProvider} onChange={(e) => setEmailProvider(e.target.value)} disabled={saving} style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+            <option value="resend">Resend</option>
+            <option value="sendgrid">Twilio SendGrid</option>
+          </select>
+        </div>
+        <div className="form-group" style={{ marginBottom: 12 }}>
+          <label style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>{c.emailFrom}</label>
+          <input type="text" value={emailFrom} onChange={(e) => setEmailFrom(e.target.value)} placeholder={c.emailFromPlaceholder} disabled={saving} style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8 }} />
+        </div>
+        {emailProvider === 'resend' && (
+          <div className="form-group" style={{ marginBottom: 12 }}>
+            <label style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>{c.resendApiKey}</label>
+            <input type="password" value={emailResendKey} onChange={(e) => setEmailResendKey(e.target.value)} placeholder="re_xxxxx" disabled={saving} style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8 }} />
+          </div>
+        )}
+        {emailProvider === 'sendgrid' && (
+          <div className="form-group" style={{ marginBottom: 12 }}>
+            <label style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>{c.sendgridApiKey}</label>
+            <input type="password" value={emailSendgridKey} onChange={(e) => setEmailSendgridKey(e.target.value)} placeholder="SG.xxxxx" disabled={saving} style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8 }} />
+          </div>
+        )}
+        <button type="button" onClick={handleSaveEmailSettings} disabled={saving} style={{ padding: '8px 16px', background: saving ? '#94a3b8' : '#0f172a', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer' }}>
+          {saving ? c.saving : c.save}
+        </button>
       </section>
 
       <section style={{ marginBottom: 32 }}>

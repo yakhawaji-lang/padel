@@ -313,6 +313,70 @@ export async function sendSmsTestMessage(phone, text) {
   })
 }
 
+/** Send email test (admin) */
+export async function sendEmailTest(to, subject, body) {
+  return fetchJson('/api/email/send', {
+    method: 'POST',
+    body: JSON.stringify({ to, subject, body })
+  })
+}
+
+/** Send 4-digit verification code to email */
+export async function sendEmailVerificationCode(email, purpose) {
+  return fetchJson('/api/email/send-verification-code', {
+    method: 'POST',
+    body: JSON.stringify({ email, purpose })
+  })
+}
+
+/** Verify 4-digit code */
+export async function verifyEmailCode(email, code) {
+  return fetchJson('/api/email/verify-code', {
+    method: 'POST',
+    body: JSON.stringify({ email, code })
+  })
+}
+
+/** Send welcome email to new member after registration */
+export async function sendWelcomeMemberEmail(email, name) {
+  try {
+    await fetchJson('/api/email/send-welcome-member', {
+      method: 'POST',
+      body: JSON.stringify({ email, name })
+    })
+  } catch (e) {
+    console.warn('[sendWelcomeMemberEmail]', e?.message)
+  }
+}
+
+/** Send welcome email when member joins club */
+export async function sendWelcomeClubJoinEmail(email, memberName, clubName) {
+  try {
+    await fetchJson('/api/email/send-welcome-club-join', {
+      method: 'POST',
+      body: JSON.stringify({ email, memberName, clubName })
+    })
+  } catch (e) {
+    console.warn('[sendWelcomeClubJoinEmail]', e?.message)
+  }
+}
+
+/** Send club email verification code */
+export async function sendClubEmailVerificationEmail(email) {
+  return fetchJson('/api/email/send-club-verification', {
+    method: 'POST',
+    body: JSON.stringify({ email })
+  })
+}
+
+/** Verify club email with code */
+export async function verifyClubEmail(email, code, clubId) {
+  return fetchJson('/api/email/verify-club-email', {
+    method: 'POST',
+    body: JSON.stringify({ email, code, clubId })
+  })
+}
+
 /** Send registration welcome WhatsApp (fire-and-forget, don't block UI) */
 export async function sendRegistrationWelcome(phone, name) {
   try {

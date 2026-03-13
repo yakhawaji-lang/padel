@@ -13,7 +13,7 @@ function formatPhoneFromUrl(s) {
 }
 import { getCurrentPlatformUser, setCurrentPlatformUser } from '../storage/platformAuth'
 import { upsertMember, getMergedMembersRaw, addMemberToClub } from '../storage/adminStorage'
-import { sendRegistrationWelcome } from '../api/dbClient'
+import { sendRegistrationWelcome, sendEmailVerificationCode, verifyEmailCode, sendWelcomeMemberEmail } from '../api/dbClient'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './Register.css'
 
@@ -38,6 +38,10 @@ const Register = () => {
   })
   const [agreeToTerms, setAgreeToTerms] = useState(false)
   const [error, setError] = useState('')
+  const [regStep, setRegStep] = useState('email') // 'email' | 'code' | 'form'
+  const [codeSent, setCodeSent] = useState(false)
+  const [verificationCode, setVerificationCode] = useState('')
+  const [codeLoading, setCodeLoading] = useState(false)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -81,7 +85,14 @@ const Register = () => {
       privacyPolicy: 'Privacy Policy',
       and: 'and',
       termsOfService: 'Terms of Service',
-      phoneAlreadyRegistered: 'This phone number is already registered. Please log in.'
+      phoneAlreadyRegistered: 'This phone number is already registered. Please log in.',
+      sendCode: 'Send verification code',
+      codeSent: 'Code sent to your email. Check your inbox.',
+      enterCode: 'Enter 4-digit code',
+      verify: 'Verify',
+      codePlaceholder: '0000',
+      invalidCode: 'Invalid or expired code.',
+      backToEmail: 'Change email'
     },
     ar: {
       title: isPhoneOnlyFlow ? 'تسجيل سريع — مشاركة بالدفع' : 'التسجيل في PlayTix',
@@ -108,10 +119,66 @@ const Register = () => {
       privacyPolicy: 'سياسة الخصوصية',
       and: 'و',
       termsOfService: 'شروط الخدمة',
-      phoneAlreadyRegistered: 'رقم الجوال مسجّل مسبقاً. يرجى تسجيل الدخول.'
+      phoneAlreadyRegistered: 'رقم الجوال مسجّل مسبقاً. يرجى تسجيل الدخول.',
+      sendCode: 'إرسال كود التحقق',
+      codeSent: 'تم إرسال الكود إلى بريدك. تحقق من صندوق الوارد.',
+      enterCode: 'أدخل الكود المكوّن من 4 أرقام',
+      verify: 'تأكيد',
+      codePlaceholder: '0000',
+      invalidCode: 'كود غير صالح أو منتهٍ.',
+      backToEmail: 'تغيير البريد'
     }
   }
   const c = t[language]
+
+  const handleSendCode = async (e) => {
+    e?.preventDefault?.()
+    setError('')
+    const em = (formData.email || '').trim().toLowerCase()
+    if (!em || !em.includes('@')) {
+      setError(language === 'en' ? 'Enter a valid email address.' : 'أدخل بريداً إلكترونياً صحيحاً.')
+      return
+    }
+    const members = getMergedMembersRaw()
+    const existing = members.find(m => (m.email || '').toLowerCase() === em)
+    if (existing) {
+      setError(language === 'en' ? 'This email is already registered.' : 'هذا البريد مسجّل مسبقاً.')
+      return
+    }
+    setCodeLoading(true)
+    try {
+      await sendEmailVerificationCode(em, 'member_registration')
+      setCodeSent(true)
+      setRegStep('code')
+      setError('')
+    } catch (err) {
+      setError(err?.message || (language === 'en' ? 'Failed to send code.' : 'فشل إرسال الكود.'))
+    } finally {
+      setCodeLoading(false)
+    }
+  }
+
+  const handleVerifyCode = async (e) => {
+    e?.preventDefault?.()
+    setError('')
+    const em = (formData.email || '').trim().toLowerCase()
+    const code = (verificationCode || '').replace(/\D/g, '')
+    if (code.length !== 4) {
+      setError(language === 'en' ? 'Enter the 4-digit code.' : 'أدخل الكود المكوّن من 4 أرقام.')
+      return
+    }
+    setCodeLoading(true)
+    try {
+      await verifyEmailCode(em, code)
+      setRegStep('form')
+      setVerificationCode('')
+      setError('')
+    } catch (err) {
+      setError(c.invalidCode)
+    } finally {
+      setCodeLoading(false)
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -173,6 +240,9 @@ const Register = () => {
     if (phone && phone.replace(/\D/g, '').length >= 9) {
       sendRegistrationWelcome(phone, newMember.name).catch(() => {})
     }
+    if (email && email.includes('@')) {
+      sendWelcomeMemberEmail(email, newMember.name).catch(() => {})
+    }
     if (returnTo && returnTo.startsWith('/')) {
       navigate(returnTo, { replace: true })
       return
@@ -197,21 +267,72 @@ const Register = () => {
           <h1 className="register-title">{c.title}</h1>
           <p className="register-subtitle">{c.subtitle}</p>
           {!isPhoneOnlyFlow && <p className="register-or">{c.or}</p>}
-          <form onSubmit={handleSubmit} className="register-form">
+          <form onSubmit={regStep === 'form' ? handleSubmit : (e) => { e.preventDefault(); regStep === 'email' ? handleSendCode(e) : handleVerifyCode(e); }} className="register-form">
             {error && <p className="register-error">{error}</p>}
-            {!isPhoneOnlyFlow && (
-              <div className="form-group">
-                <label htmlFor="name">{c.name} *</label>
-                <input
-                  id="name"
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder={c.namePlaceholder}
-                  required
-                  autoComplete="name"
-                />
-              </div>
+            {!isPhoneOnlyFlow && regStep === 'email' && (
+              <>
+                <div className="form-group">
+                  <label htmlFor="email">{c.email} *</label>
+                  <input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder={c.emailPlaceholder}
+                    required
+                    autoComplete="email"
+                    disabled={codeLoading}
+                  />
+                </div>
+                <button type="submit" className="register-submit" disabled={codeLoading}>
+                  {codeLoading ? (language === 'en' ? 'Sending...' : 'جاري الإرسال...') : c.sendCode}
+                </button>
+              </>
+            )}
+            {!isPhoneOnlyFlow && regStep === 'code' && (
+              <>
+                <p className="register-subtitle" style={{ fontSize: '0.9rem', marginBottom: 12 }}>{c.codeSent}</p>
+                <div className="form-group">
+                  <label htmlFor="code">{c.enterCode}</label>
+                  <input
+                    id="code"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    placeholder={c.codePlaceholder}
+                    disabled={codeLoading}
+                    style={{ textAlign: 'center', letterSpacing: 8, fontSize: '1.2rem' }}
+                  />
+                </div>
+                <button type="submit" className="register-submit" disabled={codeLoading}>
+                  {codeLoading ? (language === 'en' ? 'Verifying...' : 'جاري التحقق...') : c.verify}
+                </button>
+                <button type="button" className="register-back" style={{ marginTop: 12, background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', color: '#64748b' }} onClick={() => { setRegStep('email'); setVerificationCode(''); setError(''); }}>
+                  {c.backToEmail}
+                </button>
+              </>
+            )}
+            {!isPhoneOnlyFlow && regStep === 'form' && (
+              <>
+                <div className="form-group">
+                  <label>{c.email}</label>
+                  <input type="text" value={formData.email} readOnly disabled style={{ opacity: 0.8, cursor: 'not-allowed' }} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="name">{c.name} *</label>
+                  <input
+                    id="name"
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder={c.namePlaceholder}
+                    required
+                    autoComplete="name"
+                  />
+                </div>
+              </>
             )}
             {isPhoneOnlyFlow && (
               <div className="form-group">
@@ -226,20 +347,7 @@ const Register = () => {
                 />
               </div>
             )}
-            {!isPhoneOnlyFlow && (
-              <div className="form-group">
-                <label htmlFor="email">{c.email} *</label>
-                <input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder={c.emailPlaceholder}
-                  required
-                  autoComplete="email"
-                />
-              </div>
-            )}
+            {(isPhoneOnlyFlow || regStep === 'form') && (
             <div className="form-group">
               <label htmlFor="phone">{c.phone} {isPhoneOnlyFlow ? '*' : ''}</label>
               <input
@@ -252,9 +360,11 @@ const Register = () => {
                 autoComplete="tel"
               />
             </div>
+            )}
             {isPhoneOnlyFlow && (
               <p className="register-temp-password-hint">{c.tempPasswordHint}</p>
             )}
+            {(isPhoneOnlyFlow || regStep === 'form') && (
             <div className="form-group form-group-checkbox">
               <label className="checkbox-label">
                 <input
@@ -266,7 +376,8 @@ const Register = () => {
                 <span>{c.agreeTerms} <Link to="/privacy-policy" target="_blank" rel="noopener noreferrer">{c.privacyPolicy}</Link> {c.and} <Link to="/terms-of-service" target="_blank" rel="noopener noreferrer">{c.termsOfService}</Link></span>
               </label>
             </div>
-            {!isPhoneOnlyFlow && (
+            )}
+            {!isPhoneOnlyFlow && regStep === 'form' && (
               <div className="form-group">
                 <label htmlFor="password">{c.password} *</label>
                 <input
@@ -281,7 +392,9 @@ const Register = () => {
                 />
               </div>
             )}
+            {(isPhoneOnlyFlow || regStep === 'form') && (
             <button type="submit" className="register-submit">{c.submit}</button>
+            )}
           </form>
           <p className="register-login-hint">
             {c.alreadyHave} <Link to="/login">{c.login}</Link>
