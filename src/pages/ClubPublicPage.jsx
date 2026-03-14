@@ -439,7 +439,11 @@ const ClubPublicPage = () => {
         setLockError(language === 'en' ? 'This slot was just taken. Please choose another.' : 'هذا الوقت تم حجزه للتو. اختر وقتاً آخر.')
         refreshClub()
       } else {
-        setLockError(language === 'en' ? 'Could not reserve slot. Please try again.' : 'تعذر حجز الوقت. حاول مجدداً.')
+        const msg = (e?.message || '').trim()
+        const isNetwork = /failed to fetch|networkerror|load failed|network error/i.test(msg)
+        const fallback = language === 'en' ? 'Could not reserve slot. Please try again.' : 'تعذر حجز الوقت. حاول مجدداً.'
+        const networkMsg = language === 'en' ? 'Connection error. Check your network and try again.' : 'خطأ في الاتصال. تحقق من الشبكة وحاول مجدداً.'
+        setLockError(isNetwork ? networkMsg : (msg || fallback))
       }
     }
   }, [clubId, platformUser, isMember, club?.settings?.bookingDuration, club?.settings?.bookingPrices?.durationPrices, club?.settings?.closingTime, club?.settings?.lockMinutes, language, refreshClub, bookings, activeLocks])
