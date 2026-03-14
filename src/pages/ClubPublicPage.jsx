@@ -381,6 +381,21 @@ const ClubPublicPage = () => {
     (Array.isArray(clubMembersList) && clubMembersList.some(m => String(m.id) === String(platformUser.id)))
   )
 
+  /** هل الشريحة قابلة للحجز فعلياً (توجد مدة كافية ولا تعارض)؟ */
+  const isSlotActuallyBookable = useCallback((court, dateStr, startTime) => {
+    const minDur = club?.settings?.bookingDuration ?? 60
+    const durationPrices = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
+    let configured = (durationPrices || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
+    if (configured.length === 0) configured = [minDur]
+    const courtId = (court?.name || court?.id || '').toString()
+    const blocked = getBlockedRangesForCourtAndDate(courtId, dateStr, bookings, activeLocks)
+    const closing = club?.settings?.closingTime || '23:00'
+    const available = getAvailableDurations(minDur, startTime, closing, blocked)
+    const availableSet = new Set(available)
+    const allowed = configured.filter(d => availableSet.has(d))
+    return allowed.length > 0
+  }, [club?.settings?.bookingDuration, club?.settings?.bookingPrices?.durationPrices, club?.settings?.closingTime, bookings, activeLocks])
+
   const handleSlotClick = useCallback(async (court, dateStr, startTime) => {
     if (!platformUser || !isMember) return
     if (isSlotInPast(dateStr, startTime)) {
@@ -390,7 +405,8 @@ const ClubPublicPage = () => {
     setLockError(null)
     const minDur = club?.settings?.bookingDuration ?? 60
     const durationPrices = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
-    const configured = (durationPrices || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
+    let configured = (durationPrices || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
+    if (configured.length === 0) configured = [minDur]
     const courtId = (court?.name || court?.id || '').toString()
     const blocked = getBlockedRangesForCourtAndDate(courtId, dateStr, bookings, activeLocks)
     const closing = club?.settings?.closingTime || '23:00'
@@ -935,7 +951,8 @@ const ClubPublicPage = () => {
                             return isTimeSlotCoveredByBooking(timeSlot, l.start_time || '', l.end_time || '')
                           })
                           const isPast = isSlotInPast(dateStr, timeSlot)
-                          const canBook = !isBooked && !isLocked && !isPast && isMember && platformUser
+                          const hasDuration = isSlotActuallyBookable(court, dateStr, timeSlot)
+                          const canBook = !isBooked && !isLocked && !isPast && hasDuration && isMember && platformUser
                           const cellStatus = isLocked ? 'in-progress' : isBooked ? 'booked' : isPast ? 'past' : 'available'
                           return (
                             <div
