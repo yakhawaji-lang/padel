@@ -62,6 +62,11 @@ https://playtix.app/api/init-db/init-relational
 https://playtix.app/api/init-db/migrate-to-normalized
 ```
 
+**ترحيل نظام الحجز V2** (جدول `booking_slot_locks` وأعمدة الحجز الجديدة — **مطلوب للحجز**):
+```
+https://playtix.app/api/init-db/migrate-booking-v2
+```
+
 ---
 
 ## 4. ترتيب التنفيذ (إعداد جديد من الصفر)
@@ -69,10 +74,25 @@ https://playtix.app/api/init-db/migrate-to-normalized
 1. `https://playtix.app/api/init-db?init=1`
 2. `https://playtix.app/api/init-db/migrate-to-normalized`
 3. `https://playtix.app/api/init-db/init-relational`
+4. `https://playtix.app/api/init-db/migrate-booking-v2`
 
 ---
 
-## 5. بيانات الدخول الافتراضية
+## 5. استكشاف الأخطاء
+
+### خطأ: `Table '...booking_slot_locks' doesn't exist`
+
+**الحل:** نفّذ ترحيل نظام الحجز:
+```
+https://playtix.app/api/init-db/migrate-booking-v2
+```
+
+إذا فشل الرابط، نفّذ SQL يدوياً في **phpMyAdmin** من الملف:
+`server/db/migrations/BOOKING_V2_PHPMYADMIN.sql`
+
+---
+
+## 6. بيانات الدخول الافتراضية
 
 - **البريد:** `admin@playtix.app`
 - **كلمة المرور:** `Admin@123456`
