@@ -11,6 +11,15 @@ function getSecondsUntilStart(dateStr, startTime) {
   return sec
 }
 
+/** حساب الثواني المتبقية حتى موعد paymentDeadlineAt (ISO string أو Date) */
+function getSecondsUntilPaymentDeadline(deadlineAt) {
+  if (!deadlineAt) return null
+  const d = typeof deadlineAt === 'string' ? new Date(deadlineAt) : deadlineAt
+  if (isNaN(d.getTime())) return null
+  const now = new Date()
+  return Math.floor((d - now) / 1000)
+}
+
 /** حالة: قادم | يلعب الآن | انتهى */
 function getPlayStatus(dateStr, startTime, endTime) {
   const start = parseDateTime(dateStr, startTime)
@@ -42,8 +51,19 @@ export default function BookingCountdownCard({ booking, formatDate, language, on
   const courtLabel = resource || courtName || court || '—'
   const customerLabel = memberName || customerName || customer || '—'
 
-  const [secondsLeft, setSecondsLeft] = useState(() => getSecondsUntilStart(dateStr, startTime))
   const status = getPlayStatus(dateStr, startTime, endTime)
+  const needsPayment = ['pending_payments', 'partially_paid'].includes((booking?.status || '').toString())
+  const paymentDeadlineAt = booking?.paymentDeadlineAt || booking?.payment_deadline_at
+
+  const [secondsUntilPay, setSecondsUntilPay] = useState(() => getSecondsUntilPaymentDeadline(paymentDeadlineAt))
+  const [secondsLeft, setSecondsLeft] = useState(() => getSecondsUntilStart(dateStr, startTime))
+
+  useEffect(() => {
+    if (!needsPayment || !paymentDeadlineAt) return
+    const tick = () => setSecondsUntilPay(getSecondsUntilPaymentDeadline(paymentDeadlineAt))
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [needsPayment, paymentDeadlineAt])
 
   useEffect(() => {
     if (status !== 'upcoming') return
@@ -53,10 +73,13 @@ export default function BookingCountdownCard({ booking, formatDate, language, on
   }, [dateStr, startTime, status])
 
   const t = language === 'ar'
-    ? { startsIn: 'يبدأ بعد', playingNow: 'يلعب الآن', over: 'انتهى', day: 'يوم', days: 'أيام', hr: 'س', min: 'د', sec: 'ث' }
-    : { startsIn: 'Starts in', playingNow: 'Playing now', over: 'Ended', day: 'Day', days: 'Days', hr: 'Hrs', min: 'Min', sec: 'Sec' }
+    ? { startsIn: 'يبدأ بعد', payIn: 'ادفع خلال', payExpired: 'انتهت مهلة الدفع', playingNow: 'يلعب الآن', over: 'انتهى', day: 'يوم', days: 'أيام', hr: 'س', min: 'د', sec: 'ث' }
+    : { startsIn: 'Starts in', payIn: 'Pay within', payExpired: 'Payment deadline passed', playingNow: 'Playing now', over: 'Ended', day: 'Day', days: 'Days', hr: 'Hrs', min: 'Min', sec: 'Sec' }
 
-  const parts = status === 'upcoming' && secondsLeft != null ? getCountdownParts(secondsLeft) : null
+  const showPaymentCountdown = needsPayment && paymentDeadlineAt && secondsUntilPay != null && secondsUntilPay > 0
+  const paymentParts = showPaymentCountdown ? getCountdownParts(secondsUntilPay) : null
+  const paymentExpired = needsPayment && paymentDeadlineAt && secondsUntilPay != null && secondsUntilPay <= 0
+  const parts = status === 'upcoming' && secondsLeft != null && !showPaymentCountdown ? getCountdownParts(secondsLeft) : null
 
   const isClickable = typeof onClick === 'function'
   return (
@@ -81,7 +104,35 @@ export default function BookingCountdownCard({ booking, formatDate, language, on
           </div>
         </div>
         <div className="booking-countdown-card__countdown">
-          {status === 'upcoming' && parts != null && (
+          {showPaymentCountdown && paymentParts != null && (
+            <>
+              <span className="booking-countdown-card__label booking-countdown-card__label--urgent">{t.payIn}</span>
+              <div className="booking-countdown-card__units booking-countdown-card__units--urgent" dir="ltr" aria-live="polite">
+                {paymentParts.d > 0 && (
+                  <div className="booking-countdown-card__unit">
+                    <span className="booking-countdown-card__unit-value">{paymentParts.d}</span>
+                    <span className="booking-countdown-card__unit-label">{paymentParts.d === 1 ? t.day : t.days}</span>
+                  </div>
+                )}
+                <div className="booking-countdown-card__unit">
+                  <span className="booking-countdown-card__unit-value">{String(paymentParts.h).padStart(2, '0')}</span>
+                  <span className="booking-countdown-card__unit-label">{t.hr}</span>
+                </div>
+                <div className="booking-countdown-card__unit">
+                  <span className="booking-countdown-card__unit-value">{String(paymentParts.m).padStart(2, '0')}</span>
+                  <span className="booking-countdown-card__unit-label">{t.min}</span>
+                </div>
+                <div className="booking-countdown-card__unit">
+                  <span className="booking-countdown-card__unit-value">{String(paymentParts.s).padStart(2, '0')}</span>
+                  <span className="booking-countdown-card__unit-label">{t.sec}</span>
+                </div>
+              </div>
+            </>
+          )}
+          {paymentExpired && (
+            <span className="booking-countdown-card__payment-expired">{t.payExpired}</span>
+          )}
+          {status === 'upcoming' && !showPaymentCountdown && !paymentExpired && parts != null && (
             <>
               <span className="booking-countdown-card__label">{t.startsIn}</span>
               <div className="booking-countdown-card__units" dir="ltr" aria-live="polite">

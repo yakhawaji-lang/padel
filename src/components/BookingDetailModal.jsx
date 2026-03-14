@@ -27,8 +27,8 @@ function buildWhatsAppMapMessage(clubName, mapUrl, language) {
 }
 
 export default function BookingDetailModal({ booking, club, platformUser, language, onClose, onUpdated }) {
-  const [activeTab, setActiveTab] = useState(null) // 'share' | null
   const [markingPayAtClub, setMarkingPayAtClub] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const dateStr = booking?.dateStr || booking?.date || (booking?.startDate || '').toString().split('T')[0]
   const startTime = booking?.startTime || booking?.timeSlot || ''
@@ -64,7 +64,10 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
 
   const handleCopyLink = useCallback(() => {
     const url = window.location.href
-    navigator.clipboard?.writeText(url).then(() => {}).catch(() => {})
+    navigator.clipboard?.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }).catch(() => {})
   }, [])
 
   const handleShareMap = useCallback(() => {
@@ -90,7 +93,8 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       participants: 'Participants',
       addShare: 'Add participant',
       close: 'Close',
-      noMap: 'No address set'
+      noMap: 'No address set',
+      copied: 'Copied!'
     },
     ar: {
       title: 'تفاصيل الحجز',
@@ -108,7 +112,8 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       participants: 'المشاركون',
       addShare: 'إضافة مشارك',
       close: 'إغلاق',
-      noMap: 'لم يُضف عنوان'
+      noMap: 'لم يُضف عنوان',
+      copied: 'تم النسخ!'
     }
   }
   const c = t[language] || t.en
@@ -130,7 +135,7 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
 
           <div className="booking-detail-actions">
             {club?.id && (
-              <Link to={`/clubs/${club.id}`} className="booking-detail-action" onClick={onClose}>
+              <Link to={`/clubs/${club.id}#court-booking`} className="booking-detail-action" onClick={onClose}>
                 <span className="booking-detail-action-icon">✏️</span>
                 <span>{c.edit}</span>
               </Link>
@@ -145,7 +150,7 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
 
             <button type="button" className="booking-detail-action" onClick={handleCopyLink}>
               <span className="booking-detail-action-icon">📤</span>
-              <span>{c.share}</span>
+              <span>{copied ? c.copied : c.share}</span>
             </button>
 
             {mapUrl ? (
@@ -179,7 +184,7 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
             )}
 
             {club?.id && (
-              <Link to={`/clubs/${club.id}`} className="booking-detail-action" onClick={onClose}>
+              <Link to={`/clubs/${club.id}`} className="booking-detail-action booking-detail-action-link" onClick={onClose}>
                 <span className="booking-detail-action-icon">🏟</span>
                 <span>{c.goToClub}</span>
               </Link>

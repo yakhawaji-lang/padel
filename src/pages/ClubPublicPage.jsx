@@ -252,6 +252,13 @@ const ClubPublicPage = () => {
     return () => { clearTimeout(t); clearTimeout(scrollT) }
   }, [bookingSuccessId])
 
+  useEffect(() => {
+    if (window.location.hash === '#court-booking') {
+      const el = document.getElementById('court-booking')
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [club?.id])
+
   const bookings = useMemo(() => {
     const list = (club?.bookings && Array.isArray(club.bookings)) ? club.bookings : getClubBookings(clubId)
     return list || []
@@ -887,7 +894,7 @@ const ClubPublicPage = () => {
 
       <main className="club-public-main">
 
-        <section className="club-public-section club-public-court-booking">
+        <section id="court-booking" className="club-public-section club-public-court-booking">
           <div className="club-public-section-inner">
             <div className="club-public-court-booking-header">
               <label className="club-public-court-booking-date-label">{c.selectDate}</label>

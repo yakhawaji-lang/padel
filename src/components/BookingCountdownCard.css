@@ -144,6 +144,21 @@
   border-inline-end: 1px solid #f1f5f9;
 }
 
+.booking-countdown-card__label--urgent {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.booking-countdown-card__units--urgent .booking-countdown-card__unit-value {
+  color: #dc2626;
+}
+
+.booking-countdown-card__payment-expired {
+  font-size: 0.9rem;
+  color: #dc2626;
+  font-weight: 500;
+}
+
 .booking-countdown-card__label {
   font-size: 0.6875rem;
   font-weight: 700;
