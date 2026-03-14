@@ -488,6 +488,15 @@
   border: 1px solid var(--mb-border);
 }
 
+.my-bookings-card-clickable {
+  cursor: pointer;
+}
+
+.my-bookings-card-clickable:focus {
+  outline: 2px solid var(--mb-primary, #3b82f6);
+  outline-offset: 2px;
+}
+
 .my-bookings-card-main {
   display: flex;
   flex-direction: column;

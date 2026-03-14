@@ -37,7 +37,7 @@ function getCountdownParts(seconds) {
   }
 }
 
-export default function BookingCountdownCard({ booking, formatDate, language }) {
+export default function BookingCountdownCard({ booking, formatDate, language, onClick }) {
   const { dateStr, startTime, endTime, resource, courtName, court, memberName, customerName, customer } = booking
   const courtLabel = resource || courtName || court || '—'
   const customerLabel = memberName || customerName || customer || '—'
@@ -58,8 +58,15 @@ export default function BookingCountdownCard({ booking, formatDate, language }) 
 
   const parts = status === 'upcoming' && secondsLeft != null ? getCountdownParts(secondsLeft) : null
 
+  const isClickable = typeof onClick === 'function'
   return (
-    <article className={`booking-countdown-card booking-countdown-card--${status}`}>
+    <article
+      className={`booking-countdown-card booking-countdown-card--${status} ${isClickable ? 'booking-countdown-card--clickable' : ''}`}
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onClick={isClickable ? () => onClick(booking) : undefined}
+      onKeyDown={isClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(booking) } } : undefined}
+    >
       <div className="booking-countdown-card__accent" aria-hidden />
       <div className="booking-countdown-card__body">
         <div className="booking-countdown-card__main">

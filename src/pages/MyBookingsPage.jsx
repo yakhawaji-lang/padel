@@ -4,6 +4,7 @@ import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { getMemberBookings, deleteBookingFromClub, loadClubs, refreshClubsFromApi } from '../storage/adminStorage'
 import * as bookingApi from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
+import BookingDetailModal from '../components/BookingDetailModal'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './MyBookingsPage.css'
 
@@ -28,6 +29,7 @@ const MyBookingsPage = () => {
   const [language, setLanguage] = useState(() => getAppLanguage())
   const [cancelling, setCancelling] = useState(null)
   const [markingPayAtClub, setMarkingPayAtClub] = useState(null)
+  const [detailRow, setDetailRow] = useState(null)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -386,7 +388,14 @@ const MyBookingsPage = () => {
             {/* Mobile: cards */}
             <div className="my-bookings-mobile-cards">
               {rows.map((r) => (
-                <article key={r.key} className="my-bookings-card">
+                <article
+                  key={r.key}
+                  className="my-bookings-card my-bookings-card-clickable"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setDetailRow(r)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailRow(r) } }}
+                >
                   <div className="my-bookings-card-main">
                     <div className="my-bookings-card-date">
                       {r.formatDate(r.dateStr)}
@@ -396,7 +405,7 @@ const MyBookingsPage = () => {
                       <span className="my-bookings-card-court">{r.courtName}</span>
                     </div>
                     {r.clubLink ? (
-                      <Link to={r.clubLink} className="my-bookings-card-club">
+                      <Link to={r.clubLink} className="my-bookings-card-club" onClick={(e) => e.stopPropagation()}>
                         {r.clubName}
                       </Link>
                     ) : (
@@ -416,7 +425,7 @@ const MyBookingsPage = () => {
                             {s.paidAt ? '✓' : '○'}
                           </span>
                           {s.whatsappLink && !s.paidAt && filter === 'upcoming' && (
-                            <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="my-bookings-resend" title={c.resendInvite}>💬</a>
+                            <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="my-bookings-resend" title={c.resendInvite} onClick={(e) => e.stopPropagation()}>💬</a>
                           )}
                         </div>
                       ))}
@@ -432,7 +441,7 @@ const MyBookingsPage = () => {
                       <button
                         type="button"
                         className="my-bookings-pay-at-club-btn"
-                        onClick={() => handleMarkPayAtClub(r.club?.id, r.booking.id)}
+                        onClick={(e) => { e.stopPropagation(); handleMarkPayAtClub(r.club?.id, r.booking.id) }}
                         disabled={markingPayAtClub === r.booking.id}
                       >
                         {markingPayAtClub === r.booking.id ? '…' : c.payAtClubConfirm}
@@ -440,7 +449,7 @@ const MyBookingsPage = () => {
                     </div>
                   )}
                   {r.isUpcoming && r.club && (
-                    <div className="my-bookings-card-actions">
+                    <div className="my-bookings-card-actions" onClick={(e) => e.stopPropagation()}>
                       <Link to={r.clubLink} className="my-bookings-card-link-btn">{c.goToClub}</Link>
                       {r.canCancel && (
                         <button
@@ -458,6 +467,21 @@ const MyBookingsPage = () => {
               ))}
             </div>
           </>
+        )}
+        {detailRow && (
+          <BookingDetailModal
+            booking={detailRow.booking}
+            club={detailRow.club}
+            platformUser={member}
+            language={language}
+            onClose={() => setDetailRow(null)}
+            onUpdated={async () => {
+              setDetailRow(null)
+              await refreshClubsFromApi()
+              loadClubs()
+              setBookings(getMemberBookings(member.id))
+            }}
+          />
         )}
       </main>
     </div>

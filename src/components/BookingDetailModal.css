@@ -1,0 +1,139 @@
+/* BookingDetailModal — نافذة تفاصيل الحجز والإجراءات */
+.booking-detail-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 16px;
+}
+
+.booking-detail-modal {
+  background: #fff;
+  border-radius: 12px;
+  max-width: 400px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.booking-detail-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.booking-detail-modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.booking-detail-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.booking-detail-modal-close:hover {
+  opacity: 1;
+}
+
+.booking-detail-modal-body {
+  padding: 20px;
+}
+
+.booking-detail-summary {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.booking-detail-summary p {
+  margin: 4px 0;
+  font-size: 0.95rem;
+}
+
+.booking-detail-customer {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.booking-detail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.booking-detail-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.booking-detail-action:hover:not(.booking-detail-action-disabled) {
+  background: #f8fafc;
+}
+
+.booking-detail-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.booking-detail-action-disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.booking-detail-action-icon {
+  font-size: 1.1rem;
+}
+
+.booking-detail-track {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.booking-detail-track-title {
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.booking-detail-shares {
+  margin-top: 8px;
+}
+
+.booking-detail-share-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 0.9rem;
+}
+
+.booking-detail-share-row .paid {
+  color: #22c55e;
+}
+
+.booking-detail-resend {
+  margin-inline-start: auto;
+}

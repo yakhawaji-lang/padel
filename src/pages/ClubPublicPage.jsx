@@ -12,6 +12,7 @@ import { getClubAdminSession } from '../storage/clubAuth'
 import MemberAccountDropdown from '../components/MemberAccountDropdown'
 import BookingCountdownCard from '../components/BookingCountdownCard'
 import BookingPaymentShare from '../components/BookingPaymentShare'
+import BookingDetailModal from '../components/BookingDetailModal'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './ClubPublicPage.css'
 import '../components/BookingPaymentShare.css'
@@ -180,6 +181,7 @@ const ClubPublicPage = () => {
   const [activeLocks, setActiveLocks] = useState([])
   const [lockError, setLockError] = useState(null)
   const [loadRetrying, setLoadRetrying] = useState(false)
+  const [detailBooking, setDetailBooking] = useState(null)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -1087,10 +1089,21 @@ const ClubPublicPage = () => {
                         booking={b}
                         formatDate={formatDate}
                         language={language}
+                        onClick={platformUser ? () => setDetailBooking(b) : undefined}
                       />
                     ))}
                   </div>
                 </div>
+                {detailBooking && (
+                  <BookingDetailModal
+                    booking={detailBooking}
+                    club={club}
+                    platformUser={platformUser}
+                    language={language}
+                    onClose={() => setDetailBooking(null)}
+                    onUpdated={() => { refreshClub(); setDetailBooking(null) }}
+                  />
+                )}
               </>
             )}
           </div>
