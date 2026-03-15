@@ -4,7 +4,7 @@
  * +966 fixed for Saudi; professional country selector for others.
  */
 import React, { useState, useEffect, useCallback } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { loadClubs, getClubById, getClubMembersFromStorage, getAllMembersFromStorage, refreshClubsFromApi } from '../storage/adminStorage'
 import * as bookingApi from '../api/dbClient'
@@ -17,6 +17,8 @@ import './MyFavoritesPage.css'
 
 const MyFavoritesPage = () => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const fromClubId = searchParams.get('from')
   const [member, setMember] = useState(null)
   const [clubs, setClubs] = useState([])
   const [language, setLanguage] = useState(() => getAppLanguage())
@@ -37,10 +39,11 @@ const MyFavoritesPage = () => {
     const user = getCurrentPlatformUser()
     setMember(user)
     if (!user) {
-      navigate(`/login?return=${encodeURIComponent('/my-favorites')}`)
+      const returnTo = (location.pathname + location.search) || '/my-favorites'
+      navigate(`/login?return=${encodeURIComponent(returnTo)}`)
       return
     }
-  }, [navigate])
+  }, [navigate, location.pathname, location.search])
 
   const loadClubsOnce = useCallback(async () => {
     if (!member?.id) return
@@ -151,12 +154,18 @@ const MyFavoritesPage = () => {
 
   const t = (en, ar) => (language === 'ar' ? ar : en)
 
+  const backClub = fromClubId ? getClubById(fromClubId) : (club || null)
+  const backLink = backClub ? `/clubs/${backClub.id}` : '/'
+  const backText = backClub
+    ? (language === 'ar' ? `العودة إلى ${backClub.nameAr || backClub.name}` : `Back to ${backClub.name || backClub.nameAr}`)
+    : t('Home', 'الرئيسية')
+
   if (!member) return null
 
   return (
     <div className="my-favorites-page">
       <header className="my-favorites-header">
-        <Link to="/" className="my-favorites-back">← {t('Home', 'الرئيسية')}</Link>
+        <Link to={backLink} className="my-favorites-back">← {backText}</Link>
         <h1>{t('My favorites', 'المفضلة')}</h1>
         <p className="my-favorites-subtitle">
           {t('Members you share payment and bookings with', 'الأعضاء الذين تشارك معهم الدفع والحجز')}

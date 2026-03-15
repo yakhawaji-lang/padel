@@ -791,7 +791,7 @@ const ClubPublicPage = () => {
       {bookingSuccessId && (
         <div className="club-public-booking-success-banner" role="alert">
           <span>{c.bookingSuccess}</span>
-          <Link to="/my-bookings" className="club-public-booking-success-link" onClick={() => setBookingSuccessId(null)}>
+          <Link to={`/my-bookings?from=${clubId}`} className="club-public-booking-success-link" onClick={() => setBookingSuccessId(null)}>
             {c.viewMyBookings}
           </Link>
           <button type="button" className="club-public-booking-success-dismiss" onClick={() => setBookingSuccessId(null)} aria-label="Close">×</button>
@@ -811,6 +811,7 @@ const ClubPublicPage = () => {
                 member={platformUser}
                 onUpdate={() => setPlatformUser(getCurrentPlatformUser())}
                 language={language}
+                clubId={clubId}
                 className="club-public-member-account"
               />
             ) : (
@@ -907,7 +908,7 @@ const ClubPublicPage = () => {
             <div className="club-public-court-booking-header">
               <label className="club-public-court-booking-date-label">{c.selectDate}</label>
               {isMember && (
-                <Link to="/my-bookings" className="club-public-my-bookings-link">
+                <Link to={`/my-bookings?from=${clubId}`} className="club-public-my-bookings-link">
                   📅 {language === 'en' ? 'My Bookings' : 'حجوزاتي'}
                 </Link>
               )}

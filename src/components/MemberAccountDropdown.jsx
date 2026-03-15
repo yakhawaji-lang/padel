@@ -4,7 +4,7 @@ import { updatePlatformMember, logoutPlatformUser } from '../storage/platformAut
 import { changeMemberPassword, sendPhoneChangeCode, verifyPhoneChange } from '../api/dbClient'
 import './MemberAccountDropdown.css'
 
-const MemberAccountDropdown = ({ member, onUpdate, language = 'en', children, className = '' }) => {
+const MemberAccountDropdown = ({ member, onUpdate, language = 'en', clubId, children, className = '' }) => {
   const [open, setOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', email: '', avatar: '', mobile: '' })
@@ -155,10 +155,10 @@ const MemberAccountDropdown = ({ member, onUpdate, language = 'en', children, cl
             <div className="member-account-menu-name">{member.name}</div>
             <div className="member-account-menu-email">{member.email}</div>
           </div>
-          <Link to="/my-bookings" className="member-account-menu-item" onClick={() => setOpen(false)}>
+          <Link to={clubId ? `/my-bookings?from=${clubId}` : '/my-bookings'} className="member-account-menu-item" onClick={() => setOpen(false)}>
             📅 {c.myBookings}
           </Link>
-          <Link to="/my-favorites" className="member-account-menu-item" onClick={() => setOpen(false)}>
+          <Link to={clubId ? `/my-favorites?from=${clubId}` : '/my-favorites'} className="member-account-menu-item" onClick={() => setOpen(false)}>
             ★ {c.myFavorites}
           </Link>
           <button type="button" className="member-account-menu-item" onClick={() => { setEditOpen(true); setOpen(false); setPhoneChangeStep('idle'); }}>

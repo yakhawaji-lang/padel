@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
-import { getMemberBookings, deleteBookingFromClub, loadClubs, refreshClubsFromApi } from '../storage/adminStorage'
+import { getMemberBookings, deleteBookingFromClub, getClubById, loadClubs, refreshClubsFromApi } from '../storage/adminStorage'
 import * as bookingApi from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
 import BookingDetailModal from '../components/BookingDetailModal'
@@ -23,6 +23,9 @@ function getBookingDisplayProps({ booking, club }, language) {
 
 const MyBookingsPage = () => {
   const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const fromClubId = searchParams.get('from')
   const [member, setMember] = useState(null)
   const [bookings, setBookings] = useState([])
   const [filter, setFilter] = useState('upcoming')
@@ -39,10 +42,11 @@ const MyBookingsPage = () => {
     const user = getCurrentPlatformUser()
     setMember(user)
     if (!user) {
-      navigate(`/login?return=${encodeURIComponent('/my-bookings')}`)
+      const returnTo = (location.pathname + location.search) || '/my-bookings'
+      navigate(`/login?return=${encodeURIComponent(returnTo)}`)
       return
     }
-  }, [navigate])
+  }, [navigate, location.pathname, location.search])
 
   useEffect(() => {
     if (!member?.id) return
@@ -236,7 +240,8 @@ const MyBookingsPage = () => {
 
   const rows = displayed.map((item, i) => renderBookingRow(item, i))
 
-  const backClub = (upcoming[0]?.club || past[0]?.club || bookings[0]?.club) || null
+  const backClubFromBookings = (upcoming[0]?.club || past[0]?.club || bookings[0]?.club) || null
+  const backClub = fromClubId ? getClubById(fromClubId) : backClubFromBookings
   const backLink = backClub ? `/clubs/${backClub.id}` : '/'
   const backText = backClub
     ? (language === 'ar' ? `العودة إلى ${backClub.nameAr || backClub.name}` : `Back to ${backClub.name || backClub.nameAr}`)
