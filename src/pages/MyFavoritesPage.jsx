@@ -1,21 +1,18 @@
 /**
  * Manage favorite members for payment sharing — per club.
  * Add/remove favorites; search by full phone (9+ digits) for privacy.
+ * +966 fixed for Saudi; professional country selector for others.
  */
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { loadClubs, getClubById, getClubMembersFromStorage, getAllMembersFromStorage, refreshClubsFromApi } from '../storage/adminStorage'
 import * as bookingApi from '../api/dbClient'
+import { getImageUrl } from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
+import { COUNTRY_CODES, DEFAULT_COUNTRY, normalizeSearchDigits, getMinDigitsForCountry, normalizeMemberPhone } from '../utils/countryCodes'
 import './MyFavoritesPage.css'
-
-function phoneDigits(s) {
-  return (s || '').replace(/\D/g, '')
-}
-
-const FULL_PHONE_MIN = 9
 
 const MyFavoritesPage = () => {
   const navigate = useNavigate()
@@ -25,8 +22,12 @@ const MyFavoritesPage = () => {
   const [selectedClubId, setSelectedClubId] = useState(null)
   const [favoritesByClub, setFavoritesByClub] = useState({})
   const [memberDetailsById, setMemberDetailsById] = useState({})
-  const [searchQuery, setSearchQuery] = useState('')
+  const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY.code)
+  const [numberInput, setNumberInput] = useState('')
+  const [countryDropdownOpen, setCountryDropdownOpen] = useState(false)
+  const [countrySearch, setCountrySearch] = useState('')
   const [loading, setLoading] = useState(false)
+  const countryDropdownRef = useRef(null)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -83,6 +84,18 @@ const MyFavoritesPage = () => {
     return () => window.removeEventListener('clubs-synced', loadFavorites)
   }, [loadFavorites])
 
+  useEffect(() => {
+    const close = (e) => {
+      if (countryDropdownRef.current && !countryDropdownRef.current.contains(e.target)) {
+        setCountryDropdownOpen(false)
+      }
+    }
+    if (countryDropdownOpen) {
+      document.addEventListener('click', close)
+      return () => document.removeEventListener('click', close)
+    }
+  }, [countryDropdownOpen])
+
   const club = selectedClubId ? getClubById(selectedClubId) : null
   const clubMembers = club ? (getClubMembersFromStorage(club.id) || []) : []
   const allPlatformMembers = getAllMembersFromStorage() || []
@@ -91,12 +104,13 @@ const MyFavoritesPage = () => {
     m => m?.id && String(m.id) !== String(member?.id) && !otherMembers.some(c => String(c?.id) === String(m.id))
   )
   const searchableMembers = [...otherMembers, ...platformNotInClub]
-  const searchDigits = phoneDigits(searchQuery)
-  const hasFullPhone = searchDigits.length >= FULL_PHONE_MIN
+  const searchDigits = normalizeSearchDigits(countryCode, numberInput)
+  const minDigits = countryCode.length + getMinDigitsForCountry(countryCode)
+  const hasFullPhone = searchDigits.length >= minDigits
   const filteredBySearch = hasFullPhone
     ? searchableMembers.filter(m => {
-        const mPhone = phoneDigits(m?.mobile || m?.phone || '')
-        return mPhone && mPhone.includes(searchDigits)
+        const mPhone = normalizeMemberPhone(m?.mobile || m?.phone || '')
+        return mPhone && (mPhone.includes(searchDigits) || searchDigits.includes(mPhone))
       })
     : []
 
@@ -168,41 +182,107 @@ const MyFavoritesPage = () => {
 
                 <div className="my-favorites-add">
                   <p className="my-favorites-add-hint">
-                    {t('Enter full phone number (9+ digits) to search and add', 'أدخل رقم الجوال كاملاً (9+ أرقام) للبحث والإضافة')}
+                    {t('Enter full phone number to search and add', 'أدخل رقم الجوال كاملاً للبحث والإضافة')}
                   </p>
-                  <input
-                    type="tel"
-                    className="my-favorites-search"
-                    placeholder={t('Search by phone (9+ digits)', 'البحث برقم الجوال (9+ أرقام)')}
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    inputMode="tel"
-                  />
+                  <div className="my-favorites-phone-row">
+                    <div className="my-favorites-country-wrap" ref={countryDropdownRef}>
+                      <button
+                        type="button"
+                        className="my-favorites-country-btn"
+                        onClick={() => setCountryDropdownOpen(!countryDropdownOpen)}
+                        aria-expanded={countryDropdownOpen}
+                        aria-haspopup="listbox"
+                        aria-label={t('Country code', 'مفتاح الدولة')}
+                      >
+                        <span className="my-favorites-country-flag">
+                          {COUNTRY_CODES.find(c => c.code === countryCode)?.flag || '🇸🇦'}
+                        </span>
+                        <span className="my-favorites-country-dial">
+                          +{countryCode}
+                        </span>
+                        <span className="my-favorites-country-chevron">▾</span>
+                      </button>
+                      {countryDropdownOpen && (
+                        <div className="my-favorites-country-dropdown" role="listbox">
+                          <input
+                            type="text"
+                            className="my-favorites-country-search"
+                            placeholder={t('Search country...', 'بحث عن دولة...')}
+                            value={countrySearch}
+                            onChange={e => setCountrySearch(e.target.value)}
+                            onClick={e => e.stopPropagation()}
+                          />
+                          <ul className="my-favorites-country-list">
+                            {COUNTRY_CODES
+                              .filter(c => !countrySearch || (language === 'ar' ? c.label : c.labelEn).toLowerCase().includes(countrySearch.toLowerCase()) || c.code.includes(countrySearch))
+                              .map(c => (
+                                <li
+                                  key={c.code}
+                                  role="option"
+                                  className={`my-favorites-country-option ${c.code === countryCode ? 'selected' : ''}`}
+                                  onClick={() => { setCountryCode(c.code); setCountryDropdownOpen(false); setCountrySearch(''); }}
+                                >
+                                  <span className="my-favorites-country-option-flag">{c.flag}</span>
+                                  <span className="my-favorites-country-option-dial">+{c.code}</span>
+                                  <span className="my-favorites-country-option-label">{language === 'ar' ? c.label : c.labelEn}</span>
+                                </li>
+                              ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      type="tel"
+                      className="my-favorites-number-input"
+                      placeholder={countryCode === '966' ? t('5xxxxxxxx', '5xxxxxxxx') : t('Number', 'الرقم')}
+                      value={numberInput}
+                      onChange={e => setNumberInput(e.target.value.replace(/[^\d]/g, ''))}
+                      inputMode="tel"
+                      dir="ltr"
+                    />
+                  </div>
                   {filteredBySearch.length > 0 ? (
-                    <ul className="my-favorites-search-results">
-                      {filteredBySearch.map(m => {
-                        const isFav = favoriteIds.has(String(m.id))
-                        return (
-                          <li key={m.id} className="my-favorites-search-item">
-                            <span>{m.name || m.email || m.id}</span>
-                            <button
-                              type="button"
-                              className={`my-favorites-star ${isFav ? 'is-favorite' : ''}`}
-                              onClick={() => toggleFavorite(m.id, isFav)}
-                              disabled={loading}
-                              title={isFav ? t('Remove from favorites', 'إزالة من المفضلة') : t('Add to favorites', 'إضافة للمفضلة')}
-                            >
-                              {isFav ? '★' : '☆'}
-                            </button>
-                          </li>
-                        )
-                      })}
-                    </ul>
+                    <div className="my-favorites-results">
+                      <p className="my-favorites-results-title">{t('Found members', 'الأعضاء المطابقون')}</p>
+                      <div className="my-favorites-results-grid">
+                        {filteredBySearch.map(m => {
+                          const isFav = favoriteIds.has(String(m.id))
+                          return (
+                            <div key={m.id} className="my-favorites-member-card">
+                              <div className="my-favorites-member-avatar">
+                                {m.avatar ? (
+                                  <img src={getImageUrl(m.avatar)} alt="" />
+                                ) : (
+                                  <span className="my-favorites-member-initial">{(m.name || m.email || '?')[0].toUpperCase()}</span>
+                                )}
+                              </div>
+                              <div className="my-favorites-member-info">
+                                <span className="my-favorites-member-name">{m.name || m.email || m.id}</span>
+                                {(m.mobile || m.phone) && (
+                                  <span className="my-favorites-member-phone">{m.mobile || m.phone}</span>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                className={`my-favorites-member-action ${isFav ? 'is-favorite' : ''}`}
+                                onClick={() => toggleFavorite(m.id, isFav)}
+                                disabled={loading}
+                                title={isFav ? t('Remove from favorites', 'إزالة من المفضلة') : t('Add to favorites', 'إضافة للمفضلة')}
+                              >
+                                {isFav ? '★ ' + t('Favorited', 'في المفضلة') : '☆ ' + t('Add', 'إضافة')}
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
                   ) : (
                     <p className="my-favorites-search-empty">
                       {hasFullPhone
                         ? t('No members found for this phone number', 'لا توجد نتائج لهذا الرقم')
-                        : t('Enter 9+ digits to search', 'أدخل 9+ أرقام للبحث')}
+                        : (countryCode === '966'
+                          ? t('Enter 9 digits (5xxxxxxxx)', 'أدخل 9 أرقام (5xxxxxxxx)')
+                          : t('Enter full number to search', 'أدخل الرقم كاملاً للبحث'))}
                     </p>
                   )}
                 </div>
@@ -210,27 +290,41 @@ const MyFavoritesPage = () => {
                 <div className="my-favorites-list">
                   <h3>{t('Current favorites', 'المفضلة الحالية')}</h3>
                   {(favoritesByClub[selectedClubId] || []).length === 0 ? (
-                    <p className="my-favorites-list-empty">{t('No favorites yet. Search above to add.', 'لا توجد مفضلة بعد. ابحث أعلاه للإضافة.')}</p>
+                    <div className="my-favorites-empty-state">
+                      <span className="my-favorites-empty-icon">★</span>
+                      <p>{t('No favorites yet. Search above to add.', 'لا توجد مفضلة بعد. ابحث أعلاه للإضافة.')}</p>
+                    </div>
                   ) : (
-                    <ul className="my-favorites-list-items">
+                    <div className="my-favorites-fav-grid">
                       {(favoritesByClub[selectedClubId] || []).map(id => {
                         const m = memberDetailsById[String(id)]
                         return (
-                          <li key={id} className="my-favorites-list-item">
-                            <span>{m ? (m.name || m.email || id) : id}</span>
+                          <div key={id} className="my-favorites-fav-card">
+                            <div className="my-favorites-fav-avatar">
+                              {m?.avatar ? (
+                                <img src={getImageUrl(m.avatar)} alt="" />
+                              ) : (
+                                <span className="my-favorites-fav-initial">{(m ? (m.name || m.email || id) : id).toString()[0].toUpperCase()}</span>
+                              )}
+                            </div>
+                            <div className="my-favorites-fav-info">
+                              <span className="my-favorites-fav-name">{m ? (m.name || m.email || id) : id}</span>
+                              {m?.mobile && <span className="my-favorites-fav-phone">{m.mobile}</span>}
+                            </div>
                             <button
                               type="button"
-                              className="my-favorites-remove"
+                              className="my-favorites-fav-remove"
                               onClick={() => toggleFavorite(id, true)}
                               disabled={loading}
                               title={t('Remove from favorites', 'إزالة من المفضلة')}
+                              aria-label={t('Remove', 'إزالة')}
                             >
-                              ×
+                              {t('Remove', 'إزالة')}
                             </button>
-                          </li>
+                          </div>
                         )
                       })}
-                    </ul>
+                    </div>
                   )}
                 </div>
               </div>
