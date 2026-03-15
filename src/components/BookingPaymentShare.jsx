@@ -128,16 +128,20 @@ export default function BookingPaymentShare({
     m => m?.id && String(m.id) !== String(currentMemberId) && !otherMembers.some(c => String(c?.id) === String(m.id))
   )
   const searchableMembers = [...otherMembers, ...platformNotInClub]
+  const addedMemberIds = new Set((shares || []).filter(s => s.memberId).map(s => String(s.memberId)))
   const searchDigits = phoneDigits(memberSearchQuery)
   const FULL_PHONE_MIN = 9
   const hasFullPhone = searchDigits.length >= FULL_PHONE_MIN
   const filteredBySearch = hasFullPhone
     ? searchableMembers.filter(m => {
+        if (addedMemberIds.has(String(m?.id))) return false
         const mPhone = phoneDigits(m?.mobile || m?.phone || '')
         return mPhone && mPhone.includes(searchDigits)
       })
     : []
-  const favoriteMembers = searchableMembers.filter(m => favoriteIds.has(String(m?.id)))
+  const favoriteMembers = searchableMembers.filter(m =>
+    favoriteIds.has(String(m?.id)) && !addedMemberIds.has(String(m?.id))
+  )
   const favoritesFirst = [...filteredBySearch].sort((a, b) => {
     const aFav = favoriteIds.has(String(a?.id))
     const bFav = favoriteIds.has(String(b?.id))
