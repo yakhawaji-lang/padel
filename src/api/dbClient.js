@@ -489,6 +489,19 @@ export async function getInviteByToken(token) {
   return fetchJson(`/api/bookings/invite/${encodeURIComponent(token)}`)
 }
 
+/** Get a single booking by ID (for payment page) */
+export async function getBookingById(bookingId) {
+  return fetchJson(`/api/bookings/${encodeURIComponent(bookingId)}`)
+}
+
+/** Complete payment for a pending_payment booking (simulated) */
+export async function completePayment({ bookingId, clubId }) {
+  return fetchJson('/api/bookings/complete-payment', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId })
+  })
+}
+
 // ---- Phone change verification ----
 export async function sendPhoneChangeCode(memberId, newPhone) {
   return fetchJson('/api/email/send-phone-change-code', {

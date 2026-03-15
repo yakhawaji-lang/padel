@@ -26,6 +26,7 @@ const MyBookingsPage = () => {
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const fromClubId = searchParams.get('from')
+  const paymentSuccess = searchParams.get('payment') === 'success'
   const [member, setMember] = useState(null)
   const [bookings, setBookings] = useState([])
   const [filter, setFilter] = useState('upcoming')
@@ -133,8 +134,8 @@ const MyBookingsPage = () => {
   const getStatusLabel = (status) => {
     const s = (status || 'confirmed').toString()
     const labels = {
-      en: { initiated: 'In progress', locked: 'Reserved', pending_payments: 'Awaiting payments', partially_paid: 'Partial payment', confirmed: 'Confirmed', cancelled: 'Cancelled', expired: 'Expired' },
-      ar: { initiated: 'قيد الإجراء', locked: 'محجوز', pending_payments: 'بانتظار الدفعات', partially_paid: 'دفع جزئي', confirmed: 'مؤكد', cancelled: 'ملغي', expired: 'منتهي' }
+      en: { initiated: 'In progress', locked: 'Reserved', pending_payments: 'Awaiting payments', pending_payment: 'Awaiting payment', partially_paid: 'Partial payment', confirmed: 'Confirmed', cancelled: 'Cancelled', expired: 'Expired' },
+      ar: { initiated: 'قيد الإجراء', locked: 'محجوز', pending_payments: 'بانتظار الدفعات', pending_payment: 'بانتظار الدفع', partially_paid: 'دفع جزئي', confirmed: 'مؤكد', cancelled: 'ملغي', expired: 'منتهي' }
     }
     return (labels[language] || labels.en)[s] || s
   }
@@ -142,7 +143,7 @@ const MyBookingsPage = () => {
   const getStatusClass = (status) => {
     const s = (status || 'confirmed').toString()
     if (['confirmed'].includes(s)) return 'status-confirmed'
-    if (['initiated', 'locked', 'pending_payments', 'partially_paid'].includes(s)) return 'status-pending'
+    if (['initiated', 'locked', 'pending_payments', 'pending_payment', 'partially_paid'].includes(s)) return 'status-pending'
     if (['cancelled', 'expired'].includes(s)) return 'status-cancelled'
     return ''
   }
@@ -171,8 +172,10 @@ const MyBookingsPage = () => {
       resendInvite: 'Resend invite',
       payAtClub: 'Pay at club (cash/card)',
       payAtClubConfirm: "I'll pay at club",
+      payNow: 'Pay now',
       loading: 'Loading…',
-      bookCourt: 'Book a court'
+      bookCourt: 'Book a court',
+      paymentSuccess: 'Payment completed successfully!'
     },
     ar: {
       myBookings: 'حجوزاتي',
@@ -197,8 +200,10 @@ const MyBookingsPage = () => {
       resendInvite: 'إعادة إرسال الدعوة',
       payAtClub: 'الدفع في النادي (كاش أو كارد)',
       payAtClubConfirm: 'سأدفع في النادي',
+      payNow: 'ادفع الآن',
       loading: 'جاري التحميل…',
-      bookCourt: 'احجز ملعباً'
+      bookCourt: 'احجز ملعباً',
+      paymentSuccess: 'تم الدفع بنجاح!'
     }
   }
   const c = t[language] || t.en
@@ -268,6 +273,12 @@ const MyBookingsPage = () => {
         </div>
       </header>
 
+      {paymentSuccess && (
+        <div className="my-bookings-success-banner" role="alert">
+          {c.paymentSuccess}
+        </div>
+      )}
+
       <main className="my-bookings-main">
         <div className="my-bookings-tabs" role="tablist" aria-label={c.myBookings}>
           <button
@@ -333,6 +344,13 @@ const MyBookingsPage = () => {
                           <span className={`my-bookings-status ${r.getStatusClass(r.booking.status)}`}>
                             {r.getStatusLabel(r.booking.status)}
                           </span>
+                          {['pending_payment'].includes((r.booking.status || '').toString()) && filter === 'upcoming' && r.club && (
+                            <div className="my-bookings-pay-now-wrap">
+                              <Link to={`/pay/${r.booking.id}?method=${r.booking.paymentMethod || 'credit_card'}`} className="my-bookings-pay-now-link">
+                                {c.payNow}
+                              </Link>
+                            </div>
+                          )}
                           {['pending_payments', 'partially_paid'].includes((r.booking.status || '').toString()) && filter === 'upcoming' && (
                             <div className="my-bookings-pay-at-club-wrap">
                               <button
@@ -439,6 +457,13 @@ const MyBookingsPage = () => {
                           +{r.booking.paymentShares.length - 5}
                         </div>
                       )}
+                    </div>
+                  )}
+                  {['pending_payment'].includes((r.booking.status || '').toString()) && filter === 'upcoming' && r.club && (
+                    <div className="my-bookings-card-pay-wrap" onClick={(e) => e.stopPropagation()}>
+                      <Link to={`/pay/${r.booking.id}?method=${r.booking.paymentMethod || 'credit_card'}`} className="my-bookings-pay-now-link">
+                        {c.payNow}
+                      </Link>
                     </div>
                   )}
                   {['pending_payments', 'partially_paid'].includes((r.booking.status || '').toString()) && filter === 'upcoming' && (

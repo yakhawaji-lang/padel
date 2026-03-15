@@ -126,9 +126,10 @@ router.post('/confirm', async (req, res) => {
     const bid = `bk_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
     const settings = await getBookingSettings(clubId)
     const payAtClub = paymentMethod === 'at_club'
+    const isOnlinePayment = paymentMethod === 'credit_card' || paymentMethod === 'mada'
     const hasShares = Array.isArray(paymentShares) && paymentShares.length > 0
-    const status = payAtClub ? 'confirmed' : (hasShares ? 'pending_payments' : 'confirmed')
-    const paidAmount = (payAtClub || !hasShares) ? (totalAmount || 0) : 0
+    const status = isOnlinePayment ? 'pending_payment' : (payAtClub ? 'confirmed' : (hasShares ? 'pending_payments' : 'confirmed'))
+    const paidAmount = (payAtClub || !hasShares) && !isOnlinePayment ? (totalAmount || 0) : 0
     const paymentDeadlineMinutes = !payAtClub && hasShares ? settings.splitPaymentDeadlineMinutes : null
     const paymentDeadline = paymentDeadlineMinutes != null
       ? new Date(Date.now() + paymentDeadlineMinutes * 60 * 1000)
@@ -153,7 +154,8 @@ router.post('/confirm', async (req, res) => {
         const [eh, em] = (e || '0:0').split(':').map(Number)
         return (eh * 60 + em) - (sh * 60 + sm)
       })(startTime, endTime),
-      paymentShares: paymentShares || []
+      paymentShares: paymentShares || [],
+      ...(isOnlinePayment && { paymentMethod })
     }
 
     await bookingService.createBooking({
@@ -200,6 +202,8 @@ router.post('/confirm', async (req, res) => {
 
     await logAudit({ tableName: 'club_bookings', recordId: bid, action: 'INSERT', ...actor, clubId, newValue: { status, memberId } })
 
+    const paymentUrl = isOnlinePayment ? `${baseUrl.replace(/\/$/, '')}/pay/${bid}?method=${paymentMethod}` : null
+
     // Optional: send SMS/WhatsApp confirmation to booker (if phone exists and channel configured)
     try {
       const { rows: memberRows } = await query('SELECT mobile FROM members WHERE id = ? AND deleted_at IS NULL', [memberId])
@@ -213,7 +217,7 @@ router.post('/confirm', async (req, res) => {
       console.warn('[Bookings] Message send error:', waErr?.message)
     }
 
-    res.json({ ok: true, bookingId: bid, status, paymentShares: createdShares })
+    res.json({ ok: true, bookingId: bid, status, paymentShares: createdShares, ...(paymentUrl && { paymentUrl }) })
   } catch (e) {
     console.error('bookings confirm error:', e)
     res.status(500).json({ error: dbError(e) })
@@ -384,7 +388,7 @@ router.delete('/favorites', async (req, res) => {
   }
 })
 
-/** GET /api/bookings/invite/:token - Get invite/share data by token */
+/** GET /api/bookings/invite/:token - Get invite/share data by token (must be before /:id) */
 router.get('/invite/:token', async (req, res) => {
   try {
     const { token } = req.params
@@ -417,6 +421,77 @@ router.get('/invite/:token', async (req, res) => {
     })
   } catch (e) {
     console.error('bookings invite get error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** GET /api/bookings/:id - Get booking by ID (for payment page) */
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    if (!id) return res.status(400).json({ error: 'Booking ID required' })
+    const { rows } = await query(
+      `SELECT cb.id, cb.club_id, cb.court_id, cb.member_id, cb.booking_date, cb.time_slot, cb.start_time, cb.end_time, cb.status, cb.total_amount, cb.paid_amount, cb.data,
+              c.name AS club_name, c.name_ar AS club_name_ar,
+              cs.currency
+       FROM club_bookings cb
+       LEFT JOIN clubs c ON c.id = cb.club_id AND c.deleted_at IS NULL
+       LEFT JOIN club_settings cs ON cs.club_id = cb.club_id
+       WHERE cb.id = ? AND cb.deleted_at IS NULL`,
+      [id]
+    )
+    if (!rows?.length) return res.status(404).json({ error: 'Booking not found' })
+    const r = rows[0]
+    let data = r.data
+    if (typeof data === 'string') {
+      try { data = JSON.parse(data) } catch { data = {} }
+    }
+    const dateStr = r.booking_date ? String(r.booking_date).split('T')[0] : null
+    res.json({
+      id: r.id,
+      clubId: r.club_id,
+      courtId: r.court_id,
+      courtName: (data && data.courtName) || r.court_id,
+      memberId: r.member_id,
+      date: dateStr,
+      startTime: r.start_time || r.time_slot,
+      endTime: r.end_time || r.time_slot,
+      status: r.status,
+      totalAmount: parseFloat(r.total_amount) || 0,
+      paidAmount: parseFloat(r.paid_amount) || 0,
+      paymentMethod: (data && data.paymentMethod) || null,
+      clubName: r.club_name,
+      clubNameAr: r.club_name_ar,
+      currency: r.currency || 'SAR'
+    })
+  } catch (e) {
+    console.error('bookings get by id error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** POST /api/bookings/complete-payment - Complete payment for pending_payment booking (simulated) */
+router.post('/complete-payment', async (req, res) => {
+  try {
+    const { bookingId, clubId } = req.body || {}
+    if (!bookingId || !clubId) return res.status(400).json({ error: 'bookingId and clubId required' })
+    const { rows } = await query(
+      'SELECT id, status, total_amount FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL',
+      [bookingId, clubId]
+    )
+    if (!rows?.length) return res.status(404).json({ error: 'Booking not found' })
+    const b = rows[0]
+    if ((b.status || '') !== 'pending_payment') {
+      return res.status(400).json({ error: 'Booking is not awaiting payment' })
+    }
+    const totalAmount = parseFloat(b.total_amount) || 0
+    await bookingService.updateBookingPayment(bookingId, clubId, totalAmount, 'confirmed')
+    const { rows: bDate } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bookingId, clubId])
+    const dateStr = bDate[0]?.booking_date ? String(bDate[0].booking_date).split('T')[0] : null
+    if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
+    res.json({ ok: true })
+  } catch (e) {
+    console.error('bookings complete-payment error:', e)
     res.status(500).json({ error: dbError(e) })
   }
 })

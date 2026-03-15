@@ -76,6 +76,16 @@
   min-height: calc(var(--mb-header-h) - 24px);
 }
 
+.my-bookings-success-banner {
+  background: var(--mb-success-bg);
+  border: 1px solid #86efac;
+  color: #166534;
+  padding: 14px 20px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  text-align: center;
+}
+
 .my-bookings-back {
   display: inline-flex;
   align-items: center;
@@ -444,6 +454,26 @@
 .my-bookings-pay-at-club-hint {
   font-size: 0.8125rem;
   color: var(--mb-text-muted);
+}
+
+.my-bookings-pay-now-wrap {
+  margin-top: 8px;
+}
+
+.my-bookings-pay-now-link {
+  display: inline-block;
+  padding: 8px 14px;
+  background: #1e3a5f;
+  color: #fff;
+  border-radius: var(--mb-radius-sm);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.my-bookings-pay-now-link:hover {
+  background: #152a47;
 }
 
 .my-bookings-cancel-btn {
