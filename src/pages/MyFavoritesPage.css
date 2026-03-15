@@ -152,7 +152,7 @@
   font-size: 0.9375rem;
   font-weight: 500;
   color: #0f172a;
-  min-width: 100px;
+  min-width: 110px;
 }
 
 .my-favorites-country-btn:hover {
@@ -228,6 +228,13 @@
   background: #eff6ff;
   color: #2563eb;
   font-weight: 500;
+}
+
+.my-favorites-country-empty {
+  padding: 16px 14px;
+  font-size: 0.875rem;
+  color: #64748b;
+  text-align: center;
 }
 
 .my-favorites-country-option-flag {

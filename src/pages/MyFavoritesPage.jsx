@@ -11,7 +11,7 @@ import * as bookingApi from '../api/dbClient'
 import { getImageUrl } from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
-import { COUNTRY_CODES, DEFAULT_COUNTRY, normalizeSearchDigits, getMinDigitsForCountry, normalizeMemberPhone } from '../utils/countryCodes'
+import { COUNTRY_CODES, DEFAULT_COUNTRY, normalizeSearchDigits, getMinDigitsForCountry, normalizeMemberPhone, matchCountrySearch } from '../utils/countryCodes'
 import './MyFavoritesPage.css'
 
 const MyFavoritesPage = () => {
@@ -226,7 +226,7 @@ const MyFavoritesPage = () => {
                       <button
                         type="button"
                         className="my-favorites-country-btn"
-                        onClick={() => setCountryDropdownOpen(!countryDropdownOpen)}
+                        onClick={() => { setCountryDropdownOpen(!countryDropdownOpen); setCountrySearch(''); }}
                         aria-expanded={countryDropdownOpen}
                         aria-haspopup="listbox"
                         aria-label={t('Country code', 'مفتاح الدولة')}
@@ -235,7 +235,7 @@ const MyFavoritesPage = () => {
                           {COUNTRY_CODES.find(c => c.code === countryCode)?.flag || '🇸🇦'}
                         </span>
                         <span className="my-favorites-country-dial">
-                          +{countryCode}
+                          {COUNTRY_CODES.find(c => c.code === countryCode)?.iso2 || 'SA'} +{countryCode}
                         </span>
                         <span className="my-favorites-country-chevron">▾</span>
                       </button>
@@ -244,26 +244,32 @@ const MyFavoritesPage = () => {
                           <input
                             type="text"
                             className="my-favorites-country-search"
-                            placeholder={t('Search country...', 'بحث عن دولة...')}
+                            placeholder={t('Search by country, code or +966...', 'ابحث بالدولة أو المفتاح أو +966...')}
                             value={countrySearch}
                             onChange={e => setCountrySearch(e.target.value)}
                             onClick={e => e.stopPropagation()}
+                            autoFocus
+                            autoComplete="off"
                           />
                           <ul className="my-favorites-country-list">
-                            {COUNTRY_CODES
-                              .filter(c => !countrySearch || (language === 'ar' ? c.label : c.labelEn).toLowerCase().includes(countrySearch.toLowerCase()) || c.code.includes(countrySearch))
-                              .map(c => (
-                                <li
-                                  key={c.code}
-                                  role="option"
-                                  className={`my-favorites-country-option ${c.code === countryCode ? 'selected' : ''}`}
-                                  onClick={() => { setCountryCode(c.code); setCountryDropdownOpen(false); setCountrySearch(''); }}
-                                >
-                                  <span className="my-favorites-country-option-flag">{c.flag}</span>
-                                  <span className="my-favorites-country-option-dial">+{c.code}</span>
-                                  <span className="my-favorites-country-option-label">{language === 'ar' ? c.label : c.labelEn}</span>
-                                </li>
-                              ))}
+                            {COUNTRY_CODES.filter(c => matchCountrySearch(c, countrySearch, language)).length === 0 ? (
+                              <li className="my-favorites-country-empty">{t('No country found', 'لا توجد دولة مطابقة')}</li>
+                            ) : (
+                              COUNTRY_CODES
+                                .filter(c => matchCountrySearch(c, countrySearch, language))
+                                .map(c => (
+                                  <li
+                                    key={c.code}
+                                    role="option"
+                                    className={`my-favorites-country-option ${c.code === countryCode ? 'selected' : ''}`}
+                                    onClick={() => { setCountryCode(c.code); setCountryDropdownOpen(false); setCountrySearch(''); }}
+                                  >
+                                    <span className="my-favorites-country-option-flag">{c.flag}</span>
+                                    <span className="my-favorites-country-option-dial">{c.iso2 || ''} +{c.code}</span>
+                                    <span className="my-favorites-country-option-label">{language === 'ar' ? c.label : c.labelEn}</span>
+                                  </li>
+                                ))
+                            )}
                           </ul>
                         </div>
                       )}
