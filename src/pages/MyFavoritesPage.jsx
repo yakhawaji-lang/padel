@@ -3,7 +3,7 @@
  * Add/remove favorites; search by full phone (9+ digits) for privacy.
  * +966 fixed for Saudi; professional country selector for others.
  */
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { loadClubs, getClubById, getClubMembersFromStorage, getAllMembersFromStorage, refreshClubsFromApi } from '../storage/adminStorage'
@@ -11,7 +11,8 @@ import * as bookingApi from '../api/dbClient'
 import { getImageUrl } from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
-import { COUNTRY_CODES, DEFAULT_COUNTRY, normalizeSearchDigits, getMinDigitsForCountry, normalizeMemberPhone, getFilteredCountries, getHighlightParts } from '../utils/countryCodes'
+import { DEFAULT_COUNTRY, normalizeSearchDigits, getMinDigitsForCountry, normalizeMemberPhone } from '../utils/countryCodes'
+import CountryCodeSelect from '../components/CountryCodeSelect'
 import './MyFavoritesPage.css'
 
 const MyFavoritesPage = () => {
@@ -24,15 +25,9 @@ const MyFavoritesPage = () => {
   const [memberDetailsById, setMemberDetailsById] = useState({})
   const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY.code)
   const [numberInput, setNumberInput] = useState('')
-  const [countryDropdownOpen, setCountryDropdownOpen] = useState(false)
-  const [countrySearch, setCountrySearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [actionError, setActionError] = useState('')
   const [addingId, setAddingId] = useState(null)
-  const [countryHighlightIndex, setCountryHighlightIndex] = useState(-1)
-  const countryDropdownRef = useRef(null)
-  const countrySearchRef = useRef(null)
-  const countryListRef = useRef(null)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -94,66 +89,6 @@ const MyFavoritesPage = () => {
     window.addEventListener('clubs-synced', reload)
     return () => window.removeEventListener('clubs-synced', reload)
   }, [loadClubsOnce, loadFavoritesForClub, selectedClubId])
-
-  useEffect(() => {
-    const close = (e) => {
-      if (countryDropdownRef.current && !countryDropdownRef.current.contains(e.target)) {
-        setCountryDropdownOpen(false)
-        setCountryHighlightIndex(-1)
-      }
-    }
-    if (countryDropdownOpen) {
-      document.addEventListener('click', close)
-      return () => document.removeEventListener('click', close)
-    }
-  }, [countryDropdownOpen])
-
-  const filteredCountries = getFilteredCountries(countrySearch, language)
-
-  const handleCountryKeyDown = useCallback((e) => {
-    if (!countryDropdownOpen) return
-    if (e.key === 'Escape') {
-      setCountryDropdownOpen(false)
-      setCountryHighlightIndex(-1)
-      e.preventDefault()
-      return
-    }
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setCountryHighlightIndex(i => Math.min(i + 1, filteredCountries.length - 1))
-      return
-    }
-    if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setCountryHighlightIndex(i => Math.max(i - 1, 0))
-      return
-    }
-    if (e.key === 'Enter' && filteredCountries.length > 0) {
-      e.preventDefault()
-      const idx = countryHighlightIndex >= 0 ? countryHighlightIndex : 0
-      const c = filteredCountries[idx]
-      if (c) {
-        setCountryCode(c.code)
-        setCountryDropdownOpen(false)
-        setCountrySearch('')
-        setCountryHighlightIndex(-1)
-      }
-    }
-  }, [countryDropdownOpen, filteredCountries, countryHighlightIndex])
-
-  useEffect(() => {
-    if (countryDropdownOpen) {
-      setCountryHighlightIndex(-1)
-      countrySearchRef.current?.focus()
-    }
-  }, [countryDropdownOpen])
-
-  useEffect(() => {
-    if (countryHighlightIndex >= 0 && countryListRef.current) {
-      const el = countryListRef.current.children[countryHighlightIndex]
-      el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-    }
-  }, [countryHighlightIndex])
 
   const club = selectedClubId ? getClubById(selectedClubId) : null
   const clubMembers = club ? (getClubMembersFromStorage(club.id) || []) : []
@@ -273,71 +208,13 @@ const MyFavoritesPage = () => {
                     {t('Enter full phone number to search and add', 'أدخل رقم الجوال كاملاً للبحث والإضافة')}
                   </p>
                   <div className="my-favorites-phone-row">
-                    <div className="my-favorites-country-wrap" ref={countryDropdownRef}>
-                      <div className="my-favorites-country-input-wrap">
-                        <span className="my-favorites-country-flag-inline">
-                          {COUNTRY_CODES.find(c => c.code === countryCode)?.flag || '🇸🇦'}
-                        </span>
-                        <input
-                          ref={countrySearchRef}
-                          type="text"
-                          className="my-favorites-country-search"
-                          placeholder={t('Search: Saudi Arabia, 966, SA...', 'ابحث: السعودية، 966، SA...')}
-                          value={countryDropdownOpen ? countrySearch : (COUNTRY_CODES.find(c => c.code === countryCode)?.iso2 || 'SA') + ' +' + countryCode}
-                          onChange={e => {
-                            setCountrySearch(e.target.value)
-                            setCountryHighlightIndex(-1)
-                            if (!countryDropdownOpen) setCountryDropdownOpen(true)
-                          }}
-                          onFocus={() => { setCountryDropdownOpen(true); setCountrySearch(''); setCountryHighlightIndex(-1); }}
-                          onClick={e => { e.stopPropagation(); if (!countryDropdownOpen) setCountryDropdownOpen(true); }}
-                          onBlur={() => setTimeout(() => setCountryDropdownOpen(false), 180)}
-                          autoComplete="off"
-                          aria-autocomplete="list"
-                          aria-controls="country-list"
-                          aria-expanded={countryDropdownOpen}
-                          aria-activedescendant={countryHighlightIndex >= 0 && filteredCountries[countryHighlightIndex] ? `country-opt-${filteredCountries[countryHighlightIndex].code}` : undefined}
-                          aria-label={t('Country code', 'مفتاح الدولة')}
-                          readOnly={!countryDropdownOpen}
-                        />
-                        <span className="my-favorites-country-chevron">▾</span>
-                      </div>
-                      {countryDropdownOpen && (
-                        <div className="my-favorites-country-dropdown" role="listbox" onKeyDown={handleCountryKeyDown}>
-                          <ul id="country-list" ref={countryListRef} className="my-favorites-country-list" role="listbox">
-                            {filteredCountries.length === 0 ? (
-                              <li className="my-favorites-country-empty">{t('No country found', 'لا توجد دولة مطابقة')}</li>
-                            ) : (
-                              filteredCountries.map((c, idx) => {
-                                const label = language === 'ar' ? c.label : c.labelEn
-                                const highlightParts = getHighlightParts(label, countrySearch)
-                                return (
-                                  <li
-                                    key={c.code}
-                                    id={`country-opt-${c.code}`}
-                                    role="option"
-                                    aria-selected={c.code === countryCode}
-                                    className={`my-favorites-country-option ${c.code === countryCode ? 'selected' : ''} ${idx === countryHighlightIndex ? 'highlighted' : ''}`}
-                                    onClick={() => { setCountryCode(c.code); setCountryDropdownOpen(false); setCountrySearch(''); setCountryHighlightIndex(-1); }}
-                                    onMouseEnter={() => setCountryHighlightIndex(idx)}
-                                  >
-                                    <span className="my-favorites-country-option-flag">{c.flag}</span>
-                                    <span className="my-favorites-country-option-dial">{c.iso2 || ''} +{c.code}</span>
-                                    <span className="my-favorites-country-option-label">
-                                      {highlightParts.length > 1 ? (
-                                        highlightParts.map((p, i) => i % 2 === 1 ? <mark key={i}>{p}</mark> : p)
-                                      ) : (
-                                        label
-                                      )}
-                                    </span>
-                                  </li>
-                                )
-                              })
-                            )}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
+                    <CountryCodeSelect
+                      value={countryCode}
+                      onChange={setCountryCode}
+                      language={language}
+                      placeholder={t('Search: Saudi Arabia, Egypt, 966...', 'ابحث: السعودية، مصر، 966...')}
+                      className="my-favorites-country-select"
+                    />
                     <input
                       type="tel"
                       className="my-favorites-number-input"
