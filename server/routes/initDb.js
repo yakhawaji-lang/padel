@@ -424,6 +424,21 @@ const migrateBookingV2Handler = async (req, res) => {
 router.get('/migrate-booking-v2', migrateBookingV2Handler)
 router.post('/migrate-booking-v2', migrateBookingV2Handler)
 
+/** GET/POST /api/init-db/migrate-payment-gateways - جدول platform_payment_gateways لإعدادات الدفع */
+const migratePaymentGatewaysHandler = async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ error: 'Database not connected' })
+    const { runPaymentGatewaysMigration } = await import('../db/paymentGatewaysMigration.js')
+    await runPaymentGatewaysMigration()
+    res.json({ ok: true, message: 'Payment gateways migration completed' })
+  } catch (e) {
+    console.error('migrate-payment-gateways:', e)
+    res.status(500).json({ error: e.message })
+  }
+}
+router.get('/migrate-payment-gateways', migratePaymentGatewaysHandler)
+router.post('/migrate-payment-gateways', migratePaymentGatewaysHandler)
+
 router.post('/migrate-to-normalized', async (req, res) => {
   try {
     if (!isConnected()) return res.status(503).json({ error: 'Database not connected' })

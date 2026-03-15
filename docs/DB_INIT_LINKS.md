@@ -67,6 +67,11 @@ https://playtix.app/api/init-db/migrate-to-normalized
 https://playtix.app/api/init-db/migrate-booking-v2
 ```
 
+**ترحيل إعدادات الدفع** (جدول `platform_payment_gateways` — **مطلوب لصفحة إعدادات الدفع**):
+```
+https://playtix.app/api/init-db/migrate-payment-gateways
+```
+
 ---
 
 ## 4. ترتيب التنفيذ (إعداد جديد من الصفر)
