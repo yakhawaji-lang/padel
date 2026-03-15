@@ -139,6 +139,17 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
             </span>
           </Link>
         )}
+        {session && (
+          <Link
+            to="/admin/payment-settings"
+            className={`main-admin-nav-item ${isActive('/admin/payment-settings') ? 'active' : ''}`}
+          >
+            <span className="nav-icon">💳</span>
+            <span className="nav-label">
+              {language === 'en' ? 'Payment settings' : 'إعدادات الدفع'}
+            </span>
+          </Link>
+        )}
       </nav>
 
       <div className="clubs-quick-list">

@@ -5,6 +5,7 @@
  */
 import { Router } from 'express'
 import { query } from '../db/pool.js'
+import { getPaymentGatewaysFromTable, savePaymentGatewaysToTable } from '../db/paymentSettings.js'
 import { getActorFromRequest } from '../db/audit.js'
 import { hasNormalizedTables, getClubsFromNormalized, getMembersFromNormalized, getPlatformAdminsFromNormalized, saveClubsToNormalized, saveMembersToNormalized, savePlatformAdminsToNormalized, deleteClubPermanent, removeMemberFromClub, updateClubSettingsInDb } from '../db/normalizedData.js'
 
@@ -176,6 +177,19 @@ router.get('/:key', async (req, res) => {
       const arr = normalized ? await getFromNormalized(key) : await getFromEntities(key)
       return res.json(arr)
     }
+    if (key === 'platform_payment_gateways') {
+      const fromTable = await getPaymentGatewaysFromTable()
+      if (fromTable) return res.json(fromTable)
+      const { rows } = await query('SELECT value FROM app_settings WHERE `key` = ?', [key])
+      const raw = rows[0]?.value
+      let val = raw === undefined || raw === null ? null : (typeof raw === 'object' ? raw : JSON.parse(raw || 'null'))
+      if (val && typeof val === 'object') {
+        const s = val.stripe || {}
+        const m = val.mada || {}
+        val = { ...val, stripe: { ...s, secretKey: s.secretKey ? '••••••••' : '', webhookSecret: s.webhookSecret ? '••••••••' : '' }, mada: { ...m, apiKey: m.apiKey ? '••••••••' : '' } }
+      }
+      return res.json(val)
+    }
     const { rows } = await query('SELECT value FROM app_settings WHERE `key` = ?', [key])
     const raw = rows[0]?.value
     const val = raw === undefined || raw === null ? null : (typeof raw === 'object' ? raw : JSON.parse(raw || 'null'))
@@ -224,10 +238,20 @@ router.post('/', async (req, res) => {
           }
         }
       } else {
-        await query(
-          'INSERT INTO app_settings (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = NOW()',
-          [key, JSON.stringify(value)]
-        )
+        if (key === 'platform_payment_gateways') {
+          const saved = await savePaymentGatewaysToTable(value)
+          if (!saved) {
+            await query(
+              'INSERT INTO app_settings (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = NOW()',
+              [key, JSON.stringify(value)]
+            )
+          }
+        } else {
+          await query(
+            'INSERT INTO app_settings (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = NOW()',
+            [key, JSON.stringify(value)]
+          )
+        }
       }
     }
     res.json({ ok: true })

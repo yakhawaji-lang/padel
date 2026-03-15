@@ -13,6 +13,7 @@ import WhatsAppTestPage from './pages/WhatsAppTestPage'
 import SMSTestPage from './pages/SMSTestPage'
 import EmailTestPage from './pages/EmailTestPage'
 import PlatformSettingsPage from './pages/PlatformSettingsPage'
+import PaymentSettingsPage from './pages/PaymentSettingsPage'
 import PlatformPageGuard from '../components/PlatformPageGuard'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { AdminPanelProvider } from './AdminPanelContext'
@@ -187,6 +188,9 @@ function MainAdminPanel() {
     }
     if (path === 'settings') {
       return <PlatformSettingsPage />
+    }
+    if (path === 'payment-settings') {
+      return <PaymentSettingsPage />
     }
     return <AllClubsDashboard />
   }

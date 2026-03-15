@@ -7,14 +7,7 @@ const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 const BANNER_PHRASE_KEY = 'homepage_banner_phrase'
 const PLATFORM_MESSAGE_CHANNELS_KEY = 'platform_message_channels'
 const PLATFORM_EMAIL_SETTINGS_KEY = 'platform_email_settings'
-const PLATFORM_PAYMENT_GATEWAYS_KEY = 'platform_payment_gateways'
 const GALLERY_KEYS = ['gallery-1', 'gallery-2', 'gallery-3', 'gallery-4', 'gallery-5', 'gallery-6']
-
-const DEFAULT_PAYMENT_GATEWAYS = {
-  enabledChannels: { at_club: true, credit_card: false, mada: false, split: true },
-  stripe: { publishableKey: '' },
-  mada: { merchantId: '' }
-}
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -37,7 +30,6 @@ export default function PlatformSettingsPage() {
   const [selectedBannerFile, setSelectedBannerFile] = useState(null)
   const [selectedGalleryFiles, setSelectedGalleryFiles] = useState({})
   const [channels, setChannels] = useState({ sms: false, whatsapp: true, email: false })
-  const [paymentGateways, setPaymentGateways] = useState(() => ({ ...DEFAULT_PAYMENT_GATEWAYS }))
   const [emailProvider, setEmailProvider] = useState('resend')
   const [emailFrom, setEmailFrom] = useState('PlayTix <noreply@playtix.app>')
   const [emailResendKey, setEmailResendKey] = useState('')
@@ -47,9 +39,8 @@ export default function PlatformSettingsPage() {
     Promise.all([
       getStore(BANNER_PHRASE_KEY),
       getStore(PLATFORM_MESSAGE_CHANNELS_KEY),
-      getStore(PLATFORM_EMAIL_SETTINGS_KEY),
-      getStore(PLATFORM_PAYMENT_GATEWAYS_KEY)
-    ]).then(([phraseVal, msgVal, emailVal, paymentVal]) => {
+      getStore(PLATFORM_EMAIL_SETTINGS_KEY)
+    ]).then(([phraseVal, msgVal, emailVal]) => {
       if (phraseVal && typeof phraseVal === 'object') {
         setPhraseAr(phraseVal.ar || '')
         setPhraseEn(phraseVal.en || '')
@@ -70,13 +61,6 @@ export default function PlatformSettingsPage() {
         setEmailFrom(emailVal.from || 'PlayTix <noreply@playtix.app>')
         setEmailResendKey(emailVal.resendApiKey ? '••••••••' : '')
         setEmailSendgridKey(emailVal.sendgridApiKey ? '••••••••' : '')
-      }
-      if (paymentVal && typeof paymentVal === 'object') {
-        setPaymentGateways(prev => ({
-          enabledChannels: { ...DEFAULT_PAYMENT_GATEWAYS.enabledChannels, ...(paymentVal.enabledChannels || {}) },
-          stripe: { ...DEFAULT_PAYMENT_GATEWAYS.stripe, ...(paymentVal.stripe || {}) },
-          mada: { ...DEFAULT_PAYMENT_GATEWAYS.mada, ...(paymentVal.mada || {}) }
-        }))
       }
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
@@ -114,29 +98,6 @@ export default function PlatformSettingsPage() {
 
   const toggleChannel = (key) => {
     setChannels(prev => ({ ...prev, [key]: !prev[key] }))
-  }
-
-  const handleSavePaymentGateways = async () => {
-    setMessage(null)
-    setMessageError(false)
-    setSaving(true)
-    try {
-      await setStore(PLATFORM_PAYMENT_GATEWAYS_KEY, paymentGateways)
-      setMessage(language === 'ar' ? 'تم الحفظ.' : 'Saved.')
-    } catch (err) {
-      setMessage(language === 'ar' ? 'فشل الحفظ.' : 'Save failed.')
-      setMessageError(true)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const togglePaymentChannel = (key) => {
-    if (key === 'at_club') return // always on, not toggleable
-    setPaymentGateways(prev => ({
-      ...prev,
-      enabledChannels: { ...prev.enabledChannels, [key]: !prev.enabledChannels[key] }
-    }))
   }
 
   const handleSaveEmailSettings = async () => {
@@ -208,14 +169,6 @@ export default function PlatformSettingsPage() {
     emailFromPlaceholder: t('PlayTix <noreply@playtix.app>', 'PlayTix <noreply@playtix.app>', language),
     resendApiKey: t('Resend API Key', 'مفتاح Resend', language),
     sendgridApiKey: t('SendGrid API Key (Twilio)', 'مفتاح SendGrid (Twilio)', language),
-    paymentGateways: t('Payment gateways', 'بوابات الدفع', language),
-    paymentGatewaysIntro: t('Enable payment methods for court bookings. At club is always available. Credit card and Mada require future integration.', 'تفعيل طرق الدفع لحجوزات الملاعب. الدفع في النادي متاح دائماً. البطاقة الائتمانية ومتاب تتطلب تكامل مستقبلي.', language),
-    atClub: t('At club (always on)', 'الدفع في النادي (دائماً مفعّل)', language),
-    creditCard: t('Credit card', 'البطاقة الائتمانية', language),
-    mada: t('Mada', 'متاب', language),
-    splitPayment: t('Split payment', 'تقسيم المبلغ', language),
-    stripePublishableKey: t('Stripe publishable key (optional)', 'مفتاح Stripe العام (اختياري)', language),
-    madaMerchantId: t('Mada merchant ID (optional)', 'معرّف تاجر متاب (اختياري)', language),
   }
 
   if (loading) {
@@ -226,40 +179,6 @@ export default function PlatformSettingsPage() {
     <div className="main-admin-page" style={{ padding: 24, maxWidth: 640 }}>
       <h1 className="main-admin-page-title" style={{ marginBottom: 24 }}>{c.title}</h1>
       {message && <p style={{ marginBottom: 16, color: messageError ? '#dc2626' : '#059669', fontSize: '0.9rem' }}>{message}</p>}
-
-      <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: '1.125rem', marginBottom: 8 }}>{c.paymentGateways}</h2>
-        <p style={{ color: '#64748b', marginBottom: 16, fontSize: '0.9rem' }}>{c.paymentGatewaysIntro}</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'default', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8, opacity: 0.9 }}>
-            <input type="checkbox" checked={true} disabled />
-            <span>🏢 {c.atClub}</span>
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8 }}>
-            <input type="checkbox" checked={!!paymentGateways.enabledChannels?.credit_card} onChange={() => togglePaymentChannel('credit_card')} disabled={saving} />
-            <span>💳 {c.creditCard}</span>
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8 }}>
-            <input type="checkbox" checked={!!paymentGateways.enabledChannels?.mada} onChange={() => togglePaymentChannel('mada')} disabled={saving} />
-            <span>💳 {c.mada}</span>
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8 }}>
-            <input type="checkbox" checked={!!paymentGateways.enabledChannels?.split} onChange={() => togglePaymentChannel('split')} disabled={saving} />
-            <span>👥 {c.splitPayment}</span>
-          </label>
-        </div>
-        <div className="form-group" style={{ marginBottom: 12 }}>
-          <label style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>{c.stripePublishableKey}</label>
-          <input type="text" value={paymentGateways.stripe?.publishableKey || ''} onChange={(e) => setPaymentGateways(prev => ({ ...prev, stripe: { ...prev.stripe, publishableKey: e.target.value } }))} placeholder="pk_live_xxx" disabled={saving} style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8 }} />
-        </div>
-        <div className="form-group" style={{ marginBottom: 12 }}>
-          <label style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>{c.madaMerchantId}</label>
-          <input type="text" value={paymentGateways.mada?.merchantId || ''} onChange={(e) => setPaymentGateways(prev => ({ ...prev, mada: { ...prev.mada, merchantId: e.target.value } }))} placeholder="" disabled={saving} style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8 }} />
-        </div>
-        <button type="button" onClick={handleSavePaymentGateways} disabled={saving} style={{ padding: '8px 16px', background: saving ? '#94a3b8' : '#0f172a', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer' }}>
-          {saving ? c.saving : c.save}
-        </button>
-      </section>
 
       <section style={{ marginBottom: 32 }}>
         <h2 style={{ fontSize: '1.125rem', marginBottom: 8 }}>{c.messageChannel}</h2>
