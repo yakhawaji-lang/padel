@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { loadClubs, getClubById, getClubMembersFromStorage, addMemberToClub, addBookingToClub, refreshClubsFromApi, upsertMember } from '../storage/adminStorage'
+import { loadClubs, getClubById, getClubMembersFromStorage, getAllMembersFromStorage, addMemberToClub, addBookingToClub, refreshClubsFromApi, upsertMember } from '../storage/adminStorage'
 import { calculateBookingPrice } from '../utils/bookingPricing'
 import * as bookingApi from '../api/dbClient'
 import { getImageUrl, sendWelcomeClubJoinEmail } from '../api/dbClient'
@@ -352,6 +352,14 @@ const ClubPublicPage = () => {
       return []
     }
   }, [club?.id, joinStatus, platformUser?.id])
+
+  const allPlatformMembersList = React.useMemo(() => {
+    try {
+      return getAllMembersFromStorage() || []
+    } catch (_) {
+      return []
+    }
+  }, [club?.id])
 
   const [bookingSubmitting, setBookingSubmitting] = useState(false)
   const [bookingDuration, setBookingDuration] = useState(60)
@@ -1053,6 +1061,7 @@ const ClubPublicPage = () => {
                     dateStr={bookingModal.dateStr}
                     startTime={bookingModal.startTime}
                     clubMembers={clubMembersList}
+                    allPlatformMembers={allPlatformMembersList}
                     currentMemberId={platformUser?.id}
                     language={language}
                     value={paymentShares}

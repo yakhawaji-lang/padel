@@ -37,7 +37,7 @@ function getRegisterUrl(clubId, phone) {
   return url
 }
 
-/** Build WhatsApp share link with registration URL (includes phone for pre-fill) */
+/** Build WhatsApp share link with registration URL (includes phone for pre-fill) — for unregistered */
 function buildWhatsAppLink(phone, clubName, dateStr, timeStr, amount, currency, clubId) {
   const p = normalizePhone(phone)
   const num = p.replace(/\D/g, '')
@@ -52,6 +52,27 @@ function buildWhatsAppLink(phone, clubName, dateStr, timeStr, amount, currency, 
   return `https://wa.me/${base}?text=${text}`
 }
 
+/** Build WhatsApp link for registered members — payment share + my-bookings follow-up */
+function buildWhatsAppLinkForRegistered(phone, clubName, dateStr, timeStr, amount, currency, language) {
+  if (!phone || String(phone).replace(/\D/g, '').length < 8) return null
+  const p = normalizePhone(phone)
+  const num = p.replace(/\D/g, '')
+  const base = num.startsWith('966') ? `966${num.slice(3)}` : num
+  const basePath = getAppBasePath()
+  const myBookingsUrl = typeof window !== 'undefined'
+    ? window.location.origin + (basePath ? basePath + '/' : '') + 'my-bookings'
+    : ''
+  const msg = language === 'ar'
+    ? `مرحباً! تمت إضافتك لمشاركة في دفع حجز ملعب في ${clubName || 'النادي'}\nالتاريخ: ${dateStr}\nالوقت: ${timeStr}\nمبلغ مشاركتك: ${amount} ${currency}\nادخل إلى حجوزاتي لاستكمال الدفع ومتابعة الحجز:\n${myBookingsUrl}`
+    : `Hi! You've been added to a shared court booking at ${clubName || 'the club'}\nDate: ${dateStr}\nTime: ${timeStr}\nYour share: ${amount} ${currency}\nComplete payment and track your booking:\n${myBookingsUrl}`
+  return `https://wa.me/${base}?text=${encodeURIComponent(msg)}`
+}
+
+/** Extract digits from phone for search */
+function phoneDigits(s) {
+  return (s || '').replace(/\D/g, '')
+}
+
 export default function BookingPaymentShare({
   totalPrice,
   currency,
@@ -60,6 +81,7 @@ export default function BookingPaymentShare({
   dateStr,
   startTime,
   clubMembers = [],
+  allPlatformMembers = [],
   currentMemberId,
   language = 'en',
   value = [],
@@ -70,6 +92,7 @@ export default function BookingPaymentShare({
   const [splitMode, setSplitMode] = useState('equal')
   const [addType, setAddType] = useState('registered')
   const [manualPhone, setManualPhone] = useState('')
+  const [memberSearchQuery, setMemberSearchQuery] = useState('')
   const [customAmounts, setCustomAmounts] = useState({})
   const [contactError, setContactError] = useState('')
   const [favoriteIds, setFavoriteIds] = useState(new Set())
@@ -100,7 +123,20 @@ export default function BookingPaymentShare({
   }, [clubId, currentMemberId])
 
   const otherMembers = clubMembers.filter(m => String(m?.id) !== String(currentMemberId))
-  const favoritesFirst = [...otherMembers].sort((a, b) => {
+  const platformNotInClub = (allPlatformMembers || []).filter(
+    m => m?.id && String(m.id) !== String(currentMemberId) && !otherMembers.some(c => String(c?.id) === String(m.id))
+  )
+  const searchableMembers = [...otherMembers, ...platformNotInClub]
+  const searchDigits = phoneDigits(memberSearchQuery)
+  const filteredBySearch = searchDigits.length >= 4
+    ? searchableMembers.filter(m => {
+        const mPhone = phoneDigits(m?.mobile || m?.phone || '')
+        const mName = (m?.name || m?.email || '').toLowerCase()
+        const q = (memberSearchQuery || '').toLowerCase()
+        return mPhone.includes(searchDigits) || mName.includes(q)
+      })
+    : searchableMembers
+  const favoritesFirst = [...filteredBySearch].sort((a, b) => {
     const aFav = favoriteIds.has(String(a?.id))
     const bFav = favoriteIds.has(String(b?.id))
     if (aFav && !bFav) return -1
@@ -142,7 +178,17 @@ export default function BookingPaymentShare({
   const addRegistered = (member) => {
     if (!member?.id) return
     const amt = splitMode === 'equal' ? (shares.length === 0 ? totalPrice / 2 : equalAmount) : remaining / 2
-    onChange([...shares, { memberId: member.id, memberName: member.name || member.email, type: 'registered', amount: Math.round(amt * 100) / 100 }])
+    const amount = Math.round(amt * 100) / 100
+    const phone = member?.mobile || member?.phone || ''
+    const whatsappLink = buildWhatsAppLinkForRegistered(phone, clubName, dateStr, startTime, amount, currency, language)
+    onChange([...shares, {
+      memberId: member.id,
+      memberName: member.name || member.email,
+      phone: phone || undefined,
+      type: 'registered',
+      amount,
+      whatsappLink: whatsappLink || undefined
+    }])
   }
 
   const addUnregistered = (phoneVal) => {
@@ -216,6 +262,10 @@ export default function BookingPaymentShare({
         <div className="booking-payment-share-panel">
           {shares.length > 0 ? (
             <>
+              <div className="booking-payment-share-followup">
+                <h4 className="booking-payment-share-followup-title">{t('Booking follow-up', 'متابعة الحجز')}</h4>
+                <p className="booking-payment-share-followup-hint">{t('Send payment share link to each participant via WhatsApp', 'أرسل رابط المشاركة بالدفع لكل مشارك عبر واتساب')}</p>
+              </div>
               <div className="booking-payment-share-mode">
                 <label className="booking-payment-share-radio">
                   <input
@@ -259,11 +309,14 @@ export default function BookingPaymentShare({
                       />
                       <span className="booking-payment-share-currency">{currency}</span>
                     </div>
-                    {s.whatsappLink && (
-                      <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="booking-payment-share-whatsapp" title="Send WhatsApp" aria-label="WhatsApp">
+                    {s.whatsappLink ? (
+                      <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="booking-payment-share-whatsapp" title={t('Send via WhatsApp', 'إرسال عبر واتساب')} aria-label="WhatsApp">
                         <span className="booking-payment-share-wa-icon">💬</span>
+                        <span className="booking-payment-share-wa-label">{t('Send', 'إرسال')}</span>
                       </a>
-                    )}
+                    ) : s.type === 'registered' ? (
+                      <span className="booking-payment-share-no-phone" title={t('No phone number to send', 'لا يوجد رقم لإرسال الرابط')}>—</span>
+                    ) : null}
                     <button type="button" className="booking-payment-share-remove" onClick={() => removeShare(idx)} aria-label={t('Remove', 'إزالة')}>
                       ×
                     </button>
@@ -298,6 +351,14 @@ export default function BookingPaymentShare({
 
             {addType === 'registered' && (
               <div className="booking-payment-share-members">
+                <input
+                  type="tel"
+                  className="booking-payment-share-search"
+                  placeholder={t('Search by phone or name', 'البحث برقم الجوال أو الاسم')}
+                  value={memberSearchQuery}
+                  onChange={e => setMemberSearchQuery(e.target.value)}
+                  inputMode="tel"
+                />
                 {favoritesFirst.length > 0 ? (
                   favoritesFirst.map(m => {
                     const isFavorite = favoriteIds.has(String(m.id))
@@ -327,13 +388,18 @@ export default function BookingPaymentShare({
                     )
                   })
                 ) : (
-                  <p className="booking-payment-share-empty">{t('No other members in club', 'لا يوجد أعضاء آخرين في النادي')}</p>
+                  <p className="booking-payment-share-empty">
+                    {searchDigits.length >= 4
+                      ? t('No members found for this search', 'لا توجد نتائج لهذا البحث')
+                      : t('No other members in club. Search by phone to find platform members.', 'لا يوجد أعضاء آخرين في النادي. ابحث برقم الجوال للعثور على أعضاء المنصة.')}
+                  </p>
                 )}
               </div>
             )}
 
             {addType === 'unregistered' && (
               <div className="booking-payment-share-phone">
+                <p className="booking-payment-share-phone-hint">{t('Enter phone number to send WhatsApp link for registration, club join, and payment share', 'أدخل رقم الجوال لإرسال رابط واتساب للتسجيل في النادي والمنصة والمشاركة بالدفع')}</p>
                 {CONTACT_PICKER_SUPPORTED && (
                   <button type="button" className="booking-payment-share-contact-btn" onClick={pickFromContacts}>
                     {t('Select from contacts', 'اختر من جهات الاتصال')}
@@ -342,7 +408,7 @@ export default function BookingPaymentShare({
                 <div className="booking-payment-share-phone-row">
                   <input
                     type="tel"
-                    placeholder={t('Or enter phone number', 'أو أدخل رقم الجوال')}
+                    placeholder={t('Enter phone number', 'أدخل رقم الجوال')}
                     value={manualPhone}
                     onChange={e => { setManualPhone(e.target.value); setContactError('') }}
                     onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addUnregistered())}
