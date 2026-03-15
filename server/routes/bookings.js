@@ -20,7 +20,7 @@ const router = Router()
 
 const bookingRateLimit = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: 120,
   message: { error: 'Too many requests. Try again later.' },
   standardHeaders: true,
   legacyHeaders: false
