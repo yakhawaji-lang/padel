@@ -44,47 +44,53 @@ const MyFavoritesPage = () => {
     }
   }, [navigate])
 
-  const loadFavorites = useCallback(async () => {
+  const loadClubsOnce = useCallback(async () => {
     if (!member?.id) return
     await refreshClubsFromApi()
     const clubList = loadClubs() || []
     const myClubIds = member.clubIds || (member.clubId ? [member.clubId] : [])
     const myClubs = clubList.filter(c => myClubIds.some(id => String(id) === String(c.id)))
     setClubs(myClubs)
-    if (!selectedClubId && myClubs.length > 0) setSelectedClubId(myClubs[0].id)
+    setSelectedClubId(prev => (!prev && myClubs.length > 0 ? myClubs[0].id : prev))
+  }, [member?.id])
 
-    const favs = {}
-    const allMembers = getAllMembersFromStorage() || []
-    const byId = new Map(allMembers.map(m => [String(m.id), m]))
-    for (const c of myClubs) {
-      const clubMembers = getClubMembersFromStorage(c.id) || []
+  const loadFavoritesForClub = useCallback(async (clubId) => {
+    if (!member?.id || !clubId) return
+    try {
+      const ids = await bookingApi.getFavoriteMembers(member.id, clubId)
+      const allMembers = getAllMembersFromStorage() || []
+      const byId = new Map(allMembers.map(m => [String(m.id), m]))
+      const clubMembers = getClubMembersFromStorage(clubId) || []
       clubMembers.forEach(m => { if (m?.id) byId.set(String(m.id), m) })
+      ;(Array.isArray(ids) ? ids : []).forEach(id => {
+        const m = byId.get(String(id)) || allMembers.find(x => String(x.id) === String(id))
+        if (m) byId.set(String(id), m)
+      })
+      setFavoritesByClub(prev => ({ ...prev, [clubId]: Array.isArray(ids) ? ids : [] }))
+      setMemberDetailsById(prev => ({ ...prev, ...Object.fromEntries(byId) }))
+    } catch (_) {
+      setFavoritesByClub(prev => ({ ...prev, [clubId]: [] }))
     }
-
-    for (const c of myClubs) {
-      try {
-        const ids = await bookingApi.getFavoriteMembers(member.id, c.id)
-        favs[c.id] = Array.isArray(ids) ? ids : []
-        favs[c.id].forEach(id => {
-          const m = byId.get(String(id)) || allMembers.find(x => String(x.id) === String(id))
-          if (m) byId.set(String(id), m)
-        })
-      } catch (_) {
-        favs[c.id] = []
-      }
-    }
-    setFavoritesByClub(favs)
-    setMemberDetailsById(Object.fromEntries(byId))
-  }, [member?.id, selectedClubId])
+  }, [member?.id])
 
   useEffect(() => {
-    loadFavorites()
-  }, [loadFavorites])
+    loadClubsOnce()
+  }, [loadClubsOnce])
 
   useEffect(() => {
-    window.addEventListener('clubs-synced', loadFavorites)
-    return () => window.removeEventListener('clubs-synced', loadFavorites)
-  }, [loadFavorites])
+    if (selectedClubId && member?.id) {
+      loadFavoritesForClub(selectedClubId)
+    }
+  }, [selectedClubId, member?.id, loadFavoritesForClub])
+
+  useEffect(() => {
+    const reload = () => {
+      loadClubsOnce()
+      if (selectedClubId) loadFavoritesForClub(selectedClubId)
+    }
+    window.addEventListener('clubs-synced', reload)
+    return () => window.removeEventListener('clubs-synced', reload)
+  }, [loadClubsOnce, loadFavoritesForClub, selectedClubId])
 
   useEffect(() => {
     const close = (e) => {
@@ -146,7 +152,6 @@ const MyFavoritesPage = () => {
       } else {
         await bookingApi.addFavoriteMember(member.id, selectedClubId, memberId)
       }
-      await loadFavorites()
     } catch (e) {
       setActionError(e?.message || (language === 'ar' ? 'فشلت العملية. حاول مرة أخرى.' : 'Action failed. Please try again.'))
       setFavoritesByClub(prev => ({
