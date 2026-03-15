@@ -230,6 +230,17 @@
   font-weight: 500;
 }
 
+.my-favorites-country-option.highlighted {
+  background: #f1f5f9;
+}
+
+.my-favorites-country-option-label mark {
+  background: #fef08a;
+  color: inherit;
+  padding: 0 1px;
+  border-radius: 2px;
+}
+
 .my-favorites-country-empty {
   padding: 16px 14px;
   font-size: 0.875rem;

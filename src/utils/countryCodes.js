@@ -39,15 +39,64 @@ export const COUNTRY_CODES = [
   { code: '249', iso2: 'SD', dial: '+249', label: 'السودان', labelEn: 'Sudan', flag: '🇸🇩' },
 ]
 
-/** Match country by search term (label, labelEn, code, iso2, dial) */
+/** Build searchable text for a country (both languages + code + iso2) */
+function getSearchText(country) {
+  const parts = [
+    country.label || '',
+    country.labelEn || '',
+    country.code || '',
+    country.iso2 || '',
+    (country.dial || '+' + country.code || '').replace(/\+/g, '')
+  ]
+  return parts.join(' ').toLowerCase()
+}
+
+/** Match country by search term - searches in both languages, code, iso2. Supports multi-word (all terms must match). */
 export function matchCountrySearch(country, search, language) {
   if (!search || !search.trim()) return true
+  const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  const searchText = getSearchText(country)
+  return terms.every(term => searchText.includes(term))
+}
+
+/** Get filtered and sorted countries: exact matches first, then by relevance. When no search, GCC first. */
+export function getFilteredCountries(search, language) {
+  const filtered = search?.trim()
+    ? COUNTRY_CODES.filter(c => matchCountrySearch(c, search, language))
+    : [...COUNTRY_CODES]
+  if (!search?.trim()) {
+    const gcc = ['966', '971', '965', '973', '974', '968']
+    return filtered.sort((a, b) => {
+      const aGcc = gcc.indexOf(a.code)
+      const bGcc = gcc.indexOf(b.code)
+      if (aGcc >= 0 && bGcc < 0) return -1
+      if (aGcc < 0 && bGcc >= 0) return 1
+      if (aGcc >= 0 && bGcc >= 0) return aGcc - bGcc
+      return 0
+    })
+  }
   const q = search.trim().toLowerCase()
-  const label = (language === 'ar' ? country.label : country.labelEn || '').toLowerCase()
-  const code = (country.code || '').toLowerCase()
-  const iso2 = (country.iso2 || '').toLowerCase()
-  const dial = (country.dial || '+' + country.code || '').toLowerCase()
-  return label.includes(q) || code.includes(q) || iso2.includes(q) || dial.includes(q)
+  return filtered.sort((a, b) => {
+    const aText = getSearchText(a)
+    const bText = getSearchText(b)
+    const aExact = aText.startsWith(q) || a.code === q.replace(/\D/g, '')
+    const bExact = bText.startsWith(q) || b.code === q.replace(/\D/g, '')
+    if (aExact && !bExact) return -1
+    if (!aExact && bExact) return 1
+    return aText.indexOf(q) - bText.indexOf(q)
+  })
+}
+
+/** Split text by search term for highlighting. Returns array: [before, match, after, ...] - odd indices are matches. */
+export function getHighlightParts(text, search) {
+  if (!text || !search?.trim()) return [String(text)]
+  try {
+    const q = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const re = new RegExp(`(${q})`, 'gi')
+    return String(text).split(re)
+  } catch {
+    return [String(text)]
+  }
 }
 
 /** Get default (Saudi) country */

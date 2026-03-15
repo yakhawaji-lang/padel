@@ -11,7 +11,7 @@ import * as bookingApi from '../api/dbClient'
 import { getImageUrl } from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
-import { COUNTRY_CODES, DEFAULT_COUNTRY, normalizeSearchDigits, getMinDigitsForCountry, normalizeMemberPhone, matchCountrySearch } from '../utils/countryCodes'
+import { COUNTRY_CODES, DEFAULT_COUNTRY, normalizeSearchDigits, getMinDigitsForCountry, normalizeMemberPhone, getFilteredCountries, getHighlightParts } from '../utils/countryCodes'
 import './MyFavoritesPage.css'
 
 const MyFavoritesPage = () => {
@@ -29,7 +29,10 @@ const MyFavoritesPage = () => {
   const [loading, setLoading] = useState(false)
   const [actionError, setActionError] = useState('')
   const [addingId, setAddingId] = useState(null)
+  const [countryHighlightIndex, setCountryHighlightIndex] = useState(-1)
   const countryDropdownRef = useRef(null)
+  const countrySearchRef = useRef(null)
+  const countryListRef = useRef(null)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -96,6 +99,7 @@ const MyFavoritesPage = () => {
     const close = (e) => {
       if (countryDropdownRef.current && !countryDropdownRef.current.contains(e.target)) {
         setCountryDropdownOpen(false)
+        setCountryHighlightIndex(-1)
       }
     }
     if (countryDropdownOpen) {
@@ -103,6 +107,53 @@ const MyFavoritesPage = () => {
       return () => document.removeEventListener('click', close)
     }
   }, [countryDropdownOpen])
+
+  const filteredCountries = getFilteredCountries(countrySearch, language)
+
+  const handleCountryKeyDown = useCallback((e) => {
+    if (!countryDropdownOpen) return
+    if (e.key === 'Escape') {
+      setCountryDropdownOpen(false)
+      setCountryHighlightIndex(-1)
+      e.preventDefault()
+      return
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setCountryHighlightIndex(i => Math.min(i + 1, filteredCountries.length - 1))
+      return
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setCountryHighlightIndex(i => Math.max(i - 1, 0))
+      return
+    }
+    if (e.key === 'Enter' && filteredCountries.length > 0) {
+      e.preventDefault()
+      const idx = countryHighlightIndex >= 0 ? countryHighlightIndex : 0
+      const c = filteredCountries[idx]
+      if (c) {
+        setCountryCode(c.code)
+        setCountryDropdownOpen(false)
+        setCountrySearch('')
+        setCountryHighlightIndex(-1)
+      }
+    }
+  }, [countryDropdownOpen, filteredCountries, countryHighlightIndex])
+
+  useEffect(() => {
+    if (countryDropdownOpen) {
+      setCountryHighlightIndex(-1)
+      countrySearchRef.current?.focus()
+    }
+  }, [countryDropdownOpen])
+
+  useEffect(() => {
+    if (countryHighlightIndex >= 0 && countryListRef.current) {
+      const el = countryListRef.current.children[countryHighlightIndex]
+      el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  }, [countryHighlightIndex])
 
   const club = selectedClubId ? getClubById(selectedClubId) : null
   const clubMembers = club ? (getClubMembersFromStorage(club.id) || []) : []
@@ -226,7 +277,7 @@ const MyFavoritesPage = () => {
                       <button
                         type="button"
                         className="my-favorites-country-btn"
-                        onClick={() => { setCountryDropdownOpen(!countryDropdownOpen); setCountrySearch(''); }}
+                        onClick={() => { setCountryDropdownOpen(prev => !prev); setCountrySearch(''); setCountryHighlightIndex(-1); }}
                         aria-expanded={countryDropdownOpen}
                         aria-haspopup="listbox"
                         aria-label={t('Country code', 'مفتاح الدولة')}
@@ -240,35 +291,50 @@ const MyFavoritesPage = () => {
                         <span className="my-favorites-country-chevron">▾</span>
                       </button>
                       {countryDropdownOpen && (
-                        <div className="my-favorites-country-dropdown" role="listbox">
+                        <div className="my-favorites-country-dropdown" role="listbox" onKeyDown={handleCountryKeyDown}>
                           <input
+                            ref={countrySearchRef}
                             type="text"
                             className="my-favorites-country-search"
-                            placeholder={t('Search by country, code or +966...', 'ابحث بالدولة أو المفتاح أو +966...')}
+                            placeholder={t('Search: Saudi Arabia, 966, SA, +966...', 'ابحث: السعودية، 966، SA، +966...')}
                             value={countrySearch}
-                            onChange={e => setCountrySearch(e.target.value)}
+                            onChange={e => { setCountrySearch(e.target.value); setCountryHighlightIndex(-1); }}
                             onClick={e => e.stopPropagation()}
                             autoFocus
                             autoComplete="off"
+                            aria-autocomplete="list"
+                            aria-controls="country-list"
+                            aria-activedescendant={countryHighlightIndex >= 0 && filteredCountries[countryHighlightIndex] ? `country-opt-${filteredCountries[countryHighlightIndex].code}` : undefined}
                           />
-                          <ul className="my-favorites-country-list">
-                            {COUNTRY_CODES.filter(c => matchCountrySearch(c, countrySearch, language)).length === 0 ? (
+                          <ul id="country-list" ref={countryListRef} className="my-favorites-country-list" role="listbox">
+                            {filteredCountries.length === 0 ? (
                               <li className="my-favorites-country-empty">{t('No country found', 'لا توجد دولة مطابقة')}</li>
                             ) : (
-                              COUNTRY_CODES
-                                .filter(c => matchCountrySearch(c, countrySearch, language))
-                                .map(c => (
+                              filteredCountries.map((c, idx) => {
+                                const label = language === 'ar' ? c.label : c.labelEn
+                                const highlightParts = getHighlightParts(label, countrySearch)
+                                return (
                                   <li
                                     key={c.code}
+                                    id={`country-opt-${c.code}`}
                                     role="option"
-                                    className={`my-favorites-country-option ${c.code === countryCode ? 'selected' : ''}`}
-                                    onClick={() => { setCountryCode(c.code); setCountryDropdownOpen(false); setCountrySearch(''); }}
+                                    aria-selected={c.code === countryCode}
+                                    className={`my-favorites-country-option ${c.code === countryCode ? 'selected' : ''} ${idx === countryHighlightIndex ? 'highlighted' : ''}`}
+                                    onClick={() => { setCountryCode(c.code); setCountryDropdownOpen(false); setCountrySearch(''); setCountryHighlightIndex(-1); }}
+                                    onMouseEnter={() => setCountryHighlightIndex(idx)}
                                   >
                                     <span className="my-favorites-country-option-flag">{c.flag}</span>
                                     <span className="my-favorites-country-option-dial">{c.iso2 || ''} +{c.code}</span>
-                                    <span className="my-favorites-country-option-label">{language === 'ar' ? c.label : c.labelEn}</span>
+                                    <span className="my-favorites-country-option-label">
+                                      {highlightParts.length > 1 ? (
+                                        highlightParts.map((p, i) => i % 2 === 1 ? <mark key={i}>{p}</mark> : p)
+                                      ) : (
+                                        label
+                                      )}
+                                    </span>
                                   </li>
-                                ))
+                                )
+                              })
                             )}
                           </ul>
                         </div>
