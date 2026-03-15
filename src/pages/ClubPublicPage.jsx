@@ -756,6 +756,8 @@ const ClubPublicPage = () => {
       setPaymentMethod('at_club')
       setClub(prev => {
         if (!prev || prev.id !== clubId) return prev
+        const isSplit = res?.status === 'pending_payments'
+        const mins = (prev?.settings?.splitPaymentDeadlineMinutes ?? 30)
         const newBooking = {
           id: bookingId,
           date: bookingDate,
@@ -767,7 +769,8 @@ const ClubPublicPage = () => {
           memberId: platformUser.id,
           status: res?.status || 'confirmed',
           totalAmount: priceResult.price,
-          paidAmount: priceResult.price
+          paidAmount: isSplit ? 0 : priceResult.price,
+          ...(isSplit && { paymentDeadlineAt: new Date(Date.now() + mins * 60 * 1000).toISOString() })
         }
         const existing = Array.isArray(prev.bookings) ? prev.bookings : []
         return { ...prev, bookings: [...existing, newBooking] }

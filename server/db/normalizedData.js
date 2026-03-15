@@ -502,7 +502,14 @@ async function assembleClub(clubRow, courts, settings, adminUsers, offers, booki
         endTime: b.end_time || b.time_slot,
         status: b.status,
         lockedAt: b.locked_at,
-        paymentDeadlineAt: b.payment_deadline_at,
+        paymentDeadlineAt: (() => {
+          const v = b.payment_deadline_at
+          if (!v) return null
+          if (v instanceof Date) return v.toISOString()
+          const s = String(v)
+          if (/Z|[\+\-]\d{2}:?\d{2}$/.test(s)) return s
+          return new Date(s.replace(' ', 'T') + 'Z').toISOString()
+        })(),
         totalAmount: parseFloat(b.total_amount) || 0,
         paidAmount: parseFloat(b.paid_amount) || 0,
         initiatorMemberId: b.initiator_member_id
