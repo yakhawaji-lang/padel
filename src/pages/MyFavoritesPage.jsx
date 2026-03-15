@@ -274,38 +274,36 @@ const MyFavoritesPage = () => {
                   </p>
                   <div className="my-favorites-phone-row">
                     <div className="my-favorites-country-wrap" ref={countryDropdownRef}>
-                      <button
-                        type="button"
-                        className="my-favorites-country-btn"
-                        onClick={() => { setCountryDropdownOpen(prev => !prev); setCountrySearch(''); setCountryHighlightIndex(-1); }}
-                        aria-expanded={countryDropdownOpen}
-                        aria-haspopup="listbox"
-                        aria-label={t('Country code', 'مفتاح الدولة')}
-                      >
-                        <span className="my-favorites-country-flag">
+                      <div className="my-favorites-country-input-wrap">
+                        <span className="my-favorites-country-flag-inline">
                           {COUNTRY_CODES.find(c => c.code === countryCode)?.flag || '🇸🇦'}
                         </span>
-                        <span className="my-favorites-country-dial">
-                          {COUNTRY_CODES.find(c => c.code === countryCode)?.iso2 || 'SA'} +{countryCode}
-                        </span>
+                        <input
+                          ref={countrySearchRef}
+                          type="text"
+                          className="my-favorites-country-search"
+                          placeholder={t('Search: Saudi Arabia, 966, SA...', 'ابحث: السعودية، 966، SA...')}
+                          value={countryDropdownOpen ? countrySearch : (COUNTRY_CODES.find(c => c.code === countryCode)?.iso2 || 'SA') + ' +' + countryCode}
+                          onChange={e => {
+                            setCountrySearch(e.target.value)
+                            setCountryHighlightIndex(-1)
+                            if (!countryDropdownOpen) setCountryDropdownOpen(true)
+                          }}
+                          onFocus={() => { setCountryDropdownOpen(true); setCountrySearch(''); setCountryHighlightIndex(-1); }}
+                          onClick={e => { e.stopPropagation(); if (!countryDropdownOpen) setCountryDropdownOpen(true); }}
+                          onBlur={() => setTimeout(() => setCountryDropdownOpen(false), 180)}
+                          autoComplete="off"
+                          aria-autocomplete="list"
+                          aria-controls="country-list"
+                          aria-expanded={countryDropdownOpen}
+                          aria-activedescendant={countryHighlightIndex >= 0 && filteredCountries[countryHighlightIndex] ? `country-opt-${filteredCountries[countryHighlightIndex].code}` : undefined}
+                          aria-label={t('Country code', 'مفتاح الدولة')}
+                          readOnly={!countryDropdownOpen}
+                        />
                         <span className="my-favorites-country-chevron">▾</span>
-                      </button>
+                      </div>
                       {countryDropdownOpen && (
                         <div className="my-favorites-country-dropdown" role="listbox" onKeyDown={handleCountryKeyDown}>
-                          <input
-                            ref={countrySearchRef}
-                            type="text"
-                            className="my-favorites-country-search"
-                            placeholder={t('Search: Saudi Arabia, 966, SA, +966...', 'ابحث: السعودية، 966، SA، +966...')}
-                            value={countrySearch}
-                            onChange={e => { setCountrySearch(e.target.value); setCountryHighlightIndex(-1); }}
-                            onClick={e => e.stopPropagation()}
-                            autoFocus
-                            autoComplete="off"
-                            aria-autocomplete="list"
-                            aria-controls="country-list"
-                            aria-activedescendant={countryHighlightIndex >= 0 && filteredCountries[countryHighlightIndex] ? `country-opt-${filteredCountries[countryHighlightIndex].code}` : undefined}
-                          />
                           <ul id="country-list" ref={countryListRef} className="my-favorites-country-list" role="listbox">
                             {filteredCountries.length === 0 ? (
                               <li className="my-favorites-country-empty">{t('No country found', 'لا توجد دولة مطابقة')}</li>

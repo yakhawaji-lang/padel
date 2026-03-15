@@ -138,40 +138,55 @@
 .my-favorites-country-wrap {
   position: relative;
   flex-shrink: 0;
+  min-width: 120px;
 }
 
-.my-favorites-country-btn {
+.my-favorites-country-input-wrap {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 12px 14px;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 0 12px;
   background: #f8fafc;
-  border: none;
   border-right: 1px solid #e2e8f0;
-  cursor: pointer;
+}
+
+.my-favorites-country-flag-inline {
+  font-size: 1.25rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.my-favorites-country-search {
+  flex: 1;
+  min-width: 80px;
+  padding: 12px 0;
+  border: none;
+  background: transparent;
   font-size: 0.9375rem;
   font-weight: 500;
   color: #0f172a;
-  min-width: 110px;
+  box-sizing: border-box;
 }
 
-.my-favorites-country-btn:hover {
-  background: #f1f5f9;
+.my-favorites-country-search::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
 }
 
-.my-favorites-country-flag {
-  font-size: 1.25rem;
-  line-height: 1;
+.my-favorites-country-search:focus {
+  outline: none;
 }
 
-.my-favorites-country-dial {
-  font-size: 0.9375rem;
+.my-favorites-country-search[readonly] {
+  cursor: pointer;
 }
 
 .my-favorites-country-chevron {
   font-size: 0.75rem;
   color: #64748b;
-  margin-inline-start: auto;
+  flex-shrink: 0;
 }
 
 .my-favorites-country-dropdown {
@@ -179,7 +194,7 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  min-width: 320px;
+  min-width: 100%;
   max-height: 280px;
   background: #fff;
   border: 1px solid #e2e8f0;
@@ -187,27 +202,28 @@
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
   z-index: 100;
   overflow: hidden;
+  animation: my-favorites-dropdown-in 0.2s ease-out;
 }
 
-.my-favorites-country-search {
-  width: 100%;
-  padding: 10px 14px;
-  border: none;
-  border-bottom: 1px solid #e2e8f0;
-  font-size: 0.9375rem;
-  box-sizing: border-box;
-}
-
-.my-favorites-country-search:focus {
-  outline: none;
+@keyframes my-favorites-dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .my-favorites-country-list {
   list-style: none;
   margin: 0;
-  padding: 8px 0;
-  max-height: 220px;
+  padding: 6px 0;
+  max-height: 240px;
   overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
 }
 
 .my-favorites-country-option {
@@ -218,6 +234,7 @@
   cursor: pointer;
   font-size: 0.9375rem;
   color: #334155;
+  transition: background 0.12s ease;
 }
 
 .my-favorites-country-option:hover {
