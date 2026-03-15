@@ -1,0 +1,214 @@
+/* ========== My Favorites — Manage payment-sharing favorites ========== */
+.my-favorites-page {
+  min-height: 100vh;
+  background: #f1f5f9;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.my-favorites-header {
+  position: relative;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 16px;
+  padding-top: max(16px, env(safe-area-inset-top, 0));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.my-favorites-lang-wrap {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+}
+[dir="rtl"] .my-favorites-lang-wrap {
+  right: auto;
+  left: 16px;
+}
+
+.my-favorites-back {
+  display: inline-block;
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 0.9375rem;
+  margin-bottom: 8px;
+}
+
+.my-favorites-back:hover {
+  text-decoration: underline;
+}
+
+.my-favorites-header h1 {
+  margin: 0 0 4px;
+  font-size: 1.5rem;
+  color: #0f172a;
+}
+
+.my-favorites-subtitle {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.my-favorites-content {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 20px 16px;
+}
+
+.my-favorites-empty {
+  text-align: center;
+  color: #64748b;
+  padding: 40px 20px;
+}
+
+.my-favorites-clubs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.my-favorites-club-tab {
+  padding: 10px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  color: #475569;
+}
+
+.my-favorites-club-tab:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.my-favorites-club-tab.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.my-favorites-panel {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.my-favorites-panel h2 {
+  margin: 0 0 16px;
+  font-size: 1.125rem;
+  color: #0f172a;
+}
+
+.my-favorites-add {
+  margin-bottom: 24px;
+}
+
+.my-favorites-add-hint {
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.my-favorites-search {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.my-favorites-search-results {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.my-favorites-search-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: #f8fafc;
+}
+
+.my-favorites-star {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.25rem;
+  color: #94a3b8;
+  padding: 4px;
+}
+
+.my-favorites-star.is-favorite {
+  color: #f59e0b;
+}
+
+.my-favorites-star:hover:not(:disabled) {
+  color: #f59e0b;
+}
+
+.my-favorites-search-empty {
+  margin: 12px 0 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.my-favorites-list h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.my-favorites-list-empty {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #64748b;
+  padding: 16px 0;
+}
+
+.my-favorites-list-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.my-favorites-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: #fff;
+}
+
+.my-favorites-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.25rem;
+  color: #94a3b8;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+.my-favorites-remove:hover {
+  color: #dc2626;
+}
+
+.my-favorites-remove:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

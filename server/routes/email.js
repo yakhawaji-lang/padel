@@ -1,15 +1,17 @@
 /**
- * Email API - test send, verification code, welcome
+ * Email API - test send, verification code, welcome, phone change
  */
 import { Router } from 'express'
 import { sendEmail, generateVerificationCode } from '../services/emailSend.js'
 import { getSetting, setSetting } from '../db/dataHelpers.js'
-import { isEmailChannelEnabled } from '../services/messageSend.js'
+import { isEmailChannelEnabled, getEnabledChannels, sendPlatformMessage } from '../services/messageSend.js'
 import { getClubsFromNormalized, saveClubsToNormalized } from '../db/normalizedData.js'
 import { hasNormalizedTables } from '../db/normalizedData.js'
+import { query } from '../db/pool.js'
 
 const router = Router()
 const VERIFICATION_CODES_KEY = 'email_verification_codes'
+const PHONE_CHANGE_CODES_KEY = 'phone_change_verification_codes'
 const CODE_EXPIRY_MS = 10 * 60 * 1000 // 10 minutes
 
 /** POST /api/email/send - test email (admin) */
@@ -201,6 +203,97 @@ router.post('/send-club-verification', async (req, res) => {
     return res.json({ ok: true })
   } catch (e) {
     console.error('[email send-club-verification]', e)
+    return res.status(500).json({ error: e?.message || 'Server error' })
+  }
+})
+
+/** POST /api/email/send-phone-change-code - send verification code for phone change (to email, SMS, WhatsApp) */
+router.post('/send-phone-change-code', async (req, res) => {
+  try {
+    const { memberId, newPhone } = req.body || {}
+    const mid = (memberId || '').toString().trim()
+    const phone = (newPhone || '').toString().replace(/\s/g, '')
+    if (!mid || phone.replace(/\D/g, '').length < 9) {
+      return res.status(400).json({ error: 'memberId and valid new phone (9+ digits) required' })
+    }
+    const { rows } = await query('SELECT email, mobile FROM members WHERE id = ? AND deleted_at IS NULL', [mid])
+    const member = rows?.[0]
+    if (!member) return res.status(404).json({ error: 'Member not found' })
+
+    const code = generateVerificationCode()
+    const key = `phone:${mid}:${phone}`
+    let codes = (await getSetting(PHONE_CHANGE_CODES_KEY)) || {}
+    if (typeof codes !== 'object') codes = {}
+    codes[key] = { code, expiresAt: Date.now() + CODE_EXPIRY_MS }
+    await setSetting(PHONE_CHANGE_CODES_KEY, codes)
+
+    const msgEn = `Your PlayTix phone change code: ${code} (expires in 10 min)`
+    const msgAr = `كود تغيير رقم الجوال في PlayTix: ${code} (ينتهي خلال 10 دقائق)`
+    const text = `${msgEn}\n${msgAr}`
+
+    const channels = await getEnabledChannels()
+    const results = []
+    if (channels.email && member.email && member.email.includes('@')) {
+      const subj = 'PlayTix — كود تغيير رقم الجوال / Phone Change Code'
+      const html = `
+        <div dir="ltr" style="font-family:sans-serif;max-width:480px;">
+          <h2>Phone Change Verification</h2>
+          <p>Your code: <strong style="font-size:1.5em;letter-spacing:4px;">${code}</strong></p>
+          <p style="color:#666;font-size:12px;">Expires in 10 minutes.</p>
+          <hr style="margin:24px 0;" />
+          <h2 dir="rtl">كود تغيير رقم الجوال</h2>
+          <p dir="rtl">كودك: <strong style="font-size:1.5em;letter-spacing:4px;">${code}</strong></p>
+          <p dir="rtl" style="color:#666;font-size:12px;">ينتهي خلال 10 دقائق.</p>
+        </div>
+      `
+      const r = await sendEmail(member.email.trim().toLowerCase(), subj, html)
+      results.push({ channel: 'email', ok: r.ok })
+    }
+    if ((channels.sms || channels.whatsapp) && phone.replace(/\D/g, '').length >= 9) {
+      const r = await sendPlatformMessage(phone, text)
+      results.push({ channel: 'phone', ok: r.ok })
+    }
+    if (results.length === 0) {
+      return res.status(400).json({ error: 'No channel available. Enable email or phone (SMS/WhatsApp) and ensure member has email or new phone.' })
+    }
+    const ok = results.some(r => r.ok)
+    if (!ok) {
+      return res.status(400).json({ error: 'Failed to send code to any channel' })
+    }
+    return res.json({ ok: true })
+  } catch (e) {
+    console.error('[email send-phone-change-code]', e)
+    return res.status(500).json({ error: e?.message || 'Server error' })
+  }
+})
+
+/** POST /api/email/verify-phone-change - verify code and update member mobile */
+router.post('/verify-phone-change', async (req, res) => {
+  try {
+    const { memberId, newPhone, code } = req.body || {}
+    const mid = (memberId || '').toString().trim()
+    const phone = (newPhone || '').toString().replace(/\s/g, '')
+    const codeStr = (code || '').replace(/\D/g, '')
+    if (!mid || phone.replace(/\D/g, '').length < 9 || codeStr.length !== 4) {
+      return res.status(400).json({ error: 'memberId, valid new phone, and 4-digit code required' })
+    }
+    const key = `phone:${mid}:${phone}`
+    let codes = (await getSetting(PHONE_CHANGE_CODES_KEY)) || {}
+    if (typeof codes !== 'object') codes = {}
+    const entry = codes[key]
+    if (!entry || entry.expiresAt < Date.now()) {
+      return res.status(400).json({ error: 'Code expired or invalid' })
+    }
+    if (entry.code !== codeStr) {
+      return res.status(400).json({ error: 'Invalid code' })
+    }
+    delete codes[key]
+    await setSetting(PHONE_CHANGE_CODES_KEY, codes)
+
+    await query('UPDATE members SET mobile = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL', [phone, mid])
+    return res.json({ ok: true })
+  } catch (e) {
+    console.error('[email verify-phone-change]', e)
     return res.status(500).json({ error: e?.message || 'Server error' })
   }
 })

@@ -128,14 +128,14 @@ export default function BookingPaymentShare({
   )
   const searchableMembers = [...otherMembers, ...platformNotInClub]
   const searchDigits = phoneDigits(memberSearchQuery)
-  const filteredBySearch = searchDigits.length >= 4
+  const FULL_PHONE_MIN = 9
+  const hasFullPhone = searchDigits.length >= FULL_PHONE_MIN
+  const filteredBySearch = hasFullPhone
     ? searchableMembers.filter(m => {
         const mPhone = phoneDigits(m?.mobile || m?.phone || '')
-        const mName = (m?.name || m?.email || '').toLowerCase()
-        const q = (memberSearchQuery || '').toLowerCase()
-        return mPhone.includes(searchDigits) || mName.includes(q)
+        return mPhone && mPhone.includes(searchDigits)
       })
-    : searchableMembers
+    : []
   const favoritesFirst = [...filteredBySearch].sort((a, b) => {
     const aFav = favoriteIds.has(String(a?.id))
     const bFav = favoriteIds.has(String(b?.id))
@@ -354,7 +354,7 @@ export default function BookingPaymentShare({
                 <input
                   type="tel"
                   className="booking-payment-share-search"
-                  placeholder={t('Search by phone or name', 'البحث برقم الجوال أو الاسم')}
+                  placeholder={t('Search by phone (9+ digits)', 'البحث برقم الجوال (9+ أرقام)')}
                   value={memberSearchQuery}
                   onChange={e => setMemberSearchQuery(e.target.value)}
                   inputMode="tel"
@@ -389,9 +389,9 @@ export default function BookingPaymentShare({
                   })
                 ) : (
                   <p className="booking-payment-share-empty">
-                    {searchDigits.length >= 4
-                      ? t('No members found for this search', 'لا توجد نتائج لهذا البحث')
-                      : t('No other members in club. Search by phone to find platform members.', 'لا يوجد أعضاء آخرين في النادي. ابحث برقم الجوال للعثور على أعضاء المنصة.')}
+                    {hasFullPhone
+                      ? t('No members found for this phone number', 'لا توجد نتائج لهذا الرقم')
+                      : t('Enter full phone number (9+ digits) to search — names shown only after match for privacy', 'أدخل رقم الجوال كاملاً (9+ أرقام) للبحث — الأسماء تظهر بعد المطابقة فقط للخصوصية')}
                   </p>
                 )}
               </div>

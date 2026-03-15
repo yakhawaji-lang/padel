@@ -489,6 +489,21 @@ export async function getInviteByToken(token) {
   return fetchJson(`/api/bookings/invite/${encodeURIComponent(token)}`)
 }
 
+// ---- Phone change verification ----
+export async function sendPhoneChangeCode(memberId, newPhone) {
+  return fetchJson('/api/email/send-phone-change-code', {
+    method: 'POST',
+    body: JSON.stringify({ memberId, newPhone })
+  })
+}
+
+export async function verifyPhoneChange(memberId, newPhone, code) {
+  return fetchJson('/api/email/verify-phone-change', {
+    method: 'POST',
+    body: JSON.stringify({ memberId, newPhone, code })
+  })
+}
+
 // ---- Health check ----
 
 export async function healthCheck() {
