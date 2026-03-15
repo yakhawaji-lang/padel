@@ -7,6 +7,7 @@
  */
 import React, { useState, useCallback, useEffect } from 'react'
 import * as bookingApi from '../api/dbClient'
+import { getImageUrl } from '../api/dbClient'
 
 const CONTACT_PICKER_SUPPORTED = typeof navigator !== 'undefined' && 'contacts' in navigator && typeof navigator.contacts?.select === 'function'
 
@@ -136,6 +137,7 @@ export default function BookingPaymentShare({
         return mPhone && mPhone.includes(searchDigits)
       })
     : []
+  const favoriteMembers = searchableMembers.filter(m => favoriteIds.has(String(m?.id)))
   const favoritesFirst = [...filteredBySearch].sort((a, b) => {
     const aFav = favoriteIds.has(String(a?.id))
     const bFav = favoriteIds.has(String(b?.id))
@@ -351,6 +353,50 @@ export default function BookingPaymentShare({
 
             {addType === 'registered' && (
               <div className="booking-payment-share-members">
+                {favoriteMembers.length > 0 && (
+                  <div className="booking-payment-share-favorites-section">
+                    <p className="booking-payment-share-favorites-title">
+                      ★ {t('My favorites', 'المفضلة')}
+                    </p>
+                    <div className="booking-payment-share-favorites-grid">
+                      {favoriteMembers.map(m => {
+                        const isAdded = shares.some(s => s.memberId === m.id)
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            className={`booking-payment-share-favorite-card ${isAdded ? 'is-added' : ''}`}
+                            onClick={() => addRegistered(m)}
+                            disabled={isAdded}
+                          >
+                            <span className="booking-payment-share-favorite-avatar">
+                              {m.avatar ? (
+                                <img src={getImageUrl(m.avatar)} alt="" />
+                              ) : (
+                                <span className="booking-payment-share-favorite-initial">{(m.name || m.email || '?')[0].toUpperCase()}</span>
+                              )}
+                            </span>
+                            <span className="booking-payment-share-favorite-name">{m.name || m.email || m.id}</span>
+                            {!favoritesLoading && (
+                              <button
+                                type="button"
+                                className={`booking-payment-share-favorite-star ${favoriteIds.has(String(m.id)) ? 'is-favorite' : ''}`}
+                                onClick={e => { e.stopPropagation(); toggleFavorite(m.id, true) }}
+                                title={t('Remove from favorites', 'إزالة من المفضلة')}
+                                aria-label={t('Remove from favorites', 'إزالة من المفضلة')}
+                              >
+                                ★
+                              </button>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+                <p className="booking-payment-share-search-label">
+                  {favoriteMembers.length > 0 ? t('Or search by phone', 'أو ابحث برقم الجوال') : t('Search by phone', 'البحث برقم الجوال')}
+                </p>
                 <input
                   type="tel"
                   className="booking-payment-share-search"
