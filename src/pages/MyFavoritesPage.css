@@ -105,6 +105,16 @@
   color: #0f172a;
 }
 
+.my-favorites-error {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 0.875rem;
+}
+
 .my-favorites-add {
   margin-bottom: 24px;
 }

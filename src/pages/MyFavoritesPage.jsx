@@ -27,6 +27,8 @@ const MyFavoritesPage = () => {
   const [countryDropdownOpen, setCountryDropdownOpen] = useState(false)
   const [countrySearch, setCountrySearch] = useState('')
   const [loading, setLoading] = useState(false)
+  const [actionError, setActionError] = useState('')
+  const [addingId, setAddingId] = useState(null)
   const countryDropdownRef = useRef(null)
 
   useEffect(() => {
@@ -117,7 +119,27 @@ const MyFavoritesPage = () => {
   const favoriteIds = new Set((favoritesByClub[selectedClubId] || []).map(String))
   const toggleFavorite = async (memberId, isFavorite) => {
     if (!selectedClubId || !member?.id || !memberId) return
-    setLoading(true)
+    setActionError('')
+    setAddingId(memberId)
+    const mid = String(memberId)
+    const currentFavs = favoritesByClub[selectedClubId] || []
+
+    if (!isFavorite) {
+      const m = searchableMembers.find(x => String(x.id) === mid)
+      if (m) {
+        setMemberDetailsById(prev => prev[mid] ? prev : { ...prev, [mid]: m })
+      }
+      setFavoritesByClub(prev => ({
+        ...prev,
+        [selectedClubId]: [...currentFavs, memberId]
+      }))
+    } else {
+      setFavoritesByClub(prev => ({
+        ...prev,
+        [selectedClubId]: currentFavs.filter(id => String(id) !== mid)
+      }))
+    }
+
     try {
       if (isFavorite) {
         await bookingApi.removeFavoriteMember(member.id, selectedClubId, memberId)
@@ -125,8 +147,15 @@ const MyFavoritesPage = () => {
         await bookingApi.addFavoriteMember(member.id, selectedClubId, memberId)
       }
       await loadFavorites()
-    } catch (_) {}
-    setLoading(false)
+    } catch (e) {
+      setActionError(e?.message || (language === 'ar' ? 'فشلت العملية. حاول مرة أخرى.' : 'Action failed. Please try again.'))
+      setFavoritesByClub(prev => ({
+        ...prev,
+        [selectedClubId]: currentFavs
+      }))
+    } finally {
+      setAddingId(null)
+    }
   }
 
   const t = (en, ar) => (language === 'ar' ? ar : en)
@@ -180,6 +209,9 @@ const MyFavoritesPage = () => {
               <div className="my-favorites-panel">
                 <h2>{t('Favorites for', 'المفضلة في')} {language === 'ar' ? (club.nameAr || club.name) : (club.name || club.nameAr)}</h2>
 
+                {actionError && (
+                  <p className="my-favorites-error" role="alert">{actionError}</p>
+                )}
                 <div className="my-favorites-add">
                   <p className="my-favorites-add-hint">
                     {t('Enter full phone number to search and add', 'أدخل رقم الجوال كاملاً للبحث والإضافة')}
@@ -266,10 +298,10 @@ const MyFavoritesPage = () => {
                                 type="button"
                                 className={`my-favorites-member-action ${isFav ? 'is-favorite' : ''}`}
                                 onClick={() => toggleFavorite(m.id, isFav)}
-                                disabled={loading}
+                                disabled={!!addingId}
                                 title={isFav ? t('Remove from favorites', 'إزالة من المفضلة') : t('Add to favorites', 'إضافة للمفضلة')}
                               >
-                                {isFav ? '★ ' + t('Favorited', 'في المفضلة') : '☆ ' + t('Add', 'إضافة')}
+                                {addingId === m.id ? (t('Adding...', 'جاري الإضافة...')) : (isFav ? '★ ' + t('Favorited', 'في المفضلة') : '☆ ' + t('Add', 'إضافة'))}
                               </button>
                             </div>
                           )
@@ -315,7 +347,7 @@ const MyFavoritesPage = () => {
                               type="button"
                               className="my-favorites-fav-remove"
                               onClick={() => toggleFavorite(id, true)}
-                              disabled={loading}
+                              disabled={!!addingId}
                               title={t('Remove from favorites', 'إزالة من المفضلة')}
                               aria-label={t('Remove', 'إزالة')}
                             >
