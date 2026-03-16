@@ -62,7 +62,6 @@ export default function PaymentSettingsPage() {
   }
 
   const toggleChannel = (key) => {
-    if (key === 'at_club') return
     setPaymentGateways((prev) => ({
       ...prev,
       enabledChannels: { ...prev.enabledChannels, [key]: !prev.enabledChannels[key] }
@@ -95,7 +94,7 @@ export default function PaymentSettingsPage() {
     save: t('Save', 'حفظ', language),
     saving: t('Saving...', 'جاري الحفظ...', language),
     atClubTitle: t('At club', 'الدفع في النادي', language),
-    atClubDesc: t('Payment at the club with cash or card. Always available.', 'الدفع في النادي نقداً أو بالبطاقة. متاح دائماً.', language),
+    atClubDesc: t('Payment at the club with cash or card.', 'الدفع في النادي نقداً أو بالبطاقة.', language),
     creditCardTitle: t('Credit card (Stripe)', 'البطاقة الائتمانية (Stripe)', language),
     creditCardDesc: t('Online payment via Visa, Mastercard. Requires Stripe account.', 'الدفع أونلاين عبر فيزا وماستركارد. يتطلب حساب Stripe.', language),
     enableGateway: t('Enable this payment method', 'تفعيل طريقة الدفع هذه', language),
@@ -156,10 +155,15 @@ export default function PaymentSettingsPage() {
           <div className="payment-tab-panel">
             <h2 className="panel-title">{c.atClubTitle}</h2>
             <p className="panel-desc">{c.atClubDesc}</p>
-            <div className="payment-info-card">
-              <span className="info-icon">✓</span>
-              <span>{language === 'ar' ? 'مفعّل دائماً' : 'Always enabled'}</span>
-            </div>
+            <label className="payment-toggle-row">
+              <input
+                type="checkbox"
+                checked={paymentGateways.enabledChannels?.at_club !== false}
+                onChange={() => toggleChannel('at_club')}
+                disabled={saving}
+              />
+              <span>{c.enableGateway}</span>
+            </label>
           </div>
         )}
 

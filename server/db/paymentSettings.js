@@ -76,7 +76,7 @@ export async function savePaymentGatewaysToTable(data) {
     }
 
     const gateways = [
-      { key: 'at_club', enabled: true, config: {} },
+      { key: 'at_club', enabled: enabledChannels.at_club !== false, config: {} },
       { key: 'credit_card', enabled: !!enabledChannels.credit_card, config: mergeConfig('credit_card', { publishableKey: stripe.publishableKey, secretKey: stripe.secretKey, webhookSecret: stripe.webhookSecret }) },
       { key: 'mada', enabled: !!enabledChannels.mada, config: mergeConfig('mada', { merchantId: mada.merchantId, apiKey: mada.apiKey, gatewayId: mada.gatewayId }) },
       { key: 'split', enabled: enabledChannels.split !== false, config: { deadlineMinutes: split.deadlineMinutes ?? 30 } }

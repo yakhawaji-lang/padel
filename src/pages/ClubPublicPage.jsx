@@ -213,6 +213,18 @@ const ClubPublicPage = () => {
     }).catch(() => setPaymentGateways({ enabledChannels: { at_club: true, credit_card: false, mada: false, split: true } }))
   }, [])
 
+  // When payment method is disabled (e.g. admin turned off at_club), switch to first available
+  useEffect(() => {
+    if (!paymentGateways?.enabledChannels) return
+    const ch = paymentGateways.enabledChannels
+    const isCurrentEnabled = paymentMethod === 'at_club' ? ch.at_club !== false : paymentMethod === 'split' ? ch.split !== false : !!ch[paymentMethod]
+    if (!isCurrentEnabled) {
+      const first = ch.at_club !== false ? 'at_club' : ch.credit_card ? 'credit_card' : ch.mada ? 'mada' : ch.split !== false ? 'split' : 'at_club'
+      setPaymentMethod(first)
+      if (first !== 'split') setPaymentShares([])
+    }
+  }, [paymentGateways, paymentMethod])
+
   useEffect(() => {
     const onSynced = () => {
       refreshClub()
