@@ -86,10 +86,21 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
   }, [club?.id, booking?.id, onClose, onUpdated])
 
   const handleRecordPayment = useCallback(async () => {
-    if (!inviteToken || !club?.id) return
+    if (!club?.id || !platformUser?.id) return
     setMarkingPayAtClub(true)
     try {
-      await bookingApi.recordPayment({ inviteToken, clubId: club.id })
+      let token = inviteToken
+      if (!token) {
+        const d = await bookingApi.getShareInviteToken(booking.id, club.id, platformUser.id)
+        token = d?.inviteToken
+      }
+      if (!token) {
+        if (typeof window !== 'undefined' && window.alert) {
+          window.alert(language === 'ar' ? 'لم يتم العثور على رابط الدفع. جرّب خيار الدفع الإلكتروني.' : 'Payment link not found. Try the electronic payment option.')
+        }
+        return
+      }
+      await bookingApi.recordPayment({ inviteToken: token, clubId: club.id })
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
       onUpdated?.()
       onClose?.()
@@ -98,7 +109,7 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
     } finally {
       setMarkingPayAtClub(false)
     }
-  }, [inviteToken, club?.id, onClose, onUpdated])
+  }, [inviteToken, club?.id, booking?.id, platformUser?.id, onClose, onUpdated, language])
 
   const handleCopyLink = useCallback(() => {
     const url = window.location.href
@@ -199,21 +210,18 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
                   <div className="booking-detail-pay-options">
                     {(inviteToken || isParticipantWithShare) ? (
                       <>
-                        <button type="button" className="booking-detail-pay-opt" onClick={handleRecordPayment} disabled={markingPayAtClub || !inviteToken}>
+                        <button type="button" className="booking-detail-pay-opt" onClick={handleRecordPayment} disabled={markingPayAtClub}>
                           <span className="booking-detail-pay-opt-icon">🏢</span>
                           {c.payAtClub}
                         </button>
-                        {inviteToken ? (
-                          <Link to={`/pay-share/${inviteToken}`} className="booking-detail-pay-opt booking-detail-pay-opt-link" onClick={onClose}>
-                            <span className="booking-detail-pay-opt-icon">💳</span>
-                            {c.payElectronic}
-                          </Link>
-                        ) : (
-                          <a href={userShare?.whatsappLink} target="_blank" rel="noopener noreferrer" className="booking-detail-pay-opt booking-detail-pay-opt-link">
-                            <span className="booking-detail-pay-opt-icon">💬</span>
-                            {language === 'ar' ? 'افتح رابط الدفع من واتساب' : 'Open payment link from WhatsApp'}
-                          </a>
-                        )}
+                        <Link
+                          to={inviteToken ? `/pay-share/${inviteToken}` : `/pay-share/booking/${booking.id}?clubId=${club.id}`}
+                          className="booking-detail-pay-opt booking-detail-pay-opt-link"
+                          onClick={onClose}
+                        >
+                          <span className="booking-detail-pay-opt-icon">💳</span>
+                          {c.payElectronic}
+                        </Link>
                       </>
                     ) : (
                       <>

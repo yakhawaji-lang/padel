@@ -37,6 +37,7 @@ const MyBookingsPage = lazy(() => import('./pages/MyBookingsPage'))
 const MyFavoritesPage = lazy(() => import('./pages/MyFavoritesPage'))
 const PayInvitePage = lazy(() => import('./pages/PayInvitePage'))
 const PaySharePage = lazy(() => import('./pages/PaySharePage'))
+const PayShareByBookingPage = lazy(() => import('./pages/PayShareByBookingPage'))
 const PaymentPage = lazy(() => import('./pages/PaymentPage'))
 const ClubLogin = lazy(() => import('./pages/ClubLogin'))
 const PlatformAdminLogin = lazy(() => import('./pages/PlatformAdminLogin'))
@@ -88,6 +89,7 @@ function Root() {
           <Route path="/my-bookings" element={<ErrorBoundary fallback={(err) => <div style={{ padding: 40, textAlign: 'center' }}><p>Something went wrong. {err?.message || ''}</p><a href={import.meta.env.BASE_URL || '/'}>Go to home</a></div>}><MyBookingsPage /></ErrorBoundary>} />
           <Route path="/my-favorites" element={<ErrorBoundary fallback={(err) => <div style={{ padding: 40, textAlign: 'center' }}><p>Something went wrong. {err?.message || ''}</p><a href={import.meta.env.BASE_URL || '/'}>Go to home</a></div>}><MyFavoritesPage /></ErrorBoundary>} />
           <Route path="/pay-invite/:token" element={<ErrorBoundary fallback={(err) => <div style={{ padding: 40, textAlign: 'center' }}><p>Something went wrong. {err?.message || ''}</p><a href={import.meta.env.BASE_URL || '/'}>Go to home</a></div>}><PayInvitePage /></ErrorBoundary>} />
+          <Route path="/pay-share/booking/:bookingId" element={<ErrorBoundary fallback={(err) => <div style={{ padding: 40, textAlign: 'center' }}><p>Something went wrong. {err?.message || ''}</p><a href={import.meta.env.BASE_URL || '/'}>Go to home</a></div>}><PayShareByBookingPage /></ErrorBoundary>} />
           <Route path="/pay-share/:token" element={<ErrorBoundary fallback={(err) => <div style={{ padding: 40, textAlign: 'center' }}><p>Something went wrong. {err?.message || ''}</p><a href={import.meta.env.BASE_URL || '/'}>Go to home</a></div>}><PaySharePage /></ErrorBoundary>} />
           <Route path="/pay/:bookingId" element={<ErrorBoundary fallback={(err) => <div style={{ padding: 40, textAlign: 'center' }}><p>Something went wrong. {err?.message || ''}</p><a href={import.meta.env.BASE_URL || '/'}>Go to home</a></div>}><PaymentPage /></ErrorBoundary>} />
           <Route path="/clubs/:clubId" element={<ErrorBoundary fallback={(err) => <div style={{ padding: 40, textAlign: 'center', minHeight: '50vh' }}><p>Something went wrong. {err?.message || ''}</p><a href={import.meta.env.BASE_URL || '/'}>Go to home</a></div>}><ClubPublicPage /></ErrorBoundary>} />
