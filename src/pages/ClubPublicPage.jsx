@@ -434,13 +434,20 @@ const ClubPublicPage = () => {
     return allowed.length > 0
   }, [club?.settings?.bookingDuration, club?.settings?.bookingPrices?.durationPrices, club?.settings?.closingTime, bookings, activeLocks])
 
-  const handleSlotClick = useCallback(async (court, dateStr, startTime) => {
+  const handleSlotClick = useCallback(async (court, dateStr, startTime, existingLock = null) => {
     if (!platformUser || !isMember) return
     if (isSlotInPast(dateStr, startTime)) {
       setLockError(language === 'en' ? 'Cannot book a date or time in the past. Please select a future slot.' : 'لا يمكن حجز تاريخ أو وقت سابق. يرجى اختيار وقت قادم.')
       return
     }
     setLockError(null)
+    if (existingLock) {
+      const lockDur = timeToMinutes(existingLock.end_time || '') - timeToMinutes(existingLock.start_time || '')
+      setActiveLock({ lockId: existingLock.id, expiresAt: existingLock.expires_at })
+      setBookingModal({ court, dateStr, startTime: existingLock.start_time || startTime })
+      setBookingDuration(lockDur > 0 ? lockDur : (club?.settings?.bookingDuration ?? 60))
+      return
+    }
     const minDur = club?.settings?.bookingDuration ?? 60
     const durationPrices = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
     let configured = (durationPrices || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
@@ -1010,19 +1017,29 @@ const ClubPublicPage = () => {
                             if (lDate !== dateStr) return false
                             return isTimeSlotCoveredByBooking(timeSlot, l.start_time || '', l.end_time || '')
                           })
+                          const myLock = activeLocks.find(l => {
+                            const lCourt = (l.court_id || '').toString()
+                            if (lCourt !== courtName && lCourt !== courtIdForMatch) return false
+                            const lDate = (l.booking_date || '').toString().split('T')[0]
+                            if (lDate !== dateStr) return false
+                            if ((l.member_id || '').toString() !== (platformUser?.id || '').toString()) return false
+                            return isTimeSlotCoveredByBooking(timeSlot, l.start_time || '', l.end_time || '')
+                          })
+                          const isMyLock = !!myLock
                           const isPast = isSlotInPast(dateStr, timeSlot)
                           const hasDuration = isSlotActuallyBookable(court, dateStr, timeSlot)
-                          const canBook = !isBooked && !isLocked && !isPast && hasDuration && isMember && platformUser
+                          const canBook = !isBooked && !isPast && (hasDuration || isMyLock) && isMember && platformUser && (!isLocked || isMyLock)
                           const cellStatus = isLocked ? 'in-progress' : isBooked ? 'booked' : isPast ? 'past' : 'available'
+                          const slotTitle = isMyLock ? (language === 'en' ? 'Complete your booking' : 'أكمل حجزك') : isLocked ? (language === 'en' ? 'In progress' : 'قيد الإجراء') : isBooked ? (c.booked || 'Booked') : isPast ? (language === 'en' ? 'Past' : 'منتهي') : canBook ? (c.bookNow || 'Book now') : (c.available || 'Available')
                           return (
                             <div
                               key={timeSlot}
                               role={canBook ? 'button' : undefined}
                               tabIndex={canBook ? 0 : undefined}
                               className={`club-public-court-grid-cell ${cellStatus} ${canBook ? 'clickable' : ''}`}
-                              title={isLocked ? (language === 'en' ? 'In progress' : 'قيد الإجراء') : isBooked ? (c.booked || 'Booked') : isPast ? (language === 'en' ? 'Past' : 'منتهي') : canBook ? (c.bookNow || 'Book now') : (c.available || 'Available')}
-                              onClick={canBook ? () => handleSlotClick(court, dateStr, timeSlot) : undefined}
-                              onKeyDown={canBook ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSlotClick(court, dateStr, timeSlot) } } : undefined}
+                              title={slotTitle}
+                              onClick={canBook ? () => handleSlotClick(court, dateStr, timeSlot, isMyLock ? myLock : null) : undefined}
+                              onKeyDown={canBook ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSlotClick(court, dateStr, timeSlot, isMyLock ? myLock : null) } } : undefined}
                             >
                               {''}
                             </div>
