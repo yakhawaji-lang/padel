@@ -1022,7 +1022,9 @@ const ClubPublicPage = () => {
                             if (lCourt !== courtName && lCourt !== courtIdForMatch) return false
                             const lDate = (l.booking_date || '').toString().split('T')[0]
                             if (lDate !== dateStr) return false
-                            if ((l.member_id || '').toString() !== (platformUser?.id || '').toString()) return false
+                            const lockMemberId = (l.member_id ?? l.memberId ?? '').toString().trim()
+                            const myId = (platformUser?.id ?? '').toString().trim()
+                            if (lockMemberId !== myId) return false
                             return isTimeSlotCoveredByBooking(timeSlot, l.start_time || '', l.end_time || '')
                           })
                           const isMyLock = !!myLock

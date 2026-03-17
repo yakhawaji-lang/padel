@@ -719,6 +719,12 @@
   background: #fef3c7;
   color: #b45309;
 }
+.club-public-court-grid-cell.in-progress.clickable {
+  cursor: pointer;
+}
+.club-public-court-grid-cell.in-progress.clickable:hover {
+  background: #fde68a;
+}
 .club-public-court-grid-cell.past {
   background: #f1f5f9;
   color: #94a3b8;
