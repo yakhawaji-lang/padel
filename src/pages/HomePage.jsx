@@ -4,6 +4,7 @@ import LanguageIcon from '../components/LanguageIcon'
 import { loadClubs } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import { getStore, getImageUrl } from '../api/dbClient'
+import { getCurrentPlatformUser, logoutPlatformUser } from '../storage/platformAuth'
 import './HomePage.css'
 
 const getClubTournamentStats = (club) => {
@@ -42,12 +43,24 @@ const HomePage = () => {
   const [language, setLanguage] = useState(getAppLanguage())
   const [navOpen, setNavOpen] = useState(false)
   const [bannerPhrase, setBannerPhrase] = useState({ ar: '', en: '' })
+  const [platformUser, setPlatformUser] = useState(null)
 
   useEffect(() => {
     const load = () => setClubs(loadClubs())
     load()
     window.addEventListener('clubs-synced', load)
     return () => window.removeEventListener('clubs-synced', load)
+  }, [])
+
+  useEffect(() => {
+    const sync = () => setPlatformUser(getCurrentPlatformUser())
+    sync()
+    window.addEventListener('member-updated', sync)
+    window.addEventListener('member-logged-out', sync)
+    return () => {
+      window.removeEventListener('member-updated', sync)
+      window.removeEventListener('member-logged-out', sync)
+    }
   }, [])
 
   useEffect(() => {
@@ -220,7 +233,13 @@ const HomePage = () => {
         text: 'Create a PlayTix account to join clubs with fewer steps, book courts, buy club products and participate in tournaments. Use the same account on the main platform and club pages.',
         cta: 'Register as member',
         createNew: 'Create new member',
-        loginMember: 'Member login'
+        loginMember: 'Member login',
+        welcome: 'Welcome',
+        myBookings: 'My Bookings',
+        myFavorites: 'My Favorites',
+        logout: 'Log out',
+        clubs: 'Clubs',
+        viewClub: 'View club'
       }
     },
     ar: {
@@ -326,7 +345,13 @@ const HomePage = () => {
         text: 'أنشئ حساب PlayTix للانضمام للنوادي بخطوات أقل، وحجز الملاعب، وشراء منتجات الأندية، والمشاركة في البطولات. استخدم نفس الحساب في المنصة الرئيسية وصفحات النوادي.',
         cta: 'تسجيل كعضو',
         createNew: 'إنشاء عضو جديد',
-        loginMember: 'دخول العضو'
+        loginMember: 'دخول العضو',
+        welcome: 'مرحباً',
+        myBookings: 'حجوزاتي',
+        myFavorites: 'المفضلة',
+        logout: 'تسجيل الخروج',
+        clubs: 'النوادي',
+        viewClub: 'عرض النادي'
       }
     }
   }
@@ -442,17 +467,73 @@ const HomePage = () => {
                 </div>
               </div>
               <div className="join-card join-card-members">
-                <div className="join-card-icon">👥</div>
-                <h3 className="join-card-title">{c.joinMembers.title}</h3>
-                <p className="join-card-text">{c.joinMembers.text}</p>
-                <div className="join-card-actions join-card-btns">
-                  <Link to="/register" className="join-card-cta btn-primary">
-                    {c.joinMembers.createNew}
-                  </Link>
-                  <Link to="/login" className="join-card-cta btn-outline">
-                    {c.joinMembers.loginMember}
-                  </Link>
-                </div>
+                {platformUser ? (
+                  <>
+                    <div className="member-card-header">
+                      <div className="member-avatar">
+                        {(platformUser.name || platformUser.email || '?')[0].toUpperCase()}
+                      </div>
+                      <div className="member-info">
+                        <p className="member-welcome">{c.joinMembers.welcome}</p>
+                        <h3 className="member-name">{platformUser.name || platformUser.email || platformUser.mobile || '—'}</h3>
+                        {(platformUser.email || platformUser.mobile) && (
+                          <p className="member-contact">{platformUser.email || platformUser.mobile}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="member-actions">
+                      <Link to="/my-bookings" className="member-action-btn">
+                        <span className="member-action-icon">📅</span>
+                        {c.joinMembers.myBookings}
+                      </Link>
+                      <Link to="/my-favorites" className="member-action-btn">
+                        <span className="member-action-icon">⭐</span>
+                        {c.joinMembers.myFavorites}
+                      </Link>
+                    </div>
+                    <div className="member-clubs-section">
+                      <h4 className="member-clubs-title">{c.joinMembers.clubs}</h4>
+                      <div className="member-clubs-list">
+                        {approvedClubs.slice(0, 5).map(club => {
+                          const clubName = language === 'ar' && club.nameAr ? club.nameAr : club.name
+                          return (
+                            <Link key={club.id} to={`/clubs/${club.id}`} className="member-club-item">
+                              {club.logo && <img src={getImageUrl(club.logo)} alt="" className="member-club-logo" />}
+                              <span className="member-club-name">{clubName}</span>
+                              <span className="member-club-arrow">→</span>
+                            </Link>
+                          )
+                        })}
+                      </div>
+                      {approvedClubs.length > 5 && (
+                        <Link to="#clubs" className="member-clubs-more" onClick={(e) => { e.preventDefault(); scrollTo('clubs') }}>
+                          {language === 'en' ? `+${approvedClubs.length - 5} more` : `+${approvedClubs.length - 5} المزيد`}
+                        </Link>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="member-logout-btn"
+                      onClick={() => { logoutPlatformUser(); setPlatformUser(null) }}
+                    >
+                      {c.joinMembers.logout}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="join-card-icon">👥</div>
+                    <h3 className="join-card-title">{c.joinMembers.title}</h3>
+                    <p className="join-card-text">{c.joinMembers.text}</p>
+                    <div className="join-card-actions join-card-btns">
+                      <Link to="/register" className="join-card-cta btn-primary">
+                        {c.joinMembers.createNew}
+                      </Link>
+                      <Link to="/login" className="join-card-cta btn-outline">
+                        {c.joinMembers.loginMember}
+                      </Link>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

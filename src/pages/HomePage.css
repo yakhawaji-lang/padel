@@ -587,6 +587,173 @@
   flex-wrap: wrap;
 }
 
+/* ========== بطاقة العضو عند تسجيل الدخول ========== */
+.member-card-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.member-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.member-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.member-welcome {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin: 0 0 2px;
+}
+
+.member-name {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px;
+}
+
+.member-contact {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.member-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.member-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #334155;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.member-action-btn:hover {
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
+
+.member-action-icon {
+  font-size: 1rem;
+}
+
+.member-clubs-section {
+  margin-bottom: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.member-clubs-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 12px;
+}
+
+.member-clubs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.member-club-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  text-decoration: none;
+  color: #334155;
+  font-size: 0.9375rem;
+  transition: all 0.2s;
+}
+
+.member-club-item:hover {
+  background: #f8fafc;
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
+
+.member-club-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.member-club-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.member-club-arrow {
+  color: #94a3b8;
+  font-size: 1rem;
+}
+
+.member-clubs-more {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.member-clubs-more:hover {
+  text-decoration: underline;
+}
+
+.member-logout-btn {
+  margin-top: auto;
+  padding: 10px 18px;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.member-logout-btn:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
 .join-or {
   font-size: 0.8125rem;
   color: #94a3b8;
