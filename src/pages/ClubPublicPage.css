@@ -796,13 +796,44 @@
   flex-direction: column;
   align-items: stretch;
 }
-.club-public-booking-duration-select {
+.club-public-booking-duration-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.club-public-booking-duration-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: 10px 14px;
-  font-size: 0.9375rem;
+  min-width: 70px;
+  font-size: 0.875rem;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #fff;
-  margin-top: 4px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.club-public-booking-duration-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+.club-public-booking-duration-btn.active {
+  background: #1e3a5f;
+  border-color: #1e3a5f;
+  color: #fff;
+}
+.club-public-booking-duration-btn .duration-value {
+  font-weight: 600;
+}
+.club-public-booking-duration-btn .duration-price {
+  font-size: 0.75rem;
+  opacity: 0.9;
+  margin-top: 2px;
+}
+.club-public-booking-duration-btn.active .duration-price {
+  opacity: 0.95;
 }
 .club-public-booking-modal-price {
   margin-top: 8px;
@@ -895,6 +926,59 @@
   font-size: 0.875rem;
 }
 
+.club-public-booking-payment-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+.club-public-booking-payment-section-title {
+  font-weight: 600;
+  font-size: 1rem;
+  margin: 0 0 4px 0;
+  color: #0f172a;
+}
+.club-public-booking-payment-section-desc {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin: 0 0 12px 0;
+}
+.club-public-booking-payment-style-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.club-public-booking-payment-style-btn {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.club-public-booking-payment-style-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+.club-public-booking-payment-style-btn.active {
+  background: #f0fdf4;
+  border-color: #22c55e;
+}
+.club-public-booking-payment-style-btn .style-label {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+.club-public-booking-payment-style-btn .style-desc {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+.club-public-booking-payment-style-btn input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
 .club-public-booking-payment-method {
   margin: 14px 0 10px;
   padding: 10px 0;
@@ -902,8 +986,14 @@
 }
 .club-public-booking-payment-method-label {
   font-weight: 600;
-  margin: 0 0 10px;
+  margin: 0 0 4px;
   font-size: 0.95rem;
+}
+.club-public-booking-payment-method-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
 }
 .club-public-booking-payment-radio {
   display: flex;
