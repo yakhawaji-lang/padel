@@ -307,7 +307,7 @@ const MyBookingsPage = () => {
           <section className="my-bookings-empty" aria-live="polite">
             <div className="my-bookings-empty-icon" aria-hidden />
             <p className="my-bookings-empty-title">{filter === 'upcoming' ? c.noUpcoming : c.noPast}</p>
-            <Link to="/" className="my-bookings-empty-cta">{c.bookCourt}</Link>
+            <Link to={backLink} className="my-bookings-empty-cta">{c.bookCourt}</Link>
           </section>
         ) : (
           <>
