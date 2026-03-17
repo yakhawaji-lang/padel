@@ -1,7 +1,7 @@
 /**
  * Modal لتعديل الحجز، استكمال الدفع، مشاركة الحجز، إرسال رابط الخريطة، ومتابعة الدفع
  */
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import * as bookingApi from '../api/dbClient'
 import './BookingDetailModal.css'
@@ -39,8 +39,28 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
   const status = (booking?.status || 'confirmed').toString()
   const isInitiator = platformUser && String(booking?.memberId || booking?.initiatorMemberId) === String(platformUser.id)
   const paymentShares = Array.isArray(booking?.paymentShares) ? booking.paymentShares : []
-  const userShare = platformUser && paymentShares.find(s => String(s.memberId || '') === String(platformUser.id))
-  const inviteToken = userShare?.inviteToken
+  const norm = (v) => (v || '').toString().trim().toLowerCase()
+  const userShare = platformUser && paymentShares.find(s => {
+    if (String(s.memberId || '') === String(platformUser.id)) return true
+    const userName = norm(platformUser.name || platformUser.displayName || platformUser.email || '')
+    const shareName = norm(s.memberName || '')
+    if (userName && shareName && shareName.includes(userName)) return true
+    if (userName && shareName && userName.includes(shareName)) return true
+    const userPhone = (platformUser.mobile || platformUser.phone || '').toString().replace(/\D/g, '')
+    const sharePhone = (s.phone || '').toString().replace(/\D/g, '')
+    if (userPhone && sharePhone && userPhone.slice(-8) === sharePhone.slice(-8)) return true
+    return false
+  })
+  const [fetchedInviteToken, setFetchedInviteToken] = useState(null)
+  const inviteToken = userShare?.inviteToken || fetchedInviteToken
+  const isParticipantWithShare = !!userShare && !userShare.paidAt
+
+  useEffect(() => {
+    if (!isParticipantWithShare || userShare?.inviteToken || !club?.id || !booking?.id || !platformUser?.id) return
+    bookingApi.getShareInviteToken(booking.id, club.id, platformUser.id)
+      .then(d => setFetchedInviteToken(d?.inviteToken || null))
+      .catch(() => {})
+  }, [isParticipantWithShare, userShare?.inviteToken, club?.id, booking?.id, platformUser?.id])
   const hasShares = paymentShares.length > 0
   const paidCount = paymentShares.filter(s => s.paidAt).length
   const pendingCount = paymentShares.length - paidCount
@@ -163,34 +183,46 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
               </Link>
             )}
 
-            {(isInitiator || inviteToken) && needsPayment && (
+            {(isInitiator || isParticipantWithShare) && needsPayment && (
               <div className="booking-detail-pay-now-wrap">
                 <button
                   type="button"
-                  className="booking-detail-action"
+                  className={`booking-detail-pay-now-btn ${payMenuOpen ? 'booking-detail-pay-now-btn-open' : ''}`}
                   onClick={() => setPayMenuOpen(!payMenuOpen)}
                   disabled={markingPayAtClub}
                 >
-                  <span className="booking-detail-action-icon">✓</span>
+                  <span className="booking-detail-pay-now-icon">💳</span>
                   <span>{markingPayAtClub ? '…' : c.payNow}</span>
+                  <span className="booking-detail-pay-now-chevron" aria-hidden>▼</span>
                 </button>
                 {payMenuOpen && (
                   <div className="booking-detail-pay-options">
-                    {inviteToken ? (
+                    {(inviteToken || isParticipantWithShare) ? (
                       <>
-                        <button type="button" className="booking-detail-pay-opt" onClick={handleRecordPayment} disabled={markingPayAtClub}>
+                        <button type="button" className="booking-detail-pay-opt" onClick={handleRecordPayment} disabled={markingPayAtClub || !inviteToken}>
+                          <span className="booking-detail-pay-opt-icon">🏢</span>
                           {c.payAtClub}
                         </button>
-                        <Link to={`/pay-share/${inviteToken}`} className="booking-detail-pay-opt booking-detail-pay-opt-link" onClick={onClose}>
-                          {c.payElectronic}
-                        </Link>
+                        {inviteToken ? (
+                          <Link to={`/pay-share/${inviteToken}`} className="booking-detail-pay-opt booking-detail-pay-opt-link" onClick={onClose}>
+                            <span className="booking-detail-pay-opt-icon">💳</span>
+                            {c.payElectronic}
+                          </Link>
+                        ) : (
+                          <a href={userShare?.whatsappLink} target="_blank" rel="noopener noreferrer" className="booking-detail-pay-opt booking-detail-pay-opt-link">
+                            <span className="booking-detail-pay-opt-icon">💬</span>
+                            {language === 'ar' ? 'افتح رابط الدفع من واتساب' : 'Open payment link from WhatsApp'}
+                          </a>
+                        )}
                       </>
                     ) : (
                       <>
                         <button type="button" className="booking-detail-pay-opt" onClick={handleMarkPayAtClub} disabled={markingPayAtClub}>
+                          <span className="booking-detail-pay-opt-icon">🏢</span>
                           {c.payAtClub}
                         </button>
                         <Link to={`/pay/${booking.id}?method=credit_card`} className="booking-detail-pay-opt booking-detail-pay-opt-link" onClick={onClose}>
+                          <span className="booking-detail-pay-opt-icon">💳</span>
                           {c.payElectronic}
                         </Link>
                       </>
@@ -222,15 +254,27 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
                 <p className="booking-detail-track-title">{c.trackPayment}</p>
                 <p>{paidCount} {c.paid} · {pendingCount} {c.pending}</p>
                 <div className="booking-detail-shares">
-                  {paymentShares.slice(0, 5).map((s, idx) => (
-                    <div key={s.id || idx} className="booking-detail-share-row">
-                      <span>{s.memberName || s.phone || '—'}</span>
-                      <span className={s.paidAt ? 'paid' : ''}>{s.paidAt ? '✓' : '○'}</span>
-                      {s.whatsappLink && !s.paidAt && (
-                        <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="booking-detail-resend" title="Resend">💬</a>
-                      )}
-                    </div>
-                  ))}
+                  {paymentShares.slice(0, 5).map((s, idx) => {
+                    const isMyShare = userShare && (s.id === userShare.id || (s.memberId === userShare.memberId && s.memberName === userShare.memberName))
+                    return (
+                      <div key={s.id || idx} className="booking-detail-share-row">
+                        <span>{s.memberName || s.phone || '—'}</span>
+                        <span className={s.paidAt ? 'paid' : ''}>{s.paidAt ? '✓' : '○'}</span>
+                        {isMyShare && !s.paidAt && needsPayment && (
+                          <button
+                            type="button"
+                            className="booking-detail-share-pay-btn"
+                            onClick={() => setPayMenuOpen(prev => !prev)}
+                          >
+                            {c.payNow}
+                          </button>
+                        )}
+                        {!isMyShare && s.whatsappLink && !s.paidAt && (
+                          <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="booking-detail-resend" title="Resend">💬</a>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}

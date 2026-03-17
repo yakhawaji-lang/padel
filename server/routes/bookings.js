@@ -388,6 +388,28 @@ router.delete('/favorites', async (req, res) => {
   }
 })
 
+/** GET /api/bookings/share-invite - Get invite token for member's pending share (for participant payment flow) */
+router.get('/share-invite', async (req, res) => {
+  try {
+    const { bookingId, clubId, memberId } = req.query
+    if (!bookingId || !clubId || !memberId) {
+      return res.status(400).json({ error: 'bookingId, clubId, memberId required' })
+    }
+    const { rows } = await query(
+      `SELECT invite_token FROM booking_payment_shares 
+       WHERE booking_id = ? AND club_id = ? AND member_id = ? AND paid_at IS NULL AND invite_token IS NOT NULL`,
+      [bookingId, clubId, memberId]
+    )
+    if (!rows?.length || !rows[0].invite_token) {
+      return res.status(404).json({ error: 'Share not found or already paid' })
+    }
+    res.json({ inviteToken: rows[0].invite_token })
+  } catch (e) {
+    console.error('bookings share-invite error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
 /** GET /api/bookings/invite/:token - Get invite/share data by token (must be before /:id) */
 router.get('/invite/:token', async (req, res) => {
   try {

@@ -105,6 +105,32 @@
   min-height: 200px;
 }
 
+.payment-split-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #059669;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  padding: 6px 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border: 1px solid #a7f3d0;
+}
+
+.payment-tab-panel-split {
+  border-inline-start: 3px solid #059669;
+  padding-inline-start: 20px;
+}
+
+[dir="rtl"] .payment-tab-panel-split {
+  border-inline-start: none;
+  border-inline-end: 3px solid #059669;
+  padding-inline-start: 0;
+  padding-inline-end: 20px;
+}
+
 .payment-tab-panel .panel-title {
   font-size: 1.25rem;
   margin: 0 0 8px 0;

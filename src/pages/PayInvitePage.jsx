@@ -185,19 +185,22 @@ const PayInvitePage = () => {
         ) : (
           <div className="pay-invite-actions">
             {isPending && !markedPaid && (
-              <>
+              <div className="pay-invite-payment-section">
                 <p className="pay-invite-payment-options-label">{t('Choose how to pay your share', 'اختر طريقة دفع حصتك', language)}</p>
-                <div className="pay-invite-payment-options">
-                  <button type="button" className="pay-invite-btn pay-invite-btn-at-club" onClick={handleMarkPaid} disabled={markingPaid}>
-                    {markingPaid ? t('Saving...', 'جاري الحفظ...') : t('Pay at club', 'الدفع في النادي', language)}
+                <div className="pay-invite-payment-cards">
+                  <button type="button" className="pay-invite-payment-card pay-invite-payment-card-at-club" onClick={handleMarkPaid} disabled={markingPaid}>
+                    <span className="pay-invite-payment-card-icon" aria-hidden>🏢</span>
+                    <span className="pay-invite-payment-card-title">{t('Pay at club', 'الدفع في النادي', language)}</span>
+                    <span className="pay-invite-payment-card-desc">{t('Cash or card at the club', 'كاش أو بطاقة في النادي', language)}</span>
+                    {markingPaid && <span className="pay-invite-payment-card-loading">{t('Saving...', 'جاري الحفظ...')}</span>}
                   </button>
-                  <span className="pay-invite-option-hint">{t('Cash or card at the club', 'كاش أو بطاقة في النادي', language)}</span>
-                  <Link to={`/pay-share/${token}`} className="pay-invite-btn pay-invite-btn-electronic">
-                    {t('Pay electronically', 'الدفع الإلكتروني', language)}
+                  <Link to={`/pay-share/${token}`} className="pay-invite-payment-card pay-invite-payment-card-electronic">
+                    <span className="pay-invite-payment-card-icon" aria-hidden>💳</span>
+                    <span className="pay-invite-payment-card-title">{t('Pay electronically', 'الدفع الإلكتروني', language)}</span>
+                    <span className="pay-invite-payment-card-desc">{t('Card or Mada online', 'بطاقة أو متاب أونلاين', language)}</span>
                   </Link>
-                  <span className="pay-invite-option-hint">{t('Card or Mada online', 'بطاقة أو متاب أونلاين', language)}</span>
                 </div>
-              </>
+              </div>
             )}
             {markedPaid && (
               <div className="pay-invite-success">

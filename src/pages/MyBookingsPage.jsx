@@ -408,13 +408,15 @@ const MyBookingsPage = () => {
                               <div className="my-bookings-pay-dropdown">
                                 <button
                                   type="button"
-                                  className="my-bookings-pay-btn"
+                                  className={`my-bookings-pay-btn ${payMenuOpen === r.key ? 'my-bookings-pay-btn-open' : ''}`}
                                   onClick={() => setPayMenuOpen(payMenuOpen === r.key ? null : r.key)}
                                   disabled={!!markingPayAtClub}
                                   aria-expanded={payMenuOpen === r.key}
                                   aria-haspopup="true"
                                 >
+                                  <span className="my-bookings-pay-btn-icon">💳</span>
                                   {c.pay}
+                                  <span className="my-bookings-pay-btn-chevron" aria-hidden>▼</span>
                                 </button>
                                 {payMenuOpen === r.key && (
                                   <div className="my-bookings-pay-menu">
@@ -426,14 +428,16 @@ const MyBookingsPage = () => {
                                           onClick={() => { handleRecordPayment(r.payOptions.clubId, r.payOptions.inviteToken); setPayMenuOpen(null) }}
                                           disabled={markingPayAtClub}
                                         >
-                                          {c.payAtClub}
+                                          <span className="my-bookings-pay-menu-icon">🏢</span>
+                                          <span>{c.payAtClub}</span>
                                         </button>
                                         <Link
                                           to={`/pay-share/${r.payOptions.inviteToken}`}
                                           className="my-bookings-pay-menu-item my-bookings-pay-menu-link"
                                           onClick={() => setPayMenuOpen(null)}
                                         >
-                                          {c.payElectronic}
+                                          <span className="my-bookings-pay-menu-icon">💳</span>
+                                          <span>{c.payElectronic}</span>
                                         </Link>
                                       </>
                                     ) : (
@@ -444,14 +448,16 @@ const MyBookingsPage = () => {
                                           onClick={() => { handleMarkPayAtClub(r.payOptions.clubId, r.payOptions.bookingId); setPayMenuOpen(null) }}
                                           disabled={markingPayAtClub === r.booking.id}
                                         >
-                                          {markingPayAtClub === r.booking.id ? '…' : c.payAtClub}
+                                          <span className="my-bookings-pay-menu-icon">🏢</span>
+                                          <span>{markingPayAtClub === r.booking.id ? '…' : c.payAtClub}</span>
                                         </button>
                                         <Link
                                           to={`/pay/${r.booking.id}?method=credit_card`}
                                           className="my-bookings-pay-menu-item my-bookings-pay-menu-link"
                                           onClick={() => setPayMenuOpen(null)}
                                         >
-                                          {c.payElectronic}
+                                          <span className="my-bookings-pay-menu-icon">💳</span>
+                                          <span>{c.payElectronic}</span>
                                         </Link>
                                       </>
                                     )}
@@ -566,11 +572,13 @@ const MyBookingsPage = () => {
                     <div className="my-bookings-card-pay-wrap" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
-                        className="my-bookings-pay-btn"
+                        className={`my-bookings-pay-btn ${payMenuOpen === r.key ? 'my-bookings-pay-btn-open' : ''}`}
                         onClick={() => setPayMenuOpen(payMenuOpen === r.key ? null : r.key)}
                         disabled={!!markingPayAtClub}
                       >
+                        <span className="my-bookings-pay-btn-icon">💳</span>
                         {c.pay}
+                        <span className="my-bookings-pay-btn-chevron" aria-hidden>▼</span>
                       </button>
                       {payMenuOpen === r.key && (
                         <div className="my-bookings-card-pay-menu">
@@ -582,9 +590,11 @@ const MyBookingsPage = () => {
                                 onClick={() => { handleRecordPayment(r.payOptions.clubId, r.payOptions.inviteToken); setPayMenuOpen(null) }}
                                 disabled={!!markingPayAtClub}
                               >
+                                <span className="my-bookings-pay-menu-icon">🏢</span>
                                 {c.payAtClub}
                               </button>
                               <Link to={`/pay-share/${r.payOptions.inviteToken}`} className="my-bookings-pay-menu-item my-bookings-pay-menu-link" onClick={() => setPayMenuOpen(null)}>
+                                <span className="my-bookings-pay-menu-icon">💳</span>
                                 {c.payElectronic}
                               </Link>
                             </>
@@ -596,9 +606,11 @@ const MyBookingsPage = () => {
                                 onClick={() => { handleMarkPayAtClub(r.payOptions.clubId, r.payOptions.bookingId); setPayMenuOpen(null) }}
                                 disabled={markingPayAtClub === r.booking.id}
                               >
+                                <span className="my-bookings-pay-menu-icon">🏢</span>
                                 {markingPayAtClub === r.booking.id ? '…' : c.payAtClub}
                               </button>
                               <Link to={`/pay/${r.booking.id}?method=credit_card`} className="my-bookings-pay-menu-item my-bookings-pay-menu-link" onClick={() => setPayMenuOpen(null)}>
+                                <span className="my-bookings-pay-menu-icon">💳</span>
                                 {c.payElectronic}
                               </Link>
                             </>

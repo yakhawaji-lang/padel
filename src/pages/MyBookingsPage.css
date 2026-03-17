@@ -423,7 +423,7 @@
 }
 
 .my-bookings-pay-wrap {
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .my-bookings-pay-dropdown {
@@ -432,70 +432,128 @@
 }
 
 .my-bookings-pay-btn {
-  padding: 8px 14px;
-  background: #1e3a5f;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #152a47 100%);
   color: #fff;
   border: none;
-  border-radius: var(--mb-radius-sm);
+  border-radius: 10px;
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(30, 58, 95, 0.25);
 }
 
 .my-bookings-pay-btn:hover:not(:disabled) {
-  background: #152a47;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(30, 58, 95, 0.35);
+}
+
+.my-bookings-pay-btn-open {
+  border-radius: 10px 10px 0 0;
+  box-shadow: 0 2px 8px rgba(30, 58, 95, 0.25);
 }
 
 .my-bookings-pay-btn:disabled {
-  opacity: 0.7;
+  opacity: 0.75;
   cursor: not-allowed;
+}
+
+.my-bookings-pay-btn-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.my-bookings-pay-btn-chevron {
+  font-size: 0.625rem;
+  opacity: 0.9;
+  transition: transform 0.2s;
+}
+
+.my-bookings-pay-btn-open .my-bookings-pay-btn-chevron {
+  transform: rotate(180deg);
 }
 
 .my-bookings-pay-menu {
   position: absolute;
   top: 100%;
   left: 0;
-  margin-top: 4px;
-  min-width: 180px;
+  margin-top: 0;
+  min-width: 220px;
   background: var(--mb-surface);
   border: 1px solid var(--mb-border);
-  border-radius: var(--mb-radius-sm);
-  box-shadow: var(--mb-shadow-card);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   z-index: 20;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  animation: my-bookings-pay-menu-in 0.2s ease-out;
+}
+
+@keyframes my-bookings-pay-menu-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .my-bookings-pay-menu-item {
-  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
   text-align: left;
   background: none;
   border: none;
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 500;
   color: var(--mb-text);
   cursor: pointer;
   transition: background 0.15s;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.my-bookings-pay-menu-item:last-child {
+  border-bottom: none;
 }
 
 .my-bookings-pay-menu-item:hover:not(:disabled) {
-  background: #f1f5f9;
+  background: #f8fafc;
+}
+
+.my-bookings-pay-menu-icon {
+  font-size: 1.125rem;
+  line-height: 1;
 }
 
 .my-bookings-pay-menu-link {
   text-decoration: none;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--mb-primary);
+  font-weight: 600;
 }
 
 .my-bookings-pay-menu-link:hover {
-  background: #f1f5f9;
+  background: #eff6ff;
+}
+
+.my-bookings-pay-menu-hint {
+  display: none;
 }
 
 [dir="rtl"] .my-bookings-pay-menu {
   left: auto;
   right: 0;
+}
+
+[dir="rtl"] .my-bookings-pay-menu-item,
+[dir="rtl"] .my-bookings-pay-menu-link {
+  text-align: right;
 }
 
 .my-bookings-pay-at-club-wrap {
@@ -675,6 +733,7 @@
 .my-bookings-card-pay-wrap .my-bookings-pay-btn {
   width: 100%;
   min-height: 48px;
+  justify-content: center;
 }
 
 .my-bookings-card-pay-wrap .my-bookings-pay-dropdown {
@@ -686,27 +745,35 @@
 }
 
 .my-bookings-card-pay-menu {
-  margin-top: 8px;
+  margin-top: 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
-.my-bookings-card-pay-menu .my-bookings-pay-menu-item {
-  padding: 12px;
-  border-radius: var(--mb-radius-sm);
-  background: #f8fafc;
-  border: 1px solid var(--mb-border);
-}
-
+.my-bookings-card-pay-menu .my-bookings-pay-menu-item,
 .my-bookings-card-pay-menu .my-bookings-pay-menu-link {
-  padding: 12px;
-  border-radius: var(--mb-radius-sm);
+  padding: 14px 16px;
+  border-radius: 10px;
   background: #f8fafc;
-  border: 1px solid var(--mb-border);
-  text-align: center;
-  color: var(--mb-primary);
-  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.my-bookings-card-pay-menu .my-bookings-pay-menu-item:hover:not(:disabled),
+.my-bookings-card-pay-menu .my-bookings-pay-menu-link:hover {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.my-bookings-card-pay-menu .my-bookings-pay-menu-link:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.my-bookings-card-pay-menu .my-bookings-pay-menu-icon {
+  font-size: 1.25rem;
 }
 
 .my-bookings-card-actions {

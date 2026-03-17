@@ -489,6 +489,12 @@ export async function getInviteByToken(token) {
   return fetchJson(`/api/bookings/invite/${encodeURIComponent(token)}`)
 }
 
+/** Get invite token for member's share (when not in cached booking data) */
+export async function getShareInviteToken(bookingId, clubId, memberId) {
+  const params = new URLSearchParams({ bookingId, clubId, memberId })
+  return fetchJson(`/api/bookings/share-invite?${params}`)
+}
+
 /** Get a single booking by ID (for payment page) */
 export async function getBookingById(bookingId) {
   return fetchJson(`/api/bookings/${encodeURIComponent(bookingId)}`)

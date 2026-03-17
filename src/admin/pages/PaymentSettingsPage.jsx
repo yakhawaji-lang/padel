@@ -261,7 +261,8 @@ export default function PaymentSettingsPage() {
         )}
 
         {activeTab === 'split' && (
-          <div className="payment-tab-panel">
+          <div className="payment-tab-panel payment-tab-panel-split">
+            <div className="payment-split-badge">{language === 'ar' ? 'مشاركة التكلفة' : 'Cost sharing'}</div>
             <h2 className="panel-title">{c.splitTitle}</h2>
             <p className="panel-desc">{c.splitDesc}</p>
             <label className="payment-toggle-row">
