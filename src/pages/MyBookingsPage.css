@@ -422,6 +422,82 @@
   font-style: italic;
 }
 
+.my-bookings-pay-wrap {
+  margin-top: 8px;
+}
+
+.my-bookings-pay-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.my-bookings-pay-btn {
+  padding: 8px 14px;
+  background: #1e3a5f;
+  color: #fff;
+  border: none;
+  border-radius: var(--mb-radius-sm);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.my-bookings-pay-btn:hover:not(:disabled) {
+  background: #152a47;
+}
+
+.my-bookings-pay-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.my-bookings-pay-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 180px;
+  background: var(--mb-surface);
+  border: 1px solid var(--mb-border);
+  border-radius: var(--mb-radius-sm);
+  box-shadow: var(--mb-shadow-card);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.my-bookings-pay-menu-item {
+  padding: 10px 14px;
+  text-align: left;
+  background: none;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--mb-text);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.my-bookings-pay-menu-item:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.my-bookings-pay-menu-link {
+  text-decoration: none;
+  display: block;
+}
+
+.my-bookings-pay-menu-link:hover {
+  background: #f1f5f9;
+}
+
+[dir="rtl"] .my-bookings-pay-menu {
+  left: auto;
+  right: 0;
+}
+
 .my-bookings-pay-at-club-wrap {
   margin-top: 8px;
   display: flex;
@@ -595,9 +671,42 @@
   margin-top: 12px;
 }
 
-.my-bookings-card-pay-wrap .my-bookings-pay-at-club-btn {
+.my-bookings-card-pay-wrap .my-bookings-pay-at-club-btn,
+.my-bookings-card-pay-wrap .my-bookings-pay-btn {
   width: 100%;
   min-height: 48px;
+}
+
+.my-bookings-card-pay-wrap .my-bookings-pay-dropdown {
+  width: 100%;
+}
+
+.my-bookings-card-pay-wrap .my-bookings-pay-btn {
+  width: 100%;
+}
+
+.my-bookings-card-pay-menu {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.my-bookings-card-pay-menu .my-bookings-pay-menu-item {
+  padding: 12px;
+  border-radius: var(--mb-radius-sm);
+  background: #f8fafc;
+  border: 1px solid var(--mb-border);
+}
+
+.my-bookings-card-pay-menu .my-bookings-pay-menu-link {
+  padding: 12px;
+  border-radius: var(--mb-radius-sm);
+  background: #f8fafc;
+  border: 1px solid var(--mb-border);
+  text-align: center;
+  color: var(--mb-primary);
+  font-weight: 600;
 }
 
 .my-bookings-card-actions {

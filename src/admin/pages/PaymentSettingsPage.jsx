@@ -18,7 +18,7 @@ const TABS = [
   { key: 'at_club', icon: '🏢', labelEn: 'At club', labelAr: 'الدفع في النادي' },
   { key: 'credit_card', icon: '💳', labelEn: 'Credit card', labelAr: 'البطاقة الائتمانية' },
   { key: 'mada', icon: '💳', labelEn: 'Mada', labelAr: 'متاب' },
-  { key: 'split', icon: '👥', labelEn: 'Split payment', labelAr: 'تقسيم المبلغ' }
+  { key: 'split', icon: '👥', labelEn: 'Share with others', labelAr: 'مشاركة الدفع' }
 ]
 
 export default function PaymentSettingsPage() {
@@ -98,6 +98,7 @@ export default function PaymentSettingsPage() {
     creditCardTitle: t('Credit card (Stripe)', 'البطاقة الائتمانية (Stripe)', language),
     creditCardDesc: t('Online payment via Visa, Mastercard. Requires Stripe account.', 'الدفع أونلاين عبر فيزا وماستركارد. يتطلب حساب Stripe.', language),
     enableGateway: t('Enable this payment method', 'تفعيل طريقة الدفع هذه', language),
+    enableSharing: t('Enable payment sharing', 'تفعيل مشاركة الدفع', language),
     publishableKey: t('Publishable key', 'المفتاح العام', language),
     secretKey: t('Secret key', 'المفتاح السري', language),
     webhookSecret: t('Webhook secret', 'سر Webhook', language),
@@ -106,8 +107,8 @@ export default function PaymentSettingsPage() {
     merchantId: t('Merchant ID', 'معرّف التاجر', language),
     apiKey: t('API Key', 'مفتاح API', language),
     gatewayId: t('Gateway ID', 'معرّف البوابة', language),
-    splitTitle: t('Split payment', 'تقسيم المبلغ', language),
-    splitDesc: t('Split the booking cost with other participants.', 'تقسيم تكلفة الحجز مع المشاركين الآخرين.', language),
+    splitTitle: t('Share payment with members', 'مشاركة الدفع مع الأعضاء', language),
+    splitDesc: t('Allow members to share the booking cost with others. This is not a payment method — it enables cost sharing.', 'السماح للأعضاء بمشاركة تكلفة الحجز مع الآخرين. هذا ليس خيار دفع بل خيار مشاركة التكلفة.', language),
     deadlineMinutes: t('Deadline (minutes)', 'المهلة (دقائق)', language)
   }
 
@@ -270,7 +271,7 @@ export default function PaymentSettingsPage() {
                 onChange={() => toggleChannel('split')}
                 disabled={saving}
               />
-              <span>{c.enableGateway}</span>
+              <span>{c.enableSharing}</span>
             </label>
             <div className="payment-form-group">
               <label>{c.deadlineMinutes}</label>

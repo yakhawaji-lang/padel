@@ -185,9 +185,19 @@ const PayInvitePage = () => {
         ) : (
           <div className="pay-invite-actions">
             {isPending && !markedPaid && (
-              <button type="button" className="pay-invite-btn pay-invite-btn-confirm" onClick={handleMarkPaid} disabled={markingPaid}>
-                {markingPaid ? t('Saving...', 'جاري الحفظ...') : t("I've paid my share — confirm", 'قمت بدفع حصتي — تأكيد')}
-              </button>
+              <>
+                <p className="pay-invite-payment-options-label">{t('Choose how to pay your share', 'اختر طريقة دفع حصتك', language)}</p>
+                <div className="pay-invite-payment-options">
+                  <button type="button" className="pay-invite-btn pay-invite-btn-at-club" onClick={handleMarkPaid} disabled={markingPaid}>
+                    {markingPaid ? t('Saving...', 'جاري الحفظ...') : t('Pay at club', 'الدفع في النادي', language)}
+                  </button>
+                  <span className="pay-invite-option-hint">{t('Cash or card at the club', 'كاش أو بطاقة في النادي', language)}</span>
+                  <Link to={`/pay-share/${token}`} className="pay-invite-btn pay-invite-btn-electronic">
+                    {t('Pay electronically', 'الدفع الإلكتروني', language)}
+                  </Link>
+                  <span className="pay-invite-option-hint">{t('Card or Mada online', 'بطاقة أو متاب أونلاين', language)}</span>
+                </div>
+              </>
             )}
             {markedPaid && (
               <div className="pay-invite-success">

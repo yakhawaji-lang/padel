@@ -177,6 +177,48 @@
   cursor: wait;
 }
 
+.pay-invite-payment-options-label {
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 12px;
+  font-size: 0.9375rem;
+}
+
+.pay-invite-payment-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.pay-invite-btn-at-club {
+  background: #059669;
+  color: #fff;
+}
+
+.pay-invite-btn-at-club:hover:not(:disabled) {
+  background: #047857;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35);
+}
+
+.pay-invite-btn-electronic {
+  background: #1e3a5f;
+  color: #fff;
+}
+
+.pay-invite-btn-electronic:hover {
+  background: #152a47;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(30, 58, 95, 0.3);
+}
+
+.pay-invite-option-hint {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin: -4px 0 4px;
+}
+
 .pay-invite-hint {
   font-size: 0.8125rem;
   color: #64748b;

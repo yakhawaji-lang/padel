@@ -34,6 +34,7 @@ const MyBookingsPage = () => {
   const [cancelling, setCancelling] = useState(null)
   const [markingPayAtClub, setMarkingPayAtClub] = useState(null)
   const [detailRow, setDetailRow] = useState(null)
+  const [payMenuOpen, setPayMenuOpen] = useState(null)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -48,6 +49,16 @@ const MyBookingsPage = () => {
       return
     }
   }, [navigate, location.pathname, location.search])
+
+  useEffect(() => {
+    const closePayMenu = (e) => {
+      if (payMenuOpen && !e.target.closest('.my-bookings-pay-dropdown, .my-bookings-card-pay-wrap')) {
+        setPayMenuOpen(null)
+      }
+    }
+    document.addEventListener('click', closePayMenu)
+    return () => document.removeEventListener('click', closePayMenu)
+  }, [payMenuOpen])
 
   useEffect(() => {
     if (!member?.id) return
@@ -85,6 +96,23 @@ const MyBookingsPage = () => {
       })
     } catch {
       return dateStr
+    }
+  }
+
+  const handleRecordPayment = async (clubId, inviteToken) => {
+    if (!inviteToken || !clubId) return
+    setMarkingPayAtClub(`share-${inviteToken}`)
+    try {
+      await bookingApi.recordPayment({ inviteToken, clubId })
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      await refreshClubsFromApi()
+      loadClubs()
+      setBookings(getMemberBookings(member.id))
+      setPayMenuOpen(null)
+    } catch (e) {
+      console.error('recordPayment failed:', e)
+    } finally {
+      setMarkingPayAtClub(null)
     }
   }
 
@@ -170,7 +198,11 @@ const MyBookingsPage = () => {
       paid: 'Paid',
       pending: 'Pending',
       resendInvite: 'Resend invite',
-      payAtClub: 'Pay at club (cash/card)',
+      pay: 'Pay',
+      payAtClub: 'Pay at club',
+      payAtClubHint: 'Cash or card at the club',
+      payElectronic: 'Pay electronically',
+      payElectronicHint: 'Card or Mada online',
       payAtClubConfirm: "I'll pay at club",
       payNow: 'Pay now',
       loading: 'Loading…',
@@ -198,7 +230,11 @@ const MyBookingsPage = () => {
       paid: 'دفع',
       pending: 'قيد الانتظار',
       resendInvite: 'إعادة إرسال الدعوة',
-      payAtClub: 'الدفع في النادي (كاش أو كارد)',
+      pay: 'دفع',
+      payAtClub: 'الدفع في النادي',
+      payAtClubHint: 'كاش أو بطاقة في النادي',
+      payElectronic: 'الدفع الإلكتروني',
+      payElectronicHint: 'بطاقة أو متاب أونلاين',
       payAtClubConfirm: 'سأدفع في النادي',
       payNow: 'ادفع الآن',
       loading: 'جاري التحميل…',
@@ -219,11 +255,26 @@ const MyBookingsPage = () => {
     )
   }
 
+  const getPayOptions = (booking, club) => {
+    const memberIdStr = String(member?.id || '')
+    const isInitiator = String(booking.memberId || booking.initiatorMemberId || '') === memberIdStr
+    const userShare = Array.isArray(booking.paymentShares) && booking.paymentShares.find(s => String(s.memberId || '') === memberIdStr)
+    const inviteToken = userShare?.inviteToken
+    if (inviteToken && club?.id) {
+      return { type: 'share', inviteToken, clubId: club.id }
+    }
+    if (isInitiator && club?.id) {
+      return { type: 'initiator', bookingId: booking.id, clubId: club.id }
+    }
+    return null
+  }
+
   const renderBookingRow = ({ booking, club }, i) => {
     const { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink } = getBookingDisplayProps({ booking, club }, language)
     const priceText = priceVal != null ? `${Number(priceVal)} ${currencyStr}` : '—'
     const isUpcoming = filter === 'upcoming'
     const canCancel = isUpcoming && club && !['cancelled', 'expired'].includes((booking.status || '').toString())
+    const payOptions = getPayOptions(booking, club)
 
     return {
       key: `${club?.id}-${booking.id}-${i}`,
@@ -239,7 +290,8 @@ const MyBookingsPage = () => {
       getStatusClass,
       canCancel,
       isUpcoming,
-      formatDate
+      formatDate,
+      payOptions
     }
   }
 
@@ -351,17 +403,61 @@ const MyBookingsPage = () => {
                               </Link>
                             </div>
                           )}
-                          {['pending_payments', 'partially_paid'].includes((r.booking.status || '').toString()) && filter === 'upcoming' && (
-                            <div className="my-bookings-pay-at-club-wrap">
-                              <button
-                                type="button"
-                                className="my-bookings-pay-at-club-btn"
-                                onClick={() => handleMarkPayAtClub(r.club?.id, r.booking.id)}
-                                disabled={markingPayAtClub === r.booking.id}
-                              >
-                                {markingPayAtClub === r.booking.id ? '…' : c.payAtClubConfirm}
-                              </button>
-                              <span className="my-bookings-pay-at-club-hint">{c.payAtClub}</span>
+                          {['pending_payments', 'partially_paid'].includes((r.booking.status || '').toString()) && filter === 'upcoming' && r.payOptions && (
+                            <div className="my-bookings-pay-wrap">
+                              <div className="my-bookings-pay-dropdown">
+                                <button
+                                  type="button"
+                                  className="my-bookings-pay-btn"
+                                  onClick={() => setPayMenuOpen(payMenuOpen === r.key ? null : r.key)}
+                                  disabled={!!markingPayAtClub}
+                                  aria-expanded={payMenuOpen === r.key}
+                                  aria-haspopup="true"
+                                >
+                                  {c.pay}
+                                </button>
+                                {payMenuOpen === r.key && (
+                                  <div className="my-bookings-pay-menu">
+                                    {r.payOptions.type === 'share' ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          className="my-bookings-pay-menu-item"
+                                          onClick={() => { handleRecordPayment(r.payOptions.clubId, r.payOptions.inviteToken); setPayMenuOpen(null) }}
+                                          disabled={markingPayAtClub}
+                                        >
+                                          {c.payAtClub}
+                                        </button>
+                                        <Link
+                                          to={`/pay-share/${r.payOptions.inviteToken}`}
+                                          className="my-bookings-pay-menu-item my-bookings-pay-menu-link"
+                                          onClick={() => setPayMenuOpen(null)}
+                                        >
+                                          {c.payElectronic}
+                                        </Link>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <button
+                                          type="button"
+                                          className="my-bookings-pay-menu-item"
+                                          onClick={() => { handleMarkPayAtClub(r.payOptions.clubId, r.payOptions.bookingId); setPayMenuOpen(null) }}
+                                          disabled={markingPayAtClub === r.booking.id}
+                                        >
+                                          {markingPayAtClub === r.booking.id ? '…' : c.payAtClub}
+                                        </button>
+                                        <Link
+                                          to={`/pay/${r.booking.id}?method=credit_card`}
+                                          className="my-bookings-pay-menu-item my-bookings-pay-menu-link"
+                                          onClick={() => setPayMenuOpen(null)}
+                                        >
+                                          {c.payElectronic}
+                                        </Link>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                           {Array.isArray(r.booking.paymentShares) && r.booking.paymentShares.length > 0 && (
@@ -466,16 +562,49 @@ const MyBookingsPage = () => {
                       </Link>
                     </div>
                   )}
-                  {['pending_payments', 'partially_paid'].includes((r.booking.status || '').toString()) && filter === 'upcoming' && (
-                    <div className="my-bookings-card-pay-wrap">
+                  {['pending_payments', 'partially_paid'].includes((r.booking.status || '').toString()) && filter === 'upcoming' && r.payOptions && (
+                    <div className="my-bookings-card-pay-wrap" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
-                        className="my-bookings-pay-at-club-btn"
-                        onClick={(e) => { e.stopPropagation(); handleMarkPayAtClub(r.club?.id, r.booking.id) }}
-                        disabled={markingPayAtClub === r.booking.id}
+                        className="my-bookings-pay-btn"
+                        onClick={() => setPayMenuOpen(payMenuOpen === r.key ? null : r.key)}
+                        disabled={!!markingPayAtClub}
                       >
-                        {markingPayAtClub === r.booking.id ? '…' : c.payAtClubConfirm}
+                        {c.pay}
                       </button>
+                      {payMenuOpen === r.key && (
+                        <div className="my-bookings-card-pay-menu">
+                          {r.payOptions.type === 'share' ? (
+                            <>
+                              <button
+                                type="button"
+                                className="my-bookings-pay-menu-item"
+                                onClick={() => { handleRecordPayment(r.payOptions.clubId, r.payOptions.inviteToken); setPayMenuOpen(null) }}
+                                disabled={!!markingPayAtClub}
+                              >
+                                {c.payAtClub}
+                              </button>
+                              <Link to={`/pay-share/${r.payOptions.inviteToken}`} className="my-bookings-pay-menu-item my-bookings-pay-menu-link" onClick={() => setPayMenuOpen(null)}>
+                                {c.payElectronic}
+                              </Link>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                className="my-bookings-pay-menu-item"
+                                onClick={() => { handleMarkPayAtClub(r.payOptions.clubId, r.payOptions.bookingId); setPayMenuOpen(null) }}
+                                disabled={markingPayAtClub === r.booking.id}
+                              >
+                                {markingPayAtClub === r.booking.id ? '…' : c.payAtClub}
+                              </button>
+                              <Link to={`/pay/${r.booking.id}?method=credit_card`} className="my-bookings-pay-menu-item my-bookings-pay-menu-link" onClick={() => setPayMenuOpen(null)}>
+                                {c.payElectronic}
+                              </Link>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                   {r.isUpcoming && r.club && (

@@ -29,6 +29,7 @@ function buildWhatsAppMapMessage(clubName, mapUrl, language) {
 export default function BookingDetailModal({ booking, club, platformUser, language, onClose, onUpdated }) {
   const [markingPayAtClub, setMarkingPayAtClub] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [payMenuOpen, setPayMenuOpen] = useState(false)
 
   const dateStr = booking?.dateStr || booking?.date || (booking?.startDate || '').toString().split('T')[0]
   const startTime = booking?.startTime || booking?.timeSlot || ''
@@ -38,6 +39,8 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
   const status = (booking?.status || 'confirmed').toString()
   const isInitiator = platformUser && String(booking?.memberId || booking?.initiatorMemberId) === String(platformUser.id)
   const paymentShares = Array.isArray(booking?.paymentShares) ? booking.paymentShares : []
+  const userShare = platformUser && paymentShares.find(s => String(s.memberId || '') === String(platformUser.id))
+  const inviteToken = userShare?.inviteToken
   const hasShares = paymentShares.length > 0
   const paidCount = paymentShares.filter(s => s.paidAt).length
   const pendingCount = paymentShares.length - paidCount
@@ -61,6 +64,21 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       setMarkingPayAtClub(false)
     }
   }, [club?.id, booking?.id, onClose, onUpdated])
+
+  const handleRecordPayment = useCallback(async () => {
+    if (!inviteToken || !club?.id) return
+    setMarkingPayAtClub(true)
+    try {
+      await bookingApi.recordPayment({ inviteToken, clubId: club.id })
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      onUpdated?.()
+      onClose?.()
+    } catch (e) {
+      console.error('recordPayment failed:', e)
+    } finally {
+      setMarkingPayAtClub(false)
+    }
+  }, [inviteToken, club?.id, onClose, onUpdated])
 
   const handleCopyLink = useCallback(() => {
     const url = window.location.href
@@ -86,7 +104,9 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       shareWithUnregistered: 'Send to unregistered',
       sendMap: 'Send map link',
       trackPayment: 'Payment progress',
+      payNow: 'Pay now',
       payAtClub: 'Pay at club',
+      payElectronic: 'Pay electronically',
       goToClub: 'View club',
       paid: 'Paid',
       pending: 'Pending',
@@ -105,7 +125,9 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       shareWithUnregistered: 'إرسال لغير مسجل',
       sendMap: 'إرسال رابط الخريطة',
       trackPayment: 'متابعة الدفع',
+      payNow: 'الدفع الآن',
       payAtClub: 'الدفع في النادي',
+      payElectronic: 'الدفع الإلكتروني',
       goToClub: 'عرض النادي',
       paid: 'مدفوع',
       pending: 'قيد الانتظار',
@@ -141,11 +163,41 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
               </Link>
             )}
 
-            {isInitiator && needsPayment && (
-              <button type="button" className="booking-detail-action" onClick={handleMarkPayAtClub} disabled={markingPayAtClub}>
-                <span className="booking-detail-action-icon">✓</span>
-                <span>{markingPayAtClub ? '…' : c.payAtClub}</span>
-              </button>
+            {(isInitiator || inviteToken) && needsPayment && (
+              <div className="booking-detail-pay-now-wrap">
+                <button
+                  type="button"
+                  className="booking-detail-action"
+                  onClick={() => setPayMenuOpen(!payMenuOpen)}
+                  disabled={markingPayAtClub}
+                >
+                  <span className="booking-detail-action-icon">✓</span>
+                  <span>{markingPayAtClub ? '…' : c.payNow}</span>
+                </button>
+                {payMenuOpen && (
+                  <div className="booking-detail-pay-options">
+                    {inviteToken ? (
+                      <>
+                        <button type="button" className="booking-detail-pay-opt" onClick={handleRecordPayment} disabled={markingPayAtClub}>
+                          {c.payAtClub}
+                        </button>
+                        <Link to={`/pay-share/${inviteToken}`} className="booking-detail-pay-opt booking-detail-pay-opt-link" onClick={onClose}>
+                          {c.payElectronic}
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <button type="button" className="booking-detail-pay-opt" onClick={handleMarkPayAtClub} disabled={markingPayAtClub}>
+                          {c.payAtClub}
+                        </button>
+                        <Link to={`/pay/${booking.id}?method=credit_card`} className="booking-detail-pay-opt booking-detail-pay-opt-link" onClick={onClose}>
+                          {c.payElectronic}
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
 
             <button type="button" className="booking-detail-action" onClick={handleCopyLink}>
