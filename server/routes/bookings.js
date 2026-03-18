@@ -189,11 +189,11 @@ router.post('/confirm', async (req, res) => {
 
     const participantsSum = (paymentShares || []).reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
     const bookerAmount = Math.max(0, (totalAmount || 0) - participantsSum)
-    if (hasShares && bookerAmount > 0 && initiatorPaymentMethod) {
+    if (hasShares && bookerAmount > 0) {
       await query(
         `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, amount, payment_method)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [bid, clubId, 'registered', memberId, memberName, bookerAmount, initiatorPaymentMethod]
+        [bid, clubId, 'registered', memberId, memberName, bookerAmount, initiatorPaymentMethod || null]
       )
     }
     for (const s of paymentShares || []) {

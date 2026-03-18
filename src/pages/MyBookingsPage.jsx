@@ -657,10 +657,15 @@ const MyBookingsPage = () => {
             language={language}
             onClose={() => setDetailRow(null)}
             onUpdated={async () => {
-              setDetailRow(null)
               await refreshClubsFromApi()
               loadClubs()
-              setBookings(getMemberBookings(member.id))
+              const updated = getMemberBookings(member.id)
+              setBookings(updated)
+              const bid = detailRow?.booking?.id
+              if (bid) {
+                const row = updated.find(r => String(r.booking?.id) === String(bid))
+                if (row) setDetailRow(row)
+              }
             }}
           />
         )}

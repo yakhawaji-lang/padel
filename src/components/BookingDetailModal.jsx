@@ -103,8 +103,7 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       }
       await bookingApi.recordPayment({ inviteToken: token, clubId: club.id, paymentMethod: 'at_club' })
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
-      onUpdated?.()
-      onClose?.()
+      await onUpdated?.()
     } catch (e) {
       console.error('recordPayment failed:', e)
     } finally {
@@ -144,6 +143,7 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       goToClub: 'View club',
       paid: 'Paid',
       pending: 'Pending',
+      waitingConfirm: 'Waiting for club confirmation',
       participants: 'Participants',
       addShare: 'Add participant',
       close: 'Close',
@@ -167,6 +167,7 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       goToClub: 'عرض النادي',
       paid: 'مدفوع',
       pending: 'قيد الانتظار',
+      waitingConfirm: 'بانتظار التأكيد من النادي',
       participants: 'المشاركون',
       addShare: 'إضافة مشارك',
       close: 'إغلاق',
@@ -277,7 +278,9 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
                     return (
                       <div key={s.id || idx} className="booking-detail-share-row">
                         <span>{s.memberName || s.phone || '—'}</span>
-                        <span className={s.paidAt ? 'paid' : ''}>{s.paidAt ? '✓' : '○'}</span>
+                        <span className={`booking-detail-share-status ${s.paidAt ? 'paid' : ''}`}>
+                          {s.paidAt ? '✓ ' + c.paid : s.paymentMethod === 'at_club' ? '◐ ' + c.waitingConfirm : '○ ' + c.pending}
+                        </span>
                         {isMyShare && !s.paidAt && needsPayment && (
                           <button
                             type="button"

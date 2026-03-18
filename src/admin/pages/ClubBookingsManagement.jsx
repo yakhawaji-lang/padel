@@ -242,6 +242,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       amount: 'Amount',
       paid: 'Paid',
       payAtClub: 'Pay at club',
+      waitingClubConfirm: 'Waiting for club confirmation',
       booker: 'Booker',
       pending: 'Pending',
       clickToExpand: 'Click to view payment details'
@@ -280,6 +281,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       amount: 'المبلغ',
       paid: 'مدفوع',
       payAtClub: 'سيدفع في النادي',
+      waitingClubConfirm: 'بانتظار التأكيد من النادي',
       booker: 'الحاجز',
       pending: 'قيد الانتظار',
       clickToExpand: 'انقر لعرض تفاصيل الدفع'
@@ -481,7 +483,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                                 <span className="status-badge status-paid">✓ {c.paid}</span>
                                               )
                                             ) : s.paymentMethod === 'at_club' ? (
-                                              <span className="status-badge status-pay-at-club">{c.payAtClub}</span>
+                                              <span className="status-badge status-pay-at-club">{c.waitingClubConfirm}</span>
                                             ) : s.paymentMethod ? (
                                               <span className="status-badge status-booker-method">{getPaymentMethodLabel(s.paymentMethod)}</span>
                                             ) : (
@@ -518,7 +520,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                             </div>
                                           )
                                         )}
-                                        {participantShares.map((s, idx) => renderShareRow(s, idx, false))}
+                                        {participantShares.map((s, idx) => renderShareRow(s, idx, String(s.memberId || '') === bookerId))}
                                       </>
                                     )
                                   })()}
