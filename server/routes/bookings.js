@@ -519,7 +519,7 @@ router.get('/invite/:token', async (req, res) => {
     const { token } = req.params
     if (!token) return res.status(400).json({ error: 'Token required' })
     const { rows } = await query(
-      `SELECT bps.id, bps.booking_id, bps.club_id, bps.participant_type, bps.member_id, bps.member_name, bps.phone, bps.amount, bps.invite_token,
+      `SELECT bps.id, bps.booking_id, bps.club_id, bps.participant_type, bps.member_id, bps.member_name, bps.phone, bps.amount, bps.invite_token, bps.paid_at, bps.payment_method,
               cb.court_id, cb.booking_date, cb.start_time, cb.end_time, cb.status AS booking_status, cb.total_amount
        FROM booking_payment_shares bps
        JOIN club_bookings cb ON cb.id = bps.booking_id AND cb.club_id = bps.club_id AND cb.deleted_at IS NULL
@@ -537,6 +537,8 @@ router.get('/invite/:token', async (req, res) => {
       memberName: r.member_name,
       phone: r.phone,
       amount: parseFloat(r.amount) || 0,
+      paidAt: r.paid_at || undefined,
+      paymentMethod: r.payment_method || undefined,
       courtId: r.court_id,
       bookingDate: r.booking_date ? String(r.booking_date).split('T')[0] : null,
       startTime: r.start_time,

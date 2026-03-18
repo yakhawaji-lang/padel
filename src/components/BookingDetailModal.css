@@ -190,6 +190,14 @@
   border-color: #bbf7d0;
 }
 
+.booking-detail-pay-opt-chosen,
+.booking-detail-pay-opt.booking-detail-pay-opt-chosen:disabled {
+  background: #f0fdf4;
+  border-color: #86efac;
+  cursor: default;
+  opacity: 1;
+}
+
 .booking-detail-pay-opt-link {
   display: flex;
   align-items: center;

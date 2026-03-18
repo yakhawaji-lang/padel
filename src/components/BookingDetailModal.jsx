@@ -54,6 +54,7 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
   const [fetchedInviteToken, setFetchedInviteToken] = useState(null)
   const inviteToken = userShare?.inviteToken || fetchedInviteToken
   const isParticipantWithShare = !!userShare && !userShare.paidAt
+  const chosePayAtClub = userShare && userShare.paymentMethod === 'at_club' && !userShare.paidAt
 
   useEffect(() => {
     if (!isParticipantWithShare || userShare?.inviteToken || !club?.id || !booking?.id || !platformUser?.id) return
@@ -137,7 +138,9 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       trackPayment: 'Payment progress',
       payNow: 'Pay now',
       payAtClub: 'Pay at club',
+      payAtClubChosen: 'Chosen — pay at club',
       payElectronic: 'Pay electronically',
+      switchToElectronic: 'Switch to electronic payment',
       goToClub: 'View club',
       paid: 'Paid',
       pending: 'Pending',
@@ -158,7 +161,9 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       trackPayment: 'متابعة الدفع',
       payNow: 'الدفع الآن',
       payAtClub: 'الدفع في النادي',
+      payAtClubChosen: 'اخترتها — سأدفع في النادي',
       payElectronic: 'الدفع الإلكتروني',
+      switchToElectronic: 'التبديل إلى الدفع الإلكتروني',
       goToClub: 'عرض النادي',
       paid: 'مدفوع',
       pending: 'قيد الانتظار',
@@ -194,7 +199,7 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
               </Link>
             )}
 
-            {(isInitiator || isParticipantWithShare) && needsPayment && (
+            {(isInitiator || isParticipantWithShare) && needsPayment && !userShare?.paidAt && (
               <div className="booking-detail-pay-now-wrap">
                 <button
                   type="button"
@@ -210,9 +215,14 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
                   <div className="booking-detail-pay-options">
                     {(inviteToken || isParticipantWithShare) ? (
                       <>
-                        <button type="button" className="booking-detail-pay-opt" onClick={handleRecordPayment} disabled={markingPayAtClub}>
+                        <button
+                          type="button"
+                          className={`booking-detail-pay-opt ${chosePayAtClub ? 'booking-detail-pay-opt-chosen' : ''}`}
+                          onClick={handleRecordPayment}
+                          disabled={markingPayAtClub || chosePayAtClub}
+                        >
                           <span className="booking-detail-pay-opt-icon">🏢</span>
-                          {c.payAtClub}
+                          {chosePayAtClub ? c.payAtClubChosen : c.payAtClub}
                         </button>
                         <Link
                           to={inviteToken ? `/pay-share/${inviteToken}` : `/pay-share/booking/${booking.id}?clubId=${club.id}`}
@@ -220,7 +230,7 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
                           onClick={onClose}
                         >
                           <span className="booking-detail-pay-opt-icon">💳</span>
-                          {c.payElectronic}
+                          {chosePayAtClub ? c.switchToElectronic : c.payElectronic}
                         </Link>
                       </>
                     ) : (

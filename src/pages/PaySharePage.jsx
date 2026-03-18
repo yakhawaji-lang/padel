@@ -98,6 +98,8 @@ const PaySharePage = () => {
     loginRequired: t('Please log in to pay.', 'يرجى تسجيل الدخول للدفع.', language),
     payNow: t('Pay now', 'ادفع الآن', language),
     processing: t('Processing...', 'جاري المعالجة...', language),
+    chosenPayAtClub: t('Chosen — pay at club', 'اخترتها — سأدفع في النادي', language),
+    switchToElectronic: t('Switch to electronic payment', 'التبديل إلى الدفع الإلكتروني', language),
   }
 
   if (loading) {
@@ -151,6 +153,9 @@ const PaySharePage = () => {
 
   const amountStr = `${parseFloat(data?.amount || 0).toFixed(2)} ${t('SAR', 'ر.س')}`
   const isPending = data?.bookingStatus === 'pending_payments' || data?.bookingStatus === 'partially_paid'
+  const paidAt = data?.paidAt
+  const paymentMethod = data?.paymentMethod
+  const chosePayAtClub = paymentMethod === 'at_club' && !paidAt
 
   if (!isPending) {
     return (
@@ -188,13 +193,14 @@ const PaySharePage = () => {
         <div className="payment-share-options">
           <button
             type="button"
-            className="payment-share-option"
+            className={`payment-share-option ${chosePayAtClub ? 'payment-share-option-chosen' : ''}`}
             onClick={handlePayAtClub}
-            disabled={submitting}
+            disabled={submitting || chosePayAtClub}
+            title={chosePayAtClub ? c.chosenPayAtClub : undefined}
           >
             <span className="payment-share-option-icon">🏢</span>
-            <span className="payment-share-option-title">{c.payAtClub}</span>
-            <span className="payment-share-option-desc">{c.payAtClubDesc}</span>
+            <span className="payment-share-option-title">{chosePayAtClub ? c.chosenPayAtClub : c.payAtClub}</span>
+            <span className="payment-share-option-desc">{chosePayAtClub ? (language === 'ar' ? 'لا يمكن تغييرها إلا بالدفع الإلكتروني' : 'Cannot change except via electronic payment') : c.payAtClubDesc}</span>
           </button>
 
           <button
@@ -204,7 +210,7 @@ const PaySharePage = () => {
             disabled={submitting}
           >
             <span className="payment-share-option-icon">💳</span>
-            <span className="payment-share-option-title">{c.payElectronic}</span>
+            <span className="payment-share-option-title">{chosePayAtClub ? c.switchToElectronic : c.payElectronic}</span>
             <span className="payment-share-option-desc">{c.payElectronicDesc}</span>
           </button>
         </div>

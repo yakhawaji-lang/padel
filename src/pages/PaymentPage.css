@@ -279,6 +279,14 @@
   transform: none;
 }
 
+.payment-share-option-chosen,
+.payment-share-option.payment-share-option-chosen:disabled {
+  background: #f0fdf4;
+  border-color: #86efac;
+  cursor: default;
+  opacity: 1;
+}
+
 .payment-share-option-icon {
   font-size: 1.75rem;
   margin-bottom: 12px;
