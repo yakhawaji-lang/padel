@@ -941,15 +941,31 @@ export async function saveClubsToNormalized(items, actor = {}) {
       }
       const shares = Array.isArray(b.paymentShares) ? b.paymentShares : []
       try {
-        const { rows: existingShares } = await query(
-          'SELECT id, participant_type, member_id, phone, invite_token, whatsapp_link FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
-          [bid, cid]
-        )
-        const tokenByKey = {}
+        let existingShares = []
+        try {
+          const res = await query(
+            `SELECT id, participant_type, member_id, phone, invite_token, whatsapp_link, payment_method, paid_at, payment_reference
+             FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
+            [bid, cid]
+          )
+          existingShares = res?.rows || []
+        } catch (_) {
+          const res = await query(
+            'SELECT id, participant_type, member_id, phone, invite_token, whatsapp_link FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
+            [bid, cid]
+          )
+          existingShares = res?.rows || []
+        }
+        const preservedByKey = {}
         for (const r of existingShares || []) {
-          if (!r.invite_token) continue
           const key = r.participant_type === 'unregistered' ? `u:${(r.phone || '').trim()}` : `r:${(r.member_id || '').trim()}`
-          tokenByKey[key] = { token: r.invite_token, wa: r.whatsapp_link }
+          preservedByKey[key] = {
+            token: r.invite_token,
+            wa: r.whatsapp_link,
+            paymentMethod: r.payment_method,
+            paidAt: r.paid_at,
+            paymentReference: r.payment_reference
+          }
         }
         await query('DELETE FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?', [bid, cid])
         for (const s of shares) {
@@ -959,14 +975,27 @@ export async function saveClubsToNormalized(items, actor = {}) {
           const ph = ptype === 'unregistered' ? (s.phone || null) : null
           const amt = parseFloat(s.amount) || 0
           const key = ptype === 'unregistered' ? `u:${(ph || '').trim()}` : `r:${(mid || '').trim()}`
-          const preserved = tokenByKey[key]
-          const token = s.inviteToken || preserved?.token || null
-          const wa = s.whatsappLink || preserved?.wa || (ptype === 'unregistered' ? null : null)
-          await query(
-            `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [bid, cid, ptype, mid, mname, ph, amt, wa, token]
-          )
+          const preserved = preservedByKey[key] || {}
+          const token = s.inviteToken || preserved.token || null
+          const wa = s.whatsappLink || preserved.wa || (ptype === 'unregistered' ? null : null)
+          const pm = preserved.paymentMethod || s.paymentMethod || null
+          const paidAt = preserved.paidAt || s.paidAt || null
+          const paymentRef = preserved.paymentReference || s.paymentReference || null
+          try {
+            await query(
+              `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, payment_method, paid_at, payment_reference)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [bid, cid, ptype, mid, mname, ph, amt, wa, token, pm, paidAt, paymentRef]
+            )
+          } catch (insErr) {
+            if (/Unknown column 'payment_method'|Unknown column 'paid_at'/.test(insErr?.message || '')) {
+              await query(
+                `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [bid, cid, ptype, mid, mname, ph, amt, wa, token]
+              )
+            } else throw insErr
+          }
         }
       } catch (bpsErr) {
         console.warn('booking_payment_shares: run migration add-booking-payment-shares-table.sql if table missing:', bpsErr?.message)
