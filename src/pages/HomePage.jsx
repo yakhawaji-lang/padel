@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import LanguageIcon from '../components/LanguageIcon'
 import { loadClubs } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import { getStore, getImageUrl } from '../api/dbClient'
 import { getCurrentPlatformUser, logoutPlatformUser } from '../storage/platformAuth'
+import { getClubAdminSession, clearClubAdminSession } from '../storage/clubAuth'
 import './HomePage.css'
 
 const getClubTournamentStats = (club) => {
@@ -38,12 +39,14 @@ const getClubBookingsCount = (club) => {
 
 const HomePage = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const [clubs, setClubs] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [language, setLanguage] = useState(getAppLanguage())
   const [navOpen, setNavOpen] = useState(false)
   const [bannerPhrase, setBannerPhrase] = useState({ ar: '', en: '' })
   const [platformUser, setPlatformUser] = useState(null)
+  const [clubAdminSession, setClubAdminSession] = useState(null)
 
   useEffect(() => {
     const load = () => setClubs(loadClubs())
@@ -62,6 +65,11 @@ const HomePage = () => {
       window.removeEventListener('member-logged-out', sync)
     }
   }, [])
+
+  // Sync club admin session: on mount, when navigating to homepage, and when clubs load
+  useEffect(() => {
+    setClubAdminSession(getClubAdminSession())
+  }, [clubs, location.pathname])
 
   useEffect(() => {
     getStore('homepage_banner_phrase').then((v) => {
@@ -226,7 +234,13 @@ const HomePage = () => {
         text: 'Register your club on PlayTix to manage tournaments, bookings, members and accounting professionally. Your club will be reviewed and activated by the platform admin.',
         cta: 'Register new club',
         login: 'Club Login',
-        hint: 'Use email and password to login to club dashboard after approval.'
+        hint: 'Use email and password to login to club dashboard after approval.',
+        welcome: 'Your club',
+        dashboard: 'Dashboard',
+        courts: 'Courts',
+        members: 'Members',
+        bookings: 'Upcoming bookings',
+        logout: 'Log out'
       },
       joinMembers: {
         title: 'Register as Padel Member',
@@ -338,7 +352,13 @@ const HomePage = () => {
         text: 'سجّل ناديك على PlayTix لإدارة البطولات والحجوزات والأعضاء والمحاسبة بشكل احترافي. سيتم مراجعة النادي وموافقته من إدارة المنصة.',
         cta: 'تسجيل نادي جديد',
         login: 'تسجيل دخول النادي',
-        hint: 'استخدم البريد وكلمة المرور للدخول إلى لوحة التحكم بعد الموافقة.'
+        hint: 'استخدم البريد وكلمة المرور للدخول إلى لوحة التحكم بعد الموافقة.',
+        welcome: 'ناديك',
+        dashboard: 'لوحة التحكم',
+        courts: 'ملاعب',
+        members: 'أعضاء',
+        bookings: 'حجوزات قادمة',
+        logout: 'تسجيل الخروج'
       },
       joinMembers: {
         title: 'تسجيل أعضاء بادل',
@@ -453,18 +473,94 @@ const HomePage = () => {
           <div className="section-inner">
             <div className="join-cards">
               <div className="join-card join-card-clubs">
-                <div className="join-card-icon">🏢</div>
-                <h3 className="join-card-title">{c.joinClubs.title}</h3>
-                <p className="join-card-text">{c.joinClubs.text}</p>
-                <p className="join-card-hint">{c.joinClubs.hint}</p>
-                <div className="join-card-btns">
-                  <Link to="/register-club" className="join-card-cta btn-primary">
-                    {c.joinClubs.cta}
-                  </Link>
-                  <Link to="/club-login" className="join-card-cta btn-outline">
-                    {c.joinClubs.login}
-                  </Link>
-                </div>
+                {clubAdminSession ? (() => {
+                  const adminClub = approvedClubs.find(club => String(club.id) === String(clubAdminSession.clubId))
+                  if (!adminClub) {
+                    return (
+                      <>
+                        <div className="join-card-icon">🏢</div>
+                        <h3 className="join-card-title">{c.joinClubs.title}</h3>
+                        <p className="join-card-text">{language === 'ar' ? 'جاري تحميل بيانات النادي...' : 'Loading club data...'}</p>
+                        <div className="join-card-btns">
+                          <Link to={`/admin/club/${clubAdminSession.clubId}`} className="join-card-cta btn-primary">
+                            {c.joinClubs.dashboard}
+                          </Link>
+                          <button type="button" className="join-card-cta btn-outline" onClick={async () => { await clearClubAdminSession(); setClubAdminSession(null) }}>
+                            {c.joinClubs.logout}
+                          </button>
+                        </div>
+                      </>
+                    )
+                  }
+                  const clubName = language === 'ar' && adminClub.nameAr ? adminClub.nameAr : adminClub.name
+                  const courts = adminClub.courts?.filter(c => !c.maintenance).length || 0
+                  const members = adminClub.members?.length || 0
+                  const { upcoming } = getClubBookingsCount(adminClub)
+                  return (
+                    <>
+                      <div className="club-card-header">
+                        {adminClub.logo ? (
+                          <img src={getImageUrl(adminClub.logo)} alt="" className="club-card-avatar" />
+                        ) : (
+                          <div className="club-card-avatar club-card-avatar-placeholder">🏢</div>
+                        )}
+                        <div className="club-card-info">
+                          <p className="club-card-welcome">{c.joinClubs.welcome}</p>
+                          <h3 className="club-card-title">{clubName}</h3>
+                          {clubAdminSession.email && (
+                            <p className="club-card-contact">{clubAdminSession.email}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="club-card-stats">
+                        <div className="club-stat-item">
+                          <span className="club-stat-value">{courts}</span>
+                          <span className="club-stat-label">{c.joinClubs.courts}</span>
+                        </div>
+                        <div className="club-stat-item">
+                          <span className="club-stat-value">{members}</span>
+                          <span className="club-stat-label">{c.joinClubs.members}</span>
+                        </div>
+                        <div className="club-stat-item">
+                          <span className="club-stat-value">{upcoming}</span>
+                          <span className="club-stat-label">{c.joinClubs.bookings}</span>
+                        </div>
+                      </div>
+                      <div className="club-card-actions">
+                        <Link to={`/admin/club/${adminClub.id}`} className="club-action-btn club-action-primary">
+                          <span className="club-action-icon">📊</span>
+                          {c.joinClubs.dashboard}
+                        </Link>
+                        <Link to={`/clubs/${adminClub.id}`} className="club-action-btn club-action-secondary">
+                          <span className="club-action-icon">🌐</span>
+                          {language === 'en' ? 'Public page' : 'الصفحة العامة'}
+                        </Link>
+                      </div>
+                      <button
+                        type="button"
+                        className="club-logout-btn"
+                        onClick={async () => { await clearClubAdminSession(); setClubAdminSession(null) }}
+                      >
+                        {c.joinClubs.logout}
+                      </button>
+                    </>
+                  )
+                })() : (
+                  <>
+                    <div className="join-card-icon">🏢</div>
+                    <h3 className="join-card-title">{c.joinClubs.title}</h3>
+                    <p className="join-card-text">{c.joinClubs.text}</p>
+                    <p className="join-card-hint">{c.joinClubs.hint}</p>
+                    <div className="join-card-btns">
+                      <Link to="/register-club" className="join-card-cta btn-primary">
+                        {c.joinClubs.cta}
+                      </Link>
+                      <Link to="/club-login" className="join-card-cta btn-outline">
+                        {c.joinClubs.login}
+                      </Link>
+                    </div>
+                  </>
+                )}
               </div>
               <div className="join-card join-card-members">
                 {platformUser ? (

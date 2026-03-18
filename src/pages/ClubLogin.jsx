@@ -52,7 +52,8 @@ const ClubLogin = () => {
         clubId: sessionInfo.clubId,
         userId: sessionInfo.userId,
         isOwner: sessionInfo.isOwner,
-        permissions: sessionInfo.permissions
+        permissions: sessionInfo.permissions,
+        email: email.trim() || undefined
       })
       navigate(`/admin/club/${sessionInfo.clubId}/dashboard`, { replace: true })
     } else {
