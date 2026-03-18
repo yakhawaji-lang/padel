@@ -477,10 +477,10 @@ export async function joinClub(clubId, memberId) {
 }
 
 // ---- Record payment ----
-export async function recordPayment({ shareId, inviteToken, clubId, paymentReference }) {
+export async function recordPayment({ shareId, inviteToken, clubId, paymentReference, paymentMethod }) {
   return fetchJson('/api/bookings/record-payment', {
     method: 'POST',
-    body: JSON.stringify({ shareId, inviteToken, clubId, paymentReference })
+    body: JSON.stringify({ shareId, inviteToken, clubId, paymentReference, paymentMethod })
   })
 }
 

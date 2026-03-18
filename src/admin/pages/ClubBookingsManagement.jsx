@@ -224,6 +224,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       participant: 'Participant',
       amount: 'Amount',
       paid: 'Paid',
+      payAtClub: 'Pay at club',
       pending: 'Pending',
       clickToExpand: 'Click to view payment details'
     },
@@ -260,6 +261,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       participant: 'المشارك',
       amount: 'المبلغ',
       paid: 'مدفوع',
+      payAtClub: 'سيدفع في النادي',
       pending: 'قيد الانتظار',
       clickToExpand: 'انقر لعرض تفاصيل الدفع'
     }
@@ -443,7 +445,11 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                       <span className="booking-payment-share-amount">{parseFloat(s.amount) || 0} {currency}</span>
                                       <span className="booking-payment-share-status">
                                         {s.paidAt ? (
-                                          <span className="status-badge status-paid">✓ {c.paid}</span>
+                                          s.paymentMethod === 'at_club' ? (
+                                            <span className="status-badge status-pay-at-club">✓ {c.payAtClub}</span>
+                                          ) : (
+                                            <span className="status-badge status-paid">✓ {c.paid}</span>
+                                          )
                                         ) : (
                                           <span className="status-badge status-pending">{c.pending}</span>
                                         )}

@@ -117,7 +117,7 @@ const PayInvitePage = () => {
     if (!token || !data?.clubId) return
     setMarkingPaid(true)
     try {
-      await recordPayment({ inviteToken: token, clubId: data.clubId })
+      await recordPayment({ inviteToken: token, clubId: data.clubId, paymentMethod: 'at_club' })
       setMarkedPaid(true)
     } catch (e) {
       if (typeof window !== 'undefined' && window.alert) {

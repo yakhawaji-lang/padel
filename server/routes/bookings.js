@@ -267,10 +267,10 @@ router.post('/cancel', async (req, res) => {
   }
 })
 
-/** POST /api/bookings/record-payment - Record payment for a share (update paid_at, recalc status) */
+/** POST /api/bookings/record-payment - Record payment for a share (update paid_at, payment_method, recalc status) */
 router.post('/record-payment', async (req, res) => {
   try {
-    const { shareId, inviteToken, clubId, paymentReference } = req.body || {}
+    const { shareId, inviteToken, clubId, paymentReference, paymentMethod } = req.body || {}
     if (!clubId) return res.status(400).json({ error: 'clubId required' })
     let shareRows
     if (shareId) {
@@ -285,9 +285,10 @@ router.post('/record-payment', async (req, res) => {
     if (!shareRows?.length) return res.status(404).json({ error: 'Share not found' })
     const share = shareRows[0]
     const bid = share.booking_id
+    const pm = paymentMethod === 'at_club' ? 'at_club' : (paymentReference ? 'electronic' : null)
     await query(
-      'UPDATE booking_payment_shares SET paid_at = NOW(), payment_reference = ? WHERE id = ? AND club_id = ?',
-      [paymentReference || null, share.id, clubId]
+      'UPDATE booking_payment_shares SET paid_at = NOW(), payment_reference = ?, payment_method = ? WHERE id = ? AND club_id = ?',
+      [paymentReference || null, pm || null, share.id, clubId]
     )
     const { rows: shares } = await query(
       'SELECT amount, paid_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',

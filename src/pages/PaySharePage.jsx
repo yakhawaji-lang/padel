@@ -56,7 +56,7 @@ const PaySharePage = () => {
     setSubmitting(true)
     setError(null)
     try {
-      await recordPayment({ inviteToken: token, clubId: data.clubId })
+      await recordPayment({ inviteToken: token, clubId: data.clubId, paymentMethod: 'at_club' })
       setSuccess(true)
       setTimeout(() => navigate('/my-bookings?payment=success'), 2000)
     } catch (e) {
@@ -73,7 +73,7 @@ const PaySharePage = () => {
     setError(null)
     try {
       const paymentReference = `online_${Date.now()}`
-      await recordPayment({ inviteToken: token, clubId: data.clubId, paymentReference })
+      await recordPayment({ inviteToken: token, clubId: data.clubId, paymentReference, paymentMethod: 'electronic' })
       setSuccess(true)
       setTimeout(() => navigate('/my-bookings?payment=success'), 2000)
     } catch (e) {

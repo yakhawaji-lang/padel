@@ -67,7 +67,7 @@ export async function runMigration() {
     }
   }
 
-  const bpsCols = ['invite_token', 'paid_at', 'payment_reference']
+  const bpsCols = ['invite_token', 'paid_at', 'payment_reference', 'payment_method']
   for (const col of bpsCols) {
     if (!(await columnExists('booking_payment_shares', col))) {
       const type = col === 'paid_at' ? 'DATETIME' : 'VARCHAR(255)'

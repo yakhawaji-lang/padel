@@ -421,6 +421,10 @@
   background: #d1fae5;
   color: #065f46;
 }
+.status-badge.status-pay-at-club {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
 .status-badge.status-pending {
   background: #fef3c7;
   color: #b45309;

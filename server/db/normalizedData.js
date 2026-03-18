@@ -606,7 +606,7 @@ export async function getClubsFromNormalized() {
     query(`SELECT member_id, club_id FROM member_clubs WHERE club_id IN (${placeholders})`, clubIds),
     (async () => {
       try {
-        return await query(`SELECT id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, paid_at, payment_reference FROM booking_payment_shares WHERE club_id IN (${placeholders})`, clubIds)
+        return await query(`SELECT id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, paid_at, payment_reference, payment_method FROM booking_payment_shares WHERE club_id IN (${placeholders})`, clubIds)
       } catch (_) {
         return await query(`SELECT booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link FROM booking_payment_shares WHERE club_id IN (${placeholders})`, clubIds)
       }
@@ -647,7 +647,8 @@ export async function getClubsFromNormalized() {
       whatsappLink: r.whatsapp_link || undefined,
       inviteToken: r.invite_token || undefined,
       paidAt: r.paid_at,
-      paymentReference: r.payment_reference || undefined
+      paymentReference: r.payment_reference || undefined,
+      paymentMethod: r.payment_method || undefined
     })
   })
 

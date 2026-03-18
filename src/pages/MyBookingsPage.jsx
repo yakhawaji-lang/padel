@@ -103,7 +103,7 @@ const MyBookingsPage = () => {
     if (!inviteToken || !clubId) return
     setMarkingPayAtClub(`share-${inviteToken}`)
     try {
-      await bookingApi.recordPayment({ inviteToken, clubId })
+      await bookingApi.recordPayment({ inviteToken, clubId, paymentMethod: 'at_club' })
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
       await refreshClubsFromApi()
       loadClubs()

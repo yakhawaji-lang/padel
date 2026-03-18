@@ -100,7 +100,7 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
         }
         return
       }
-      await bookingApi.recordPayment({ inviteToken: token, clubId: club.id })
+      await bookingApi.recordPayment({ inviteToken: token, clubId: club.id, paymentMethod: 'at_club' })
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
       onUpdated?.()
       onClose?.()
