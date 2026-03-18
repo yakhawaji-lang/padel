@@ -11,6 +11,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   const [actionLoading, setActionLoading] = useState(null)
   const [editBooking, setEditBooking] = useState(null)
   const [editForm, setEditForm] = useState({})
+  const [expandedPaymentId, setExpandedPaymentId] = useState(null)
 
   const refreshFromCache = () => {
     loadClubs()
@@ -171,6 +172,24 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     }
   }
 
+  const getStatusLabel = (status) => {
+    const s = (status || 'confirmed').toString()
+    const labels = {
+      en: { initiated: 'In progress', locked: 'Reserved', pending_payments: 'Awaiting payments', pending_payment: 'Awaiting payment', partially_paid: 'Partial payment', confirmed: 'Confirmed', cancelled: 'Cancelled', expired: 'Expired' },
+      ar: { initiated: 'قيد الإجراء', locked: 'محجوز', pending_payments: 'بانتظار الدفعات', pending_payment: 'بانتظار الدفع', partially_paid: 'دفع جزئي', confirmed: 'مؤكد', cancelled: 'ملغي', expired: 'منتهي' }
+    }
+    return (labels[language] || labels.en)[s] || s
+  }
+
+  const getPaymentMethodLabel = (method) => {
+    const m = (method || 'at_club').toString()
+    const labels = {
+      en: { at_club: 'At club', credit_card: 'Credit card', mada: 'Mada' },
+      ar: { at_club: 'في النادي', credit_card: 'بطاقة ائتمان', mada: 'مدى' }
+    }
+    return (labels[language] || labels.en)[m] || m
+  }
+
   const t = {
     en: {
       bookings: 'Court Bookings',
@@ -194,7 +213,19 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       close: 'Close',
       duration: 'Duration (min)',
       cancelled: 'cancelled',
-      confirmed: 'confirmed'
+      confirmed: 'confirmed',
+      paymentDetails: 'Payment details',
+      paymentType: 'Payment type',
+      paymentMethod: 'Payment method',
+      splitPayment: 'Split between participants',
+      singlePayment: 'Paid by booker',
+      totalAmount: 'Total amount',
+      amountPerParticipant: 'Amount per participant',
+      participant: 'Participant',
+      amount: 'Amount',
+      paid: 'Paid',
+      pending: 'Pending',
+      clickToExpand: 'Click to view payment details'
     },
     ar: {
       bookings: 'حجوزات الملاعب',
@@ -218,7 +249,19 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       close: 'إغلاق',
       duration: 'المدة (دقيقة)',
       cancelled: 'ملغي',
-      confirmed: 'مؤكد'
+      confirmed: 'مؤكد',
+      paymentDetails: 'تفاصيل الدفع',
+      paymentType: 'نوع الدفع',
+      paymentMethod: 'طريقة الدفع',
+      splitPayment: 'مقسوم بين المشاركين',
+      singlePayment: 'دفع فردي من الحاجز',
+      totalAmount: 'المبلغ الإجمالي',
+      amountPerParticipant: 'المطلوب من كل مشارك',
+      participant: 'المشارك',
+      amount: 'المبلغ',
+      paid: 'مدفوع',
+      pending: 'قيد الانتظار',
+      clickToExpand: 'انقر لعرض تفاصيل الدفع'
     }
   }
   const c = t[language] || t.en
@@ -291,21 +334,36 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                   const priceInfo = b.price != null
                     ? { price: b.price, currency: b.currency || club?.settings?.currency || 'SAR' }
                     : calculateBookingPrice(club, b.dateStr, b.startTime, dur)
-                  const isCancelled = (b.status || '').toLowerCase() === 'cancelled'
+                  const status = (b.status || 'confirmed').toString()
+                  const isCancelled = status === 'cancelled'
                   const isLoading = actionLoading === b.id || actionLoading === 'perm-' + b.id
+                  const isPendingPayment = ['pending_payments', 'partially_paid'].includes(status)
+                  const isExpanded = expandedPaymentId === b.id
+                  const paymentShares = Array.isArray(b.paymentShares) ? b.paymentShares : []
+                  const hasShares = paymentShares.length > 0
+                  const currency = priceInfo.currency || club?.settings?.currency || 'SAR'
+                  const totalAmount = b.totalAmount ?? b.total_amount ?? priceInfo.price ?? 0
+                  const statusClass = ['confirmed'].includes(status) ? 'confirmed' : ['initiated', 'locked', 'pending_payments', 'pending_payment', 'partially_paid'].includes(status) ? 'pending' : ['cancelled', 'expired'].includes(status) ? 'cancelled' : ''
                   return (
-                    <tr key={b.id || i} className={isCancelled ? 'booking-row-cancelled' : ''}>
-                      <td>{formatDate(b.dateStr)}</td>
-                      <td>{(b.startTime || '') + (b.endTime ? ` – ${b.endTime}` : '')}</td>
-                      <td>{b.resource || b.courtName || b.court || '—'}</td>
-                      <td>{b.memberName || b.customerName || b.customer || '—'}</td>
-                      <td>{priceInfo.price} {priceInfo.currency}</td>
-                      <td>
-                        <span className={`booking-status booking-status-${(b.status || 'confirmed').toLowerCase()}`}>
-                          {(b.status || 'confirmed') === 'cancelled' ? c.cancelled : (b.status || c.confirmed)}
-                        </span>
-                      </td>
-                      <td>
+                    <React.Fragment key={b.id || i}>
+                      <tr className={isCancelled ? 'booking-row-cancelled' : ''}>
+                        <td>{formatDate(b.dateStr)}</td>
+                        <td>{(b.startTime || '') + (b.endTime ? ` – ${b.endTime}` : '')}</td>
+                        <td>{b.resource || b.courtName || b.court || '—'}</td>
+                        <td>{b.memberName || b.customerName || b.customer || '—'}</td>
+                        <td>{priceInfo.price} {priceInfo.currency}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className={`booking-status-btn booking-status-${statusClass} ${isPendingPayment ? 'booking-status-clickable' : ''}`}
+                            onClick={() => isPendingPayment && setExpandedPaymentId(isExpanded ? null : b.id)}
+                            title={isPendingPayment ? c.clickToExpand : undefined}
+                          >
+                            <span className="booking-status-label">{getStatusLabel(status)}</span>
+                            {isPendingPayment && <span className="booking-status-chevron" aria-hidden>{isExpanded ? '▲' : '▼'}</span>}
+                          </button>
+                        </td>
+                        <td>
                         <div className="bookings-actions">
                           <button
                             type="button"
@@ -348,6 +406,58 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                         </div>
                       </td>
                     </tr>
+                    {isPendingPayment && isExpanded && (
+                      <tr className="booking-payment-details-row">
+                        <td colSpan="7">
+                          <div className="booking-payment-details-card">
+                            <h4 className="booking-payment-details-title">{c.paymentDetails}</h4>
+                            <div className="booking-payment-details-grid">
+                              <div className="booking-payment-detail-item">
+                                <span className="booking-payment-detail-label">{c.paymentType}</span>
+                                <span className="booking-payment-detail-value">
+                                  {hasShares ? c.splitPayment : c.singlePayment}
+                                </span>
+                              </div>
+                              {!hasShares && (
+                                <div className="booking-payment-detail-item">
+                                  <span className="booking-payment-detail-label">{c.paymentMethod}</span>
+                                  <span className="booking-payment-detail-value">
+                                    {getPaymentMethodLabel(b.paymentMethod)}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="booking-payment-detail-item">
+                                <span className="booking-payment-detail-label">{c.totalAmount}</span>
+                                <span className="booking-payment-detail-value booking-payment-total">
+                                  {totalAmount} {currency}
+                                </span>
+                              </div>
+                            </div>
+                            {hasShares && (
+                              <div className="booking-payment-shares">
+                                <h5 className="booking-payment-shares-title">{c.amountPerParticipant}</h5>
+                                <div className="booking-payment-shares-list">
+                                  {paymentShares.map((s, idx) => (
+                                    <div key={s.id || idx} className={`booking-payment-share-item ${s.paidAt ? 'paid' : 'pending'}`}>
+                                      <span className="booking-payment-share-name">{s.memberName || s.phone || '—'}</span>
+                                      <span className="booking-payment-share-amount">{parseFloat(s.amount) || 0} {currency}</span>
+                                      <span className="booking-payment-share-status">
+                                        {s.paidAt ? (
+                                          <span className="status-badge status-paid">✓ {c.paid}</span>
+                                        ) : (
+                                          <span className="status-badge status-pending">{c.pending}</span>
+                                        )}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                   )
                 })
               )}
@@ -462,8 +572,12 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                   value={editForm.status}
                   onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
                 >
-                  <option value="confirmed">{c.confirmed}</option>
-                  <option value="cancelled">{c.cancelled}</option>
+                  <option value="confirmed">{getStatusLabel('confirmed')}</option>
+                  <option value="pending_payments">{getStatusLabel('pending_payments')}</option>
+                  <option value="partially_paid">{getStatusLabel('partially_paid')}</option>
+                  <option value="pending_payment">{getStatusLabel('pending_payment')}</option>
+                  <option value="cancelled">{getStatusLabel('cancelled')}</option>
+                  <option value="expired">{getStatusLabel('expired')}</option>
                 </select>
               </div>
             </div>
