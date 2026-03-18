@@ -197,8 +197,10 @@ const PaySharePage = () => {
             onClick={handlePayAtClub}
             disabled={submitting || chosePayAtClub}
             title={chosePayAtClub ? c.chosenPayAtClub : undefined}
+            aria-pressed={chosePayAtClub}
           >
             <span className="payment-share-option-icon">🏢</span>
+            {chosePayAtClub ? <span className="payment-share-option-check" aria-hidden>✓ </span> : null}
             <span className="payment-share-option-title">{chosePayAtClub ? c.chosenPayAtClub : c.payAtClub}</span>
             <span className="payment-share-option-desc">{chosePayAtClub ? (language === 'ar' ? 'لا يمكن تغييرها إلا بالدفع الإلكتروني' : 'Cannot change except via electronic payment') : c.payAtClubDesc}</span>
           </button>

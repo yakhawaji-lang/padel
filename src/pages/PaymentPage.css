@@ -283,8 +283,13 @@
 .payment-share-option.payment-share-option-chosen:disabled {
   background: #f0fdf4;
   border-color: #86efac;
-  cursor: default;
+  cursor: not-allowed;
   opacity: 1;
+}
+
+.payment-share-option-check {
+  color: #16a34a;
+  font-weight: 700;
 }
 
 .payment-share-option-icon {

@@ -55,6 +55,8 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
   const inviteToken = userShare?.inviteToken || fetchedInviteToken
   const isParticipantWithShare = !!userShare && !userShare.paidAt
   const chosePayAtClub = userShare && userShare.paymentMethod === 'at_club' && !userShare.paidAt
+  const hasShares = paymentShares.length > 0
+  const initiatorChosePayAtClub = !hasShares && (booking?.initiatorPaymentMethod === 'at_club' || booking?.data?.initiatorPaymentMethod === 'at_club')
 
   useEffect(() => {
     if (!isParticipantWithShare || userShare?.inviteToken || !club?.id || !booking?.id || !platformUser?.id) return
@@ -62,7 +64,6 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       .then(d => setFetchedInviteToken(d?.inviteToken || null))
       .catch(() => {})
   }, [isParticipantWithShare, userShare?.inviteToken, club?.id, booking?.id, platformUser?.id])
-  const hasShares = paymentShares.length > 0
   const paidCount = paymentShares.filter(s => s.paidAt).length
   const pendingCount = paymentShares.length - paidCount
   const needsPayment = ['pending_payments', 'partially_paid'].includes(status)
@@ -221,8 +222,10 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
                           className={`booking-detail-pay-opt ${chosePayAtClub ? 'booking-detail-pay-opt-chosen' : ''}`}
                           onClick={handleRecordPayment}
                           disabled={markingPayAtClub || chosePayAtClub}
+                          aria-pressed={chosePayAtClub}
                         >
                           <span className="booking-detail-pay-opt-icon">🏢</span>
+                          {chosePayAtClub ? <span className="booking-detail-pay-opt-check" aria-hidden>✓ </span> : null}
                           {chosePayAtClub ? c.payAtClubChosen : c.payAtClub}
                         </button>
                         <Link
@@ -236,9 +239,16 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
                       </>
                     ) : (
                       <>
-                        <button type="button" className="booking-detail-pay-opt" onClick={handleMarkPayAtClub} disabled={markingPayAtClub}>
+                        <button
+                          type="button"
+                          className={`booking-detail-pay-opt ${initiatorChosePayAtClub ? 'booking-detail-pay-opt-chosen' : ''}`}
+                          onClick={handleMarkPayAtClub}
+                          disabled={markingPayAtClub || initiatorChosePayAtClub}
+                          aria-pressed={initiatorChosePayAtClub}
+                        >
                           <span className="booking-detail-pay-opt-icon">🏢</span>
-                          {c.payAtClub}
+                          {initiatorChosePayAtClub ? <span className="booking-detail-pay-opt-check" aria-hidden>✓ </span> : null}
+                          {initiatorChosePayAtClub ? c.payAtClubChosen : c.payAtClub}
                         </button>
                         <Link to={`/pay/${booking.id}?method=credit_card`} className="booking-detail-pay-opt booking-detail-pay-opt-link" onClick={onClose}>
                           <span className="booking-detail-pay-opt-icon">💳</span>

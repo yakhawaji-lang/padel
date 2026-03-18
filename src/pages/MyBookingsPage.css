@@ -528,8 +528,13 @@
 .my-bookings-pay-menu-item.my-bookings-pay-menu-item-chosen:disabled {
   background: #f0fdf4;
   border-color: #86efac;
-  cursor: default;
+  cursor: not-allowed;
   opacity: 1;
+}
+
+.my-bookings-pay-menu-check {
+  color: #16a34a;
+  font-weight: 700;
 }
 
 .my-bookings-pay-menu-icon {

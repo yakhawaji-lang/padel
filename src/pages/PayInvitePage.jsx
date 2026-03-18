@@ -138,6 +138,7 @@ const PayInvitePage = () => {
     : '—'
   const isPending = data?.bookingStatus === 'pending_payments' || data?.bookingStatus === 'partially_paid'
   const amountStr = `${parseFloat(data.amount || 0).toFixed(2)} ${t('SAR', 'ر.س')}`
+  const chosePayAtClub = data?.paymentMethod === 'at_club' && !data?.paidAt
 
   return (
     <div className="pay-invite-page">
@@ -188,11 +189,18 @@ const PayInvitePage = () => {
               <div className="pay-invite-payment-section">
                 <p className="pay-invite-payment-options-label">{t('Choose how to pay your share', 'اختر طريقة دفع حصتك', language)}</p>
                 <div className="pay-invite-payment-cards">
-                  <button type="button" className="pay-invite-payment-card pay-invite-payment-card-at-club" onClick={handleMarkPaid} disabled={markingPaid}>
+                  <button
+                    type="button"
+                    className={`pay-invite-payment-card pay-invite-payment-card-at-club ${chosePayAtClub ? 'pay-invite-payment-card-chosen' : ''}`}
+                    onClick={handleMarkPaid}
+                    disabled={markingPaid || chosePayAtClub}
+                    aria-pressed={chosePayAtClub}
+                  >
                     <span className="pay-invite-payment-card-icon" aria-hidden>🏢</span>
-                    <span className="pay-invite-payment-card-title">{t('Pay at club', 'الدفع في النادي', language)}</span>
-                    <span className="pay-invite-payment-card-desc">{t('Cash or card at the club', 'كاش أو بطاقة في النادي', language)}</span>
-                    {markingPaid && <span className="pay-invite-payment-card-loading">{t('Saving...', 'جاري الحفظ...')}</span>}
+                    {chosePayAtClub ? <span className="pay-invite-payment-card-check" aria-hidden>✓ </span> : null}
+                    <span className="pay-invite-payment-card-title">{chosePayAtClub ? t('Chosen — pay at club', 'اخترتها — سأدفع في النادي', language) : t('Pay at club', 'الدفع في النادي', language)}</span>
+                    <span className="pay-invite-payment-card-desc">{chosePayAtClub ? (language === 'ar' ? 'لا يمكن تغييرها إلا بالدفع الإلكتروني' : 'Cannot change except via electronic payment') : t('Cash or card at the club', 'كاش أو بطاقة في النادي', language)}</span>
+                    {markingPaid && !chosePayAtClub && <span className="pay-invite-payment-card-loading">{t('Saving...', 'جاري الحفظ...')}</span>}
                   </button>
                   <Link to={`/pay-share/${token}`} className="pay-invite-payment-card pay-invite-payment-card-electronic">
                     <span className="pay-invite-payment-card-icon" aria-hidden>💳</span>

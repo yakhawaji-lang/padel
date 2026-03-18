@@ -194,8 +194,13 @@
 .booking-detail-pay-opt.booking-detail-pay-opt-chosen:disabled {
   background: #f0fdf4;
   border-color: #86efac;
-  cursor: default;
+  cursor: not-allowed;
   opacity: 1;
+}
+
+.booking-detail-pay-opt-check {
+  color: #16a34a;
+  font-weight: 700;
 }
 
 .booking-detail-pay-opt-link {

@@ -224,6 +224,19 @@
   transform: none;
 }
 
+.pay-invite-payment-card-chosen,
+.pay-invite-payment-card.pay-invite-payment-card-chosen:disabled {
+  background: #f0fdf4;
+  border-color: #86efac;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.pay-invite-payment-card-check {
+  color: #16a34a;
+  font-weight: 700;
+}
+
 .pay-invite-payment-card-at-club {
   border-color: #d1fae5;
   background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
