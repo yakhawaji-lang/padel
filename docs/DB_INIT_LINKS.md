@@ -66,6 +66,7 @@ https://playtix.app/api/init-db/migrate-to-normalized
 ```
 https://playtix.app/api/init-db/migrate-booking-v2
 ```
+> يشمل أيضاً عمود `payment_method` في `booking_payment_shares` لعرض "سيدفع في النادي".
 
 **ترحيل إعدادات الدفع** (جدول `platform_payment_gateways` — **مطلوب لصفحة إعدادات الدفع**):
 ```
