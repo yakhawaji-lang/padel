@@ -187,8 +187,11 @@ router.post('/confirm', async (req, res) => {
     const createdShares = []
 
     for (const s of paymentShares || []) {
-      const token = s.type === 'unregistered' ? `inv_${crypto.randomBytes(16).toString('hex')}` : null
-      const payUrl = token ? `${baseUrl.replace(/\/$/, '')}/pay-invite/${token}` : null
+      // Generate invite_token for ALL participants (registered + unregistered) so they can pay
+      const token = `inv_${crypto.randomBytes(16).toString('hex')}`
+      const isUnregistered = s.type === 'unregistered'
+      const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
+      const payUrl = `${baseUrl.replace(/\/$/, '')}/${payPath}/${token}`
       const waLink = (payUrl ? `https://wa.me/?text=${encodeURIComponent(payUrl)}` : null) || s.whatsappLink
       await query(
         `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token)
@@ -395,15 +398,24 @@ router.get('/share-invite', async (req, res) => {
     if (!bookingId || !clubId || !memberId) {
       return res.status(400).json({ error: 'bookingId, clubId, memberId required' })
     }
-    const { rows } = await query(
-      `SELECT invite_token FROM booking_payment_shares 
-       WHERE booking_id = ? AND club_id = ? AND member_id = ? AND paid_at IS NULL AND invite_token IS NOT NULL`,
+    let { rows } = await query(
+      `SELECT id, invite_token FROM booking_payment_shares 
+       WHERE booking_id = ? AND club_id = ? AND member_id = ? AND paid_at IS NULL`,
       [bookingId, clubId, memberId]
     )
-    if (!rows?.length || !rows[0].invite_token) {
+    if (!rows?.length) {
       return res.status(404).json({ error: 'Share not found or already paid' })
     }
-    res.json({ inviteToken: rows[0].invite_token })
+    let token = rows[0].invite_token
+    // Backfill: if token was null (legacy registered shares), generate and persist one
+    if (!token) {
+      token = `inv_${crypto.randomBytes(16).toString('hex')}`
+      await query(
+        `UPDATE booking_payment_shares SET invite_token = ? WHERE id = ?`,
+        [token, rows[0].id]
+      )
+    }
+    res.json({ inviteToken: token })
   } catch (e) {
     console.error('bookings share-invite error:', e)
     res.status(500).json({ error: dbError(e) })
