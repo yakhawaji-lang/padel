@@ -379,7 +379,12 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                           <button
                             type="button"
                             className={`booking-status-btn booking-status-${statusClass} ${isPendingPayment ? 'booking-status-clickable' : ''}`}
-                            onClick={() => isPendingPayment && setExpandedPaymentId(isExpanded ? null : b.id)}
+                            onClick={() => {
+                              if (isPendingPayment) {
+                                if (!isExpanded) onRefresh?.()
+                                setExpandedPaymentId(isExpanded ? null : b.id)
+                              }
+                            }}
                             title={isPendingPayment ? c.clickToExpand : undefined}
                           >
                             <span className="booking-status-label">{getStatusLabel(status)}</span>
@@ -461,9 +466,10 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                 <h5 className="booking-payment-shares-title">{c.amountPerParticipant}</h5>
                                 <div className="booking-payment-shares-list">
                                   {(() => {
-                                    const bookerId = String(b.memberId || '')
-                                    const bookerShares = paymentShares.filter(s => String(s.memberId || '') === bookerId && !s.inviteToken)
-                                    const participantShares = paymentShares.filter(s => String(s.memberId || '') !== bookerId || s.inviteToken)
+                                    const bookerId = String(b.memberId || b.initiatorMemberId || b.member_id || '')
+                                    const isBookerShare = (s) => String(s.memberId || '') === bookerId
+                                    const bookerShares = paymentShares.filter(s => isBookerShare(s) && !s.inviteToken)
+                                    const participantShares = paymentShares.filter(s => !isBookerShare(s) || !!s.inviteToken)
                                     const sharesSum = paymentShares.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
                                     const bookerAmountFromCalc = Math.max(0, totalAmount - sharesSum)
                                     const bookerPaymentMethod = b.initiatorPaymentMethod || b.paymentMethod
@@ -511,7 +517,9 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                               <span className="booking-payment-share-name">{b.memberName || b.customerName || b.customer || '—'} ({c.booker})</span>
                                               <span className="booking-payment-share-amount">{bookerAmountFromCalc} {currency}</span>
                                               <span className="booking-payment-share-status">
-                                                {bookerPaymentMethod ? (
+                                                {bookerPaymentMethod === 'at_club' ? (
+                                                  <span className="status-badge status-pay-at-club">{c.waitingClubConfirm}</span>
+                                                ) : bookerPaymentMethod ? (
                                                   <span className="status-badge status-booker-method">{getPaymentMethodLabel(bookerPaymentMethod)}</span>
                                                 ) : (
                                                   <span className="status-badge status-pending">—</span>

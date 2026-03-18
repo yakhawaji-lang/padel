@@ -400,7 +400,7 @@ router.patch('/update-share-payment-method', async (req, res) => {
   }
 })
 
-/** POST /api/bookings/mark-pay-at-club - Extend deadline to end of booking date so booking is not expired; user will pay at club (cash/card) */
+/** POST /api/bookings/mark-pay-at-club - Extend deadline; store initiatorPaymentMethod in data for display */
 router.post('/mark-pay-at-club', async (req, res) => {
   try {
     const normalized = await hasNormalizedTables()
@@ -408,7 +408,7 @@ router.post('/mark-pay-at-club', async (req, res) => {
     const { bookingId, clubId } = req.body || {}
     if (!bookingId || !clubId) return res.status(400).json({ error: 'bookingId and clubId required' })
     const { rows } = await query(
-      'SELECT id, booking_date, status FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL',
+      'SELECT id, booking_date, status, data FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL',
       [bookingId, clubId]
     )
     if (!rows?.length) return res.status(404).json({ error: 'Booking not found' })
@@ -419,6 +419,12 @@ router.post('/mark-pay-at-club', async (req, res) => {
     const dateStr = b.booking_date ? String(b.booking_date).split('T')[0] : null
     const deadlineEndOfDay = dateStr ? new Date(dateStr + 'T23:59:59') : new Date(Date.now() + 24 * 60 * 60 * 1000)
     await bookingService.updateBookingPaymentDeadline(bookingId, clubId, deadlineEndOfDay)
+    let data = b.data
+    if (typeof data === 'string') { try { data = JSON.parse(data) } catch { data = {} } }
+    if (data && typeof data === 'object' && !data.initiatorPaymentMethod) {
+      data = { ...data, initiatorPaymentMethod: 'at_club' }
+      await query('UPDATE club_bookings SET data = ? WHERE id = ? AND club_id = ?', [JSON.stringify(data), bookingId, clubId])
+    }
     if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
     res.json({ ok: true, paymentDeadlineAt: deadlineEndOfDay })
   } catch (e) {

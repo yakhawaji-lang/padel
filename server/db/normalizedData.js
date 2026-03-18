@@ -488,7 +488,24 @@ async function assembleClub(clubRow, courts, settings, adminUsers, offers, booki
       const dateStr = dateVal ? (typeof dateVal === 'string' ? dateVal.replace(/T.*$/, '') : (dateVal instanceof Date ? (() => { const d = dateVal; return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })() : String(dateVal).replace(/T.*$/, ''))) : (spread.date || spread.startDate || '')
       const bpsKey = `${b.club_id}:${b.id}`
       const sharesFromTable = paymentSharesByBooking[bpsKey] || []
-      const paymentShares = sharesFromTable.length > 0 ? sharesFromTable : (spread.paymentShares || [])
+      let paymentShares = sharesFromTable.length > 0 ? sharesFromTable : (spread.paymentShares || [])
+      const bookerId = String(b.member_id || b.initiator_member_id || '')
+      const hasBookerShare = paymentShares.some(s => String(s.memberId || '') === bookerId)
+      const participantsSum = paymentShares.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
+      const totalAmount = parseFloat(b.total_amount) || 0
+      const bookerAmount = Math.max(0, totalAmount - participantsSum)
+      if (!hasBookerShare && bookerAmount > 0 && paymentShares.length > 0) {
+        const bookerName = spread.customerName || spread.customer || spread.memberName || ''
+        paymentShares = [...paymentShares, {
+          id: null,
+          memberId: bookerId || undefined,
+          memberName: bookerName,
+          amount: bookerAmount,
+          paymentMethod: spread.initiatorPaymentMethod || undefined,
+          inviteToken: undefined,
+          paidAt: null
+        }]
+      }
       return {
         ...spread,
         paymentShares: Array.isArray(paymentShares) ? paymentShares : [],
