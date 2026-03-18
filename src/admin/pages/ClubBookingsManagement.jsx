@@ -225,6 +225,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       amount: 'Amount',
       paid: 'Paid',
       payAtClub: 'Pay at club',
+      booker: 'Booker',
       pending: 'Pending',
       clickToExpand: 'Click to view payment details'
     },
@@ -262,6 +263,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       amount: 'المبلغ',
       paid: 'مدفوع',
       payAtClub: 'سيدفع في النادي',
+      booker: 'الحاجز',
       pending: 'قيد الانتظار',
       clickToExpand: 'انقر لعرض تفاصيل الدفع'
     }
@@ -439,7 +441,30 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                               <div className="booking-payment-shares">
                                 <h5 className="booking-payment-shares-title">{c.amountPerParticipant}</h5>
                                 <div className="booking-payment-shares-list">
-                                  {paymentShares.map((s, idx) => (
+                                  {(() => {
+                                    const sharesSum = paymentShares.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
+                                    const bookerAmount = Math.max(0, totalAmount - sharesSum)
+                                    const bookerPaymentMethod = b.initiatorPaymentMethod || b.paymentMethod
+                                    return (
+                                      <>
+                                        {bookerAmount > 0 && (
+                                          <div className="booking-payment-share-item booker-share">
+                                            <span className="booking-payment-share-name">
+                                              {b.memberName || b.customerName || b.customer || '—'} ({c.booker})
+                                            </span>
+                                            <span className="booking-payment-share-amount">{bookerAmount} {currency}</span>
+                                            <span className="booking-payment-share-status">
+                                              {bookerPaymentMethod ? (
+                                                <span className="status-badge status-booker-method">
+                                                  {getPaymentMethodLabel(bookerPaymentMethod)}
+                                                </span>
+                                              ) : (
+                                                <span className="status-badge status-pending">—</span>
+                                              )}
+                                            </span>
+                                          </div>
+                                        )}
+                                        {paymentShares.map((s, idx) => (
                                     <div key={s.id || idx} className={`booking-payment-share-item ${s.paidAt ? 'paid' : 'pending'}`}>
                                       <span className="booking-payment-share-name">{s.memberName || s.phone || '—'}</span>
                                       <span className="booking-payment-share-amount">{parseFloat(s.amount) || 0} {currency}</span>
@@ -456,6 +481,9 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                       </span>
                                     </div>
                                   ))}
+                                      </>
+                                    )
+                                  })()}
                                 </div>
                               </div>
                             )}

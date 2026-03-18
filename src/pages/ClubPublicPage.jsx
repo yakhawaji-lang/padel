@@ -797,6 +797,7 @@ const ClubPublicPage = () => {
         memberName,
         totalAmount: priceResult.price,
         paymentMethod: isSplit ? undefined : (payAtClub ? 'at_club' : (isOnlinePayment ? paymentMethod : undefined)),
+        initiatorPaymentMethod: isSplit ? (paymentMethod || 'at_club') : undefined,
         paymentShares: isSplit ? paymentShares : undefined,
         idempotencyKey
       })
@@ -1167,6 +1168,31 @@ const ClubPublicPage = () => {
                   </div>
                 )}
                 {paymentStyle === 'split' && (
+                  <>
+                  <div className="club-public-booking-payment-method">
+                    <p className="club-public-booking-payment-method-label">{language === 'en' ? 'Your payment method' : 'طريقة دفعتك'}</p>
+                    <p className="club-public-booking-payment-section-desc">{language === 'en' ? 'How will you pay your share?' : 'كيف ستدفع حصتك؟'}</p>
+                    <div className="club-public-booking-payment-method-options">
+                      {paymentGateways?.enabledChannels?.at_club !== false && (
+                        <label className="club-public-booking-payment-radio">
+                          <input type="radio" name="paymentMethod" checked={paymentMethod === 'at_club'} onChange={() => setPaymentMethod('at_club')} />
+                          <span>{c.payAtClub}</span>
+                        </label>
+                      )}
+                      {paymentGateways?.enabledChannels?.credit_card && (
+                        <label className="club-public-booking-payment-radio">
+                          <input type="radio" name="paymentMethod" checked={paymentMethod === 'credit_card'} onChange={() => setPaymentMethod('credit_card')} />
+                          <span>{c.creditCard}</span>
+                        </label>
+                      )}
+                      {paymentGateways?.enabledChannels?.mada && (
+                        <label className="club-public-booking-payment-radio">
+                          <input type="radio" name="paymentMethod" checked={paymentMethod === 'mada'} onChange={() => setPaymentMethod('mada')} />
+                          <span>{c.mada}</span>
+                        </label>
+                      )}
+                    </div>
+                  </div>
                   <BookingPaymentShare
                     totalPrice={calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price}
                     currency={currency}
@@ -1181,6 +1207,7 @@ const ClubPublicPage = () => {
                     value={paymentShares}
                     onChange={setPaymentShares}
                   />
+                  </>
                 )}
               </div>
               {activeLock && (

@@ -110,7 +110,7 @@ router.post('/confirm', async (req, res) => {
     const normalized = await hasNormalizedTables()
     if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
 
-    const { lockId, clubId, courtId, date: dateRaw, startTime, endTime, memberId, memberName, totalAmount, paymentMethod, paymentShares, idempotencyKey } = req.body || {}
+    const { lockId, clubId, courtId, date: dateRaw, startTime, endTime, memberId, memberName, totalAmount, paymentMethod, initiatorPaymentMethod, paymentShares, idempotencyKey } = req.body || {}
     if (!lockId || !clubId || !courtId || !dateRaw || !startTime || !endTime || !memberId) {
       return res.status(400).json({ error: 'lockId, clubId, courtId, date, startTime, endTime, memberId required' })
     }
@@ -155,7 +155,8 @@ router.post('/confirm', async (req, res) => {
         return (eh * 60 + em) - (sh * 60 + sm)
       })(startTime, endTime),
       paymentShares: paymentShares || [],
-      ...(isOnlinePayment && { paymentMethod })
+      ...(isOnlinePayment && { paymentMethod }),
+      ...(hasShares && initiatorPaymentMethod && { initiatorPaymentMethod })
     }
 
     await bookingService.createBooking({

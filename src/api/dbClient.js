@@ -422,10 +422,10 @@ export async function releaseBookingLock(lockId, clubId, date) {
   })
 }
 
-export async function confirmBooking({ lockId, clubId, courtId, date, startTime, endTime, memberId, memberName, totalAmount, paymentMethod, paymentShares, idempotencyKey }) {
+export async function confirmBooking({ lockId, clubId, courtId, date, startTime, endTime, memberId, memberName, totalAmount, paymentMethod, initiatorPaymentMethod, paymentShares, idempotencyKey }) {
   return fetchJson('/api/bookings/confirm', {
     method: 'POST',
-    body: JSON.stringify({ lockId, clubId, date, startTime, endTime, memberId, memberName, totalAmount, paymentMethod, paymentShares, idempotencyKey, courtId })
+    body: JSON.stringify({ lockId, clubId, date, startTime, endTime, memberId, memberName, totalAmount, paymentMethod, initiatorPaymentMethod, paymentShares, idempotencyKey, courtId })
   })
 }
 
