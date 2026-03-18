@@ -187,8 +187,16 @@ router.post('/confirm', async (req, res) => {
     const baseUrl = process.env.BASE_URL || process.env.PUBLIC_BASE_URL || (origin ? `${origin}${basePath}` : 'https://playtix.app/app')
     const createdShares = []
 
+    const participantsSum = (paymentShares || []).reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
+    const bookerAmount = Math.max(0, (totalAmount || 0) - participantsSum)
+    if (hasShares && bookerAmount > 0 && initiatorPaymentMethod) {
+      await query(
+        `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, amount, payment_method)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [bid, clubId, 'registered', memberId, memberName, bookerAmount, initiatorPaymentMethod]
+      )
+    }
     for (const s of paymentShares || []) {
-      // Generate invite_token for ALL participants (registered + unregistered) so they can pay
       const token = `inv_${crypto.randomBytes(16).toString('hex')}`
       const isUnregistered = s.type === 'unregistered'
       const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
@@ -268,7 +276,10 @@ router.post('/cancel', async (req, res) => {
   }
 })
 
-/** POST /api/bookings/record-payment - Record payment for a share (update paid_at, payment_method, recalc status) */
+/** POST /api/bookings/record-payment - Record payment for a share (update paid_at, payment_method, recalc status)
+ * - paymentMethod 'at_club': commitment only, paid_at = NULL
+ * - paymentReference (electronic): actual payment, paid_at = NOW()
+ */
 router.post('/record-payment', async (req, res) => {
   try {
     const { shareId, inviteToken, clubId, paymentReference, paymentMethod } = req.body || {}
@@ -286,11 +297,24 @@ router.post('/record-payment', async (req, res) => {
     if (!shareRows?.length) return res.status(404).json({ error: 'Share not found' })
     const share = shareRows[0]
     const bid = share.booking_id
-    const pm = paymentMethod === 'at_club' ? 'at_club' : (paymentReference ? 'electronic' : null)
-    await query(
-      'UPDATE booking_payment_shares SET paid_at = NOW(), payment_reference = ?, payment_method = ? WHERE id = ? AND club_id = ?',
-      [paymentReference || null, pm || null, share.id, clubId]
-    )
+    const isAtClub = paymentMethod === 'at_club'
+    const isElectronic = !!paymentReference
+    if (isAtClub) {
+      await query(
+        'UPDATE booking_payment_shares SET paid_at = NULL, payment_reference = NULL, payment_method = ? WHERE id = ? AND club_id = ?',
+        ['at_club', share.id, clubId]
+      )
+    } else if (isElectronic) {
+      await query(
+        'UPDATE booking_payment_shares SET paid_at = NOW(), payment_reference = ?, payment_method = ? WHERE id = ? AND club_id = ?',
+        [paymentReference || null, 'electronic', share.id, clubId]
+      )
+    } else {
+      await query(
+        'UPDATE booking_payment_shares SET paid_at = NOW(), payment_reference = ?, payment_method = ? WHERE id = ? AND club_id = ?',
+        [paymentReference || null, null, share.id, clubId]
+      )
+    }
     const { rows: shares } = await query(
       'SELECT amount, paid_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
       [bid, clubId]
@@ -307,6 +331,71 @@ router.post('/record-payment', async (req, res) => {
     res.json({ ok: true, paidAmount, status })
   } catch (e) {
     console.error('bookings record-payment error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** POST /api/bookings/mark-share-paid-at-club - Admin marks a participant share as paid when cash received at club */
+router.post('/mark-share-paid-at-club', async (req, res) => {
+  try {
+    const { shareId, inviteToken, clubId } = req.body || {}
+    if (!clubId) return res.status(400).json({ error: 'clubId required' })
+    let shareRows
+    if (shareId) {
+      const r = await query('SELECT id, booking_id, amount FROM booking_payment_shares WHERE id = ? AND club_id = ?', [shareId, clubId])
+      shareRows = r.rows
+    } else if (inviteToken) {
+      const r = await query('SELECT id, booking_id, amount FROM booking_payment_shares WHERE invite_token = ? AND club_id = ?', [inviteToken, clubId])
+      shareRows = r.rows
+    } else {
+      return res.status(400).json({ error: 'shareId or inviteToken required' })
+    }
+    if (!shareRows?.length) return res.status(404).json({ error: 'Share not found' })
+    const share = shareRows[0]
+    const bid = share.booking_id
+    await query(
+      'UPDATE booking_payment_shares SET paid_at = NOW(), payment_method = ? WHERE id = ? AND club_id = ?',
+      ['at_club', share.id, clubId]
+    )
+    const { rows: shares } = await query(
+      'SELECT amount, paid_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
+      [bid, clubId]
+    )
+    const paidAmount = (shares || []).reduce((sum, s) => sum + (s.paid_at ? parseFloat(s.amount) || 0 : 0), 0)
+    const { rows: bRows } = await query('SELECT total_amount FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL', [bid, clubId])
+    const totalAmount = parseFloat(bRows[0]?.total_amount) || 0
+    const allPaid = paidAmount >= totalAmount - 0.01
+    const status = allPaid ? 'confirmed' : (paidAmount > 0 ? 'partially_paid' : 'pending_payments')
+    await bookingService.updateBookingPayment(bid, clubId, paidAmount, status)
+    const { rows: bDate } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bid, clubId])
+    const dateStr = bDate[0]?.booking_date ? String(bDate[0].booking_date).split('T')[0] : null
+    if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
+    res.json({ ok: true, paidAmount, status })
+  } catch (e) {
+    console.error('bookings mark-share-paid-at-club error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** PATCH /api/bookings/update-share-payment-method - Participant switches payment method (at_club <-> electronic) before paying */
+router.patch('/update-share-payment-method', async (req, res) => {
+  try {
+    const { inviteToken, clubId, paymentMethod } = req.body || {}
+    if (!inviteToken || !clubId || !paymentMethod) return res.status(400).json({ error: 'inviteToken, clubId, paymentMethod required' })
+    const pm = paymentMethod === 'at_club' ? 'at_club' : (paymentMethod === 'electronic' ? 'electronic' : null)
+    if (!pm) return res.status(400).json({ error: 'paymentMethod must be at_club or electronic' })
+    const { rows } = await query(
+      'SELECT id FROM booking_payment_shares WHERE invite_token = ? AND club_id = ? AND paid_at IS NULL',
+      [inviteToken, clubId]
+    )
+    if (!rows?.length) return res.status(404).json({ error: 'Share not found or already paid' })
+    await query(
+      'UPDATE booking_payment_shares SET payment_method = ? WHERE id = ? AND club_id = ?',
+      [pm, rows[0].id, clubId]
+    )
+    res.json({ ok: true, paymentMethod: pm })
+  } catch (e) {
+    console.error('bookings update-share-payment-method error:', e)
     res.status(500).json({ error: dbError(e) })
   }
 })

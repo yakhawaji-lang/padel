@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { loadClubs, getClubById, getClubMembersFromStorage, deleteBookingFromClub, updateBookingInClub } from '../../storage/adminStorage'
+import * as bookingApi from '../../api/dbClient'
 import CalendarPicker from '../../components/CalendarPicker'
 import { calculateBookingPrice } from '../../utils/bookingPricing'
 import './club-pages-common.css'
@@ -149,6 +150,22 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
         ? `Failed to delete: ${e?.message || 'Server error. Try again.'}`
         : `فشل الحذف: ${e?.message || 'خطأ في الخادم. حاول مرة أخرى.'}`
       showError(msg)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleMarkSharePaidAtClub = async (share) => {
+    if (!club?.id) return
+    const key = `share-${share.id}`
+    setActionLoading(key)
+    try {
+      await bookingApi.markSharePaidAtClub(share.inviteToken ? { inviteToken: share.inviteToken, clubId: club.id } : { shareId: share.id, clubId: club.id })
+      refreshFromServer()
+    } catch (e) {
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
+      }
     } finally {
       setActionLoading(null)
     }
@@ -442,45 +459,66 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                 <h5 className="booking-payment-shares-title">{c.amountPerParticipant}</h5>
                                 <div className="booking-payment-shares-list">
                                   {(() => {
+                                    const bookerId = String(b.memberId || '')
+                                    const bookerShares = paymentShares.filter(s => String(s.memberId || '') === bookerId && !s.inviteToken)
+                                    const participantShares = paymentShares.filter(s => String(s.memberId || '') !== bookerId || s.inviteToken)
                                     const sharesSum = paymentShares.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
-                                    const bookerAmount = Math.max(0, totalAmount - sharesSum)
+                                    const bookerAmountFromCalc = Math.max(0, totalAmount - sharesSum)
                                     const bookerPaymentMethod = b.initiatorPaymentMethod || b.paymentMethod
+                                    const renderShareRow = (s, idx, isBooker) => {
+                                      const canMarkPaid = !s.paidAt && s.paymentMethod === 'at_club' && (s.id || s.inviteToken)
+                                      return (
+                                        <div key={s.id || idx} className={`booking-payment-share-item ${s.paidAt ? 'paid' : 'pending'}`}>
+                                          <span className="booking-payment-share-name">
+                                            {s.memberName || s.phone || '—'}{isBooker ? ` (${c.booker})` : ''}
+                                          </span>
+                                          <span className="booking-payment-share-amount">{parseFloat(s.amount) || 0} {currency}</span>
+                                          <span className="booking-payment-share-status">
+                                            {s.paidAt ? (
+                                              s.paymentMethod === 'at_club' ? (
+                                                <span className="status-badge status-pay-at-club">✓ {c.payAtClub}</span>
+                                              ) : (
+                                                <span className="status-badge status-paid">✓ {c.paid}</span>
+                                              )
+                                            ) : s.paymentMethod === 'at_club' ? (
+                                              <span className="status-badge status-pay-at-club">{c.payAtClub}</span>
+                                            ) : s.paymentMethod ? (
+                                              <span className="status-badge status-booker-method">{getPaymentMethodLabel(s.paymentMethod)}</span>
+                                            ) : (
+                                              <span className="status-badge status-pending">{c.pending}</span>
+                                            )}
+                                          </span>
+                                          {canMarkPaid && (
+                                            <button
+                                              type="button"
+                                              className="booking-payment-mark-paid-btn"
+                                              onClick={() => handleMarkSharePaidAtClub(s)}
+                                              disabled={actionLoading === `share-${s.id}`}
+                                            >
+                                              {actionLoading === `share-${s.id}` ? '…' : (language === 'en' ? 'Mark paid' : 'تسجيل الدفع')}
+                                            </button>
+                                          )}
+                                        </div>
+                                      )
+                                    }
                                     return (
                                       <>
-                                        {bookerAmount > 0 && (
-                                          <div className="booking-payment-share-item booker-share">
-                                            <span className="booking-payment-share-name">
-                                              {b.memberName || b.customerName || b.customer || '—'} ({c.booker})
-                                            </span>
-                                            <span className="booking-payment-share-amount">{bookerAmount} {currency}</span>
-                                            <span className="booking-payment-share-status">
-                                              {bookerPaymentMethod ? (
-                                                <span className="status-badge status-booker-method">
-                                                  {getPaymentMethodLabel(bookerPaymentMethod)}
-                                                </span>
-                                              ) : (
-                                                <span className="status-badge status-pending">—</span>
-                                              )}
-                                            </span>
-                                          </div>
-                                        )}
-                                        {paymentShares.map((s, idx) => (
-                                    <div key={s.id || idx} className={`booking-payment-share-item ${s.paidAt ? 'paid' : 'pending'}`}>
-                                      <span className="booking-payment-share-name">{s.memberName || s.phone || '—'}</span>
-                                      <span className="booking-payment-share-amount">{parseFloat(s.amount) || 0} {currency}</span>
-                                      <span className="booking-payment-share-status">
-                                        {s.paidAt ? (
-                                          s.paymentMethod === 'at_club' ? (
-                                            <span className="status-badge status-pay-at-club">✓ {c.payAtClub}</span>
-                                          ) : (
-                                            <span className="status-badge status-paid">✓ {c.paid}</span>
+                                        {bookerShares.length > 0 ? bookerShares.map((s, idx) => renderShareRow(s, idx, true)) : (
+                                          bookerAmountFromCalc > 0 && (
+                                            <div className="booking-payment-share-item booker-share">
+                                              <span className="booking-payment-share-name">{b.memberName || b.customerName || b.customer || '—'} ({c.booker})</span>
+                                              <span className="booking-payment-share-amount">{bookerAmountFromCalc} {currency}</span>
+                                              <span className="booking-payment-share-status">
+                                                {bookerPaymentMethod ? (
+                                                  <span className="status-badge status-booker-method">{getPaymentMethodLabel(bookerPaymentMethod)}</span>
+                                                ) : (
+                                                  <span className="status-badge status-pending">—</span>
+                                                )}
+                                              </span>
+                                            </div>
                                           )
-                                        ) : (
-                                          <span className="status-badge status-pending">{c.pending}</span>
                                         )}
-                                      </span>
-                                    </div>
-                                  ))}
+                                        {participantShares.map((s, idx) => renderShareRow(s, idx, false))}
                                       </>
                                     )
                                   })()}

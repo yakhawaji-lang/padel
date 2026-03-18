@@ -388,7 +388,7 @@
 }
 .booking-payment-share-item {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
@@ -432,6 +432,24 @@
 .status-badge.status-pending {
   background: #fef3c7;
   color: #b45309;
+}
+.booking-payment-mark-paid-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid #10b981;
+  background: #d1fae5;
+  color: #065f46;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.booking-payment-mark-paid-btn:hover {
+  background: #a7f3d0;
+}
+.booking-payment-mark-paid-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .booking-row-cancelled {

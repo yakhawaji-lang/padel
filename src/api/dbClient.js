@@ -443,6 +443,20 @@ export async function markPayAtClub(bookingId, clubId) {
   })
 }
 
+export async function markSharePaidAtClub({ shareId, inviteToken, clubId }) {
+  return fetchJson('/api/bookings/mark-share-paid-at-club', {
+    method: 'POST',
+    body: JSON.stringify({ shareId, inviteToken, clubId })
+  })
+}
+
+export async function updateSharePaymentMethod({ inviteToken, clubId, paymentMethod }) {
+  return fetchJson('/api/bookings/update-share-payment-method', {
+    method: 'PATCH',
+    body: JSON.stringify({ inviteToken, clubId, paymentMethod })
+  })
+}
+
 export async function cancelBookingLock(lockId) {
   return fetchJson('/api/bookings/cancel', {
     method: 'POST',
