@@ -409,6 +409,29 @@ router.get('/migrate-to-normalized', async (req, res) => {
     res.status(500).json({ error: e.message })
   }
 })
+/** GET/POST /api/init-db/ensure-coach-schema - أضف عمود is_coach لجدول member_clubs فقط (لصفحة المدرب) */
+const ensureCoachSchemaHandler = async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ error: 'Database not connected' })
+    const { query } = await import('../db/pool.js')
+    try {
+      await query('SELECT member_id, club_id, is_coach FROM member_clubs LIMIT 1')
+    } catch (e) {
+      if (e?.message?.includes('Unknown column') && e?.message?.includes('is_coach')) {
+        await query('ALTER TABLE member_clubs ADD COLUMN is_coach TINYINT(1) DEFAULT 0')
+      } else if (e?.message?.includes("doesn't exist") || e?.message?.includes('Unknown table')) {
+        return res.status(400).json({ error: 'Run migrate-to-normalized first. member_clubs table missing.' })
+      } else throw e
+    }
+    res.json({ ok: true, message: 'Coach schema ready (is_coach column exists)' })
+  } catch (e) {
+    console.error('ensure-coach-schema:', e)
+    res.status(500).json({ error: e.message })
+  }
+}
+router.get('/ensure-coach-schema', ensureCoachSchemaHandler)
+router.post('/ensure-coach-schema', ensureCoachSchemaHandler)
+
 /** GET/POST /api/init-db/migrate-booking-v2 - Booking System V2 (soft lock, status, refunds) */
 const migrateBookingV2Handler = async (req, res) => {
   try {

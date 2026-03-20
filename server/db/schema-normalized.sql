@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS clubs (
 CREATE TABLE IF NOT EXISTS member_clubs (
   member_id VARCHAR(255) NOT NULL,
   club_id VARCHAR(255) NOT NULL,
+  is_coach TINYINT(1) DEFAULT 0,
   joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (member_id, club_id),
   INDEX idx_mc_club (club_id)

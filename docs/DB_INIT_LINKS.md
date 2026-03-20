@@ -67,6 +67,12 @@ https://playtix.app/api/init-db/migrate-to-normalized
 https://playtix.app/api/init-db/migrate-booking-v2
 ```
 > يشمل أيضاً عمود `payment_method` في `booking_payment_shares` لعرض "سيدفع في النادي".
+> **يشمل عمود `is_coach` في `member_clubs` لصفحة المدرب.**
+
+**تهيئة صفحة المدرب فقط** (إضافة عمود `is_coach` لجدول `member_clubs` — خفيف وسريع):
+```
+https://playtix.app/api/init-db/ensure-coach-schema
+```
 
 **ترحيل إعدادات الدفع** (جدول `platform_payment_gateways` — **مطلوب لصفحة إعدادات الدفع**):
 ```
