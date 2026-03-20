@@ -45,19 +45,15 @@ const CoachDashboardPage = () => {
 
   const isCoach = useMemo(() => {
     if (!club?.memberCoaches || !platformUser?.id) return false
-    return club.memberCoaches.includes(platformUser.id)
+    return (club.memberCoaches || []).some(mc => String(mc) === String(platformUser.id))
   }, [club?.memberCoaches, platformUser?.id])
 
-  const isMember = useMemo(() => {
-    if (!club?.members || !platformUser?.id) return false
-    return club.members.includes(platformUser.id)
-  }, [club?.members, platformUser?.id])
-
   useEffect(() => {
-    if (!loading && (!platformUser || !isMember || !isCoach)) {
+    if (loading || !club) return
+    if (!platformUser?.id || !isCoach) {
       navigate(`/clubs/${clubId}`, { replace: true })
     }
-  }, [loading, platformUser, isMember, isCoach, clubId, navigate])
+  }, [loading, club, platformUser?.id, isCoach, clubId, navigate])
 
   const bookings = useMemo(() => {
     const list = club?.bookings || []
