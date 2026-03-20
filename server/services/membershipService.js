@@ -51,11 +51,29 @@ export async function setClubMembers(clubId, memberIds) {
   const cid = String(clubId)
   const list = Array.isArray(memberIds) ? memberIds.map(m => String(m)).filter(Boolean) : []
   try {
-    await query('DELETE FROM member_clubs WHERE club_id = ?', [cid])
+    const memberIdsSet = new Set(list)
+    const { rows: existing } = await query('SELECT member_id, is_coach FROM member_clubs WHERE club_id = ?', [cid])
+    const existingIds = new Set((existing || []).map(r => r.member_id))
+    for (const r of existing || []) {
+      if (!memberIdsSet.has(r.member_id)) {
+        await query('DELETE FROM member_clubs WHERE member_id = ? AND club_id = ?', [r.member_id, cid])
+      }
+    }
     for (const mid of list) {
-      await query('INSERT IGNORE INTO member_clubs (member_id, club_id) VALUES (?, ?)', [mid, cid])
+      if (!existingIds.has(mid)) {
+        await query('INSERT IGNORE INTO member_clubs (member_id, club_id, is_coach) VALUES (?, ?, 0)', [mid, cid])
+      }
     }
   } catch (e) {
+    if (e?.message?.includes('Unknown column') && e?.message?.includes('is_coach')) {
+      try {
+        await query('ALTER TABLE member_clubs ADD COLUMN is_coach TINYINT(1) DEFAULT 0')
+        return setClubMembers(clubId, memberIds)
+      } catch (migErr) {
+        if (!migErr?.message?.includes('Duplicate column')) throw migErr
+        return setClubMembers(clubId, memberIds)
+      }
+    }
     console.error('membershipService.setClubMembers:', e?.message)
     throw e
   }
