@@ -33,6 +33,7 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
   const [showAddModal, setShowAddModal] = useState(false)
   const [addForm, setAddForm] = useState({ name: '', email: '', mobile: '', password: '' })
   const [togglingCoach, setTogglingCoach] = useState(null)
+  const [localCoachIds, setLocalCoachIds] = useState(() => new Set())
 
   const members = useMemo(() => {
     if (!club?.id) return []
@@ -55,7 +56,10 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
   }, [members, searchQuery])
 
   useEffect(() => {
-    const onSynced = () => setRefreshKey(k => k + 1)
+    const onSynced = () => {
+      setRefreshKey(k => k + 1)
+      setLocalCoachIds(new Set())
+    }
     const onVisible = () => { if (document.visibilityState === 'visible') setRefreshKey(k => k + 1) }
     window.addEventListener('clubs-synced', onSynced)
     document.addEventListener('visibilitychange', onVisible)
@@ -107,11 +111,24 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
     }
   }
 
+  const isCoach = (member) => {
+    const id = String(member?.id || '')
+    if (localCoachIds.has(id)) return true
+    return (club?.memberCoaches || []).some(mc => String(mc) === id)
+  }
+
   const handleToggleCoach = async (member) => {
-    const next = !(club?.memberCoaches || []).includes(member.id)
+    const currentlyCoach = isCoach(member)
+    const next = !currentlyCoach
     setTogglingCoach(member.id)
     try {
       if (await setMemberCoach(member.id, club.id, next)) {
+        setLocalCoachIds(prev => {
+          const nextSet = new Set(prev)
+          if (next) nextSet.add(String(member.id))
+          else nextSet.delete(String(member.id))
+          return nextSet
+        })
         setRefreshKey(k => k + 1)
       }
     } finally {
@@ -251,19 +268,21 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
               <div className="cxp-member-actions">
                 <button
                   type="button"
-                  className={`cxp-btn cxp-btn--secondary cxp-coach-toggle ${(club?.memberCoaches || []).includes(member.id) ? 'cxp-coach-toggle--active' : ''}`}
+                  className={`cxp-btn cxp-btn--secondary cxp-coach-toggle ${isCoach(member) ? 'cxp-coach-toggle--active' : ''}`}
                   style={{ padding: '6px 12px', fontSize: '0.8125rem' }}
                   onClick={() => handleToggleCoach(member)}
                   disabled={togglingCoach === member.id}
-                  title={(club?.memberCoaches || []).includes(member.id) ? t('Coach — click to remove', 'مدرب — انقر للإزالة', language) : t('Set as coach', 'تعيين كمدرب', language)}
+                  title={isCoach(member) ? t('Coach — click to remove', 'مدرب — انقر للإزالة', language) : t('Set as coach', 'تعيين كمدرب', language)}
                 >
-                  {togglingCoach === member.id ? '⋯' : '🏸'} {(club?.memberCoaches || []).includes(member.id) ? t('Coach ✓', 'مدرب ✓', language) : t('Set as coach', 'تعيين كمدرب', language)}
+                  {togglingCoach === member.id ? '⋯' : '🏸'} {isCoach(member) ? t('Coach ✓', 'مدرب ✓', language) : t('Set as coach', 'تعيين كمدرب', language)}
                 </button>
-                <button type="button" className="cxp-btn-icon" onClick={() => openEdit(member)} title={t('Edit', 'تعديل', language)}>✎</button>
-                <button type="button" className="cxp-btn cxp-btn--secondary" style={{ padding: '6px 12px', fontSize: '0.8125rem' }} onClick={() => handleRemoveFromClub(member)}>
-                  {t('Remove', 'إزالة', language)}
-                </button>
-                <button type="button" className="cxp-btn-icon cxp-btn-icon--danger" onClick={() => handleDeleteMember(member)} title={t('Delete', 'حذف', language)}>×</button>
+                <div className="cxp-member-actions-group">
+                  <button type="button" className="cxp-btn-icon" onClick={() => openEdit(member)} title={t('Edit', 'تعديل', language)}>✎</button>
+                  <button type="button" className="cxp-btn cxp-btn--secondary" style={{ padding: '6px 12px', fontSize: '0.8125rem' }} onClick={() => handleRemoveFromClub(member)}>
+                    {t('Remove', 'إزالة', language)}
+                  </button>
+                  <button type="button" className="cxp-btn-icon cxp-btn-icon--danger" onClick={() => handleDeleteMember(member)} title={t('Delete', 'حذف', language)} aria-label={t('Delete', 'حذف', language)}>×</button>
+                </div>
               </div>
             </div>
           ))}

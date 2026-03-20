@@ -159,7 +159,15 @@
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
   padding-top: 10px;
   border-top: 1px solid #f1f5f9;
+}
+
+.cxp-member-actions-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
 }
 
