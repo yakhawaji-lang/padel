@@ -199,6 +199,14 @@ export async function removeMemberFromClubApi(memberId, clubId) {
   })
 }
 
+/** Set or unset a member as coach for a club. Use when admin toggles coach status. */
+export async function setMemberCoachApi(memberId, clubId, isCoach) {
+  return fetchJson('/api/data/member-set-coach', {
+    method: 'POST',
+    body: JSON.stringify({ memberId, clubId, isCoach })
+  })
+}
+
 /** حفظ إعدادات نادٍ واحد في padel_db. يُرجع الإعدادات المحفوظة من القاعدة. */
 export async function saveClubSettings(clubId, settings) {
   const toNum = (v, d) => (v !== undefined && v !== null && v !== '' && !Number.isNaN(Number(v))) ? Number(v) : d
@@ -454,6 +462,13 @@ export async function updateSharePaymentMethod({ inviteToken, clubId, paymentMet
   return fetchJson('/api/bookings/update-share-payment-method', {
     method: 'PATCH',
     body: JSON.stringify({ inviteToken, clubId, paymentMethod })
+  })
+}
+
+export async function createCoachTrainingSlots({ clubId, courtId, dates, startTime, endTime, pricePerHour, maxTrainees, coachId }) {
+  return fetchJson('/api/bookings/coach-training', {
+    method: 'POST',
+    body: JSON.stringify({ clubId, courtId, dates, startTime, endTime, pricePerHour, maxTrainees, coachId })
   })
 }
 

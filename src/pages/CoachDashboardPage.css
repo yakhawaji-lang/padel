@@ -1,0 +1,363 @@
+/* Coach Dashboard - لوحة المدرب */
+.coach-dashboard-page {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 30%);
+  padding-bottom: env(safe-area-inset-bottom, 24px);
+}
+
+.coach-dashboard-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 16px;
+  color: #64748b;
+}
+
+.coach-dashboard-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #059669;
+  border-radius: 50%;
+  animation: coach-spin 0.8s linear infinite;
+}
+
+@keyframes coach-spin {
+  to { transform: rotate(360deg); }
+}
+
+.coach-dashboard-header {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #fff;
+  padding: 16px 20px;
+  padding-top: max(16px, env(safe-area-inset-top));
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.15);
+}
+
+.coach-dashboard-header-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.coach-dashboard-back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255,255,255,0.95);
+  text-decoration: none;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.coach-dashboard-back:hover {
+  color: #fff;
+}
+
+.coach-dashboard-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.coach-dashboard-icon {
+  font-size: 1.5rem;
+}
+
+.coach-dashboard-lang {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  border-radius: 8px;
+  padding: 8px;
+  cursor: pointer;
+  color: #fff;
+}
+
+.coach-dashboard-main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+/* Stats */
+.coach-dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.coach-stat-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.coach-stat-value {
+  display: block;
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.coach-stat-label {
+  display: block;
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.coach-stat-revenue .coach-stat-value {
+  color: #059669;
+}
+
+/* Create form */
+.coach-dashboard-create {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 32px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  border: 1px solid #e2e8f0;
+}
+
+.coach-dashboard-create h2 {
+  margin: 0 0 20px 0;
+  font-size: 1.125rem;
+  color: #0f172a;
+}
+
+.coach-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.coach-create-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.coach-create-row label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.coach-create-row select,
+.coach-create-row input {
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+}
+
+.coach-create-time {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.coach-create-time input {
+  width: 120px;
+}
+
+.coach-create-error {
+  color: #dc2626;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.coach-create-submit {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #fff;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.coach-create-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.coach-create-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Confirmed days */
+.coach-dashboard-confirmed {
+  margin-bottom: 32px;
+}
+
+.coach-dashboard-confirmed h2 {
+  margin: 0 0 16px 0;
+  font-size: 1.125rem;
+  color: #0f172a;
+}
+
+.coach-confirmed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.coach-confirmed-card {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  border: none;
+  text-align: center;
+}
+
+.coach-confirmed-date {
+  display: block;
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.coach-confirmed-court {
+  display: block;
+  font-size: 0.8125rem;
+  opacity: 0.9;
+  margin-top: 4px;
+}
+
+.coach-confirmed-count {
+  display: block;
+  font-size: 0.75rem;
+  opacity: 0.8;
+  margin-top: 12px;
+}
+
+/* Tabs */
+.coach-dashboard-bookings {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  border: 1px solid #e2e8f0;
+}
+
+.coach-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.coach-tab {
+  padding: 12px 20px;
+  border: none;
+  background: none;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+  margin-bottom: -1px;
+}
+
+.coach-tab.active {
+  color: #059669;
+  border-bottom-color: #059669;
+}
+
+.coach-bookings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.coach-booking-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.coach-booking-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.coach-booking-date {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.coach-booking-time {
+  color: #475569;
+  font-size: 0.9375rem;
+}
+
+.coach-booking-court {
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.coach-booking-price {
+  font-weight: 600;
+  color: #059669;
+}
+
+.coach-booking-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.coach-booking-trainees {
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.coach-booking-status {
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-transform: capitalize;
+}
+
+.coach-booking-status-confirmed {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.coach-booking-status-pending_payments {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.coach-bookings-empty {
+  text-align: center;
+  color: #94a3b8;
+  padding: 32px;
+  margin: 0;
+}

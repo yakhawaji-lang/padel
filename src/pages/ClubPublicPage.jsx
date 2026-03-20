@@ -975,9 +975,16 @@ const ClubPublicPage = () => {
             <div className="club-public-court-booking-header">
               <label className="club-public-court-booking-date-label">{c.selectDate}</label>
               {isMember && (
-                <Link to={`/my-bookings?from=${clubId}`} className="club-public-my-bookings-link">
-                  📅 {language === 'en' ? 'My Bookings' : 'حجوزاتي'}
-                </Link>
+                <>
+                  <Link to={`/my-bookings?from=${clubId}`} className="club-public-my-bookings-link">
+                    📅 {language === 'en' ? 'My Bookings' : 'حجوزاتي'}
+                  </Link>
+                  {(club?.memberCoaches || []).includes(platformUser?.id) && (
+                    <Link to={`/clubs/${clubId}/coach`} className="club-public-coach-link">
+                      🏸 {language === 'en' ? 'Coach Dashboard' : 'لوحة المدرب'}
+                    </Link>
+                  )}
+                </>
               )}
               <CalendarPicker
                 value={courtGridDate}
@@ -1015,7 +1022,7 @@ const ClubPublicPage = () => {
                           const courtName = (court.name || '').toString().trim()
                           const courtIdForMatch = (court.id || court.name || '').toString()
                           const dateStr = courtGridDate
-                          const isBooked = bookings.some(b => {
+                          const bookedItem = bookings.find(b => {
                             if (b.isTournament) return false
                             const status = (b.status || '').toString()
                             if (['cancelled', 'expired'].includes(status)) return false
@@ -1032,6 +1039,8 @@ const ClubPublicPage = () => {
                             }
                             return isTimeSlotCoveredByBooking(timeSlot, start, end || start)
                           })
+                          const isBooked = !!bookedItem
+                          const isTraining = isBooked && (bookedItem?.type === 'training' || bookedItem?.data?.type === 'training')
                           const isLocked = activeLocks.some(l => {
                             const lCourt = (l.court_id || '').toString()
                             if (lCourt !== courtName && lCourt !== courtIdForMatch) return false
@@ -1053,7 +1062,7 @@ const ClubPublicPage = () => {
                           const isPast = isSlotInPast(dateStr, timeSlot)
                           const hasDuration = isSlotActuallyBookable(court, dateStr, timeSlot)
                           const canBook = !isBooked && !isPast && (hasDuration || isMyLock) && isMember && platformUser && (!isLocked || isMyLock)
-                          const cellStatus = isLocked ? 'in-progress' : isBooked ? 'booked' : isPast ? 'past' : 'available'
+                          const cellStatus = isLocked ? 'in-progress' : isBooked ? (isTraining ? 'booked training' : 'booked') : isPast ? 'past' : 'available'
                           const slotTitle = isMyLock ? (language === 'en' ? 'Complete your booking' : 'أكمل حجزك') : isLocked ? (language === 'en' ? 'In progress' : 'قيد الإجراء') : isBooked ? (c.booked || 'Booked') : isPast ? (language === 'en' ? 'Past' : 'منتهي') : canBook ? (c.bookNow || 'Book now') : (c.available || 'Available')
                           return (
                             <div

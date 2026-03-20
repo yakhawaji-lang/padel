@@ -448,7 +448,7 @@ function settingsFromSettingsRow(s) {
 }
 
 // ---------- Clubs ----------
-async function assembleClub(clubRow, courts, settings, adminUsers, offers, bookings, accounting, tournamentTypes, store, memberIds, paymentSharesByBooking = {}) {
+async function assembleClub(clubRow, courts, settings, adminUsers, offers, bookings, accounting, tournamentTypes, store, memberIds, paymentSharesByBooking = {}, memberCoaches = []) {
   const s = settings?.[0] || {}
   const settingsObj = settingsFromSettingsRow(s)
   return {
@@ -478,6 +478,7 @@ async function assembleClub(clubRow, courts, settings, adminUsers, offers, booki
     settings: settingsObj,
     tournaments: [],
     members: memberIds || [],
+    memberCoaches: memberCoaches || [],
     bookings: (bookings || []).map(b => {
       let data = b.data
       if (typeof data === 'string') {
@@ -620,7 +621,16 @@ export async function getClubsFromNormalized() {
     query(`SELECT * FROM club_accounting WHERE club_id IN (${placeholders}) AND deleted_at IS NULL`, clubIds),
     query(`SELECT * FROM club_tournament_types WHERE club_id IN (${placeholders}) AND deleted_at IS NULL`, clubIds),
     query(`SELECT * FROM club_store WHERE club_id IN (${placeholders})`, clubIds),
-    query(`SELECT member_id, club_id FROM member_clubs WHERE club_id IN (${placeholders})`, clubIds),
+    (async () => {
+      try {
+        return await query(`SELECT member_id, club_id, is_coach FROM member_clubs WHERE club_id IN (${placeholders})`, clubIds)
+      } catch (e) {
+        if (e?.message?.includes('Unknown column') && e?.message?.includes('is_coach')) {
+          return await query(`SELECT member_id, club_id FROM member_clubs WHERE club_id IN (${placeholders})`, clubIds)
+        }
+        throw e
+      }
+    })(),
     (async () => {
       try {
         return await query(`SELECT id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, paid_at, payment_reference, payment_method FROM booking_payment_shares WHERE club_id IN (${placeholders})`, clubIds)
@@ -645,9 +655,14 @@ export async function getClubsFromNormalized() {
   const ttByClub = byClub(ttRes)
   const storeByClub = byClub(storeRes)
   const membersByClub = {}
+  const memberCoachesByClub = {}
   ;(mcRes?.rows || mcRes || []).forEach(r => {
     if (!membersByClub[r.club_id]) membersByClub[r.club_id] = []
     membersByClub[r.club_id].push(r.member_id)
+    if (r.is_coach) {
+      if (!memberCoachesByClub[r.club_id]) memberCoachesByClub[r.club_id] = []
+      memberCoachesByClub[r.club_id].push(r.member_id)
+    }
   })
 
   const paymentSharesByBooking = {}
@@ -683,7 +698,8 @@ export async function getClubsFromNormalized() {
       ttByClub[cid],
       (storeByClub[cid] || [])[0],
       membersByClub[cid],
-      paymentSharesByBooking
+      paymentSharesByBooking,
+      memberCoachesByClub[cid] || []
     ))
   }
   return result

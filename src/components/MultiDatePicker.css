@@ -1,0 +1,78 @@
+.multi-date-picker {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+.multi-date-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.multi-date-picker-header button {
+  background: #f1f5f9;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.25rem;
+}
+
+.multi-date-picker-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+  font-size: 0.75rem;
+  color: #64748b;
+  text-align: center;
+}
+
+.multi-date-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.multi-date-picker-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  background: transparent;
+}
+
+.multi-date-picker-cell.current {
+  color: #0f172a;
+}
+
+.multi-date-picker-cell.other {
+  color: #94a3b8;
+}
+
+.multi-date-picker-cell.past {
+  color: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.multi-date-picker-cell.selected {
+  background: #059669;
+  color: #fff;
+}
+
+.multi-date-picker-cell.current:not(.past):not(.selected):hover {
+  background: #f1f5f9;
+}
+
+.multi-date-picker-cell.empty {
+  cursor: default;
+}

@@ -983,6 +983,22 @@ export const addMemberToClubs = (memberId, clubIds) => {
   return addMemberToClub(memberId, clubIds)
 }
 
+/** Set or unset a member as coach for a club. Calls API then refreshes clubs. */
+export const setMemberCoach = async (memberId, clubId, isCoach) => {
+  try {
+    if (_backendStorage?.api?.setMemberCoachApi) {
+      await _backendStorage.api.setMemberCoachApi(memberId, clubId, isCoach)
+      await refreshClubsFromApi()
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      return true
+    }
+    return false
+  } catch (e) {
+    console.error('setMemberCoach error:', e)
+    return false
+  }
+}
+
 /** Remove member from club(s). Calls API to remove from DB first, then updates local state via saveMembers. */
 export const removeMemberFromClubs = async (memberId, clubIds) => {
   try {

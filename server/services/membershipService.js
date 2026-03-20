@@ -80,3 +80,26 @@ export async function removeAllMembershipsForClub(clubId) {
     throw e
   }
 }
+
+/** Set or unset a member as coach for a club. Member must already be in the club. */
+export async function setMemberCoachStatus(memberId, clubId, isCoach, actor = {}) {
+  if (!memberId || !clubId) return false
+  const mid = String(memberId)
+  const cid = String(clubId)
+  try {
+    const { rows } = await query('SELECT 1 FROM member_clubs WHERE member_id = ? AND club_id = ?', [mid, cid])
+    if (!rows?.length) return false
+    await query(
+      'UPDATE member_clubs SET is_coach = ? WHERE member_id = ? AND club_id = ?',
+      [isCoach ? 1 : 0, mid, cid]
+    )
+    return true
+  } catch (e) {
+    if (e?.message?.includes('Unknown column') && e?.message?.includes('is_coach')) {
+      console.warn('member_clubs.is_coach column not found - run migration add-coaches-and-training.sql')
+      return false
+    }
+    console.error('membershipService.setMemberCoachStatus:', e?.message)
+    throw e
+  }
+}

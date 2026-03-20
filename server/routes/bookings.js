@@ -276,6 +276,89 @@ router.post('/cancel', async (req, res) => {
   }
 })
 
+/** POST /api/bookings/coach-training - Coach creates training slots (multiple dates) */
+router.post('/coach-training', async (req, res) => {
+  try {
+    const normalized = await hasNormalizedTables()
+    if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
+
+    const { clubId, courtId, dates, startTime, endTime, pricePerHour, maxTrainees, coachId } = req.body || {}
+    if (!clubId || !courtId || !Array.isArray(dates) || dates.length === 0 || !startTime || !endTime || !coachId) {
+      return res.status(400).json({ error: 'clubId, courtId, dates, startTime, endTime, coachId required' })
+    }
+
+    let mcRows = []
+    try {
+      const r = await query(
+        'SELECT 1 FROM member_clubs WHERE member_id = ? AND club_id = ? AND is_coach = 1',
+        [coachId, clubId]
+      )
+      mcRows = r.rows || []
+    } catch (mcErr) {
+      if (mcErr?.message?.includes('is_coach')) {
+        return res.status(400).json({ error: 'Coach feature not migrated. Run migrate-booking-v2.' })
+      }
+      throw mcErr
+    }
+    if (!mcRows?.length) {
+      return res.status(403).json({ error: 'Not a coach for this club' })
+    }
+
+    const [sh, sm] = (startTime || '0:0').toString().split(':').map(Number)
+    const [eh, em] = (endTime || '0:0').toString().split(':').map(Number)
+    const durationHours = ((eh || 0) * 60 + (em || 0) - (sh || 0) * 60 - (sm || 0)) / 60
+    const totalAmount = Math.round((parseFloat(pricePerHour) || 0) * Math.max(0.5, durationHours) * 100) / 100
+    const maxT = Math.min(4, Math.max(1, parseInt(maxTrainees, 10) || 4))
+
+    const created = []
+    for (const dateRaw of dates) {
+      const date = (dateRaw || '').toString().replace(/T.*$/, '').trim().substring(0, 10)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue
+      if (isBookingInPast(date, startTime)) continue
+
+      const conflict = await lock.hasConflict(clubId, courtId, date, startTime, endTime, null)
+      if (conflict) {
+        return res.status(409).json({ error: `Slot taken: ${date}`, conflict })
+      }
+
+      const bid = `bk_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`
+      const dataJson = JSON.stringify({
+        type: 'training',
+        coachId,
+        maxTrainees: maxT,
+        pricePerHour: parseFloat(pricePerHour) || 0,
+        resource: courtId,
+        court: courtId
+      })
+
+      await bookingService.createBooking({
+        id: bid,
+        clubId,
+        courtId,
+        memberId: coachId,
+        date,
+        timeSlot: startTime,
+        startTime,
+        endTime,
+        status: 'confirmed',
+        totalAmount,
+        paidAmount: 0,
+        initiatorMemberId: coachId,
+        paymentDeadline: null,
+        dataJson,
+        createdBy: coachId
+      })
+      created.push({ id: bid, date })
+      slotCache.invalidateLocks(clubId, date)
+    }
+
+    res.json({ ok: true, created })
+  } catch (e) {
+    console.error('bookings coach-training error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
 /** POST /api/bookings/record-payment - Record payment for a share (update paid_at, payment_method, recalc status)
  * - paymentMethod 'at_club': commitment only, paid_at = NULL
  * - paymentReference (electronic): actual payment, paid_at = NOW()

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getClubMembersFromStorage, upsertMember, removeMemberFromClubs, deleteMember, refreshClubsFromApi } from '../../storage/adminStorage'
+import { getClubMembersFromStorage, upsertMember, removeMemberFromClubs, deleteMember, refreshClubsFromApi, setMemberCoach } from '../../storage/adminStorage'
 import { getAppLanguage } from '../../storage/languageStorage'
 import './club-pages-common.css'
 import './MembersManagement.css'
@@ -32,6 +32,7 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [addForm, setAddForm] = useState({ name: '', email: '', mobile: '', password: '' })
+  const [togglingCoach, setTogglingCoach] = useState(null)
 
   const members = useMemo(() => {
     if (!club?.id) return []
@@ -103,6 +104,18 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
       window.dispatchEvent(new CustomEvent('clubs-synced'))
     } else {
       setError(t('Could not update member.', 'تعذر تحديث العضو.', language))
+    }
+  }
+
+  const handleToggleCoach = async (member) => {
+    const next = !(club?.memberCoaches || []).includes(member.id)
+    setTogglingCoach(member.id)
+    try {
+      if (await setMemberCoach(member.id, club.id, next)) {
+        setRefreshKey(k => k + 1)
+      }
+    } finally {
+      setTogglingCoach(null)
     }
   }
 
@@ -236,6 +249,16 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
                 </div>
               </div>
               <div className="cxp-member-actions">
+                <button
+                  type="button"
+                  className={`cxp-btn cxp-btn--secondary cxp-coach-toggle ${(club?.memberCoaches || []).includes(member.id) ? 'cxp-coach-toggle--active' : ''}`}
+                  style={{ padding: '6px 12px', fontSize: '0.8125rem' }}
+                  onClick={() => handleToggleCoach(member)}
+                  disabled={togglingCoach === member.id}
+                  title={(club?.memberCoaches || []).includes(member.id) ? t('Coach — click to remove', 'مدرب — انقر للإزالة', language) : t('Set as coach', 'تعيين كمدرب', language)}
+                >
+                  {togglingCoach === member.id ? '⋯' : '🏸'} {(club?.memberCoaches || []).includes(member.id) ? t('Coach ✓', 'مدرب ✓', language) : t('Set as coach', 'تعيين كمدرب', language)}
+                </button>
                 <button type="button" className="cxp-btn-icon" onClick={() => openEdit(member)} title={t('Edit', 'تعديل', language)}>✎</button>
                 <button type="button" className="cxp-btn cxp-btn--secondary" style={{ padding: '6px 12px', fontSize: '0.8125rem' }} onClick={() => handleRemoveFromClub(member)}>
                   {t('Remove', 'إزالة', language)}

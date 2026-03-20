@@ -109,6 +109,10 @@ export async function runMigration() {
     `)
   }
 
+  if (!(await columnExists('member_clubs', 'is_coach'))) {
+    await query('ALTER TABLE member_clubs ADD COLUMN is_coach TINYINT(1) DEFAULT 0')
+  }
+
   await query(`
     UPDATE club_bookings SET start_time = time_slot 
     WHERE start_time IS NULL AND time_slot IS NOT NULL

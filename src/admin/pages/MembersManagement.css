@@ -3,6 +3,15 @@
   max-width: none;
 }
 
+.cxp-coach-toggle {
+  min-width: 100px;
+}
+.cxp-coach-toggle--active {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  color: #fff !important;
+  border-color: #059669 !important;
+}
+
 .members-table {
   background: #fff;
   border-radius: 14px;

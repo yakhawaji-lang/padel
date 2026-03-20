@@ -8,6 +8,7 @@ import { query } from '../db/pool.js'
 import { getPaymentGatewaysFromTable, savePaymentGatewaysToTable } from '../db/paymentSettings.js'
 import { getActorFromRequest } from '../db/audit.js'
 import { hasNormalizedTables, getClubsFromNormalized, getMembersFromNormalized, getPlatformAdminsFromNormalized, saveClubsToNormalized, saveMembersToNormalized, savePlatformAdminsToNormalized, deleteClubPermanent, removeMemberFromClub, updateClubSettingsInDb } from '../db/normalizedData.js'
+import { setMemberCoachStatus } from '../services/membershipService.js'
 
 const router = Router()
 
@@ -72,6 +73,22 @@ async function getFromEntities(key) {
     return { ...d, id: r.entity_id }
   })
 }
+
+/** POST /api/data/member-set-coach - Set or unset a member as coach for a club. Body: { memberId, clubId, isCoach } */
+router.post('/member-set-coach', async (req, res) => {
+  try {
+    const { memberId, clubId, isCoach } = req.body || {}
+    if (!memberId || !clubId) return res.status(400).json({ error: 'Missing memberId or clubId' })
+    const normalized = await useNormalized()
+    if (!normalized) return res.status(400).json({ error: 'Requires normalized tables' })
+    const ok = await setMemberCoachStatus(memberId, clubId, !!isCoach)
+    if (!ok) return res.status(404).json({ error: 'Member not in club or update failed' })
+    res.json({ ok: true })
+  } catch (e) {
+    console.error('member-set-coach error:', e)
+    res.status(500).json({ error: dbErrorMsg(e) })
+  }
+})
 
 /** POST /api/data/member-remove-from-club - Remove a member from one club (explicit). Body: { memberId, clubId } */
 router.post('/member-remove-from-club', async (req, res) => {

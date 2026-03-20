@@ -715,6 +715,26 @@
   color: #64748b;
 }
 
+.club-public-court-grid-cell.booked.training {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1d4ed8;
+}
+
+.club-public-coach-link {
+  margin-inline-start: 12px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #fff;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.club-public-coach-link:hover {
+  opacity: 0.95;
+}
+
 .club-public-court-grid-cell.in-progress {
   background: #fef3c7;
   color: #b45309;
