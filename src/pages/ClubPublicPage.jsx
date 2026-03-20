@@ -880,6 +880,7 @@ const ClubPublicPage = () => {
                 language={language}
                 clubId={clubId}
                 className="club-public-member-account"
+                isCoach={club && (club?.memberCoaches || []).some(mc => String(mc) === String(platformUser?.id))}
               />
             ) : (
               <div className="club-public-auth-links">
@@ -979,7 +980,7 @@ const ClubPublicPage = () => {
                   <Link to={`/my-bookings?from=${clubId}`} className="club-public-my-bookings-link">
                     📅 {language === 'en' ? 'My Bookings' : 'حجوزاتي'}
                   </Link>
-                  {(club?.memberCoaches || []).includes(platformUser?.id) && (
+                  {(club?.memberCoaches || []).some(mc => String(mc) === String(platformUser?.id)) && (
                     <Link to={`/clubs/${clubId}/coach`} className="club-public-coach-link">
                       🏸 {language === 'en' ? 'Coach Dashboard' : 'لوحة المدرب'}
                     </Link>

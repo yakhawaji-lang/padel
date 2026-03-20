@@ -96,8 +96,24 @@ export async function setMemberCoachStatus(memberId, clubId, isCoach, actor = {}
     return true
   } catch (e) {
     if (e?.message?.includes('Unknown column') && e?.message?.includes('is_coach')) {
-      console.warn('member_clubs.is_coach column not found - run migration add-coaches-and-training.sql')
-      return false
+      try {
+        await query('ALTER TABLE member_clubs ADD COLUMN is_coach TINYINT(1) DEFAULT 0')
+        await query(
+          'UPDATE member_clubs SET is_coach = ? WHERE member_id = ? AND club_id = ?',
+          [isCoach ? 1 : 0, mid, cid]
+        )
+        return true
+      } catch (migErr) {
+        if (migErr?.message?.includes('Duplicate column')) {
+          await query(
+            'UPDATE member_clubs SET is_coach = ? WHERE member_id = ? AND club_id = ?',
+            [isCoach ? 1 : 0, mid, cid]
+          )
+          return true
+        }
+        console.warn('member_clubs.is_coach auto-migration:', migErr?.message)
+        return false
+      }
     }
     console.error('membershipService.setMemberCoachStatus:', e?.message)
     throw e

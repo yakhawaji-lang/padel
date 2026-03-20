@@ -4,7 +4,7 @@ import { updatePlatformMember, logoutPlatformUser } from '../storage/platformAut
 import { changeMemberPassword, sendPhoneChangeCode, verifyPhoneChange } from '../api/dbClient'
 import './MemberAccountDropdown.css'
 
-const MemberAccountDropdown = ({ member, onUpdate, language = 'en', clubId, children, className = '' }) => {
+const MemberAccountDropdown = ({ member, onUpdate, language = 'en', clubId, children, className = '', isCoach }) => {
   const [open, setOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', email: '', avatar: '', mobile: '' })
@@ -122,8 +122,8 @@ const MemberAccountDropdown = ({ member, onUpdate, language = 'en', clubId, chil
   }
 
   const t = {
-    en: { editProfile: 'Edit profile', logout: 'Logout', myAccount: 'My account', myBookings: 'My Bookings', myFavorites: 'My favorites', save: 'Save', cancel: 'Cancel', name: 'Name', email: 'Email', mobile: 'Phone number', avatar: 'Profile photo (URL or upload)', changePassword: 'Change password', currentPassword: 'Current password', newPassword: 'New password', confirmPassword: 'Confirm new password', passwordMinLength: 'At least 6 characters', passwordsDoNotMatch: 'Passwords do not match', passwordChanged: 'Password changed successfully.', sendCode: 'Send verification code', codeSent: 'Code sent to email/WhatsApp/SMS', enterCode: 'Enter 4-digit code', verifyAndSave: 'Verify and save', phoneChanged: 'Phone number updated successfully.' },
-    ar: { editProfile: 'تعديل الحساب', logout: 'تسجيل الخروج', myAccount: 'حسابي', myBookings: 'حجوزاتي', myFavorites: 'المفضلة', save: 'حفظ', cancel: 'إلغاء', name: 'الاسم', email: 'البريد', mobile: 'رقم الجوال', avatar: 'صورة الملف الشخصي (رابط أو رفع)', changePassword: 'تغيير كلمة المرور', currentPassword: 'كلمة المرور الحالية', newPassword: 'كلمة المرور الجديدة', confirmPassword: 'تأكيد كلمة المرور الجديدة', passwordMinLength: '6 أحرف على الأقل', passwordsDoNotMatch: 'كلمتا المرور غير متطابقتين', passwordChanged: 'تم تغيير كلمة المرور بنجاح.', sendCode: 'إرسال كود التحقق', codeSent: 'تم إرسال الكود إلى البريد/واتساب/رسالة', enterCode: 'أدخل الكود المكون من 4 أرقام', verifyAndSave: 'تحقق واحفظ', phoneChanged: 'تم تحديث رقم الجوال بنجاح.' }
+    en: { editProfile: 'Edit profile', logout: 'Logout', myAccount: 'My account', myBookings: 'My Bookings', myFavorites: 'My favorites', coachPage: 'Coach Page', save: 'Save', cancel: 'Cancel', name: 'Name', email: 'Email', mobile: 'Phone number', avatar: 'Profile photo (URL or upload)', changePassword: 'Change password', currentPassword: 'Current password', newPassword: 'New password', confirmPassword: 'Confirm new password', passwordMinLength: 'At least 6 characters', passwordsDoNotMatch: 'Passwords do not match', passwordChanged: 'Password changed successfully.', sendCode: 'Send verification code', codeSent: 'Code sent to email/WhatsApp/SMS', enterCode: 'Enter 4-digit code', verifyAndSave: 'Verify and save', phoneChanged: 'Phone number updated successfully.' },
+    ar: { editProfile: 'تعديل الحساب', logout: 'تسجيل الخروج', myAccount: 'حسابي', myBookings: 'حجوزاتي', myFavorites: 'المفضلة', coachPage: 'صفحة المدرب', save: 'حفظ', cancel: 'إلغاء', name: 'الاسم', email: 'البريد', mobile: 'رقم الجوال', avatar: 'صورة الملف الشخصي (رابط أو رفع)', changePassword: 'تغيير كلمة المرور', currentPassword: 'كلمة المرور الحالية', newPassword: 'كلمة المرور الجديدة', confirmPassword: 'تأكيد كلمة المرور الجديدة', passwordMinLength: '6 أحرف على الأقل', passwordsDoNotMatch: 'كلمتا المرور غير متطابقتين', passwordChanged: 'تم تغيير كلمة المرور بنجاح.', sendCode: 'إرسال كود التحقق', codeSent: 'تم إرسال الكود إلى البريد/واتساب/رسالة', enterCode: 'أدخل الكود المكون من 4 أرقام', verifyAndSave: 'تحقق واحفظ', phoneChanged: 'تم تحديث رقم الجوال بنجاح.' }
   }
   const c = t[language]
 
@@ -161,6 +161,11 @@ const MemberAccountDropdown = ({ member, onUpdate, language = 'en', clubId, chil
           <Link to={clubId ? `/my-favorites?from=${clubId}` : '/my-favorites'} className="member-account-menu-item" onClick={() => setOpen(false)}>
             ★ {c.myFavorites}
           </Link>
+          {isCoach && clubId && (
+            <Link to={`/clubs/${clubId}/coach`} className="member-account-menu-item" onClick={() => setOpen(false)}>
+              🏸 {c.coachPage}
+            </Link>
+          )}
           <button type="button" className="member-account-menu-item" onClick={() => { setEditOpen(true); setOpen(false); setPhoneChangeStep('idle'); }}>
             {c.editProfile}
           </button>
