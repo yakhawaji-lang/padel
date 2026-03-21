@@ -187,7 +187,7 @@ const ClubPublicPage = () => {
   const [detailBooking, setDetailBooking] = useState(null)
   const [trainingJoinModal, setTrainingJoinModal] = useState(null) // { booking, court } - للانضمام لجلسة تدريب
   const [trainingJoinSubmitting, setTrainingJoinSubmitting] = useState(false)
-  const [hoveredSlot, setHoveredSlot] = useState(null) // { courtId, timeSlot } - لعرض السعر عند التمرير
+  const [hoveredRange, setHoveredRange] = useState(null) // { court, courtId, startSlot, endSlot } - نطاق التمرير للحجز
 
   useEffect(() => {
     setAppLanguage(language)
@@ -496,6 +496,56 @@ const ClubPublicPage = () => {
     }
   }, [clubId, platformUser, isMember, club?.settings?.bookingDuration, club?.settings?.bookingPrices?.durationPrices, club?.settings?.closingTime, club?.settings?.lockMinutes, language, refreshClub, bookings, activeLocks])
 
+  const handleRangeClick = useCallback(async (court, dateStr, startSlot, endSlot, existingLock = null) => {
+    if (existingLock) {
+      handleSlotClick(court, dateStr, startSlot, existingLock)
+      return
+    }
+    const startM = timeToMinutes(startSlot)
+    const endM = timeToMinutes(endSlot)
+    const duration = endM - startM + 30
+    if (duration < (club?.settings?.bookingDuration ?? 60)) {
+      handleSlotClick(court, dateStr, startSlot, null)
+      return
+    }
+    const courtId = (court?.name || court?.id || '').toString()
+    const blocked = getBlockedRangesForCourtAndDate(courtId, dateStr, bookings, activeLocks)
+    const closing = club?.settings?.closingTime || '23:00'
+    const available = getAvailableDurations(club?.settings?.bookingDuration ?? 60, startSlot, closing, blocked)
+    if (!available.includes(duration)) {
+      setLockError(language === 'en' ? 'Selected range has conflicts. Try a shorter range.' : 'النطاق المحدد يتعارض مع حجز آخر. حدد نطاقاً أقصر.')
+      setHoveredRange(null)
+      return
+    }
+    const endTime = addMinutesToTime(endSlot, 30)
+    setLockError(null)
+    try {
+      const result = await bookingApi.acquireBookingLock({
+        clubId,
+        courtId,
+        date: dateStr,
+        startTime: startSlot,
+        endTime,
+        memberId: platformUser.id,
+        lockMinutes: club?.settings?.lockMinutes ?? 10
+      })
+      if (result.lockId) {
+        setActiveLock({ lockId: result.lockId, expiresAt: result.expiresAt })
+        setBookingModal({ court, dateStr, startTime: startSlot })
+        setBookingDuration(duration)
+        setHoveredRange(null)
+      }
+    } catch (e) {
+      if (e.status === 409 || e.message?.includes('SLOT_TAKEN')) {
+        setLockError(language === 'en' ? 'This slot was just taken. Please choose another.' : 'هذا الوقت تم حجزه للتو. اختر وقتاً آخر.')
+        refreshClub()
+      } else {
+        setLockError(e?.message || (language === 'en' ? 'Could not reserve. Try again.' : 'تعذر الحجز. حاول مجدداً.'))
+      }
+      setHoveredRange(null)
+    }
+  }, [clubId, platformUser, club?.settings?.bookingDuration, club?.settings?.closingTime, club?.settings?.lockMinutes, bookings, activeLocks, language, refreshClub, handleSlotClick])
+
   const handleJoinTraining = useCallback(async () => {
     if (!trainingJoinModal?.booking || !platformUser || !isMember) return
     const b = trainingJoinModal.booking
@@ -533,6 +583,42 @@ const ClubPublicPage = () => {
       setTrainingJoinSubmitting(false)
     }
   }, [trainingJoinModal, platformUser, isMember, clubId, language, refreshClub])
+
+  /** هل الوقت adjacent للنطاق؟ (قبل البداية بـ30 د أو بعد النهاية بـ30 د) */
+  const isSlotAdjacentToRange = useCallback((timeSlot, startSlot, endSlot) => {
+    const slotM = timeToMinutes(timeSlot)
+    const startM = timeToMinutes(startSlot)
+    const endM = timeToMinutes(endSlot)
+    return slotM === startM - 30 || slotM === endM + 30
+  }, [])
+
+  const handleRangeMouseEnter = useCallback((court, dateStr, timeSlot, canBookForRange) => {
+    if (!canBookForRange) return
+    const courtId = (court?.id || court?.name || '').toString()
+    const setNewRange = () => setHoveredRange({ court, courtId, startSlot: timeSlot, endSlot: timeSlot, fromCanBook: true })
+    if (!hoveredRange || !hoveredRange.fromCanBook) {
+      setNewRange()
+      return
+    }
+    if (hoveredRange.courtId !== courtId) {
+      setNewRange()
+      return
+    }
+    if (isSlotAdjacentToRange(timeSlot, hoveredRange.startSlot, hoveredRange.endSlot)) {
+      const startM = timeToMinutes(hoveredRange.startSlot)
+      const endM = timeToMinutes(hoveredRange.endSlot)
+      const slotM = timeToMinutes(timeSlot)
+      const newStart = slotM < startM ? timeSlot : hoveredRange.startSlot
+      const newEnd = slotM > endM ? timeSlot : hoveredRange.endSlot
+      setHoveredRange(prev => ({ ...prev, startSlot: newStart, endSlot: newEnd }))
+      return
+    }
+    setNewRange()
+  }, [hoveredRange, isSlotAdjacentToRange])
+
+  const handleRangeMouseLeave = useCallback(() => {
+    setHoveredRange(null)
+  }, [])
 
   const handleCloseBookingModal = useCallback(() => {
     if (activeLock?.lockId) {
@@ -1048,7 +1134,11 @@ const ClubPublicPage = () => {
             ) : (() => {
               const timeSlots = getTimeSlotsForClub(club)
               return (
-                <div className="club-public-court-booking-wrap" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                <div
+                  className="club-public-court-booking-wrap"
+                  dir={language === 'ar' ? 'rtl' : 'ltr'}
+                  onMouseLeave={handleRangeMouseLeave}
+                >
                   <div
                     className="club-public-court-grid club-public-court-grid-times-horizontal"
                     style={{
@@ -1116,41 +1206,63 @@ const ClubPublicPage = () => {
                           const cellStatus = isLocked ? 'in-progress' : isBooked ? (isTraining ? (canJoinTraining ? 'booked training joinable' : 'booked training') : 'booked') : isPast ? 'past' : 'available'
                           const slotTitle = isMyLock ? (language === 'en' ? 'Complete your booking' : 'أكمل حجزك') : isLocked ? (language === 'en' ? 'In progress' : 'قيد الإجراء') : canJoinTraining ? (language === 'en' ? 'Join training' : 'انضم للتدريب') : isBooked ? (c.booked || 'Booked') : isPast ? (language === 'en' ? 'Past' : 'منتهي') : canBook ? (c.bookNow || 'Book now') : (c.available || 'Available')
                           const isCellClickable = canBook || canJoinTraining
-                          const slotKey = `${court.id || court.name}-${timeSlot}`
-                          const isHovered = hoveredSlot === slotKey
+                          const canBookForRange = canBook && !isMyLock && !canJoinTraining
+                          const isInRange = hoveredRange && hoveredRange.courtId === (court.id || court.name || '').toString() && (() => {
+                            const slotM = timeToMinutes(timeSlot)
+                            const startM = timeToMinutes(hoveredRange.startSlot)
+                            const endM = timeToMinutes(hoveredRange.endSlot)
+                            return slotM >= startM && slotM <= endM
+                          })()
                           let slotPrice = null
-                          if (isCellClickable && (canBook || canJoinTraining)) {
+                          if (isCellClickable) {
                             if (canJoinTraining) {
                               const total = parseFloat(bookedItem?.totalAmount) || 0
                               const maxT = Math.min(4, Math.max(1, parseInt(bookedItem?.data?.maxTrainees || bookedItem?.maxTrainees, 10) || 4))
                               slotPrice = total > 0 ? Math.round((total / maxT) * 100) / 100 : 0
-                            } else {
+                            } else if (isInRange && hoveredRange) {
+                              const startM = timeToMinutes(hoveredRange.startSlot)
+                              const endM = timeToMinutes(hoveredRange.endSlot)
+                              const duration = endM - startM + 30
+                              slotPrice = calculateBookingPrice(club, dateStr, hoveredRange.startSlot, duration).price
+                            } else if (canBook && !isInRange) {
                               let dur = club?.settings?.bookingDuration ?? 60
                               if (isMyLock && myLock?.start_time && myLock?.end_time) {
-                                const startM = timeToMinutes(myLock.start_time)
-                                const endM = timeToMinutes(myLock.end_time)
-                                dur = Math.max(30, endM - startM)
+                                dur = Math.max(30, timeToMinutes(myLock.end_time) - timeToMinutes(myLock.start_time))
                               }
                               slotPrice = calculateBookingPrice(club, dateStr, timeSlot, dur).price
                             }
                           }
                           const handleCellClick = () => {
-                            if (canJoinTraining) setTrainingJoinModal({ booking: bookedItem, court })
-                            else if (canBook) handleSlotClick(court, dateStr, timeSlot, isMyLock ? myLock : null)
+                            if (canJoinTraining) {
+                              setTrainingJoinModal({ booking: bookedItem, court })
+                              return
+                            }
+                            if (isMyLock) {
+                              handleSlotClick(court, dateStr, timeSlot, myLock)
+                              return
+                            }
+                            if (isInRange && hoveredRange && hoveredRange.startSlot !== hoveredRange.endSlot) {
+                              handleRangeClick(court, dateStr, hoveredRange.startSlot, hoveredRange.endSlot, null)
+                              return
+                            }
+                            if (isInRange && hoveredRange && hoveredRange.startSlot === hoveredRange.endSlot) {
+                              handleSlotClick(court, dateStr, timeSlot, null)
+                              return
+                            }
+                            handleSlotClick(court, dateStr, timeSlot, null)
                           }
                           return (
                             <div
                               key={timeSlot}
                               role={isCellClickable ? 'button' : undefined}
                               tabIndex={isCellClickable ? 0 : undefined}
-                              className={`club-public-court-grid-cell ${cellStatus} ${isCellClickable ? 'clickable' : ''} ${isHovered ? 'hovered' : ''}`}
+                              className={`club-public-court-grid-cell ${cellStatus} ${isCellClickable ? 'clickable' : ''} ${isInRange ? 'in-range hovered' : ''}`}
                               title={slotTitle}
-                              onMouseEnter={isCellClickable ? () => setHoveredSlot(slotKey) : undefined}
-                              onMouseLeave={isCellClickable ? () => setHoveredSlot(null) : undefined}
+                              onMouseEnter={canBookForRange ? () => handleRangeMouseEnter(court, dateStr, timeSlot, canBookForRange) : (isCellClickable ? () => setHoveredRange({ court, courtId: (court.id || court.name || '').toString(), startSlot: timeSlot, endSlot: timeSlot, fromCanBook: false }) : undefined)}
                               onClick={isCellClickable ? handleCellClick : undefined}
                               onKeyDown={isCellClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCellClick() } } : undefined}
                             >
-                              {isHovered && slotPrice != null ? (
+                              {isInRange && slotPrice != null ? (
                                 <span className="club-public-cell-price">{slotPrice} {currency}</span>
                               ) : (
                                 ''

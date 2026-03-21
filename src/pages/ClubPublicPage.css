@@ -776,6 +776,13 @@
   color: inherit;
   white-space: nowrap;
 }
+.club-public-court-grid-cell.in-range.available.clickable {
+  background: #bbf7d0;
+  transform: scale(1.02);
+}
+.club-public-court-grid-cell.in-range.booked.training.joinable {
+  background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
+}
 .club-public-court-grid-times-horizontal .club-public-court-grid-cell:last-of-type {
   border-right: none;
 }

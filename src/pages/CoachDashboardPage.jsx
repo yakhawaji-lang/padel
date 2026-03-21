@@ -11,7 +11,7 @@ import { getAppLanguage } from '../storage/languageStorage'
 import * as bookingApi from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
 import MultiDatePicker from '../components/MultiDatePicker'
-import { getTimeSlotsForClub, isTimeSlotCoveredByBooking, isSlotInPast, addMinutesToTime } from '../utils/coachGridHelpers'
+import { getTimeSlotsForClub, isTimeSlotCoveredByBooking, isSlotInPast, addMinutesToTime, timeToMinutes } from '../utils/coachGridHelpers'
 import './CoachDashboardPage.css'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
@@ -31,7 +31,7 @@ const CoachDashboardPage = () => {
   const [createMaxTrainees, setCreateMaxTrainees] = useState(4)
   const [submitting, setSubmitting] = useState(null)
   const [createError, setCreateError] = useState('')
-  const [hoveredSlot, setHoveredSlot] = useState(null) // { courtId, timeSlot } للتمرير وعرض السعر
+  const [hoveredRange, setHoveredRange] = useState(null) // { court, courtId, startSlot, endSlot } للنطاق
 
   const platformUser = getCurrentPlatformUser()
 
@@ -182,6 +182,68 @@ const CoachDashboardPage = () => {
     }
   }, [clubId, club?.settings?.bookingDuration, createPrice, createMaxTrainees, platformUser?.id, submitting])
 
+  const isSlotAdjacentToRange = useCallback((timeSlot, startSlot, endSlot) => {
+    const slotM = timeToMinutes(timeSlot)
+    const startM = timeToMinutes(startSlot)
+    const endM = timeToMinutes(endSlot)
+    return slotM === startM - 30 || slotM === endM + 30
+  }, [])
+
+  const handleRangeMouseEnter = useCallback((court, timeSlot, canAddForRange) => {
+    if (!canAddForRange) return
+    const courtId = (court?.id || court?.name || '').toString()
+    const setNewRange = () => setHoveredRange({ court, courtId, startSlot: timeSlot, endSlot: timeSlot, fromCanAdd: true })
+    if (!hoveredRange || !hoveredRange.fromCanAdd) {
+      setNewRange()
+      return
+    }
+    if (hoveredRange.courtId !== courtId) {
+      setNewRange()
+      return
+    }
+    if (isSlotAdjacentToRange(timeSlot, hoveredRange.startSlot, hoveredRange.endSlot)) {
+      const startM = timeToMinutes(hoveredRange.startSlot)
+      const endM = timeToMinutes(hoveredRange.endSlot)
+      const slotM = timeToMinutes(timeSlot)
+      const newStart = slotM < startM ? timeSlot : hoveredRange.startSlot
+      const newEnd = slotM > endM ? timeSlot : hoveredRange.endSlot
+      setHoveredRange(prev => ({ ...prev, startSlot: newStart, endSlot: newEnd }))
+      return
+    }
+    setNewRange()
+  }, [hoveredRange, isSlotAdjacentToRange])
+
+  const handleRangeMouseLeave = useCallback(() => setHoveredRange(null), [])
+
+  const handleRangeAdd = useCallback(async (court, dateStr, startSlot, endSlot) => {
+    if (submitting) return
+    const startM = timeToMinutes(startSlot)
+    const endM = timeToMinutes(endSlot)
+    const duration = endM - startM + 30
+    const endTime = addMinutesToTime(endSlot, 30)
+    setCreateError('')
+    setSubmitting(`${court.id}-${startSlot}`)
+    try {
+      await bookingApi.createCoachTrainingSlots({
+        clubId,
+        courtId: court.id,
+        dates: [dateStr],
+        startTime: startSlot,
+        endTime,
+        pricePerHour: createPrice,
+        maxTrainees: createMaxTrainees,
+        coachId: platformUser?.id
+      })
+      await refreshClubsFromApi()
+      setClub(getClubById(clubId))
+      setHoveredRange(null)
+    } catch (err) {
+      setCreateError(err?.message || t('Failed to create slot', 'فشل في إنشاء الحجز', language))
+    } finally {
+      setSubmitting(null)
+    }
+  }, [clubId, createPrice, createMaxTrainees, platformUser?.id, submitting])
+
   const courtName = (id) => {
     const c = club?.courts?.find(x => x.id === id || x.name === id)
     return c ? (language === 'ar' ? c.nameAr || c.name : c.name) : id
@@ -286,7 +348,7 @@ const CoachDashboardPage = () => {
             <p className="coach-dates-badge">{t('You have slots on', 'لديك أوقات في')} {datesWithCoachSlots.length} {t('day(s)', 'يوم', language)}</p>
           )}
           {createError && <p className="coach-create-error">{createError}</p>}
-          <div className="coach-court-grid-wrap" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+          <div className="coach-court-grid-wrap" dir={language === 'ar' ? 'rtl' : 'ltr'} onMouseLeave={handleRangeMouseLeave}>
             {(() => {
               const courts = (club?.courts || []).filter(c => !c.maintenance)
               const timeSlots = getTimeSlotsForClub(club)
@@ -341,30 +403,51 @@ const CoachDashboardPage = () => {
                         const canClick = (canAdd || canRemove) && !isSubmittingThis
                         const cellStatus = isCoachSlot ? (isCoachSlotWithTrainees ? 'coach-slot coach-slot-with-trainees' : 'coach-slot coach-slot-empty') : isOtherBooked ? 'booked' : isPast ? 'past' : 'available'
                         const slotTitle = isCoachSlot ? (language === 'en' ? 'Click to remove' : 'اضغط للإزالة') : isOtherBooked ? t('Booked', 'محجوز', language) : isPast ? t('Past', 'منتهي', language) : canAdd ? (language === 'en' ? 'Click to add availability' : 'اضغط لإضافة التوفر') : ''
-                        const slotKey = `${court.id || court.name}-${timeSlot}`
-                        const isHovered = hoveredSlot === slotKey
+                        const canAddForRange = canAdd
+                        const isInRange = hoveredRange && hoveredRange.courtId === courtIdForMatch && (() => {
+                          const slotM = timeToMinutes(timeSlot)
+                          const startM = timeToMinutes(hoveredRange.startSlot)
+                          const endM = timeToMinutes(hoveredRange.endSlot)
+                          return slotM >= startM && slotM <= endM
+                        })()
                         let slotPrice = null
                         if (canClick) {
-                          if (canAdd) {
+                          if (isInRange && hoveredRange && canAdd) {
+                            const startM = timeToMinutes(hoveredRange.startSlot)
+                            const endM = timeToMinutes(hoveredRange.endSlot)
+                            const dur = endM - startM + 30
+                            slotPrice = Math.round(createPrice * (dur / 60) * 100) / 100
+                          } else if (canAdd && !isInRange) {
                             const dur = club?.settings?.bookingDuration ?? 60
                             slotPrice = Math.round(createPrice * (dur / 60) * 100) / 100
                           } else if (isCoachSlot && bookedItem?.totalAmount != null) {
                             slotPrice = parseFloat(bookedItem.totalAmount) || 0
                           }
                         }
+                        const handleCellClick = () => {
+                          if (isCoachSlot) {
+                            handleGridCellClick(court, dateStr, timeSlot, isCoachSlot, bookedItem?.id)
+                            return
+                          }
+                          if (isInRange && hoveredRange && hoveredRange.startSlot !== hoveredRange.endSlot) {
+                            handleRangeAdd(court, dateStr, hoveredRange.startSlot, hoveredRange.endSlot)
+                            return
+                          }
+                          handleGridCellClick(court, dateStr, timeSlot, isCoachSlot, bookedItem?.id)
+                        }
+                        const isCoachSlotHovered = isCoachSlot && hoveredRange?.courtId === courtIdForMatch && hoveredRange?.startSlot === timeSlot
                         return (
                           <div
                             key={timeSlot}
                             role={canClick ? 'button' : undefined}
                             tabIndex={canClick ? 0 : undefined}
-                            className={`club-public-court-grid-cell coach-grid-cell ${cellStatus} ${canClick ? 'clickable' : ''} ${isHovered ? 'hovered' : ''}`}
+                            className={`club-public-court-grid-cell coach-grid-cell ${cellStatus} ${canClick ? 'clickable' : ''} ${isInRange ? 'in-range hovered' : ''} ${isCoachSlotHovered ? 'hovered' : ''}`}
                             title={slotTitle}
-                            onMouseEnter={canClick ? () => setHoveredSlot(slotKey) : undefined}
-                            onMouseLeave={canClick ? () => setHoveredSlot(null) : undefined}
-                            onClick={canClick ? () => handleGridCellClick(court, dateStr, timeSlot, isCoachSlot, bookedItem?.id) : undefined}
-                            onKeyDown={canClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleGridCellClick(court, dateStr, timeSlot, isCoachSlot, bookedItem?.id) } } : undefined}
+                            onMouseEnter={canAddForRange ? () => handleRangeMouseEnter(court, timeSlot, canAddForRange) : (canClick ? () => setHoveredRange({ court, courtId: courtIdForMatch, startSlot: timeSlot, endSlot: timeSlot, fromCanAdd: false }) : undefined)}
+                            onClick={canClick ? handleCellClick : undefined}
+                            onKeyDown={canClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCellClick() } } : undefined}
                           >
-                            {isHovered && slotPrice != null ? (
+                            {(isInRange || isCoachSlotHovered) && slotPrice != null ? (
                               <span className="coach-cell-price">{slotPrice} {currency}</span>
                             ) : isCoachSlot ? (
                               '🏸'

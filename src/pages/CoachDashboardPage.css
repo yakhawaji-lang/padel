@@ -260,6 +260,10 @@
   color: inherit;
   white-space: nowrap;
 }
+.coach-grid-cell.in-range.available.clickable {
+  background: #bbf7d0;
+  transform: scale(1.02);
+}
 
 .coach-create-time {
   flex-direction: row;
