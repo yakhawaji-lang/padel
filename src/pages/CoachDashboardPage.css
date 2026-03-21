@@ -94,6 +94,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   max-width: 960px;
   margin: 0 auto;
   padding: 24px 20px;
@@ -230,9 +231,10 @@
 }
 
 .coach-court-grid-wrap {
-  overflow-x: auto;
+  overflow-x: scroll;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
   padding-bottom: 12px;
   margin-top: 16px;
 }

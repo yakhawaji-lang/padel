@@ -220,6 +220,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   max-width: var(--club-content-max);
   margin: 0 auto;
   width: 100%;
@@ -643,11 +644,12 @@
   color: #2563eb;
 }
 .club-public-court-booking-wrap {
-  overflow-x: auto;
+  overflow-x: scroll;
   overflow-y: visible;
   max-width: 100%;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
   border: var(--club-border);
   border-radius: var(--club-radius-sm);
   background: #fff;
@@ -1300,9 +1302,10 @@
 
 /* جدول الحجوزات والبطولات */
 .club-public-table-wrap {
-  overflow-x: auto;
+  overflow-x: scroll;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
   border: var(--club-border);
   border-radius: var(--club-radius);
   background: #ffffff;
