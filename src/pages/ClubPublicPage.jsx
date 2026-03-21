@@ -70,7 +70,15 @@ const overlapsAny = (ourStartM, ourEndM, ranges) => {
 
 /** استخراج نطاقات محجوزة أو مقفلة لملعب وتاريخ معين (بالدقائق من منتصف الليل) */
 const getBlockedRangesForCourtAndDate = (courtNameOrId, dateStr, bookings, activeLocks, excludeLockId = null) => {
-  const courtStr = (courtNameOrId || '').toString().trim()
+  const courtIds = []
+  if (courtNameOrId && typeof courtNameOrId === 'object') {
+    const id = (courtNameOrId.id || '').toString().trim()
+    const name = (courtNameOrId.name || '').toString().trim()
+    if (id) courtIds.push(id)
+    if (name && !courtIds.includes(name)) courtIds.push(name)
+  }
+  if (courtIds.length === 0) courtIds.push((courtNameOrId || '').toString().trim())
+  const matchCourt = (res) => courtIds.some(c => c && res === c)
   const ranges = []
   const push = (startTime, endTime) => {
     const startM = timeToMinutes(startTime)
@@ -84,7 +92,7 @@ const getBlockedRangesForCourtAndDate = (courtNameOrId, dateStr, bookings, activ
     const bDate = (b.date || b.startDate || '').toString().split('T')[0]
     if (bDate !== dateStr) return
     const res = (b.resource || b.court || b.courtId || '').toString().trim()
-    if (res !== courtStr && res !== (courtNameOrId?.name || courtNameOrId?.id || '').toString().trim()) return
+    if (!matchCourt(res)) return
     const start = (b.startTime || b.timeSlot || '').toString().trim()
     let end = (b.endTime || '').toString().trim()
     if (!end && start) end = addMinutesToTime(start, 60)
@@ -92,8 +100,8 @@ const getBlockedRangesForCourtAndDate = (courtNameOrId, dateStr, bookings, activ
   })
   ;(activeLocks || []).forEach(l => {
     if (excludeLockId && l.id === excludeLockId) return
-    const lCourt = (l.court_id || '').toString()
-    if (lCourt !== courtStr && lCourt !== (courtNameOrId?.name || courtNameOrId?.id || '').toString().trim()) return
+    const lCourt = (l.court_id || '').toString().trim()
+    if (!matchCourt(lCourt)) return
     const lDate = (l.booking_date || '').toString().split('T')[0]
     if (lDate !== dateStr) return
     push(l.start_time || '', l.end_time || '')
@@ -496,6 +504,13 @@ const ClubPublicPage = () => {
     }
   }, [clubId, platformUser, isMember, club?.settings?.bookingDuration, club?.settings?.bookingPrices?.durationPrices, club?.settings?.closingTime, club?.settings?.lockMinutes, language, refreshClub, bookings, activeLocks])
 
+  const maxBookingDuration = useMemo(() => {
+    const dp = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
+    const minDur = club?.settings?.bookingDuration ?? 60
+    const valid = (dp || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
+    return valid.length > 0 ? Math.max(...valid) : (club?.settings?.bookingDuration ?? 180)
+  }, [club?.settings?.bookingPrices?.durationPrices, club?.settings?.bookingDuration])
+
   const handleRangeClick = useCallback(async (court, dateStr, startSlot, endSlot, existingLock = null) => {
     if (existingLock) {
       handleSlotClick(court, dateStr, startSlot, existingLock)
@@ -508,11 +523,16 @@ const ClubPublicPage = () => {
       handleSlotClick(court, dateStr, startSlot, null)
       return
     }
-    const courtId = (court?.name || court?.id || '').toString()
-    const blocked = getBlockedRangesForCourtAndDate(courtId, dateStr, bookings, activeLocks)
+    const courtId = (court?.id || court?.name || '').toString()
+    const blocked = getBlockedRangesForCourtAndDate(court || courtId, dateStr, bookings, activeLocks)
     const closing = club?.settings?.closingTime || '23:00'
-    const available = getAvailableDurations(club?.settings?.bookingDuration ?? 60, startSlot, closing, blocked)
-    if (!available.includes(duration)) {
+    const maxCap = maxBookingDuration
+    const available = getAvailableDurations(club?.settings?.bookingDuration ?? 60, startSlot, closing, blocked, maxCap)
+    const configuredDurations = (club?.settings?.bookingPrices?.durationPrices || [])
+      .map(d => d.durationMinutes || 0)
+      .filter(d => d >= (club?.settings?.bookingDuration ?? 60))
+    const allowed = configuredDurations.length > 0 ? configuredDurations : [club?.settings?.bookingDuration ?? 60]
+    if (!available.includes(duration) || !allowed.includes(duration)) {
       setLockError(language === 'en' ? 'Selected range has conflicts. Try a shorter range.' : 'النطاق المحدد يتعارض مع حجز آخر. حدد نطاقاً أقصر.')
       setHoveredRange(null)
       return
@@ -544,7 +564,7 @@ const ClubPublicPage = () => {
       }
       setHoveredRange(null)
     }
-  }, [clubId, platformUser, club?.settings?.bookingDuration, club?.settings?.closingTime, club?.settings?.lockMinutes, bookings, activeLocks, language, refreshClub, handleSlotClick])
+  }, [clubId, platformUser, club?.settings?.bookingDuration, club?.settings?.closingTime, club?.settings?.lockMinutes, club?.settings?.bookingPrices?.durationPrices, bookings, activeLocks, language, refreshClub, handleSlotClick, maxBookingDuration])
 
   const handleJoinTraining = useCallback(async () => {
     if (!trainingJoinModal?.booking || !platformUser || !isMember) return
@@ -591,13 +611,6 @@ const ClubPublicPage = () => {
     const endM = timeToMinutes(endSlot)
     return slotM === startM - 30 || slotM === endM + 30
   }, [])
-
-  const maxBookingDuration = useMemo(() => {
-    const dp = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
-    const minDur = club?.settings?.bookingDuration ?? 60
-    const valid = (dp || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
-    return valid.length > 0 ? Math.max(...valid) : (club?.settings?.bookingDuration ?? 180)
-  }, [club?.settings?.bookingPrices?.durationPrices, club?.settings?.bookingDuration])
 
   const handleRangeMouseEnter = useCallback((court, dateStr, timeSlot, canBookForRange) => {
     if (!canBookForRange) return
