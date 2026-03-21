@@ -880,6 +880,20 @@
 .club-public-booking-duration-btn.active .duration-price {
   opacity: 0.95;
 }
+.club-public-booking-duration-fixed {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.9375rem;
+}
+.club-public-booking-duration-fixed .duration-value {
+  font-weight: 600;
+}
+.club-public-booking-duration-fixed .duration-price {
+  font-size: 0.8125rem;
+  color: #64748b;
+}
 .club-public-booking-modal-price {
   margin-top: 8px;
   padding: 16px;

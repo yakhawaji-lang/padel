@@ -415,6 +415,10 @@ const ClubPublicPage = () => {
   }, [club?.settings?.bookingDuration, club?.settings?.closingTime, club?.settings?.bookingPrices, bookingModal, bookings, activeLocks, activeLock?.lockId])
 
   useEffect(() => {
+    if (bookingModal?.fromRange && bookingModal?.preselectDuration != null) {
+      setBookingDuration(bookingModal.preselectDuration)
+      return
+    }
     if (bookingModal && durationOptions.length > 0) {
       const first = durationOptions[0].durationMinutes || 60
       setBookingDuration(prev => {
@@ -422,7 +426,7 @@ const ClubPublicPage = () => {
         return valid ? prev : first
       })
     }
-  }, [bookingModal?.dateStr, bookingModal?.startTime, durationOptions])
+  }, [bookingModal?.dateStr, bookingModal?.startTime, bookingModal?.fromRange, bookingModal?.preselectDuration, durationOptions])
 
   const isMember = club && platformUser && (
     platformUser.clubIds?.includes(club.id) ||
@@ -551,7 +555,7 @@ const ClubPublicPage = () => {
       })
       if (result.lockId) {
         setActiveLock({ lockId: result.lockId, expiresAt: result.expiresAt })
-        setBookingModal({ court, dateStr, startTime: startSlot })
+        setBookingModal({ court, dateStr, startTime: startSlot, endTime, fromRange: true, preselectDuration: duration })
         setBookingDuration(duration)
         setHoveredRange(null)
       }
@@ -1322,23 +1326,30 @@ const ClubPublicPage = () => {
                 </p>
                 <p className="club-public-booking-modal-row">
                   <span>{c.time}:</span>
-                  <strong>{bookingModal.startTime}</strong>
+                  <strong>{bookingModal.startTime}{bookingModal.fromRange && bookingModal.endTime ? ` – ${bookingModal.endTime}` : ''}</strong>
                 </p>
                 <div className="club-public-booking-modal-row club-public-booking-modal-duration">
                   <label>{c.duration}:</label>
-                  <div className="club-public-booking-duration-btns">
-                    {durationOptions.map(d => (
-                      <button
-                        key={d.durationMinutes}
-                        type="button"
-                        className={`club-public-booking-duration-btn ${bookingDuration === d.durationMinutes ? 'active' : ''}`}
-                        onClick={() => setBookingDuration(d.durationMinutes)}
-                      >
-                        <span className="duration-value">{d.durationMinutes} {language === 'en' ? 'min' : 'د'}</span>
-                        <span className="duration-price">{parseFloat(d.price != null ? d.price : 0).toFixed(0)} {currency}</span>
-                      </button>
-                    ))}
-                  </div>
+                  {bookingModal.fromRange && bookingModal.preselectDuration != null ? (
+                    <div className="club-public-booking-duration-fixed">
+                      <span className="duration-value">{bookingModal.preselectDuration} {language === 'en' ? 'min' : 'دقيقة'}</span>
+                      <span className="duration-price">({parseFloat(calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingModal.preselectDuration).price ?? 0).toFixed(0)} {currency})</span>
+                    </div>
+                  ) : (
+                    <div className="club-public-booking-duration-btns">
+                      {durationOptions.map(d => (
+                        <button
+                          key={d.durationMinutes}
+                          type="button"
+                          className={`club-public-booking-duration-btn ${bookingDuration === d.durationMinutes ? 'active' : ''}`}
+                          onClick={() => setBookingDuration(d.durationMinutes)}
+                        >
+                          <span className="duration-value">{d.durationMinutes} {language === 'en' ? 'min' : 'د'}</span>
+                          <span className="duration-price">{parseFloat(d.price != null ? d.price : 0).toFixed(0)} {currency}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="club-public-booking-modal-price">
                   <span>{c.bookingPrice}:</span>
