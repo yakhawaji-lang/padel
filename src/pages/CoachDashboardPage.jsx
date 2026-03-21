@@ -182,6 +182,13 @@ const CoachDashboardPage = () => {
     }
   }, [clubId, club?.settings?.bookingDuration, createPrice, createMaxTrainees, platformUser?.id, submitting])
 
+  const maxBookingDuration = useMemo(() => {
+    const dp = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
+    const minDur = club?.settings?.bookingDuration ?? 60
+    const valid = (dp || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
+    return valid.length > 0 ? Math.max(...valid) : (club?.settings?.bookingDuration ?? 180)
+  }, [club?.settings?.bookingPrices?.durationPrices, club?.settings?.bookingDuration])
+
   const isSlotAdjacentToRange = useCallback((timeSlot, startSlot, endSlot) => {
     const slotM = timeToMinutes(timeSlot)
     const startM = timeToMinutes(startSlot)
@@ -207,11 +214,13 @@ const CoachDashboardPage = () => {
       const slotM = timeToMinutes(timeSlot)
       const newStart = slotM < startM ? timeSlot : hoveredRange.startSlot
       const newEnd = slotM > endM ? timeSlot : hoveredRange.endSlot
+      const newDuration = timeToMinutes(newEnd) - timeToMinutes(newStart) + 30
+      if (newDuration > maxBookingDuration) return
       setHoveredRange(prev => ({ ...prev, startSlot: newStart, endSlot: newEnd }))
       return
     }
     setNewRange()
-  }, [hoveredRange, isSlotAdjacentToRange])
+  }, [hoveredRange, isSlotAdjacentToRange, maxBookingDuration])
 
   const handleRangeMouseLeave = useCallback(() => setHoveredRange(null), [])
 
