@@ -1,10 +1,13 @@
 /* Coach Dashboard - لوحة المدرب */
 .coach-dashboard-page {
-  min-height: 100vh;
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  height: 100dvh;
   background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 30%);
-  padding-bottom: env(safe-area-inset-bottom, 24px);
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .coach-dashboard-loading {
@@ -31,6 +34,7 @@
 }
 
 .coach-dashboard-header {
+  flex-shrink: 0;
   background: linear-gradient(135deg, #059669 0%, #047857 100%);
   color: #fff;
   padding: 16px 20px;
@@ -85,9 +89,15 @@
 }
 
 .coach-dashboard-main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   max-width: 960px;
   margin: 0 auto;
   padding: 24px 20px;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
 }
 
 /* Stats */
