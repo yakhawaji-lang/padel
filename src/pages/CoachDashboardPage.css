@@ -232,13 +232,33 @@
 .coach-grid-cell.coach-slot {
   color: #1d4ed8;
   font-size: 1rem;
+  cursor: pointer;
 }
 .coach-grid-cell.coach-slot-empty {
   background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
 }
+.coach-grid-cell.coach-slot-empty:hover,
+.coach-grid-cell.coach-slot-empty.hovered {
+  background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%);
+}
 .coach-grid-cell.coach-slot-with-trainees {
   background: linear-gradient(135deg, #86efac 0%, #4ade80 100%);
   color: #166534;
+}
+.coach-grid-cell.coach-slot-with-trainees:hover,
+.coach-grid-cell.coach-slot-with-trainees.hovered {
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+}
+.coach-grid-cell.available.clickable:hover,
+.coach-grid-cell.available.clickable.hovered {
+  background: #bbf7d0;
+  transform: scale(1.02);
+}
+.coach-cell-price {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: inherit;
+  white-space: nowrap;
 }
 
 .coach-create-time {

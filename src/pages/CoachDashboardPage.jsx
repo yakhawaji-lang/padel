@@ -31,6 +31,7 @@ const CoachDashboardPage = () => {
   const [createMaxTrainees, setCreateMaxTrainees] = useState(4)
   const [submitting, setSubmitting] = useState(null)
   const [createError, setCreateError] = useState('')
+  const [hoveredSlot, setHoveredSlot] = useState(null) // { courtId, timeSlot } للتمرير وعرض السعر
 
   const platformUser = getCurrentPlatformUser()
 
@@ -340,17 +341,36 @@ const CoachDashboardPage = () => {
                         const canClick = (canAdd || canRemove) && !isSubmittingThis
                         const cellStatus = isCoachSlot ? (isCoachSlotWithTrainees ? 'coach-slot coach-slot-with-trainees' : 'coach-slot coach-slot-empty') : isOtherBooked ? 'booked' : isPast ? 'past' : 'available'
                         const slotTitle = isCoachSlot ? (language === 'en' ? 'Click to remove' : 'اضغط للإزالة') : isOtherBooked ? t('Booked', 'محجوز', language) : isPast ? t('Past', 'منتهي', language) : canAdd ? (language === 'en' ? 'Click to add availability' : 'اضغط لإضافة التوفر') : ''
+                        const slotKey = `${court.id || court.name}-${timeSlot}`
+                        const isHovered = hoveredSlot === slotKey
+                        let slotPrice = null
+                        if (canClick) {
+                          if (canAdd) {
+                            const dur = club?.settings?.bookingDuration ?? 60
+                            slotPrice = Math.round(createPrice * (dur / 60) * 100) / 100
+                          } else if (isCoachSlot && bookedItem?.totalAmount != null) {
+                            slotPrice = parseFloat(bookedItem.totalAmount) || 0
+                          }
+                        }
                         return (
                           <div
                             key={timeSlot}
                             role={canClick ? 'button' : undefined}
                             tabIndex={canClick ? 0 : undefined}
-                            className={`club-public-court-grid-cell coach-grid-cell ${cellStatus} ${canClick ? 'clickable' : ''}`}
+                            className={`club-public-court-grid-cell coach-grid-cell ${cellStatus} ${canClick ? 'clickable' : ''} ${isHovered ? 'hovered' : ''}`}
                             title={slotTitle}
+                            onMouseEnter={canClick ? () => setHoveredSlot(slotKey) : undefined}
+                            onMouseLeave={canClick ? () => setHoveredSlot(null) : undefined}
                             onClick={canClick ? () => handleGridCellClick(court, dateStr, timeSlot, isCoachSlot, bookedItem?.id) : undefined}
                             onKeyDown={canClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleGridCellClick(court, dateStr, timeSlot, isCoachSlot, bookedItem?.id) } } : undefined}
                           >
-                            {isCoachSlot ? '🏸' : ''}
+                            {isHovered && slotPrice != null ? (
+                              <span className="coach-cell-price">{slotPrice} {currency}</span>
+                            ) : isCoachSlot ? (
+                              '🏸'
+                            ) : (
+                              ''
+                            )}
                           </div>
                         )
                       })}

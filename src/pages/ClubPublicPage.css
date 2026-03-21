@@ -761,9 +761,20 @@
   cursor: pointer;
   transition: background 0.2s, transform 0.1s;
 }
-.club-public-court-grid-cell.available.clickable:hover {
+.club-public-court-grid-cell.available.clickable:hover,
+.club-public-court-grid-cell.hovered.available.clickable {
   background: #bbf7d0;
   transform: scale(1.02);
+}
+.club-public-court-grid-cell.booked.training.joinable:hover,
+.club-public-court-grid-cell.hovered.booked.training.joinable {
+  background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
+}
+.club-public-cell-price {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: inherit;
+  white-space: nowrap;
 }
 .club-public-court-grid-times-horizontal .club-public-court-grid-cell:last-of-type {
   border-right: none;

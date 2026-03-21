@@ -187,6 +187,7 @@ const ClubPublicPage = () => {
   const [detailBooking, setDetailBooking] = useState(null)
   const [trainingJoinModal, setTrainingJoinModal] = useState(null) // { booking, court } - للانضمام لجلسة تدريب
   const [trainingJoinSubmitting, setTrainingJoinSubmitting] = useState(false)
+  const [hoveredSlot, setHoveredSlot] = useState(null) // { courtId, timeSlot } - لعرض السعر عند التمرير
 
   useEffect(() => {
     setAppLanguage(language)
@@ -1115,6 +1116,24 @@ const ClubPublicPage = () => {
                           const cellStatus = isLocked ? 'in-progress' : isBooked ? (isTraining ? (canJoinTraining ? 'booked training joinable' : 'booked training') : 'booked') : isPast ? 'past' : 'available'
                           const slotTitle = isMyLock ? (language === 'en' ? 'Complete your booking' : 'أكمل حجزك') : isLocked ? (language === 'en' ? 'In progress' : 'قيد الإجراء') : canJoinTraining ? (language === 'en' ? 'Join training' : 'انضم للتدريب') : isBooked ? (c.booked || 'Booked') : isPast ? (language === 'en' ? 'Past' : 'منتهي') : canBook ? (c.bookNow || 'Book now') : (c.available || 'Available')
                           const isCellClickable = canBook || canJoinTraining
+                          const slotKey = `${court.id || court.name}-${timeSlot}`
+                          const isHovered = hoveredSlot === slotKey
+                          let slotPrice = null
+                          if (isCellClickable && (canBook || canJoinTraining)) {
+                            if (canJoinTraining) {
+                              const total = parseFloat(bookedItem?.totalAmount) || 0
+                              const maxT = Math.min(4, Math.max(1, parseInt(bookedItem?.data?.maxTrainees || bookedItem?.maxTrainees, 10) || 4))
+                              slotPrice = total > 0 ? Math.round((total / maxT) * 100) / 100 : 0
+                            } else {
+                              let dur = club?.settings?.bookingDuration ?? 60
+                              if (isMyLock && myLock?.start_time && myLock?.end_time) {
+                                const startM = timeToMinutes(myLock.start_time)
+                                const endM = timeToMinutes(myLock.end_time)
+                                dur = Math.max(30, endM - startM)
+                              }
+                              slotPrice = calculateBookingPrice(club, dateStr, timeSlot, dur).price
+                            }
+                          }
                           const handleCellClick = () => {
                             if (canJoinTraining) setTrainingJoinModal({ booking: bookedItem, court })
                             else if (canBook) handleSlotClick(court, dateStr, timeSlot, isMyLock ? myLock : null)
@@ -1124,12 +1143,18 @@ const ClubPublicPage = () => {
                               key={timeSlot}
                               role={isCellClickable ? 'button' : undefined}
                               tabIndex={isCellClickable ? 0 : undefined}
-                              className={`club-public-court-grid-cell ${cellStatus} ${isCellClickable ? 'clickable' : ''}`}
+                              className={`club-public-court-grid-cell ${cellStatus} ${isCellClickable ? 'clickable' : ''} ${isHovered ? 'hovered' : ''}`}
                               title={slotTitle}
+                              onMouseEnter={isCellClickable ? () => setHoveredSlot(slotKey) : undefined}
+                              onMouseLeave={isCellClickable ? () => setHoveredSlot(null) : undefined}
                               onClick={isCellClickable ? handleCellClick : undefined}
                               onKeyDown={isCellClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCellClick() } } : undefined}
                             >
-                              {''}
+                              {isHovered && slotPrice != null ? (
+                                <span className="club-public-cell-price">{slotPrice} {currency}</span>
+                              ) : (
+                                ''
+                              )}
                             </div>
                           )
                         })}
