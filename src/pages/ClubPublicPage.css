@@ -715,6 +715,13 @@
   color: #64748b;
 }
 
+.club-public-court-grid-cell.booked.training.joinable {
+  background: linear-gradient(135deg, #7dd3fc 0%, #38bdf8 100%);
+  cursor: pointer;
+}
+.club-public-court-grid-cell.booked.training.joinable:hover {
+  background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
+}
 .club-public-court-grid-cell.booked.training {
   background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
   color: #1d4ed8;

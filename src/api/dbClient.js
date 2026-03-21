@@ -472,6 +472,14 @@ export async function createCoachTrainingSlots({ clubId, courtId, dates, startTi
   })
 }
 
+/** Join a coach training slot as trainee - uses coach's price */
+export async function joinTrainingSlot({ bookingId, clubId, memberId, memberName }) {
+  return fetchJson('/api/bookings/join-training', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId, memberId, memberName })
+  })
+}
+
 export async function cancelBookingLock(lockId) {
   return fetchJson('/api/bookings/cancel', {
     method: 'POST',

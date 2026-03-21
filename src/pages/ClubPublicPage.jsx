@@ -185,6 +185,8 @@ const ClubPublicPage = () => {
   const [lockError, setLockError] = useState(null)
   const [loadRetrying, setLoadRetrying] = useState(false)
   const [detailBooking, setDetailBooking] = useState(null)
+  const [trainingJoinModal, setTrainingJoinModal] = useState(null) // { booking, court } - للانضمام لجلسة تدريب
+  const [trainingJoinSubmitting, setTrainingJoinSubmitting] = useState(false)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -493,6 +495,44 @@ const ClubPublicPage = () => {
     }
   }, [clubId, platformUser, isMember, club?.settings?.bookingDuration, club?.settings?.bookingPrices?.durationPrices, club?.settings?.closingTime, club?.settings?.lockMinutes, language, refreshClub, bookings, activeLocks])
 
+  const handleJoinTraining = useCallback(async () => {
+    if (!trainingJoinModal?.booking || !platformUser || !isMember) return
+    const b = trainingJoinModal.booking
+    const dateStr = (b.date || b.startDate || '').toString().split('T')[0]
+    if (isSlotInPast(dateStr, b.startTime || b.timeSlot)) {
+      setLockError(language === 'en' ? 'This slot is in the past.' : 'هذا الوقت منتهٍ.')
+      return
+    }
+    setTrainingJoinSubmitting(true)
+    setLockError(null)
+    try {
+      await bookingApi.joinTrainingSlot({
+        bookingId: b.id,
+        clubId,
+        memberId: platformUser.id,
+        memberName: platformUser.name || platformUser.email || platformUser.displayName || ''
+      })
+      setTrainingJoinModal(null)
+      refreshClub()
+      await refreshClubsFromApi()
+      loadClubs()
+      const updatedClub = getClubById(clubId)
+      if (updatedClub) setClub(updatedClub)
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      setBookingSuccessId(true)
+    } catch (e) {
+      const msg = (e?.message || '').trim()
+      const fullMsg = msg.includes('Training full')
+        ? (language === 'en' ? 'This training session is full.' : 'حصة التدريب مكتملة.')
+        : msg.includes('Already joined')
+          ? (language === 'en' ? 'You have already joined this training.' : 'انضممت لهذه الحصة مسبقاً.')
+          : (msg || (language === 'en' ? 'Could not join. Try again.' : 'لم نتمكن من الانضمام. حاول مجدداً.'))
+      setLockError(fullMsg)
+    } finally {
+      setTrainingJoinSubmitting(false)
+    }
+  }, [trainingJoinModal, platformUser, isMember, clubId, language, refreshClub])
+
   const handleCloseBookingModal = useCallback(() => {
     if (activeLock?.lockId) {
       bookingApi.releaseBookingLock(activeLock.lockId, clubId, bookingModal?.dateStr).catch(() => {})
@@ -627,6 +667,9 @@ const ClubPublicPage = () => {
       joinPromptTitle: 'You\'re one step away!',
       joinPromptText: 'Join this club now to book courts, participate in tournaments, and enjoy member benefits.',
       joinPreviouslyMemberHint: 'Previously a member? Refresh the page or ask the club to re-add you.',
+      joinTraining: 'Join training',
+      joinTrainingPrice: 'Price (one slot)',
+      confirmJoinTraining: 'Confirm join',
     },
     ar: {
       backToHome: 'العودة للرئيسية',
@@ -700,6 +743,9 @@ const ClubPublicPage = () => {
       joinPromptTitle: 'أنت على بُعد خطوة واحدة!',
       joinPromptText: 'انضم للنادي الآن لحجز الملاعب والمشاركة في البطولات والاستفادة من مزايا العضوية.',
       joinPreviouslyMemberHint: 'كنت عضواً سابقاً؟ حدّث الصفحة أو اطلب من إدارة النادي إعادة ربط العضوية.',
+      joinTraining: 'انضم للتدريب',
+      joinTrainingPrice: 'السعر (حصة واحدة)',
+      confirmJoinTraining: 'تأكيد الانضمام',
     }
   }
   const c = t[language] || t.en
@@ -1062,18 +1108,26 @@ const ClubPublicPage = () => {
                           const isMyLock = !!myLock
                           const isPast = isSlotInPast(dateStr, timeSlot)
                           const hasDuration = isSlotActuallyBookable(court, dateStr, timeSlot)
+                          const coachIdForSlot = (bookedItem?.data?.coachId || bookedItem?.memberId || '').toString()
+                          const isCoachForThisSlot = !!platformUser && String(platformUser.id) === coachIdForSlot
+                          const canJoinTraining = isTraining && isMember && platformUser && !isCoachForThisSlot && !isPast
                           const canBook = !isBooked && !isPast && (hasDuration || isMyLock) && isMember && platformUser && (!isLocked || isMyLock)
-                          const cellStatus = isLocked ? 'in-progress' : isBooked ? (isTraining ? 'booked training' : 'booked') : isPast ? 'past' : 'available'
-                          const slotTitle = isMyLock ? (language === 'en' ? 'Complete your booking' : 'أكمل حجزك') : isLocked ? (language === 'en' ? 'In progress' : 'قيد الإجراء') : isBooked ? (c.booked || 'Booked') : isPast ? (language === 'en' ? 'Past' : 'منتهي') : canBook ? (c.bookNow || 'Book now') : (c.available || 'Available')
+                          const cellStatus = isLocked ? 'in-progress' : isBooked ? (isTraining ? (canJoinTraining ? 'booked training joinable' : 'booked training') : 'booked') : isPast ? 'past' : 'available'
+                          const slotTitle = isMyLock ? (language === 'en' ? 'Complete your booking' : 'أكمل حجزك') : isLocked ? (language === 'en' ? 'In progress' : 'قيد الإجراء') : canJoinTraining ? (language === 'en' ? 'Join training' : 'انضم للتدريب') : isBooked ? (c.booked || 'Booked') : isPast ? (language === 'en' ? 'Past' : 'منتهي') : canBook ? (c.bookNow || 'Book now') : (c.available || 'Available')
+                          const isCellClickable = canBook || canJoinTraining
+                          const handleCellClick = () => {
+                            if (canJoinTraining) setTrainingJoinModal({ booking: bookedItem, court })
+                            else if (canBook) handleSlotClick(court, dateStr, timeSlot, isMyLock ? myLock : null)
+                          }
                           return (
                             <div
                               key={timeSlot}
-                              role={canBook ? 'button' : undefined}
-                              tabIndex={canBook ? 0 : undefined}
-                              className={`club-public-court-grid-cell ${cellStatus} ${canBook ? 'clickable' : ''}`}
+                              role={isCellClickable ? 'button' : undefined}
+                              tabIndex={isCellClickable ? 0 : undefined}
+                              className={`club-public-court-grid-cell ${cellStatus} ${isCellClickable ? 'clickable' : ''}`}
                               title={slotTitle}
-                              onClick={canBook ? () => handleSlotClick(court, dateStr, timeSlot, isMyLock ? myLock : null) : undefined}
-                              onKeyDown={canBook ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSlotClick(court, dateStr, timeSlot, isMyLock ? myLock : null) } } : undefined}
+                              onClick={isCellClickable ? handleCellClick : undefined}
+                              onKeyDown={isCellClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCellClick() } } : undefined}
                             >
                               {''}
                             </div>
@@ -1236,6 +1290,47 @@ const ClubPublicPage = () => {
                   disabled={bookingSubmitting || (paymentStyle === 'split' && ((paymentShares || []).length === 0 || (paymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) > calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price))}
                 >
                   {bookingSubmitting ? (language === 'en' ? 'Booking...' : 'جاري الحجز...') : c.confirmBooking}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {trainingJoinModal && (
+          <div className="club-public-booking-modal-backdrop" onClick={() => { if (!trainingJoinSubmitting) { setTrainingJoinModal(null); setLockError(null) } }} role="presentation">
+            <div className="club-public-booking-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="join-training-modal-title">
+              <h3 id="join-training-modal-title" className="club-public-booking-modal-title">{c.joinTraining}</h3>
+              <div className="club-public-booking-modal-body">
+                <p className="club-public-booking-modal-row">
+                  <span>{c.court}:</span>
+                  <strong>{language === 'ar' && trainingJoinModal.court?.nameAr ? trainingJoinModal.court.nameAr : (trainingJoinModal.court?.name || '')}</strong>
+                </p>
+                <p className="club-public-booking-modal-row">
+                  <span>{c.date}:</span>
+                  <strong>{formatDate((trainingJoinModal.booking?.date || trainingJoinModal.booking?.startDate || '').toString().split('T')[0])}</strong>
+                </p>
+                <p className="club-public-booking-modal-row">
+                  <span>{c.time}:</span>
+                  <strong>{trainingJoinModal.booking?.startTime || trainingJoinModal.booking?.timeSlot || ''} – {trainingJoinModal.booking?.endTime || ''}</strong>
+                </p>
+                <div className="club-public-booking-modal-price">
+                  <span>{c.joinTrainingPrice}:</span>
+                  <strong className="club-public-booking-modal-price-value">
+                    {(() => {
+                      const b = trainingJoinModal.booking
+                      const total = parseFloat(b?.totalAmount) || 0
+                      const maxT = Math.min(4, Math.max(1, parseInt(b?.data?.maxTrainees || b?.maxTrainees, 10) || 4))
+                      return (Math.round((total / maxT) * 100) / 100).toFixed(2)
+                    })()} {currency}
+                  </strong>
+                </div>
+              </div>
+              <div className="club-public-booking-modal-actions">
+                <button type="button" className="club-public-booking-modal-cancel" onClick={() => { if (!trainingJoinSubmitting) { setTrainingJoinModal(null); setLockError(null) } }} disabled={trainingJoinSubmitting}>
+                  {language === 'en' ? 'Cancel' : 'إلغاء'}
+                </button>
+                <button type="button" className="club-public-booking-modal-confirm" onClick={handleJoinTraining} disabled={trainingJoinSubmitting}>
+                  {trainingJoinSubmitting ? (language === 'en' ? 'Joining...' : 'جاري الانضمام...') : c.confirmJoinTraining}
                 </button>
               </div>
             </div>

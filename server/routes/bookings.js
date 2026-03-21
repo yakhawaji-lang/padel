@@ -359,6 +359,63 @@ router.post('/coach-training', async (req, res) => {
   }
 })
 
+/** POST /api/bookings/join-training - Member joins a coach training slot (adds as trainee/payment share) */
+router.post('/join-training', async (req, res) => {
+  try {
+    const { bookingId, clubId, memberId, memberName } = req.body || {}
+    if (!bookingId || !clubId || !memberId) {
+      return res.status(400).json({ error: 'bookingId, clubId, memberId required' })
+    }
+    const { rows: bRows } = await query(
+      'SELECT id, member_id, total_amount, data, status FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL',
+      [bookingId, clubId]
+    )
+    if (!bRows?.length) return res.status(404).json({ error: 'Training not found' })
+    const b = bRows[0]
+    let data = {}
+    try {
+      data = typeof b.data === 'object' ? b.data : JSON.parse(b.data || '{}')
+    } catch (_) {}
+    if (data.type !== 'training') return res.status(400).json({ error: 'Not a training booking' })
+    const coachId = (data.coachId || b.member_id || '').toString()
+    if (String(memberId) === coachId) {
+      return res.status(403).json({ error: 'Coach cannot join own training' })
+    }
+    const maxTrainees = Math.min(4, Math.max(1, parseInt(data.maxTrainees, 10) || 4))
+    const { rows: shares } = await query(
+      'SELECT id, member_id FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
+      [bookingId, clubId]
+    )
+    const traineeCount = (shares || []).filter(s => String(s.member_id || '').trim() && String(s.member_id) !== coachId).length
+    if (traineeCount >= maxTrainees) {
+      return res.status(409).json({ error: 'Training full' })
+    }
+    const alreadyJoined = (shares || []).some(s => String(s.member_id || '') === String(memberId))
+    if (alreadyJoined) return res.status(409).json({ error: 'Already joined' })
+    const totalAmount = parseFloat(b.total_amount) || 0
+    const amountPerTrainee = Math.round((totalAmount / maxTrainees) * 100) / 100
+    await query(
+      `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, amount, payment_method)
+       VALUES (?, ?, 'registered', ?, ?, ?, 'at_club')`,
+      [bookingId, clubId, memberId, memberName || null, amountPerTrainee]
+    )
+    const { rows: allShares } = await query(
+      'SELECT amount, paid_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
+      [bookingId, clubId]
+    )
+    const paidAmount = (allShares || []).reduce((s, x) => s + (x.paid_at ? parseFloat(x.amount) || 0 : 0), 0)
+    const status = paidAmount >= totalAmount - 0.01 ? 'confirmed' : (paidAmount > 0 ? 'partially_paid' : 'pending_payments')
+    await bookingService.updateBookingPayment(bookingId, clubId, paidAmount, status)
+    const { rows: dateRow } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bookingId, clubId])
+    const dateStr = dateRow[0]?.booking_date ? String(dateRow[0].booking_date).split('T')[0] : null
+    if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
+    res.json({ ok: true, amount: amountPerTrainee })
+  } catch (e) {
+    console.error('bookings join-training error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
 /** POST /api/bookings/record-payment - Record payment for a share (update paid_at, payment_method, recalc status)
  * - paymentMethod 'at_club': commitment only, paid_at = NULL
  * - paymentReference (electronic): actual payment, paid_at = NOW()

@@ -329,6 +329,8 @@ const CoachDashboardPage = () => {
                           const d = bookedItem.data && typeof bookedItem.data === 'object' ? bookedItem.data : {}
                           return d.type === 'training' && String(d.coachId || bookedItem.memberId || '') === String(platformUser?.id || '')
                         })()
+                        const traineeCount = isCoachSlot && bookedItem ? (bookedItem.paymentShares || []).filter(s => String(s.memberId || '') !== String(platformUser?.id || '')).length : 0
+                        const isCoachSlotWithTrainees = isCoachSlot && traineeCount > 0
                         const isOtherBooked = bookedItem && !isCoachSlot
                         const isPast = isSlotInPast(dateStr, timeSlot)
                         const cellKey = `${court.id}-${timeSlot}`
@@ -336,7 +338,7 @@ const CoachDashboardPage = () => {
                         const canAdd = !bookedItem && !isPast
                         const canRemove = isCoachSlot
                         const canClick = (canAdd || canRemove) && !isSubmittingThis
-                        const cellStatus = isCoachSlot ? 'coach-slot' : isOtherBooked ? 'booked' : isPast ? 'past' : 'available'
+                        const cellStatus = isCoachSlot ? (isCoachSlotWithTrainees ? 'coach-slot coach-slot-with-trainees' : 'coach-slot coach-slot-empty') : isOtherBooked ? 'booked' : isPast ? 'past' : 'available'
                         const slotTitle = isCoachSlot ? (language === 'en' ? 'Click to remove' : 'اضغط للإزالة') : isOtherBooked ? t('Booked', 'محجوز', language) : isPast ? t('Past', 'منتهي', language) : canAdd ? (language === 'en' ? 'Click to add availability' : 'اضغط لإضافة التوفر') : ''
                         return (
                           <div
