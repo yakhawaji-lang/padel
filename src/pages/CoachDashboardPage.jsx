@@ -32,6 +32,8 @@ const CoachDashboardPage = () => {
   const [submitting, setSubmitting] = useState(null)
   const [createError, setCreateError] = useState('')
   const [hoveredRange, setHoveredRange] = useState(null) // { court, courtId, startSlot, endSlot } للنطاق
+  const hasTouch = typeof window !== 'undefined' && 'ontouchstart' in window
+  const touchSelectRef = React.useRef(null) // { court, courtId, dateStr, startSlot } during touch drag
 
   const platformUser = getCurrentPlatformUser()
 
@@ -224,6 +226,35 @@ const CoachDashboardPage = () => {
 
   const handleRangeMouseLeave = useCallback(() => setHoveredRange(null), [])
 
+  const handleTouchMoveRange = useCallback((e) => {
+    if (!touchSelectRef.current || !e.touches?.[0]) return
+    const touch = e.touches[0]
+    const el = document.elementFromPoint(touch.clientX, touch.clientY)
+    if (!el?.getAttribute) return
+    const courtId = el.getAttribute('data-court-id')
+    const timeSlot = el.getAttribute('data-time-slot')
+    const dateStr = el.getAttribute('data-date')
+    if (!courtId || !timeSlot || !dateStr || el.getAttribute('data-can-add-range') !== '1') return
+    if (courtId !== touchSelectRef.current.courtId) return
+    setHoveredRange(prev => {
+      if (!prev || prev.courtId !== courtId) return { court: touchSelectRef.current.court, courtId, startSlot: timeSlot, endSlot: timeSlot, fromCanAdd: true }
+      const slotM = timeToMinutes(timeSlot)
+      const startM = timeToMinutes(prev.startSlot)
+      const endM = timeToMinutes(prev.endSlot)
+      if (slotM >= startM - 30 && slotM <= endM + 30) {
+        const newStart = slotM < startM ? timeSlot : prev.startSlot
+        const newEnd = slotM > endM ? timeSlot : prev.endSlot
+        const dur = timeToMinutes(newEnd) - timeToMinutes(newStart) + 30
+        if (dur <= maxBookingDuration) return { ...prev, startSlot: newStart, endSlot: newEnd }
+      }
+      return prev
+    })
+  }, [maxBookingDuration])
+
+  const handleTouchEndRange = useCallback(() => {
+    touchSelectRef.current = null
+  }, [])
+
   const handleRangeAdd = useCallback(async (court, dateStr, startSlot, endSlot) => {
     if (submitting) return
     const startM = timeToMinutes(startSlot)
@@ -357,7 +388,14 @@ const CoachDashboardPage = () => {
             <p className="coach-dates-badge">{t('You have slots on', 'لديك أوقات في')} {datesWithCoachSlots.length} {t('day(s)', 'يوم', language)}</p>
           )}
           {createError && <p className="coach-create-error">{createError}</p>}
-          <div className="coach-court-grid-wrap" dir={language === 'ar' ? 'rtl' : 'ltr'} onMouseLeave={handleRangeMouseLeave}>
+          <div
+            className="coach-court-grid-wrap"
+            dir={language === 'ar' ? 'rtl' : 'ltr'}
+            onMouseLeave={handleRangeMouseLeave}
+            onTouchMove={hasTouch ? handleTouchMoveRange : undefined}
+            onTouchEnd={hasTouch ? handleTouchEndRange : undefined}
+            onTouchCancel={hasTouch ? handleTouchEndRange : undefined}
+          >
             {(() => {
               const courts = (club?.courts || []).filter(c => !c.maintenance)
               const timeSlots = getTimeSlotsForClub(club)
@@ -438,6 +476,10 @@ const CoachDashboardPage = () => {
                             handleGridCellClick(court, dateStr, timeSlot, isCoachSlot, bookedItem?.id)
                             return
                           }
+                          if (hasTouch && canAddForRange && !isInRange) {
+                            handleRangeMouseEnter(court, timeSlot, canAddForRange)
+                            return
+                          }
                           if (isInRange && hoveredRange && hoveredRange.startSlot !== hoveredRange.endSlot) {
                             handleRangeAdd(court, dateStr, hoveredRange.startSlot, hoveredRange.endSlot)
                             return
@@ -452,7 +494,9 @@ const CoachDashboardPage = () => {
                             tabIndex={canClick ? 0 : undefined}
                             className={`club-public-court-grid-cell coach-grid-cell ${cellStatus} ${canClick ? 'clickable' : ''} ${isInRange ? 'in-range hovered' : ''} ${isCoachSlotHovered ? 'hovered' : ''}`}
                             title={slotTitle}
+                            {...(canAddForRange && { 'data-court-id': courtIdForMatch, 'data-date': dateStr, 'data-time-slot': timeSlot, 'data-can-add-range': '1' })}
                             onMouseEnter={canAddForRange ? () => handleRangeMouseEnter(court, timeSlot, canAddForRange) : (canClick ? () => setHoveredRange({ court, courtId: courtIdForMatch, startSlot: timeSlot, endSlot: timeSlot, fromCanAdd: false }) : undefined)}
+                            onTouchStart={hasTouch && canAddForRange ? () => { touchSelectRef.current = { court, courtId: courtIdForMatch, dateStr, startSlot: timeSlot } } : undefined}
                             onClick={canClick ? handleCellClick : undefined}
                             onKeyDown={canClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCellClick() } } : undefined}
                           >

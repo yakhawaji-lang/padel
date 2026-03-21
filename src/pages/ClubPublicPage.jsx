@@ -196,6 +196,8 @@ const ClubPublicPage = () => {
   const [trainingJoinModal, setTrainingJoinModal] = useState(null) // { booking, court } - للانضمام لجلسة تدريب
   const [trainingJoinSubmitting, setTrainingJoinSubmitting] = useState(false)
   const [hoveredRange, setHoveredRange] = useState(null) // { court, courtId, startSlot, endSlot } - نطاق التمرير للحجز
+  const hasTouch = typeof window !== 'undefined' && 'ontouchstart' in window
+  const touchSelectRef = React.useRef(null) // { court, courtId, dateStr, startSlot } during touch drag
 
   useEffect(() => {
     setAppLanguage(language)
@@ -644,6 +646,35 @@ const ClubPublicPage = () => {
 
   const handleRangeMouseLeave = useCallback(() => {
     setHoveredRange(null)
+  }, [])
+
+  const handleTouchMoveRange = useCallback((e) => {
+    if (!touchSelectRef.current || !e.touches?.[0]) return
+    const touch = e.touches[0]
+    const el = document.elementFromPoint(touch.clientX, touch.clientY)
+    if (!el?.getAttribute) return
+    const courtId = el.getAttribute('data-court-id')
+    const timeSlot = el.getAttribute('data-time-slot')
+    const dateStr = el.getAttribute('data-date')
+    if (!courtId || !timeSlot || !dateStr || el.getAttribute('data-can-book-range') !== '1') return
+    if (courtId !== touchSelectRef.current.courtId) return
+    setHoveredRange(prev => {
+      if (!prev || prev.courtId !== courtId) return { court: touchSelectRef.current.court, courtId, startSlot: timeSlot, endSlot: timeSlot, fromCanBook: true }
+      const slotM = timeToMinutes(timeSlot)
+      const startM = timeToMinutes(prev.startSlot)
+      const endM = timeToMinutes(prev.endSlot)
+      if (slotM >= startM - 30 && slotM <= endM + 30) {
+        const newStart = slotM < startM ? timeSlot : prev.startSlot
+        const newEnd = slotM > endM ? timeSlot : prev.endSlot
+        const dur = timeToMinutes(newEnd) - timeToMinutes(newStart) + 30
+        if (dur <= maxBookingDuration) return { ...prev, startSlot: newStart, endSlot: newEnd }
+      }
+      return prev
+    })
+  }, [maxBookingDuration])
+
+  const handleTouchEndRange = useCallback(() => {
+    touchSelectRef.current = null
   }, [])
 
   const handleCloseBookingModal = useCallback(() => {
@@ -1164,6 +1195,9 @@ const ClubPublicPage = () => {
                   className="club-public-court-booking-wrap"
                   dir={language === 'ar' ? 'rtl' : 'ltr'}
                   onMouseLeave={handleRangeMouseLeave}
+                  onTouchMove={hasTouch ? handleTouchMoveRange : undefined}
+                  onTouchEnd={hasTouch ? handleTouchEndRange : undefined}
+                  onTouchCancel={hasTouch ? handleTouchEndRange : undefined}
                 >
                   <div
                     className="club-public-court-grid club-public-court-grid-times-horizontal"
@@ -1267,6 +1301,10 @@ const ClubPublicPage = () => {
                               handleSlotClick(court, dateStr, timeSlot, myLock)
                               return
                             }
+                            if (hasTouch && canBookForRange && !isInRange) {
+                              handleRangeMouseEnter(court, dateStr, timeSlot, canBookForRange)
+                              return
+                            }
                             if (isInRange && hoveredRange && hoveredRange.startSlot !== hoveredRange.endSlot) {
                               handleRangeClick(court, dateStr, hoveredRange.startSlot, hoveredRange.endSlot, null)
                               return
@@ -1284,7 +1322,9 @@ const ClubPublicPage = () => {
                               tabIndex={isCellClickable ? 0 : undefined}
                               className={`club-public-court-grid-cell ${cellStatus} ${isCellClickable ? 'clickable' : ''} ${isInRange ? 'in-range hovered' : ''}`}
                               title={slotTitle}
+                              {...(canBookForRange && { 'data-court-id': courtIdForMatch, 'data-date': dateStr, 'data-time-slot': timeSlot, 'data-can-book-range': '1' })}
                               onMouseEnter={canBookForRange ? () => handleRangeMouseEnter(court, dateStr, timeSlot, canBookForRange) : (isCellClickable ? () => setHoveredRange({ court, courtId: (court.id || court.name || '').toString(), startSlot: timeSlot, endSlot: timeSlot, fromCanBook: false }) : undefined)}
+                              onTouchStart={hasTouch && canBookForRange ? () => { touchSelectRef.current = { court, courtId: courtIdForMatch, dateStr, startSlot: timeSlot } } : undefined}
                               onClick={isCellClickable ? handleCellClick : undefined}
                               onKeyDown={isCellClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCellClick() } } : undefined}
                             >
