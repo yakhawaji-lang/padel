@@ -33,7 +33,7 @@ const MONTHS_AR = ['يناير', 'فبراير', 'مارس', 'أبريل', 'ما
 const WEEKDAYS_EN = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 const WEEKDAYS_AR = ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س']
 
-export default function MultiDatePicker({ selectedDates = [], onToggleDate, minDate, language = 'en' }) {
+export default function MultiDatePicker({ selectedDates = [], onToggleDate, minDate, language = 'en', viewingDate, onDateClick, highlightedDates = [] }) {
   const [viewMonth, setViewMonth] = useState(() => {
     const today = new Date()
     return new Date(today.getFullYear(), today.getMonth(), 1)
@@ -69,16 +69,23 @@ export default function MultiDatePicker({ selectedDates = [], onToggleDate, minD
           if (!cell.date) return <div key={i} className="multi-date-picker-cell empty" />
           const ymd = toYMD(cell.date)
           const isPast = cell.date < min
-          const isSelected = selectedDates.includes(ymd)
+          const isSelected = onDateClick ? (viewingDate === ymd) : selectedDates.includes(ymd)
+          const hasHighlight = Array.isArray(highlightedDates) && highlightedDates.includes(ymd)
+          const handleClick = () => {
+            if (isPast) return
+            if (onDateClick) onDateClick(ymd)
+            else if (onToggleDate) onToggleDate(ymd)
+          }
           return (
             <button
               key={i}
               type="button"
-              className={`multi-date-picker-cell ${cell.currentMonth ? 'current' : 'other'} ${isSelected ? 'selected' : ''} ${isPast ? 'past' : ''}`}
-              onClick={() => !isPast && onToggleDate(ymd)}
+              className={`multi-date-picker-cell ${cell.currentMonth ? 'current' : 'other'} ${isSelected ? 'selected' : ''} ${isPast ? 'past' : ''} ${hasHighlight ? 'has-slots' : ''}`}
+              onClick={handleClick}
               disabled={isPast}
             >
               {cell.date.getDate()}
+              {hasHighlight && !isSelected && <span className="multi-date-picker-dot" aria-hidden />}
             </button>
           )
         })}

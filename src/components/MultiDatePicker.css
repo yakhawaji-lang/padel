@@ -76,3 +76,18 @@
 .multi-date-picker-cell.empty {
   cursor: default;
 }
+
+.multi-date-picker-cell.has-slots {
+  position: relative;
+}
+
+.multi-date-picker-cell.has-slots:not(.selected) .multi-date-picker-dot {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #059669;
+}

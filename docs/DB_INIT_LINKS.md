@@ -74,6 +74,7 @@ https://playtix.app/api/init-db/migrate-booking-v2
 https://playtix.app/api/init-db/ensure-coach-schema
 ```
 
+
 **ترحيل إعدادات الدفع** (جدول `platform_payment_gateways` — **مطلوب لصفحة إعدادات الدفع**):
 ```
 https://playtix.app/api/init-db/migrate-payment-gateways

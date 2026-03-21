@@ -1,8 +1,9 @@
 /**
  * Coach Dashboard - صفحة المدرب
  * تظهر فقط عند تسجيل دخول عضو مدرب في النادي
+ * جدول الملاعب بالأوقات مثل الصفحة الرئيسية - الضغط على خلية يضيف/يزيل توفر المدرب
  */
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { getClubById, refreshClubsFromApi } from '../storage/adminStorage'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
@@ -10,6 +11,7 @@ import { getAppLanguage } from '../storage/languageStorage'
 import * as bookingApi from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
 import MultiDatePicker from '../components/MultiDatePicker'
+import { getTimeSlotsForClub, isTimeSlotCoveredByBooking, isSlotInPast, addMinutesToTime } from '../utils/coachGridHelpers'
 import './CoachDashboardPage.css'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
@@ -21,13 +23,13 @@ const CoachDashboardPage = () => {
   const [club, setClub] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('upcoming')
-  const [createDates, setCreateDates] = useState([])
-  const [createCourt, setCreateCourt] = useState('')
-  const [createStart, setCreateStart] = useState('09:00')
-  const [createEnd, setCreateEnd] = useState('10:00')
+  const [gridDate, setGridDate] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
   const [createPrice, setCreatePrice] = useState(150)
   const [createMaxTrainees, setCreateMaxTrainees] = useState(4)
-  const [submitting, setSubmitting] = useState(false)
+  const [submitting, setSubmitting] = useState(null)
   const [createError, setCreateError] = useState('')
 
   const platformUser = getCurrentPlatformUser()
@@ -128,41 +130,56 @@ const CoachDashboardPage = () => {
     return { total, upcomingCount, pastCount, totalRevenue }
   }, [bookings, upcoming, past])
 
-  const handleAddDate = (dateStr) => {
-    if (!dateStr || /^\d{4}-\d{2}-\d{2}$/.test(dateStr) && dateStr >= todayStr) {
-      setCreateDates(prev => prev.includes(dateStr) ? prev.filter(d => d !== dateStr) : [...prev, dateStr].sort())
-    }
-  }
+  const datesWithCoachSlots = useMemo(() => {
+    const set = new Set()
+    ;(club?.bookings || []).forEach(b => {
+      const d = b.data && typeof b.data === 'object' ? b.data : {}
+      if (d.type === 'training' && String(d.coachId || b.memberId || '') === String(platformUser?.id || '')) {
+        const dateStr = (b.date || b.startDate || '').toString().split('T')[0]
+        if (dateStr && dateStr >= todayStr) set.add(dateStr)
+      }
+    })
+    return Array.from(set)
+  }, [club?.bookings, platformUser?.id, todayStr])
 
-  const handleCreateSlots = async (e) => {
-    e.preventDefault()
+  const handleGridCellClick = useCallback(async (court, dateStr, timeSlot, isCoachSlot, bookingId) => {
+    if (submitting) return
     setCreateError('')
-    if (!createDates.length || !createCourt || !createStart || !createEnd) {
-      setCreateError(t('Select at least one date, court, and time.', 'اختر تاريخاً واحداً على الأقل والملعب والوقت.', language))
-      return
+    if (isCoachSlot && bookingId) {
+      setSubmitting(`cancel-${bookingId}`)
+      try {
+        await bookingApi.cancelBooking(bookingId)
+        await refreshClubsFromApi()
+        setClub(getClubById(clubId))
+      } catch (err) {
+        setCreateError(err?.message || t('Failed to cancel slot', 'فشل في إلغاء الحجز', language))
+      } finally {
+        setSubmitting(null)
+      }
+    } else if (!isCoachSlot) {
+      const duration = club?.settings?.bookingDuration ?? 60
+      const endTime = addMinutesToTime(timeSlot, duration)
+      setSubmitting(`${court.id}-${timeSlot}`)
+      try {
+        await bookingApi.createCoachTrainingSlots({
+          clubId,
+          courtId: court.id,
+          dates: [dateStr],
+          startTime: timeSlot,
+          endTime,
+          pricePerHour: createPrice,
+          maxTrainees: createMaxTrainees,
+          coachId: platformUser?.id
+        })
+        await refreshClubsFromApi()
+        setClub(getClubById(clubId))
+      } catch (err) {
+        setCreateError(err?.message || t('Failed to create slot', 'فشل في إنشاء الحجز', language))
+      } finally {
+        setSubmitting(null)
+      }
     }
-    setSubmitting(true)
-    try {
-      await bookingApi.createCoachTrainingSlots({
-        clubId,
-        courtId: createCourt,
-        dates: createDates,
-        startTime: createStart,
-        endTime: createEnd,
-        pricePerHour: createPrice,
-        maxTrainees: createMaxTrainees,
-        coachId: platformUser?.id
-      })
-      await refreshClubsFromApi()
-      setClub(getClubById(clubId))
-      setCreateDates([])
-      setCreateError('')
-    } catch (err) {
-      setCreateError(err?.message || t('Failed to create slots', 'فشل في إنشاء الحجوزات', language))
-    } finally {
-      setSubmitting(false)
-    }
-  }
+  }, [clubId, club?.settings?.bookingDuration, createPrice, createMaxTrainees, platformUser?.id, submitting])
 
   const courtName = (id) => {
     const c = club?.courts?.find(x => x.id === id || x.name === id)
@@ -236,51 +253,111 @@ const CoachDashboardPage = () => {
           </div>
         </section>
 
-        {/* Create training slots */}
+        {/* Create training slots - Court grid like main page */}
         <section className="coach-dashboard-create">
-          <h2>{t('Create training slots', 'إنشاء حجوزات تدريب', language)}</h2>
-          <form onSubmit={handleCreateSlots} className="coach-create-form">
-            <div className="coach-create-row">
-              <label>{t('Select dates', 'اختر التواريخ', language)}</label>
-              <MultiDatePicker
-                selectedDates={createDates}
-                onToggleDate={handleAddDate}
-                minDate={todayStr}
-                language={language}
-              />
-            </div>
-            <div className="coach-create-row">
-              <label>{t('Court', 'الملعب', language)}</label>
-              <select value={createCourt} onChange={e => setCreateCourt(e.target.value)} required>
-                <option value="">—</option>
-                {(club?.courts || []).map(c => (
-                  <option key={c.id} value={c.id}>{language === 'ar' ? c.nameAr || c.name : c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="coach-create-row coach-create-time">
-              <label>{t('Time', 'الوقت', language)}</label>
-              <input type="time" value={createStart} onChange={e => setCreateStart(e.target.value)} />
-              <span>–</span>
-              <input type="time" value={createEnd} onChange={e => setCreateEnd(e.target.value)} />
-            </div>
-            <div className="coach-create-row">
+          <h2>{t('Set your availability', 'حدد أوقات تواجدك', language)}</h2>
+          <p className="coach-create-hint">{t('Select a date, then click empty slots to add availability. Click your slots to remove.', 'اختر تاريخاً ثم اضغط على الأوقات الفارغة للإضافة. اضغط على حجوزاتك للإزالة.', language)}</p>
+          <div className="coach-create-date-row">
+            <label>{t('Select date', 'اختر التاريخ', language)} — {t('Days with your slots', 'أيام فيها حجوزاتك', language)}:</label>
+            <MultiDatePicker
+              viewingDate={gridDate}
+              onDateClick={setGridDate}
+              highlightedDates={datesWithCoachSlots}
+              minDate={todayStr}
+              language={language}
+            />
+          </div>
+          <div className="coach-create-config">
+            <div className="coach-create-row coach-create-row-inline">
               <label>{t('Price per hour', 'السعر بالساعة', language)} ({currency})</label>
               <input type="number" min={1} value={createPrice} onChange={e => setCreatePrice(Number(e.target.value) || 0)} />
             </div>
-            <div className="coach-create-row">
-              <label>{t('Max trainees', 'الحد الأقصى للمتدربين', language)}</label>
+            <div className="coach-create-row coach-create-row-inline">
+              <label>{t('Max trainees', 'الحد الأقصى', language)}</label>
               <select value={createMaxTrainees} onChange={e => setCreateMaxTrainees(Number(e.target.value))}>
                 {[1, 2, 3, 4].map(n => (
                   <option key={n} value={n}>{n}</option>
                 ))}
               </select>
             </div>
-            {createError && <p className="coach-create-error">{createError}</p>}
-            <button type="submit" className="coach-create-submit" disabled={submitting}>
-              {submitting ? t('Saving...', 'جاري الحفظ...', language) : t('Create slots', 'إنشاء الحجوزات', language)}
-            </button>
-          </form>
+          </div>
+          {datesWithCoachSlots.length > 0 && (
+            <p className="coach-dates-badge">{t('You have slots on', 'لديك أوقات في')} {datesWithCoachSlots.length} {t('day(s)', 'يوم', language)}</p>
+          )}
+          {createError && <p className="coach-create-error">{createError}</p>}
+          <div className="coach-court-grid-wrap" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+            {(() => {
+              const courts = (club?.courts || []).filter(c => !c.maintenance)
+              const timeSlots = getTimeSlotsForClub(club)
+              if (courts.length === 0) return <p className="coach-no-courts">{t('No courts', 'لا توجد ملاعب', language)}</p>
+              return (
+                <div
+                  className="coach-court-grid club-public-court-grid club-public-court-grid-times-horizontal"
+                  style={{
+                    gridTemplateColumns: `80px repeat(${timeSlots.length}, minmax(60px, 1fr))`,
+                    gridTemplateRows: `40px repeat(${courts.length}, 36px)`,
+                    minWidth: `${80 + timeSlots.length * 60}px`
+                  }}
+                >
+                  <div className="club-public-court-grid-corner" />
+                  {timeSlots.map(t => (
+                    <div key={t} className="club-public-court-grid-time-header">{t}</div>
+                  ))}
+                  {courts.map(court => (
+                    <React.Fragment key={court.id}>
+                      <div className="club-public-court-grid-court-name">
+                        {language === 'ar' && court.nameAr ? court.nameAr : court.name}
+                      </div>
+                      {timeSlots.map(timeSlot => {
+                        const courtIdForMatch = (court.id || court.name || '').toString()
+                        const dateStr = gridDate
+                        const bookingsList = club?.bookings || []
+                        const bookedItem = bookingsList.find(b => {
+                          if (b.isTournament) return false
+                          const status = (b.status || '').toString()
+                          if (['cancelled', 'expired'].includes(status)) return false
+                          const bDate = (b.date || b.startDate || '').toString().split('T')[0]
+                          if (bDate !== dateStr) return false
+                          const res = (b.resource || b.courtId || b.court || '').toString().trim()
+                          if (res !== courtIdForMatch && res !== (court.name || '').toString().trim()) return false
+                          const start = (b.startTime || b.timeSlot || '').toString().trim()
+                          let end = (b.endTime || '').toString().trim()
+                          if (!end && start) end = addMinutesToTime(start, club?.settings?.bookingDuration || 60)
+                          return isTimeSlotCoveredByBooking(timeSlot, start, end || start)
+                        })
+                        const isCoachSlot = bookedItem && (() => {
+                          const d = bookedItem.data && typeof bookedItem.data === 'object' ? bookedItem.data : {}
+                          return d.type === 'training' && String(d.coachId || bookedItem.memberId || '') === String(platformUser?.id || '')
+                        })()
+                        const isOtherBooked = bookedItem && !isCoachSlot
+                        const isPast = isSlotInPast(dateStr, timeSlot)
+                        const cellKey = `${court.id}-${timeSlot}`
+                        const isSubmittingThis = submitting === cellKey || (bookedItem?.id && submitting === `cancel-${bookedItem.id}`)
+                        const canAdd = !bookedItem && !isPast
+                        const canRemove = isCoachSlot
+                        const canClick = (canAdd || canRemove) && !isSubmittingThis
+                        const cellStatus = isCoachSlot ? 'coach-slot' : isOtherBooked ? 'booked' : isPast ? 'past' : 'available'
+                        const slotTitle = isCoachSlot ? (language === 'en' ? 'Click to remove' : 'اضغط للإزالة') : isOtherBooked ? t('Booked', 'محجوز', language) : isPast ? t('Past', 'منتهي', language) : canAdd ? (language === 'en' ? 'Click to add availability' : 'اضغط لإضافة التوفر') : ''
+                        return (
+                          <div
+                            key={timeSlot}
+                            role={canClick ? 'button' : undefined}
+                            tabIndex={canClick ? 0 : undefined}
+                            className={`club-public-court-grid-cell coach-grid-cell ${cellStatus} ${canClick ? 'clickable' : ''}`}
+                            title={slotTitle}
+                            onClick={canClick ? () => handleGridCellClick(court, dateStr, timeSlot, isCoachSlot, bookedItem?.id) : undefined}
+                            onKeyDown={canClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleGridCellClick(court, dateStr, timeSlot, isCoachSlot, bookedItem?.id) } } : undefined}
+                          >
+                            {isCoachSlot ? '🏸' : ''}
+                          </div>
+                        )
+                      })}
+                    </React.Fragment>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
         </section>
 
         {/* Confirmed days */}
