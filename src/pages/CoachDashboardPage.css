@@ -1,13 +1,23 @@
-/* Coach Dashboard - لوحة المدرب */
+/* Coach Dashboard - لوحة المدرب - تصميم احترافي متجاوب */
+/* Compatible with all browsers: Chrome, Firefox, Safari, Edge, Mobile */
+
 .coach-dashboard-page {
   position: fixed;
   inset: 0;
-  height: 100vh;
-  height: 100dvh;
-  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 30%);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #f8fafc;
+  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 25%, #f8fafc 100%);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .coach-dashboard-loading {
@@ -15,7 +25,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 60vh;
+  flex: 1;
+  min-height: 50vh;
   gap: 16px;
   color: #64748b;
 }
@@ -33,17 +44,21 @@
   to { transform: rotate(360deg); }
 }
 
+/* Header */
 .coach-dashboard-header {
   flex-shrink: 0;
+  background: #059669;
   background: linear-gradient(135deg, #059669 0%, #047857 100%);
   color: #fff;
   padding: 16px 20px;
   padding-top: max(16px, env(safe-area-inset-top));
-  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.15);
+  padding-left: max(20px, env(safe-area-inset-left));
+  padding-right: max(20px, env(safe-area-inset-right));
+  box-shadow: 0 2px 12px rgba(5, 150, 105, 0.25);
 }
 
 .coach-dashboard-header-inner {
-  max-width: 960px;
+  max-width: 1100px;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -56,38 +71,58 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: rgba(255,255,255,0.95);
+  color: rgba(255, 255, 255, 0.95);
   text-decoration: none;
   font-size: 0.9375rem;
-  font-weight: 500;
+  font-weight: 600;
+  transition: opacity 0.2s;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.coach-dashboard-back:hover {
+.coach-dashboard-back:hover,
+.coach-dashboard-back:focus {
   color: #fff;
+  opacity: 0.95;
 }
 
 .coach-dashboard-title {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   font-weight: 700;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  line-height: 1.3;
+}
+
+@media (min-width: 640px) {
+  .coach-dashboard-title {
+    font-size: 1.25rem;
+  }
 }
 
 .coach-dashboard-icon {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
+  flex-shrink: 0;
 }
 
 .coach-dashboard-lang {
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
   border: none;
-  border-radius: 8px;
-  padding: 8px;
+  border-radius: 10px;
+  padding: 8px 10px;
   cursor: pointer;
   color: #fff;
+  transition: background 0.2s;
+  -webkit-tap-highlight-color: transparent;
 }
 
+.coach-dashboard-lang:hover,
+.coach-dashboard-lang:focus {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Main content */
 .coach-dashboard-main {
   flex: 1;
   min-height: 0;
@@ -95,87 +130,104 @@
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  max-width: 960px;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 24px 20px;
+  padding: 20px 16px;
   padding-bottom: max(24px, env(safe-area-inset-bottom));
+  width: 100%;
+  box-sizing: border-box;
 }
 
-/* Stats */
+@media (min-width: 640px) {
+  .coach-dashboard-main {
+    padding: 24px 20px;
+  }
+}
+
+/* Stats cards */
 .coach-dashboard-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 16px;
-  margin-bottom: 32px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+@media (min-width: 480px) {
+  .coach-dashboard-stats {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
 }
 
 .coach-stat-card {
   background: #fff;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   border: 1px solid #e2e8f0;
   text-align: center;
 }
 
 .coach-stat-value {
   display: block;
-  font-size: 1.75rem;
-  font-weight: 600;
+  font-size: 1.5rem;
+  font-weight: 700;
   color: #0f172a;
+  line-height: 1.2;
 }
 
 .coach-stat-label {
   display: block;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: #64748b;
   margin-top: 4px;
+}
+
+@media (min-width: 640px) {
+  .coach-stat-card {
+    padding: 20px;
+    border-radius: 16px;
+  }
+  .coach-stat-value {
+    font-size: 1.75rem;
+  }
+  .coach-stat-label {
+    font-size: 0.8125rem;
+  }
 }
 
 .coach-stat-revenue .coach-stat-value {
   color: #059669;
 }
 
-/* Create form */
+/* Schedule section - جدول الملاعب */
 .coach-dashboard-create {
   background: #fff;
   border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 32px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   border: 1px solid #e2e8f0;
+}
+
+@media (min-width: 640px) {
+  .coach-dashboard-create {
+    padding: 24px;
+  }
 }
 
 .coach-dashboard-create h2 {
-  margin: 0 0 20px 0;
+  margin: 0 0 12px 0;
   font-size: 1.125rem;
+  font-weight: 700;
   color: #0f172a;
 }
 
-.coach-create-form {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.coach-create-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.coach-create-row label {
+.coach-create-hint {
   font-size: 0.875rem;
-  font-weight: 600;
-  color: #475569;
-}
-
-.coach-create-row select,
-.coach-create-row input {
-  padding: 12px 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  font-size: 0.9375rem;
+  color: #64748b;
+  margin: 0 0 16px 0;
+  line-height: 1.5;
 }
 
 .coach-create-date-row {
@@ -190,18 +242,40 @@
   margin-bottom: 8px;
 }
 
-.coach-create-hint {
-  font-size: 0.875rem;
-  color: #64748b;
-  margin: 0 0 16px 0;
-}
-
 .coach-create-config {
   display: flex;
   flex-wrap: wrap;
-  gap: 20px;
+  gap: 16px;
   margin-bottom: 16px;
   align-items: flex-end;
+}
+
+.coach-create-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.coach-create-row label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.coach-create-row select,
+.coach-create-row input {
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  background: #fff;
+}
+
+.coach-create-row select:focus,
+.coach-create-row input:focus {
+  outline: none;
+  border-color: #059669;
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15);
 }
 
 .coach-create-row-inline {
@@ -217,65 +291,166 @@
 .coach-create-row-inline input,
 .coach-create-row-inline select {
   width: auto;
-  min-width: 100px;
-}
-
-.coach-date-picker {
-  min-width: 140px;
+  min-width: 80px;
 }
 
 .coach-dates-badge {
   font-size: 0.8125rem;
   color: #059669;
+  font-weight: 600;
   margin: 0 0 12px 0;
 }
 
+/* Court grid container */
 .coach-court-grid-wrap {
-  overflow-x: scroll;
+  overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-x;
+  -moz-overflow-scrolling: touch;
+  -ms-overflow-style: -ms-autohiding-scrollbar;
   overscroll-behavior-x: contain;
   padding-bottom: 12px;
   margin-top: 16px;
+}
+
+.coach-court-grid-wrap::-webkit-scrollbar {
+  height: 8px;
+}
+
+.coach-court-grid-wrap::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.coach-court-grid-wrap::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
 }
 
 .coach-no-courts {
   color: #94a3b8;
   padding: 24px;
   margin: 0;
+  text-align: center;
 }
 
+/* Court grid - جدول الملاعب (inline for direct coach page load) */
+.coach-court-grid-wrap .club-public-court-grid {
+  display: grid;
+  gap: 0;
+}
+
+.coach-court-grid-wrap .club-public-court-grid-times-horizontal .club-public-court-grid-corner {
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 40px;
+  background: #f1f5f9;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 12px 0 0 0;
+}
+
+.coach-court-grid-wrap .club-public-court-grid-time-header {
+  min-height: 40px;
+  padding: 8px 6px;
+  background: #f1f5f9;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-width: 60px;
+}
+
+.coach-court-grid-wrap .club-public-court-grid-court-name {
+  padding: 8px 10px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #0f172a;
+  background: #f8fafc;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+}
+
+[dir="rtl"] .coach-court-grid-wrap .club-public-court-grid-court-name {
+  justify-content: flex-end;
+}
+
+.coach-court-grid-wrap .club-public-court-grid-cell {
+  min-height: 36px;
+  min-width: 60px;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+}
+
+.coach-court-grid-wrap .club-public-court-grid-cell.available {
+  background: #f0fdf4;
+}
+
+.coach-court-grid-wrap .club-public-court-grid-cell.booked {
+  background: #e2e8f0;
+  color: #64748b;
+}
+
+.coach-court-grid-wrap .club-public-court-grid-cell.past {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+/* Coach slot cells - حجوزات المدرب (تعديل/حذف) */
 .coach-grid-cell.coach-slot {
-  color: #1d4ed8;
+  color: #0c4a6e;
   font-size: 1rem;
   cursor: pointer;
+  background: #e0f2fe;
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  font-weight: 600;
+  transition: background 0.2s, transform 0.15s;
 }
+
+.coach-grid-cell.coach-slot:hover,
+.coach-grid-cell.coach-slot.hovered {
+  background: #7dd3fc;
+  background: linear-gradient(135deg, #7dd3fc 0%, #38bdf8 100%);
+  transform: scale(1.02);
+}
+
 .coach-grid-cell.coach-slot-empty {
   background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
 }
+
 .coach-grid-cell.coach-slot-empty:hover,
 .coach-grid-cell.coach-slot-empty.hovered {
   background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%);
 }
+
 .coach-grid-cell.coach-slot-with-trainees {
   background: linear-gradient(135deg, #86efac 0%, #4ade80 100%);
   color: #166534;
 }
+
 .coach-grid-cell.coach-slot-with-trainees:hover,
 .coach-grid-cell.coach-slot-with-trainees.hovered {
   background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
 }
-.coach-grid-cell.available.clickable:hover,
-.coach-grid-cell.available.clickable.hovered {
-  background: #bbf7d0;
-  transform: scale(1.02);
-}
+
 .coach-cell-price {
   font-size: 0.7rem;
   font-weight: 700;
   color: inherit;
   white-space: nowrap;
 }
+
 .coach-slot-cell-content {
   display: flex;
   align-items: center;
@@ -284,94 +459,89 @@
   width: 100%;
   height: 100%;
 }
+
 .coach-slot-icon {
   font-size: 1rem;
 }
+
 .coach-slot-hint {
   font-size: 0.65rem;
-  opacity: 0.7;
+  opacity: 0.85;
 }
-.coach-grid-cell.coach-slot:hover .coach-slot-hint {
+
+.coach-grid-cell.coach-slot:hover .coach-slot-hint,
+.coach-grid-cell.coach-slot.hovered .coach-slot-hint {
   opacity: 1;
 }
-.coach-grid-cell.in-range.available.clickable {
+
+.coach-grid-cell.available.clickable:hover,
+.coach-grid-cell.available.clickable.hovered {
   background: #bbf7d0;
   transform: scale(1.02);
 }
 
-.coach-create-time {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-}
-
-.coach-create-time input {
-  width: 120px;
+.coach-grid-cell.in-range.available.clickable,
+.coach-grid-cell.in-range.hovered.available.clickable {
+  background: #bbf7d0;
+  transform: scale(1.02);
 }
 
 .coach-create-error {
   color: #dc2626;
   font-size: 0.875rem;
-  margin: 0;
+  margin: 0 0 12px 0;
+  padding: 8px 12px;
+  background: #fef2f2;
+  border-radius: 8px;
 }
 
-.coach-create-submit {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
-  color: #fff;
-  border: none;
-  padding: 14px 24px;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.coach-create-submit:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
-
-.coach-create-submit:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-/* Coach slot edit/delete modal */
+/* Modals */
 .coach-slot-modal-backdrop {
   position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 20px;
+  padding: 16px;
+  box-sizing: border-box;
 }
+
 .coach-slot-modal {
   background: #fff;
   border-radius: 16px;
   padding: 24px;
   max-width: 400px;
   width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
 }
+
 .coach-slot-modal h3 {
   margin: 0 0 16px;
   font-size: 1.25rem;
+  font-weight: 700;
   color: #0f172a;
 }
+
 .coach-slot-modal-info {
   margin: 0 0 20px;
   font-size: 0.9375rem;
   color: #475569;
   line-height: 1.5;
 }
+
 .coach-slot-modal-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
+
 .coach-slot-modal-btn {
   padding: 10px 18px;
   border-radius: 10px;
@@ -379,85 +549,102 @@
   font-weight: 600;
   cursor: pointer;
   border: none;
-  transition: opacity 0.2s, transform 0.2s;
+  transition: opacity 0.2s, transform 0.15s;
+  -webkit-tap-highlight-color: transparent;
 }
+
 .coach-slot-modal-btn:hover:not(:disabled) {
-  opacity: 0.9;
+  opacity: 0.95;
   transform: translateY(-1px);
 }
+
 .coach-slot-modal-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
 .coach-slot-modal-edit {
+  background: #2563eb;
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: #fff;
 }
+
 .coach-slot-modal-delete {
+  background: #dc2626;
   background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
   color: #fff;
 }
+
 .coach-slot-modal-save {
+  background: #059669;
   background: linear-gradient(135deg, #059669 0%, #047857 100%);
   color: #fff;
 }
+
 .coach-slot-modal-cancel {
   background: #f1f5f9;
   color: #475569;
 }
+
 .coach-slot-edit-form {
   display: flex;
   flex-direction: column;
   gap: 16px;
   margin-bottom: 20px;
 }
+
 .coach-slot-edit-row {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
+
 .coach-slot-edit-row label {
   font-size: 0.875rem;
   font-weight: 600;
   color: #334155;
 }
+
 .coach-slot-edit-row input,
 .coach-slot-edit-row select {
   padding: 10px 14px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   font-size: 1rem;
+  background: #fff;
 }
+
 .coach-slot-edit-row input:focus,
 .coach-slot-edit-row select:focus {
   outline: none;
   border-color: #059669;
-  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15);
 }
 
 /* Confirmed days */
 .coach-dashboard-confirmed {
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 .coach-dashboard-confirmed h2 {
   margin: 0 0 16px 0;
   font-size: 1.125rem;
+  font-weight: 700;
   color: #0f172a;
 }
 
 .coach-confirmed-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 12px;
 }
 
 .coach-confirmed-card {
+  background: #059669;
   background: linear-gradient(135deg, #059669 0%, #047857 100%);
   color: #fff;
   border-radius: 12px;
   padding: 16px;
-  border: none;
   text-align: center;
 }
 
@@ -477,22 +664,28 @@
 .coach-confirmed-count {
   display: block;
   font-size: 0.75rem;
-  opacity: 0.8;
-  margin-top: 12px;
+  opacity: 0.85;
+  margin-top: 8px;
 }
 
-/* Tabs */
+/* Tabs & Bookings */
 .coach-dashboard-bookings {
   background: #fff;
   border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   border: 1px solid #e2e8f0;
+}
+
+@media (min-width: 640px) {
+  .coach-dashboard-bookings {
+    padding: 24px;
+  }
 }
 
 .coach-tabs {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   margin-bottom: 20px;
   border-bottom: 1px solid #e2e8f0;
 }
@@ -505,8 +698,14 @@
   font-weight: 600;
   color: #64748b;
   cursor: pointer;
-  border-bottom: 1px solid transparent;
+  border-bottom: 2px solid transparent;
   margin-bottom: -1px;
+  transition: color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.coach-tab:hover {
+  color: #334155;
 }
 
 .coach-tab.active {
@@ -535,34 +734,37 @@
 .coach-booking-main {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
 }
 
 .coach-booking-date {
   font-weight: 600;
   color: #0f172a;
+  font-size: 0.9375rem;
 }
 
 .coach-booking-time {
   color: #475569;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
 }
 
 .coach-booking-court {
   color: #64748b;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 .coach-booking-price {
   font-weight: 600;
   color: #059669;
+  font-size: 0.9375rem;
 }
 
 .coach-booking-meta {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .coach-booking-trainees {
@@ -590,6 +792,7 @@
 .coach-bookings-empty {
   text-align: center;
   color: #94a3b8;
-  padding: 32px;
+  padding: 32px 16px;
   margin: 0;
+  font-size: 0.9375rem;
 }

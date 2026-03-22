@@ -405,7 +405,7 @@ const CoachDashboardPage = () => {
         {/* Create training slots - Court grid like main page */}
         <section className="coach-dashboard-create">
           <h2>{t('Set your availability', 'حدد أوقات تواجدك', language)}</h2>
-          <p className="coach-create-hint">{t('Select a date, then click empty slots to add availability. Click your slots to remove.', 'اختر تاريخاً ثم اضغط على الأوقات الفارغة للإضافة. اضغط على حجوزاتك للإزالة.', language)}</p>
+          <p className="coach-create-hint">{t('Select a date, then click empty slots to add. Click your slots to edit or delete.', 'اختر تاريخاً واضغط على الأوقات الفارغة للإضافة. اضغط على حجوزاتك للتعديل أو الحذف.', language)}</p>
           <div className="coach-create-date-row">
             <label>{t('Select date', 'اختر التاريخ', language)} — {t('Days with your slots', 'أيام فيها حجوزاتك', language)}:</label>
             <MultiDatePicker
@@ -495,7 +495,7 @@ const CoachDashboardPage = () => {
                         const canRemove = isCoachSlot
                         const canClick = (canAdd || canRemove) && !isSubmittingThis
                         const cellStatus = isCoachSlot ? (isCoachSlotWithTrainees ? 'coach-slot coach-slot-with-trainees' : 'coach-slot coach-slot-empty') : isOtherBooked ? 'booked' : isPast ? 'past' : 'available'
-                        const slotTitle = isCoachSlot ? (language === 'en' ? 'Edit or delete' : 'تعديل أو حذف') : isOtherBooked ? t('Booked', 'محجوز', language) : isPast ? t('Past', 'منتهي', language) : canAdd ? (language === 'en' ? 'Click to add availability' : 'اضغط لإضافة التوفر') : ''
+                        const slotTitle = isCoachSlot ? (language === 'en' ? 'Click to edit or delete' : 'اضغط للتعديل أو الحذف') : isOtherBooked ? t('Booked', 'محجوز', language) : isPast ? t('Past', 'منتهي', language) : canAdd ? (language === 'en' ? 'Click to add availability' : 'اضغط لإضافة التوفر') : ''
                         const canAddForRange = canAdd
                         const isInRange = hoveredRange && hoveredRange.courtId === courtIdForMatch && (() => {
                           const slotM = timeToMinutes(timeSlot)
