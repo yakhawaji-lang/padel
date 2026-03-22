@@ -33,7 +33,7 @@ const CoachDashboardPage = () => {
   const [createError, setCreateError] = useState('')
   const [hoveredRange, setHoveredRange] = useState(null) // { court, courtId, startSlot, endSlot } للنطاق
   const [coachSlotModal, setCoachSlotModal] = useState(null) // { booking, court } — عرض تعديل/حذف
-  const [editSlotForm, setEditSlotForm] = useState(null) // { booking, court, price, maxTrainees }
+  const [editSlotForm, setEditSlotForm] = useState(null) // { booking, court, pricePerHour, startTime, endTime, maxTrainees }
   const hasTouch = typeof window !== 'undefined' && 'ontouchstart' in window
   const touchSelectRef = React.useRef(null) // { court, courtId, dateStr, startSlot } during touch drag
 
@@ -165,15 +165,27 @@ const CoachDashboardPage = () => {
 
   const handleCoachSlotEditSave = useCallback(async () => {
     if (!editSlotForm?.booking?.id || submitting) return
+    const startM = timeToMinutes(editSlotForm.startTime)
+    const endM = timeToMinutes(editSlotForm.endTime)
+    if (endM <= startM) {
+      setCreateError(t('End time must be after start time', 'وقت النهاية يجب أن يكون بعد وقت البداية', language))
+      return
+    }
     setCreateError('')
     setSubmitting(`edit-${editSlotForm.booking.id}`)
     try {
+      const durationHours = (endM - startM) / 60
+      const totalAmount = Math.round((parseFloat(editSlotForm.pricePerHour) || 0) * Math.max(0.5, durationHours) * 100) / 100
       const data = editSlotForm.booking.data && typeof editSlotForm.booking.data === 'object'
         ? { ...editSlotForm.booking.data }
         : {}
       data.maxTrainees = editSlotForm.maxTrainees
+      data.pricePerHour = parseFloat(editSlotForm.pricePerHour) || 0
       await updateBookingInClub(clubId, editSlotForm.booking.id, {
-        totalAmount: editSlotForm.price,
+        startTime: editSlotForm.startTime,
+        endTime: editSlotForm.endTime,
+        timeSlot: editSlotForm.startTime,
+        totalAmount,
         data
       })
       await refreshClubsFromApi()
@@ -184,7 +196,7 @@ const CoachDashboardPage = () => {
     } finally {
       setSubmitting(null)
     }
-  }, [clubId, editSlotForm, submitting])
+  }, [clubId, editSlotForm, submitting, language])
 
   const handleGridCellClick = useCallback(async (court, dateStr, timeSlot, isCoachSlot, bookingId, bookedItem) => {
     if (submitting) return
@@ -567,10 +579,15 @@ const CoachDashboardPage = () => {
                 <button type="button" className="coach-slot-modal-btn coach-slot-modal-edit" onClick={() => {
                   const b = coachSlotModal.booking
                   const data = b?.data && typeof b.data === 'object' ? b.data : {}
+                  const startTime = (b?.startTime || b?.timeSlot || '').toString().trim() || '16:00'
+                  let endTime = (b?.endTime || '').toString().trim()
+                  if (!endTime && startTime) endTime = addMinutesToTime(startTime, club?.settings?.bookingDuration || 60)
                   setEditSlotForm({
                     booking: b,
                     court: coachSlotModal.court,
-                    price: parseFloat(b?.totalAmount) || 0,
+                    pricePerHour: parseFloat(data.pricePerHour) || parseFloat(b?.totalAmount) || createPrice,
+                    startTime,
+                    endTime: endTime || addMinutesToTime(startTime, 60),
                     maxTrainees: data.maxTrainees ?? 4
                   })
                   setCoachSlotModal(null)
@@ -589,14 +606,46 @@ const CoachDashboardPage = () => {
         )}
 
         {/* Edit slot form modal */}
-        {editSlotForm && (
+        {editSlotForm && (() => {
+          const editTimeSlots = getTimeSlotsForClub(club)
+          const startM = timeToMinutes(editSlotForm.startTime)
+          const endTimeOptions = editTimeSlots.filter(s => timeToMinutes(s) > startM)
+          return (
           <div className="coach-slot-modal-backdrop" onClick={() => setEditSlotForm(null)}>
             <div className="coach-slot-modal coach-slot-edit-modal" onClick={e => e.stopPropagation()}>
               <h3>{t('Edit booking', 'تعديل الحجز', language)}</h3>
               <div className="coach-slot-edit-form">
                 <div className="coach-slot-edit-row">
-                  <label>{t('Price', 'السعر', language)} ({currency})</label>
-                  <input type="number" min={0} step={1} value={editSlotForm.price} onChange={e => setEditSlotForm(f => ({ ...f, price: Number(e.target.value) || 0 }))} />
+                  <label>{t('Price per hour', 'السعر بالساعة', language)} ({currency})</label>
+                  <input type="number" min={0} step={1} value={editSlotForm.pricePerHour} onChange={e => setEditSlotForm(f => ({ ...f, pricePerHour: Number(e.target.value) || 0 }))} />
+                </div>
+                <div className="coach-slot-edit-row">
+                  <label>{t('Start time', 'وقت البداية', language)}</label>
+                  <select value={editSlotForm.startTime} onChange={e => {
+                    const newStart = e.target.value
+                    const newStartM = timeToMinutes(newStart)
+                    let newEnd = editSlotForm.endTime
+                    if (timeToMinutes(newEnd) <= newStartM) {
+                      const idx = editTimeSlots.findIndex(s => timeToMinutes(s) > newStartM)
+                      newEnd = idx >= 0 ? editTimeSlots[idx] : addMinutesToTime(newStart, 30)
+                    }
+                    setEditSlotForm(f => ({ ...f, startTime: newStart, endTime: newEnd }))
+                  }}>
+                    {editTimeSlots.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="coach-slot-edit-row">
+                  <label>{t('End time', 'وقت النهاية', language)}</label>
+                  <select value={editSlotForm.endTime} onChange={e => setEditSlotForm(f => ({ ...f, endTime: e.target.value }))}>
+                    {endTimeOptions.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                    {!endTimeOptions.includes(editSlotForm.endTime) && (
+                      <option value={editSlotForm.endTime}>{editSlotForm.endTime}</option>
+                    )}
+                  </select>
                 </div>
                 <div className="coach-slot-edit-row">
                   <label>{t('Max trainees', 'الحد الأقصى للمتدربين', language)}</label>
@@ -617,7 +666,8 @@ const CoachDashboardPage = () => {
               </div>
             </div>
           </div>
-        )}
+          )
+        })()}
 
         {/* Confirmed days */}
         {confirmedDates.length > 0 && (
