@@ -5,7 +5,7 @@
  */
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { getClubById, refreshClubsFromApi } from '../storage/adminStorage'
+import { getClubById, refreshClubsFromApi, updateBookingInClub } from '../storage/adminStorage'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { getAppLanguage } from '../storage/languageStorage'
 import * as bookingApi from '../api/dbClient'
@@ -32,6 +32,8 @@ const CoachDashboardPage = () => {
   const [submitting, setSubmitting] = useState(null)
   const [createError, setCreateError] = useState('')
   const [hoveredRange, setHoveredRange] = useState(null) // { court, courtId, startSlot, endSlot } للنطاق
+  const [coachSlotModal, setCoachSlotModal] = useState(null) // { booking, court } — عرض تعديل/حذف
+  const [editSlotForm, setEditSlotForm] = useState(null) // { booking, court, price, maxTrainees }
   const hasTouch = typeof window !== 'undefined' && 'ontouchstart' in window
   const touchSelectRef = React.useRef(null) // { court, courtId, dateStr, startSlot } during touch drag
 
@@ -145,21 +147,53 @@ const CoachDashboardPage = () => {
     return Array.from(set)
   }, [club?.bookings, platformUser?.id, todayStr])
 
-  const handleGridCellClick = useCallback(async (court, dateStr, timeSlot, isCoachSlot, bookingId) => {
+  const handleCoachSlotDelete = useCallback(async (bookingId) => {
     if (submitting) return
     setCreateError('')
-    if (isCoachSlot && bookingId) {
-      setSubmitting(`cancel-${bookingId}`)
-      try {
-        await bookingApi.cancelBooking(bookingId)
-        await refreshClubsFromApi()
-        setClub(getClubById(clubId))
-      } catch (err) {
-        setCreateError(err?.message || t('Failed to cancel slot', 'فشل في إلغاء الحجز', language))
-      } finally {
-        setSubmitting(null)
-      }
-    } else if (!isCoachSlot) {
+    setCoachSlotModal(null)
+    setSubmitting(`cancel-${bookingId}`)
+    try {
+      await bookingApi.cancelBooking(bookingId)
+      await refreshClubsFromApi()
+      setClub(getClubById(clubId))
+    } catch (err) {
+      setCreateError(err?.message || t('Failed to cancel slot', 'فشل في إلغاء الحجز', language))
+    } finally {
+      setSubmitting(null)
+    }
+  }, [clubId, submitting])
+
+  const handleCoachSlotEditSave = useCallback(async () => {
+    if (!editSlotForm?.booking?.id || submitting) return
+    setCreateError('')
+    setSubmitting(`edit-${editSlotForm.booking.id}`)
+    try {
+      const data = editSlotForm.booking.data && typeof editSlotForm.booking.data === 'object'
+        ? { ...editSlotForm.booking.data }
+        : {}
+      data.maxTrainees = editSlotForm.maxTrainees
+      await updateBookingInClub(clubId, editSlotForm.booking.id, {
+        totalAmount: editSlotForm.price,
+        data
+      })
+      await refreshClubsFromApi()
+      setClub(getClubById(clubId))
+      setEditSlotForm(null)
+    } catch (err) {
+      setCreateError(err?.message || t('Failed to update slot', 'فشل في تحديث الحجز', language))
+    } finally {
+      setSubmitting(null)
+    }
+  }, [clubId, editSlotForm, submitting])
+
+  const handleGridCellClick = useCallback(async (court, dateStr, timeSlot, isCoachSlot, bookingId, bookedItem) => {
+    if (submitting) return
+    setCreateError('')
+    if (isCoachSlot && bookedItem) {
+      setCoachSlotModal({ booking: bookedItem, court })
+      return
+    }
+    if (!isCoachSlot) {
       const duration = club?.settings?.bookingDuration ?? 60
       const endTime = addMinutesToTime(timeSlot, duration)
       setSubmitting(`${court.id}-${timeSlot}`)
@@ -449,7 +483,7 @@ const CoachDashboardPage = () => {
                         const canRemove = isCoachSlot
                         const canClick = (canAdd || canRemove) && !isSubmittingThis
                         const cellStatus = isCoachSlot ? (isCoachSlotWithTrainees ? 'coach-slot coach-slot-with-trainees' : 'coach-slot coach-slot-empty') : isOtherBooked ? 'booked' : isPast ? 'past' : 'available'
-                        const slotTitle = isCoachSlot ? (language === 'en' ? 'Click to remove' : 'اضغط للإزالة') : isOtherBooked ? t('Booked', 'محجوز', language) : isPast ? t('Past', 'منتهي', language) : canAdd ? (language === 'en' ? 'Click to add availability' : 'اضغط لإضافة التوفر') : ''
+                        const slotTitle = isCoachSlot ? (language === 'en' ? 'Edit or delete' : 'تعديل أو حذف') : isOtherBooked ? t('Booked', 'محجوز', language) : isPast ? t('Past', 'منتهي', language) : canAdd ? (language === 'en' ? 'Click to add availability' : 'اضغط لإضافة التوفر') : ''
                         const canAddForRange = canAdd
                         const isInRange = hoveredRange && hoveredRange.courtId === courtIdForMatch && (() => {
                           const slotM = timeToMinutes(timeSlot)
@@ -473,7 +507,7 @@ const CoachDashboardPage = () => {
                         }
                         const handleCellClick = () => {
                           if (isCoachSlot) {
-                            handleGridCellClick(court, dateStr, timeSlot, isCoachSlot, bookedItem?.id)
+                            handleGridCellClick(court, dateStr, timeSlot, isCoachSlot, bookedItem?.id, bookedItem)
                             return
                           }
                           if (hasTouch && canAddForRange && !isInRange) {
@@ -484,7 +518,7 @@ const CoachDashboardPage = () => {
                             handleRangeAdd(court, dateStr, hoveredRange.startSlot, hoveredRange.endSlot)
                             return
                           }
-                          handleGridCellClick(court, dateStr, timeSlot, isCoachSlot, bookedItem?.id)
+                          handleGridCellClick(court, dateStr, timeSlot, isCoachSlot, bookedItem?.id, bookedItem)
                         }
                         const isCoachSlotHovered = isCoachSlot && hoveredRange?.courtId === courtIdForMatch && hoveredRange?.startSlot === timeSlot
                         return (
@@ -503,7 +537,10 @@ const CoachDashboardPage = () => {
                             {(isInRange || isCoachSlotHovered) && slotPrice != null ? (
                               <span className="coach-cell-price">{slotPrice} {currency}</span>
                             ) : isCoachSlot ? (
-                              '🏸'
+                              <span className="coach-slot-cell-content" title={slotTitle}>
+                                <span className="coach-slot-icon">🏸</span>
+                                <span className="coach-slot-hint">✏️🗑️</span>
+                              </span>
                             ) : (
                               ''
                             )}
@@ -517,6 +554,70 @@ const CoachDashboardPage = () => {
             })()}
           </div>
         </section>
+
+        {/* Coach slot edit/delete modal */}
+        {coachSlotModal && (
+          <div className="coach-slot-modal-backdrop" onClick={() => setCoachSlotModal(null)}>
+            <div className="coach-slot-modal" onClick={e => e.stopPropagation()}>
+              <h3>{t('Your booking', 'حجزك', language)}</h3>
+              <p className="coach-slot-modal-info">
+                {language === 'ar' && coachSlotModal.court?.nameAr ? coachSlotModal.court.nameAr : coachSlotModal.court?.name} — {formatDate((coachSlotModal.booking?.date || coachSlotModal.booking?.startDate || '').toString().split('T')[0])} {coachSlotModal.booking?.startTime}{coachSlotModal.booking?.endTime ? ` – ${coachSlotModal.booking.endTime}` : ''}
+              </p>
+              <div className="coach-slot-modal-actions">
+                <button type="button" className="coach-slot-modal-btn coach-slot-modal-edit" onClick={() => {
+                  const b = coachSlotModal.booking
+                  const data = b?.data && typeof b.data === 'object' ? b.data : {}
+                  setEditSlotForm({
+                    booking: b,
+                    court: coachSlotModal.court,
+                    price: parseFloat(b?.totalAmount) || 0,
+                    maxTrainees: data.maxTrainees ?? 4
+                  })
+                  setCoachSlotModal(null)
+                }}>
+                  ✏️ {language === 'en' ? 'Edit' : 'تعديل'}
+                </button>
+                <button type="button" className="coach-slot-modal-btn coach-slot-modal-delete" onClick={() => handleCoachSlotDelete(coachSlotModal.booking?.id)} disabled={!!submitting}>
+                  🗑️ {language === 'en' ? 'Delete' : 'حذف'}
+                </button>
+                <button type="button" className="coach-slot-modal-btn coach-slot-modal-cancel" onClick={() => setCoachSlotModal(null)}>
+                  {language === 'en' ? 'Cancel' : 'إلغاء'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit slot form modal */}
+        {editSlotForm && (
+          <div className="coach-slot-modal-backdrop" onClick={() => setEditSlotForm(null)}>
+            <div className="coach-slot-modal coach-slot-edit-modal" onClick={e => e.stopPropagation()}>
+              <h3>{t('Edit booking', 'تعديل الحجز', language)}</h3>
+              <div className="coach-slot-edit-form">
+                <div className="coach-slot-edit-row">
+                  <label>{t('Price', 'السعر', language)} ({currency})</label>
+                  <input type="number" min={0} step={1} value={editSlotForm.price} onChange={e => setEditSlotForm(f => ({ ...f, price: Number(e.target.value) || 0 }))} />
+                </div>
+                <div className="coach-slot-edit-row">
+                  <label>{t('Max trainees', 'الحد الأقصى للمتدربين', language)}</label>
+                  <select value={editSlotForm.maxTrainees} onChange={e => setEditSlotForm(f => ({ ...f, maxTrainees: Number(e.target.value) }))}>
+                    {[1, 2, 3, 4].map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="coach-slot-modal-actions">
+                <button type="button" className="coach-slot-modal-btn coach-slot-modal-save" onClick={handleCoachSlotEditSave} disabled={!!submitting}>
+                  {submitting ? (language === 'en' ? 'Saving...' : 'جاري الحفظ...') : (language === 'en' ? 'Save' : 'حفظ')}
+                </button>
+                <button type="button" className="coach-slot-modal-btn coach-slot-modal-cancel" onClick={() => setEditSlotForm(null)} disabled={!!submitting}>
+                  {language === 'en' ? 'Cancel' : 'إلغاء'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Confirmed days */}
         {confirmedDates.length > 0 && (
