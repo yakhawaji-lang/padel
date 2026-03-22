@@ -230,14 +230,28 @@
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
 }
 
-@media (max-width: 640px) {
+/* جوال وتابلِت — تصميم احترافي للشاشات الصغيرة */
+@media (max-width: 767px) {
+  .booking-countdown-card {
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  }
+
   .booking-countdown-card__body {
     flex-direction: column;
-    padding: 18px 18px 18px 22px;
+    padding: 20px 20px 20px 24px;
   }
 
   [dir="rtl"] .booking-countdown-card__body {
-    padding: 18px 22px 18px 18px;
+    padding: 20px 24px 20px 20px;
+  }
+
+  .booking-countdown-card__main {
+    gap: 12px;
+  }
+
+  .booking-countdown-card__court {
+    font-size: 1rem;
   }
 
   .booking-countdown-card__countdown {
@@ -258,14 +272,39 @@
 
   .booking-countdown-card__units {
     flex-wrap: wrap;
+    gap: 8px;
   }
 
   .booking-countdown-card__unit {
-    min-width: 40px;
-    padding: 6px 4px;
+    min-width: 48px;
+    padding: 10px 8px;
+    border-radius: 12px;
   }
 
   .booking-countdown-card__unit-value {
-    font-size: 1.125rem;
+    font-size: 1.1875rem;
+  }
+
+  .booking-countdown-card--clickable {
+    min-height: 88px;
+  }
+}
+
+@media (max-width: 480px) {
+  .booking-countdown-card__body {
+    padding: 16px 16px 16px 20px;
+  }
+
+  [dir="rtl"] .booking-countdown-card__body {
+    padding: 16px 20px 16px 16px;
+  }
+
+  .booking-countdown-card__unit {
+    min-width: 44px;
+    padding: 8px 6px;
+  }
+
+  .booking-countdown-card__unit-value {
+    font-size: 1.0625rem;
   }
 }

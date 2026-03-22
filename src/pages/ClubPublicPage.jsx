@@ -302,16 +302,23 @@ const ClubPublicPage = () => {
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
   }, [])
 
-  const courtBookings = useMemo(() =>
-    bookings
+  const courtBookings = useMemo(() => {
+    if (!platformUser?.id) return []
+    const memberIdStr = String(platformUser.id)
+    const isRelevant = (b) => {
+      const isInitiator = String(b.memberId || b.initiatorMemberId || b.member_id || '') === memberIdStr
+      const isParticipant = Array.isArray(b.paymentShares) && b.paymentShares.some(s => String(s.memberId || '') === memberIdStr)
+      return isInitiator || isParticipant
+    }
+    return bookings
       .filter(b => !b.isTournament && (b.date || b.startDate))
       .filter(b => !['cancelled', 'expired'].includes((b.status || '').toString()))
+      .filter(isRelevant)
       .map(b => ({ ...b, dateStr: (b.date || b.startDate || '').toString().split('T')[0] }))
       .filter(b => b.dateStr >= today)
       .sort((a, b) => a.dateStr.localeCompare(b.dateStr) || (a.startTime || '').localeCompare(b.startTime || ''))
-      .slice(0, 30),
-    [bookings, today]
-  )
+      .slice(0, 30)
+  }, [bookings, today, platformUser?.id])
 
   const tournamentBookings = useMemo(() =>
     bookings.filter(b => b.isTournament && (b.date || b.startDate))
@@ -1549,7 +1556,16 @@ const ClubPublicPage = () => {
 
         <section ref={bookingsSectionRef} className="club-public-section club-public-upcoming-block">
           <div className="club-public-section-inner">
-            {courtBookings.length === 0 ? (
+            <h2 className="section-heading club-public-upcoming-heading">
+              <span className="section-heading-icon">📅</span>
+              {platformUser ? (language === 'en' ? 'My Bookings' : 'حجوزاتي') : (language === 'en' ? 'Your Bookings' : 'حجوزاتك')}
+            </h2>
+            {!platformUser ? (
+              <div className="club-public-upcoming-login-cta">
+                <p className="club-public-upcoming-login-text">{language === 'en' ? 'Log in to see your bookings' : 'سجّل دخولك لرؤية حجوزاتك'}</p>
+                <Link to={`/login?join=${clubId}`} className="club-public-upcoming-login-btn">{c.loginPlatform}</Link>
+              </div>
+            ) : courtBookings.length === 0 ? (
               <p className="club-public-no-data club-public-upcoming-empty">{c.bookingsEmpty}</p>
             ) : (
               <>

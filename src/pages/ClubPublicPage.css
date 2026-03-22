@@ -2,8 +2,10 @@
 
 .club-public-page.commercial {
   --club-content-max: 960px;
+  --club-content-max-desktop: 1140px;
   --club-section-padding-y: 48px;
   --club-section-padding-y-sm: 32px;
+  --club-section-padding-y-xs: 24px;
   --club-gap: 24px;
   --club-gap-sm: 16px;
   --club-radius: 14px;
@@ -15,7 +17,7 @@
   inset: 0;
   height: 100vh;
   height: 100dvh;
-  background: #f8fafc;
+  background: linear-gradient(180deg, #fafbfc 0%, #f1f5f9 50%, #f8fafc 100%);
   color: #0f172a;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   display: flex;
@@ -1362,6 +1364,41 @@
   max-width: var(--club-content-max);
 }
 
+.club-public-upcoming-login-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px 24px;
+  background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 16px;
+  border: 1px dashed #cbd5e1;
+}
+.club-public-upcoming-login-text {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #64748b;
+}
+.club-public-upcoming-login-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  border-radius: 10px;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.club-public-upcoming-login-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.3);
+  color: #fff;
+}
 .club-public-upcoming-empty {
   margin: 0;
   padding: 24px 20px;
@@ -1373,6 +1410,9 @@
   border: 1px dashed #e2e8f0;
 }
 
+.club-public-upcoming-heading {
+  margin-bottom: 24px;
+}
 .club-public-upcoming-block .club-public-upcoming-countdown-grid {
   display: grid;
   gap: 18px;
@@ -1971,5 +2011,80 @@
 
   .club-public-cta-buttons {
     flex-direction: column;
+  }
+
+  .club-public-upcoming-countdown-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .club-public-upcoming-login-cta {
+    padding: 28px 20px;
+  }
+}
+
+/* ========== تابلِت (768px - 1023px) — تصميم متوسط ========== */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .club-public-section-inner {
+    max-width: 720px;
+  }
+
+  .club-public-upcoming-block .club-public-upcoming-countdown-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .club-public-hero-inner {
+    padding: 40px 36px;
+  }
+
+  .club-public-header-inner {
+    gap: 16px;
+  }
+}
+
+/* ========== ديسكتوب (1024px+) — تصميم واسع احترافي ========== */
+@media (min-width: 1024px) {
+  .club-public-section-inner {
+    max-width: var(--club-content-max-desktop);
+  }
+
+  .club-public-main {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+
+  .club-public-upcoming-block .club-public-upcoming-countdown-grid {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 24px;
+  }
+
+  .club-public-hero-inner {
+    padding: 56px 48px;
+    border-radius: 20px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
+  }
+
+  .club-public-hero-standalone {
+    padding: 64px 0 56px;
+  }
+
+  .club-public-title {
+    font-size: 2.25rem;
+  }
+
+  .club-public-section-inner .section-heading {
+    font-size: 1.5rem;
+    margin-bottom: 28px;
+  }
+
+  .club-public-offers-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+  }
+
+  .club-public-contact-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
   }
 }
