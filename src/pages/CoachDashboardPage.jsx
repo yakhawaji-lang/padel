@@ -22,7 +22,7 @@ const CoachDashboardPage = () => {
   const [language, setLanguage] = useState(() => getAppLanguage())
   const [club, setClub] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('upcoming')
+  const [tab, setTab] = useState('available')
   const [gridDate, setGridDate] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -113,6 +113,29 @@ const CoachDashboardPage = () => {
     })
   }, [bookings, todayStr, now])
 
+  /** Slots coach created but not yet booked by anyone (0 trainees) */
+  const availableSlots = useMemo(() => {
+    return bookings.filter(b => {
+      const d = (b.date || b.startDate || '').toString().split('T')[0]
+      if (d < todayStr) return false
+      const st = b.startTime || b.timeSlot || ''
+      if (d === todayStr && st) {
+        const [h, m] = st.toString().split(':').map(Number)
+        const slotM = (h || 0) * 60 + (m || 0)
+        const nowM = now.getHours() * 60 + now.getMinutes()
+        if (slotM <= nowM) return false
+      }
+      const shares = b.paymentShares || []
+      const traineeCount = shares.filter(s => String(s.memberId || '') !== String(platformUser?.id)).length
+      return traineeCount === 0
+    }).sort((a, b) => {
+      const da = (a.date || a.startDate || '').toString()
+      const db = (b.date || b.startDate || '').toString()
+      if (da !== db) return da.localeCompare(db)
+      return (a.startTime || '').localeCompare(b.startTime || '')
+    })
+  }, [bookings, todayStr, now, platformUser?.id])
+
   const confirmedDates = useMemo(() => {
     const seen = new Set()
     return upcoming.filter(b => {
@@ -129,11 +152,12 @@ const CoachDashboardPage = () => {
 
   const stats = useMemo(() => {
     const total = bookings.length
+    const availableCount = availableSlots.length
     const upcomingCount = upcoming.length
     const pastCount = past.length
     const totalRevenue = bookings.reduce((s, b) => s + (parseFloat(b.paidAmount) || 0), 0)
-    return { total, upcomingCount, pastCount, totalRevenue }
-  }, [bookings, upcoming, past])
+    return { total, availableCount, upcomingCount, pastCount, totalRevenue }
+  }, [bookings, availableSlots, upcoming, past])
 
   const datesWithCoachSlots = useMemo(() => {
     const set = new Set()
@@ -384,13 +408,13 @@ const CoachDashboardPage = () => {
       <main className="coach-dashboard-main">
         {/* Stats */}
         <section className="coach-dashboard-stats">
-          <div className="coach-stat-card">
-            <span className="coach-stat-value">{stats.total}</span>
-            <span className="coach-stat-label">{t('Total sessions', 'إجمالي الجلسات', language)}</span>
+          <div className="coach-stat-card coach-stat-available">
+            <span className="coach-stat-value">{stats.availableCount}</span>
+            <span className="coach-stat-label">{t('Available slots', 'أوقات متاحة', language)}</span>
           </div>
           <div className="coach-stat-card">
             <span className="coach-stat-value">{stats.upcomingCount}</span>
-            <span className="coach-stat-label">{t('Upcoming', 'القادمة', language)}</span>
+            <span className="coach-stat-label">{t('Booked', 'محجوزة', language)}</span>
           </div>
           <div className="coach-stat-card">
             <span className="coach-stat-value">{stats.pastCount}</span>
@@ -685,15 +709,22 @@ const CoachDashboardPage = () => {
           </section>
         )}
 
-        {/* Tabs: Upcoming / Past */}
+        {/* Tabs: Available / Booked / Past */}
         <section className="coach-dashboard-bookings">
           <div className="coach-tabs">
+            <button
+              type="button"
+              className={`coach-tab ${tab === 'available' ? 'active' : ''}`}
+              onClick={() => setTab('available')}
+            >
+              {t('Available slots', 'الأوقات المحددة', language)} {availableSlots.length > 0 && <span className="coach-tab-badge">{availableSlots.length}</span>}
+            </button>
             <button
               type="button"
               className={`coach-tab ${tab === 'upcoming' ? 'active' : ''}`}
               onClick={() => setTab('upcoming')}
             >
-              {t('Upcoming', 'القادمة', language)}
+              {t('Booked', 'محجوزة', language)} {upcoming.length > 0 && <span className="coach-tab-badge">{upcoming.length}</span>}
             </button>
             <button
               type="button"
@@ -704,7 +735,52 @@ const CoachDashboardPage = () => {
             </button>
           </div>
           <div className="coach-bookings-list">
-            {(tab === 'upcoming' ? upcoming : past).map(b => {
+            {tab === 'available' && availableSlots.map(b => {
+              const court = (club?.courts || []).find(c => (c.id || c.name) === (b.courtId || b.resource))
+              const isSubmittingThis = submitting === `cancel-${b.id}`
+              return (
+                <div key={b.id} className="coach-booking-card coach-booking-card-available">
+                  <div className="coach-booking-main">
+                    <span className="coach-booking-date">{formatDate(b.date || b.startDate)}</span>
+                    <span className="coach-booking-time">{b.startTime || b.timeSlot} – {b.endTime}</span>
+                    <span className="coach-booking-court">{courtName(b.courtId || b.resource)}</span>
+                    <span className="coach-booking-price">{b.totalAmount} {currency}</span>
+                  </div>
+                  <div className="coach-booking-actions">
+                    <button
+                      type="button"
+                      className="coach-booking-btn coach-booking-btn-edit"
+                      onClick={() => {
+                        const data = b?.data && typeof b.data === 'object' ? b.data : {}
+                        const startTime = (b?.startTime || b?.timeSlot || '').toString().trim() || '16:00'
+                        let endTime = (b?.endTime || '').toString().trim()
+                        if (!endTime && startTime) endTime = addMinutesToTime(startTime, club?.settings?.bookingDuration || 60)
+                        setEditSlotForm({
+                          booking: b,
+                          court: court || { id: b.courtId, name: courtName(b.courtId) },
+                          pricePerHour: parseFloat(data.pricePerHour) || createPrice,
+                          startTime,
+                          endTime: endTime || addMinutesToTime(startTime, 60),
+                          maxTrainees: data.maxTrainees ?? 4
+                        })
+                      }}
+                      disabled={!!submitting}
+                    >
+                      ✏️ {t('Edit', 'تعديل', language)}
+                    </button>
+                    <button
+                      type="button"
+                      className="coach-booking-btn coach-booking-btn-delete"
+                      onClick={() => handleCoachSlotDelete(b.id)}
+                      disabled={!!submitting || isSubmittingThis}
+                    >
+                      {isSubmittingThis ? '…' : '🗑️'} {t('Delete', 'حذف', language)}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+            {tab === 'upcoming' && upcoming.map(b => {
               const d = b.data && typeof b.data === 'object' ? b.data : {}
               const maxT = d.maxTrainees ?? 4
               const shares = b.paymentShares || []
@@ -724,8 +800,34 @@ const CoachDashboardPage = () => {
                 </div>
               )
             })}
-            {(tab === 'upcoming' ? upcoming : past).length === 0 && (
+            {tab === 'past' && past.map(b => {
+              const d = b.data && typeof b.data === 'object' ? b.data : {}
+              const maxT = d.maxTrainees ?? 4
+              const shares = b.paymentShares || []
+              const traineeCount = shares.filter(s => String(s.memberId || '') !== String(platformUser?.id)).length
+              return (
+                <div key={b.id} className="coach-booking-card">
+                  <div className="coach-booking-main">
+                    <span className="coach-booking-date">{formatDate(b.date || b.startDate)}</span>
+                    <span className="coach-booking-time">{b.startTime || b.timeSlot} – {b.endTime}</span>
+                    <span className="coach-booking-court">{courtName(b.courtId || b.resource)}</span>
+                    <span className="coach-booking-price">{b.totalAmount} {currency}</span>
+                  </div>
+                  <div className="coach-booking-meta">
+                    <span className="coach-booking-trainees">{traineeCount}/{maxT} {t('trainees', 'متدربين', language)}</span>
+                    <span className={`coach-booking-status coach-booking-status-${(b.status || '').toLowerCase()}`}>{b.status}</span>
+                  </div>
+                </div>
+              )
+            })}
+            {tab === 'available' && availableSlots.length === 0 && (
+              <p className="coach-bookings-empty">{t('No available slots. Add some in the schedule above.', 'لا توجد أوقات محددة. أضف من الجدول أعلاه.', language)}</p>
+            )}
+            {tab === 'upcoming' && upcoming.length === 0 && (
               <p className="coach-bookings-empty">{t('No bookings', 'لا توجد حجوزات', language)}</p>
+            )}
+            {tab === 'past' && past.length === 0 && (
+              <p className="coach-bookings-empty">{t('No past sessions', 'لا توجد جلسات سابقة', language)}</p>
             )}
           </div>
         </section>

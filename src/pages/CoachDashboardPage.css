@@ -196,6 +196,10 @@
   }
 }
 
+.coach-stat-available .coach-stat-value {
+  color: #2563eb;
+}
+
 .coach-stat-revenue .coach-stat-value {
   color: #059669;
 }
@@ -713,6 +717,22 @@
   border-bottom-color: #059669;
 }
 
+.coach-tab-badge {
+  display: inline-block;
+  min-width: 20px;
+  padding: 2px 6px;
+  margin-inline-start: 6px;
+  background: #059669;
+  color: #fff;
+  font-size: 0.75rem;
+  border-radius: 10px;
+  line-height: 1.2;
+}
+
+.coach-tab:not(.active) .coach-tab-badge {
+  background: #94a3b8;
+}
+
 .coach-bookings-list {
   display: flex;
   flex-direction: column;
@@ -729,6 +749,47 @@
   background: #f8fafc;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
+}
+
+.coach-booking-card-available {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.coach-booking-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.coach-booking-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.coach-booking-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.coach-booking-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.coach-booking-btn-edit {
+  background: #2563eb;
+  color: #fff;
+}
+
+.coach-booking-btn-delete {
+  background: #dc2626;
+  color: #fff;
 }
 
 .coach-booking-main {
@@ -795,4 +856,113 @@
   padding: 32px 16px;
   margin: 0;
   font-size: 0.9375rem;
+}
+
+/* ========== Desktop layout - تصميم خاص للمتصفح من الكمبيوتر ========== */
+@media (min-width: 1024px) {
+  .coach-dashboard-page {
+    background: #f1f5f9;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
+  }
+
+  .coach-dashboard-header {
+    padding: 20px 32px;
+  }
+
+  .coach-dashboard-header-inner {
+    max-width: 1400px;
+  }
+
+  .coach-dashboard-title {
+    font-size: 1.375rem;
+  }
+
+  .coach-dashboard-main {
+    max-width: 1400px;
+    padding: 32px 40px;
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    grid-auto-rows: min-content;
+    gap: 32px;
+    align-items: start;
+  }
+
+  .coach-dashboard-stats {
+    grid-column: 1;
+  }
+
+  .coach-dashboard-create {
+    grid-column: 1;
+    margin-bottom: 0;
+  }
+
+  .coach-dashboard-confirmed {
+    grid-column: 1;
+    margin-bottom: 0;
+  }
+
+  .coach-dashboard-bookings {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    position: sticky;
+    top: 24px;
+  }
+
+  .coach-stat-card {
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  .coach-stat-value {
+    font-size: 2rem;
+  }
+
+  .coach-stat-label {
+    font-size: 0.875rem;
+  }
+
+  .coach-tabs {
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 24px;
+    border-bottom: none;
+  }
+
+  .coach-tab {
+    padding: 14px 20px;
+    border-radius: 10px;
+    border-bottom: none;
+    margin-bottom: 0;
+  }
+
+  .coach-tab:hover {
+    background: #f1f5f9;
+  }
+
+  .coach-tab.active {
+    background: #059669;
+    color: #fff;
+    border-bottom-color: transparent;
+  }
+
+  .coach-tab.active .coach-tab-badge {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .coach-dashboard-create {
+    padding: 28px;
+  }
+
+  .coach-dashboard-create h2 {
+    font-size: 1.25rem;
+    margin-bottom: 16px;
+  }
+
+  .coach-booking-card {
+    padding: 18px;
+  }
+
+  .coach-booking-card-available {
+    padding: 18px;
+  }
 }
