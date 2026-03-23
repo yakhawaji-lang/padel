@@ -412,7 +412,7 @@ router.post('/join-training', async (req, res) => {
     const { rows: dateRow } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bookingId, clubId])
     const dateStr = dateRow[0]?.booking_date ? String(dateRow[0].booking_date).split('T')[0] : null
     if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
-    res.json({ ok: true, amount: amountPerTrainee })
+    res.json({ ok: true, amount: shareAmount })
   } catch (e) {
     console.error('bookings join-training error:', e)
     res.status(500).json({ error: dbError(e) })

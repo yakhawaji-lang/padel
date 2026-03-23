@@ -195,7 +195,7 @@ const ClubPublicPage = () => {
   const [detailBooking, setDetailBooking] = useState(null)
   const [trainingJoinModal, setTrainingJoinModal] = useState(null) // { booking, court } - للانضمام لجلسة تدريب
   const [trainingJoinSubmitting, setTrainingJoinSubmitting] = useState(false)
-  const [trainingJoinPaymentStyle, setTrainingJoinPaymentStyle] = useState('at_club') // 'at_club' | 'direct' | 'split' | 'full'
+  const [trainingJoinPaymentStyle, setTrainingJoinPaymentStyle] = useState('single') // 'single' | 'split' — مطابق حجز الملاعب
   const [trainingJoinPaymentMethod, setTrainingJoinPaymentMethod] = useState('at_club')
   const [hoveredRange, setHoveredRange] = useState(null) // { court, courtId, startSlot, endSlot } - نطاق التمرير للحجز
   const hasTouch = typeof window !== 'undefined' && 'ontouchstart' in window
@@ -231,20 +231,20 @@ const ClubPublicPage = () => {
 
   useEffect(() => {
     if (trainingJoinModal) {
-      setTrainingJoinPaymentStyle('at_club')
+      setTrainingJoinPaymentStyle('single')
       setTrainingJoinPaymentMethod('at_club')
     }
   }, [trainingJoinModal])
 
   useEffect(() => {
-    if (trainingJoinPaymentStyle === 'direct' && !paymentGateways?.enabledChannels) return
-    const ch = paymentGateways?.enabledChannels || {}
-    const valid = trainingJoinPaymentMethod === 'credit_card' ? ch.credit_card : trainingJoinPaymentMethod === 'mada' ? ch.mada : false
-    if (!valid && trainingJoinPaymentStyle === 'direct') {
-      const first = ch.credit_card ? 'credit_card' : ch.mada ? 'mada' : 'at_club'
+    if (!paymentGateways?.enabledChannels) return
+    const ch = paymentGateways.enabledChannels
+    const isCurrentEnabled = trainingJoinPaymentMethod === 'at_club' ? ch.at_club !== false : !!ch[trainingJoinPaymentMethod]
+    if (!isCurrentEnabled) {
+      const first = ch.at_club !== false ? 'at_club' : ch.credit_card ? 'credit_card' : ch.mada ? 'mada' : 'at_club'
       setTrainingJoinPaymentMethod(first)
     }
-  }, [trainingJoinPaymentStyle, trainingJoinPaymentMethod, paymentGateways])
+  }, [paymentGateways, trainingJoinPaymentMethod])
 
   // When payment method is disabled (e.g. admin turned off at_club), switch to first available
   useEffect(() => {
@@ -609,15 +609,15 @@ const ClubPublicPage = () => {
     setTrainingJoinSubmitting(true)
     setLockError(null)
     try {
-      const payStyle = trainingJoinPaymentStyle || 'at_club'
-      const payMethod = payStyle === 'direct' ? (trainingJoinPaymentMethod || 'credit_card') : (payStyle === 'at_club' ? 'at_club' : (payStyle === 'full' ? 'at_club' : 'at_club'))
+      const payStyle = trainingJoinPaymentStyle || 'single'
+      const backendPayStyle = payStyle === 'single' ? 'full' : 'split'
       await bookingApi.joinTrainingSlot({
         bookingId: b.id,
         clubId,
         memberId: platformUser.id,
         memberName: platformUser.name || platformUser.email || platformUser.displayName || '',
-        paymentStyle: payStyle,
-        paymentMethod: payMethod
+        paymentStyle: backendPayStyle,
+        paymentMethod: trainingJoinPaymentMethod || 'at_club'
       })
       setTrainingJoinModal(null)
       refreshClub()
@@ -1588,35 +1588,37 @@ const ClubPublicPage = () => {
                 </div>
                 <div className="club-public-booking-payment-section">
                   <p className="club-public-booking-payment-section-title">{c.paymentStyle}</p>
-                  <p className="club-public-booking-payment-section-desc">{c.paymentMethodDesc}</p>
-                  <div className="club-public-booking-payment-style-btns club-public-training-payment-btns">
-                    {paymentGateways?.enabledChannels?.at_club !== false && (
-                      <label className={`club-public-booking-payment-style-btn ${trainingJoinPaymentStyle === 'at_club' ? 'active' : ''}`}>
-                        <input type="radio" name="trainingPaymentStyle" checked={trainingJoinPaymentStyle === 'at_club'} onChange={() => { setTrainingJoinPaymentStyle('at_club'); setTrainingJoinPaymentMethod('at_club') }} />
-                        <span className="style-label">{c.trainingPayAtClub}</span>
-                      </label>
-                    )}
-                    {(paymentGateways?.enabledChannels?.credit_card || paymentGateways?.enabledChannels?.mada) && (
-                      <label className={`club-public-booking-payment-style-btn ${trainingJoinPaymentStyle === 'direct' ? 'active' : ''}`}>
-                        <input type="radio" name="trainingPaymentStyle" checked={trainingJoinPaymentStyle === 'direct'} onChange={() => setTrainingJoinPaymentStyle('direct')} />
-                        <span className="style-label">{c.trainingPayDirect}</span>
-                      </label>
-                    )}
+                  <p className="club-public-booking-payment-section-desc">{c.paymentStyleDesc}</p>
+                  <div className="club-public-booking-payment-style-btns">
+                    <label className={`club-public-booking-payment-style-btn ${trainingJoinPaymentStyle === 'single' ? 'active' : ''}`}>
+                      <input type="radio" name="trainingPaymentStyle" checked={trainingJoinPaymentStyle === 'single'} onChange={() => setTrainingJoinPaymentStyle('single')} />
+                      <span className="style-label">{c.iPay}</span>
+                      <span className="style-desc">{c.iPayDesc}</span>
+                    </label>
                     {paymentGateways?.enabledChannels?.split !== false && (
                       <label className={`club-public-booking-payment-style-btn ${trainingJoinPaymentStyle === 'split' ? 'active' : ''}`}>
-                        <input type="radio" name="trainingPaymentStyle" checked={trainingJoinPaymentStyle === 'split'} onChange={() => { setTrainingJoinPaymentStyle('split'); setTrainingJoinPaymentMethod('at_club') }} />
-                        <span className="style-label">{c.trainingPaySplit}</span>
+                        <input type="radio" name="trainingPaymentStyle" checked={trainingJoinPaymentStyle === 'split'} onChange={() => setTrainingJoinPaymentStyle('split')} />
+                        <span className="style-label">{c.splitWithOthers}</span>
+                        <span className="style-desc">{c.splitWithOthersDesc}</span>
                       </label>
                     )}
-                    <label className={`club-public-booking-payment-style-btn ${trainingJoinPaymentStyle === 'full' ? 'active' : ''}`}>
-                      <input type="radio" name="trainingPaymentStyle" checked={trainingJoinPaymentStyle === 'full'} onChange={() => { setTrainingJoinPaymentStyle('full'); setTrainingJoinPaymentMethod('at_club') }} />
-                      <span className="style-label">{c.trainingPayFull}</span>
-                    </label>
                   </div>
                 </div>
-                {trainingJoinPaymentStyle === 'direct' && (
+                {(trainingJoinPaymentStyle === 'single' || trainingJoinPaymentStyle === 'split') && (
                   <div className="club-public-booking-payment-method">
+                    <p className="club-public-booking-payment-method-label">
+                      {trainingJoinPaymentStyle === 'split' ? (language === 'en' ? 'Your payment method' : 'طريقة دفعتك') : c.paymentMethod}
+                    </p>
+                    <p className="club-public-booking-payment-section-desc">
+                      {trainingJoinPaymentStyle === 'split' ? (language === 'en' ? 'How will you pay your share?' : 'كيف ستدفع حصتك؟') : c.paymentMethodDesc}
+                    </p>
                     <div className="club-public-booking-payment-method-options">
+                      {paymentGateways?.enabledChannels?.at_club !== false && (
+                        <label className="club-public-booking-payment-radio">
+                          <input type="radio" name="trainingPaymentMethod" checked={trainingJoinPaymentMethod === 'at_club'} onChange={() => setTrainingJoinPaymentMethod('at_club')} />
+                          <span>{c.payAtClub}</span>
+                        </label>
+                      )}
                       {paymentGateways?.enabledChannels?.credit_card && (
                         <label className="club-public-booking-payment-radio">
                           <input type="radio" name="trainingPaymentMethod" checked={trainingJoinPaymentMethod === 'credit_card'} onChange={() => setTrainingJoinPaymentMethod('credit_card')} />
