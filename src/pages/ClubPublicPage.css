@@ -811,9 +811,12 @@
   background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
   box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
 }
+/* حصص تدريب محجوزة بالكامل أو انضم المستخدم — لون مختلف، غير قابلة للنقر، السعر مخفي */
 .club-public-court-grid-cell.training-block-merged.booked.training:not(.joinable) {
-  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
-  color: #0369a1;
+  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+  color: #64748b;
+  cursor: default;
+  pointer-events: none;
 }
 .club-public-cell-training-block {
   display: flex;

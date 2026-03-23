@@ -1332,7 +1332,13 @@ const ClubPublicPage = () => {
                           const hasDuration = isSlotActuallyBookable(court, dateStr, timeSlot)
                           const coachIdForSlot = (bookedItem?.data?.coachId || bookedItem?.memberId || '').toString()
                           const isCoachForThisSlot = !!platformUser && String(platformUser.id) === coachIdForSlot
-                          const canJoinTraining = isTraining && isMember && platformUser && !isCoachForThisSlot && !isPast
+                          const maxTrainees = Math.min(4, Math.max(1, parseInt(bookedItem?.data?.maxTrainees, 10) || 4))
+                          const trainees = (Array.isArray(bookedItem?.paymentShares) ? bookedItem.paymentShares : [])
+                            .filter(s => (s.memberId || s.member_id || '').toString().trim() && String(s.memberId || s.member_id) !== coachIdForSlot)
+                          const isTrainingFull = trainees.length >= maxTrainees
+                          const myIdStr = (platformUser?.id ?? '').toString()
+                          const isUserAlreadyJoined = trainees.some(s => String(s.memberId || s.member_id) === myIdStr)
+                          const canJoinTraining = isTraining && isMember && platformUser && !isCoachForThisSlot && !isPast && !isTrainingFull && !isUserAlreadyJoined
                           const canBook = !isBooked && !isPast && (hasDuration || isMyLock) && isMember && platformUser && (!isLocked || isMyLock)
                           const cellStatus = isLocked ? 'in-progress' : isBooked ? (isTraining ? (canJoinTraining ? 'booked training joinable' : 'booked training') : 'booked') : isPast ? 'past' : 'available'
                           const slotTitle = isMyLock ? (language === 'en' ? 'Complete your booking' : 'أكمل حجزك') : isLocked ? (language === 'en' ? 'In progress' : 'قيد الإجراء') : canJoinTraining ? (language === 'en' ? 'Join training' : 'انضم للتدريب') : isBooked ? (c.booked || 'Booked') : isPast ? (language === 'en' ? 'Past' : 'منتهي') : canBook ? (c.bookNow || 'Book now') : (c.available || 'Available')
