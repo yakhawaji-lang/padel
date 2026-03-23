@@ -33,7 +33,7 @@ export function isSlotInPast(dateStr, startTime) {
   return slotMinutes <= nowMinutes
 }
 
-/** جميع الأوقات للعرض — فواصل 30 دقيقة من بداية وقت العمل حتى نهايته */
+/** جميع الأوقات للعرض — كل 30 دقيقة من بداية وقت العمل */
 export function getTimeSlotsForClub(club) {
   const open = club?.settings?.openingTime
   const close = club?.settings?.closingTime

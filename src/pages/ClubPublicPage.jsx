@@ -121,7 +121,7 @@ const getAvailableDurations = (minDur, startTime, closingTime, blockedRanges, ma
   return out
 }
 
-/** جميع الأوقات للعرض — فواصل 30 دقيقة من بداية وقت العمل حتى نهايته */
+/** جميع الأوقات للعرض — كل 30 دقيقة من بداية وقت العمل */
 const getTimeSlotsForClub = (club) => {
   const open = club?.settings?.openingTime
   const close = club?.settings?.closingTime
@@ -143,6 +143,21 @@ const getTimeSlotsForClub = (club) => {
     slots.push(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`)
   }
   return slots
+}
+
+/** هل الوقت بداية صالحة للحجز؟ (مضاعف أقل مدة من بداية العمل) */
+const isSlotAValidBookableStart = (club, timeSlot) => {
+  const open = club?.settings?.openingTime
+  if (!open) return true
+  const dp = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
+  const minDur = club?.settings?.bookingDuration ?? 60
+  const valid = (dp || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
+  const step = valid.length > 0 ? Math.min(...valid) : minDur
+  const openMinutes = timeToMinutes(open)
+  const slotM = timeToMinutes(timeSlot)
+  const diff = slotM - openMinutes
+  if (diff < 0) return false
+  return diff % step === 0
 }
 
 const getClubTournamentStats = (club) => {
@@ -466,8 +481,9 @@ const ClubPublicPage = () => {
     (Array.isArray(clubMembersList) && clubMembersList.some(m => String(m.id) === String(platformUser.id)))
   )
 
-  /** هل الشريحة قابلة للحجز فعلياً (توجد مدة كافية ولا تعارض)؟ */
+  /** هل الشريحة قابلة للحجز فعلياً؟ (وقت بداية صالح + مدة كافية + لا تعارض) */
   const isSlotActuallyBookable = useCallback((court, dateStr, startTime) => {
+    if (!isSlotAValidBookableStart(club, startTime)) return false
     const minDur = club?.settings?.bookingDuration ?? 60
     const durationPrices = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
     let configured = (durationPrices || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
@@ -547,7 +563,7 @@ const ClubPublicPage = () => {
     return valid.length > 0 ? Math.max(...valid) : (club?.settings?.bookingDuration ?? 180)
   }, [club?.settings?.bookingPrices?.durationPrices, club?.settings?.bookingDuration])
 
-  /** أقل مدة من Price per duration — تُستخدم لدمج الخلايا عند التمرير */
+  /** أقل مدة من Price per duration — تُستخدم لدمج الخلايا عند التمرير وكمقدار الخطوة بين الأوقات */
   const minBookingDurationForHover = useMemo(() => {
     const dp = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
     const minDur = club?.settings?.bookingDuration ?? 60
@@ -555,7 +571,6 @@ const ClubPublicPage = () => {
     return valid.length > 0 ? Math.min(...valid) : minDur
   }, [club?.settings?.bookingPrices?.durationPrices, club?.settings?.bookingDuration])
 
-  /** كل خلية في الشبكة = 30 دقيقة (للعرض) */
   const slotStepMinutes = 30
 
   const handleRangeClick = useCallback(async (court, dateStr, startSlot, endSlot, existingLock = null) => {
