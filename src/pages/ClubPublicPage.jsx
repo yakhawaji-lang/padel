@@ -630,9 +630,10 @@ const ClubPublicPage = () => {
       setTrainingJoinPaymentShares([])
       if (res?.paymentUrl && isElectronic) {
         try {
-          const u = new URL(res.paymentUrl)
-          const path = u.pathname + u.search
-          navigate(path || res.paymentUrl)
+          let path = res.paymentUrl.startsWith('http') ? (() => { const u = new URL(res.paymentUrl); return u.pathname + u.search })() : res.paymentUrl
+          const base = (import.meta.env?.BASE_URL || '/').replace(/\/$/, '') || ''
+          if (base && path.startsWith(base)) path = path.slice(base.length) || '/'
+          navigate(path)
         } catch (_) {
           navigate(res.paymentUrl)
         }
@@ -1060,7 +1061,9 @@ const ClubPublicPage = () => {
         setPaymentStyle('single')
         setPaymentMethod('at_club')
         try {
-          const path = paymentUrl.startsWith('http') ? (() => { const u = new URL(paymentUrl); return u.pathname + u.search })() : paymentUrl
+          let path = paymentUrl.startsWith('http') ? (() => { const u = new URL(paymentUrl); return u.pathname + u.search })() : paymentUrl
+          const base = (import.meta.env?.BASE_URL || '/').replace(/\/$/, '') || ''
+          if (base && path.startsWith(base)) path = path.slice(base.length) || '/'
           navigate(path)
         } catch (_) {
           navigate(paymentUrl)
