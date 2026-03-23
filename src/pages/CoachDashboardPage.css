@@ -469,8 +469,8 @@
 }
 
 .coach-slot-hint {
-  font-size: 0.65rem;
-  opacity: 0.85;
+  font-size: 0.7rem;
+  opacity: 1;
 }
 
 .coach-grid-cell.coach-slot:hover .coach-slot-hint,

@@ -66,7 +66,9 @@ const CoachDashboardPage = () => {
     const list = club?.bookings || []
     return list.filter(b => {
       const d = b.data && typeof b.data === 'object' ? b.data : {}
-      return d.type === 'training' && String(d.coachId || b.memberId || '') === String(platformUser?.id || '')
+      const type = b.type || d.type
+      const coachId = b.coachId || d.coachId || b.memberId
+      return type === 'training' && String(coachId || '') === String(platformUser?.id || '')
     })
   }, [club?.bookings, platformUser?.id])
 
@@ -163,7 +165,9 @@ const CoachDashboardPage = () => {
     const set = new Set()
     ;(club?.bookings || []).forEach(b => {
       const d = b.data && typeof b.data === 'object' ? b.data : {}
-      if (d.type === 'training' && String(d.coachId || b.memberId || '') === String(platformUser?.id || '')) {
+      const type = b.type || d.type
+      const coachId = b.coachId || d.coachId || b.memberId
+      if (type === 'training' && String(coachId || '') === String(platformUser?.id || '')) {
         const dateStr = (b.date || b.startDate || '').toString().split('T')[0]
         if (dateStr && dateStr >= todayStr) set.add(dateStr)
       }
@@ -507,7 +511,9 @@ const CoachDashboardPage = () => {
                         })
                         const isCoachSlot = bookedItem && (() => {
                           const d = bookedItem.data && typeof bookedItem.data === 'object' ? bookedItem.data : {}
-                          return d.type === 'training' && String(d.coachId || bookedItem.memberId || '') === String(platformUser?.id || '')
+                          const type = bookedItem.type || d.type
+                          const coachId = bookedItem.coachId || d.coachId || bookedItem.memberId
+                          return type === 'training' && String(coachId || '') === String(platformUser?.id || '')
                         })()
                         const traineeCount = isCoachSlot && bookedItem ? (bookedItem.paymentShares || []).filter(s => String(s.memberId || '') !== String(platformUser?.id || '')).length : 0
                         const isCoachSlotWithTrainees = isCoachSlot && traineeCount > 0
