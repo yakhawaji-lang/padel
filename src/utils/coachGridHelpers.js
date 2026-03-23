@@ -33,14 +33,21 @@ export function isSlotInPast(dateStr, startTime) {
   return slotMinutes <= nowMinutes
 }
 
+/** الأوقات المتاحة = مضاعفات أقل مدة من Price per duration من بداية وقت العمل */
 export function getTimeSlotsForClub(club) {
   const open = club?.settings?.openingTime
   const close = club?.settings?.closingTime
+  const dp = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
+  const minDur = club?.settings?.bookingDuration ?? 60
+  const valid = (dp || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
+  const slotStep = valid.length > 0 ? Math.min(...valid) : minDur
+  const step = Math.max(30, slotStep)
   const slots = []
   if (!open || !close) {
-    for (let hour = 6; hour < 24; hour++) {
-      slots.push(`${String(hour).padStart(2, '0')}:00`)
-      slots.push(`${String(hour).padStart(2, '0')}:30`)
+    for (let m = 6 * 60; m < 24 * 60; m += step) {
+      const h = Math.floor(m / 60) % 24
+      const min = m % 60
+      slots.push(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`)
     }
     return slots
   }
@@ -48,7 +55,7 @@ export function getTimeSlotsForClub(club) {
   const [closeH, closeM] = close.split(':').map(Number)
   const openMinutes = openH * 60 + openM
   const closeMinutes = closeH * 60 + closeM
-  for (let m = openMinutes; m < closeMinutes; m += 30) {
+  for (let m = openMinutes; m < closeMinutes; m += step) {
     const h = Math.floor(m / 60) % 24
     const min = m % 60
     slots.push(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`)

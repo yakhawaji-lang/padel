@@ -121,14 +121,21 @@ const getAvailableDurations = (minDur, startTime, closingTime, blockedRanges, ma
   return out
 }
 
+/** الأوقات المتاحة = مضاعفات أقل مدة من Price per duration من بداية وقت العمل */
 const getTimeSlotsForClub = (club) => {
   const open = club?.settings?.openingTime
   const close = club?.settings?.closingTime
+  const dp = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
+  const minDur = club?.settings?.bookingDuration ?? 60
+  const valid = (dp || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
+  const slotStep = valid.length > 0 ? Math.min(...valid) : minDur
+  const step = Math.max(30, slotStep)
   const slots = []
   if (!open || !close) {
-    for (let hour = 0; hour < 24; hour++) {
-      slots.push(`${String(hour).padStart(2, '0')}:00`)
-      slots.push(`${String(hour).padStart(2, '0')}:30`)
+    for (let m = 0; m < 24 * 60; m += step) {
+      const h = Math.floor(m / 60) % 24
+      const min = m % 60
+      slots.push(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`)
     }
     return slots
   }
@@ -136,7 +143,7 @@ const getTimeSlotsForClub = (club) => {
   const [closeH, closeM] = close.split(':').map(Number)
   const openMinutes = openH * 60 + openM
   const closeMinutes = closeH * 60 + closeM
-  for (let m = openMinutes; m < closeMinutes; m += 30) {
+  for (let m = openMinutes; m < closeMinutes; m += step) {
     const h = Math.floor(m / 60) % 24
     const min = m % 60
     slots.push(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`)
@@ -546,13 +553,15 @@ const ClubPublicPage = () => {
     return valid.length > 0 ? Math.max(...valid) : (club?.settings?.bookingDuration ?? 180)
   }, [club?.settings?.bookingPrices?.durationPrices, club?.settings?.bookingDuration])
 
-  /** أقل مدة من Price per duration — تُستخدم لدمج الخلايا عند التمرير */
+  /** أقل مدة من Price per duration — تُستخدم لدمج الخلايا عند التمرير وكمقدار الخطوة بين الأوقات */
   const minBookingDurationForHover = useMemo(() => {
     const dp = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
     const minDur = club?.settings?.bookingDuration ?? 60
     const valid = (dp || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
     return valid.length > 0 ? Math.min(...valid) : minDur
   }, [club?.settings?.bookingPrices?.durationPrices, club?.settings?.bookingDuration])
+
+  const slotStepMinutes = minBookingDurationForHover
 
   const handleRangeClick = useCallback(async (court, dateStr, startSlot, endSlot, existingLock = null) => {
     if (existingLock) {
@@ -561,7 +570,7 @@ const ClubPublicPage = () => {
     }
     const startM = timeToMinutes(startSlot)
     const endM = timeToMinutes(endSlot)
-    const duration = endM - startM + 30
+    const duration = endM - startM + slotStepMinutes
     if (duration < (club?.settings?.bookingDuration ?? 60)) {
       handleSlotClick(court, dateStr, startSlot, null)
       return
@@ -580,7 +589,7 @@ const ClubPublicPage = () => {
       setHoveredRange(null)
       return
     }
-    const endTime = addMinutesToTime(endSlot, 30)
+    const endTime = addMinutesToTime(endSlot, slotStepMinutes)
     setLockError(null)
     try {
       const result = await bookingApi.acquireBookingLock({
@@ -607,7 +616,7 @@ const ClubPublicPage = () => {
       }
       setHoveredRange(null)
     }
-  }, [clubId, platformUser, club?.settings?.bookingDuration, club?.settings?.closingTime, club?.settings?.lockMinutes, club?.settings?.bookingPrices?.durationPrices, bookings, activeLocks, language, refreshClub, handleSlotClick, maxBookingDuration])
+  }, [clubId, platformUser, club?.settings?.bookingDuration, club?.settings?.closingTime, club?.settings?.lockMinutes, club?.settings?.bookingPrices?.durationPrices, bookings, activeLocks, language, refreshClub, handleSlotClick, maxBookingDuration, slotStepMinutes])
 
   const handleJoinTraining = useCallback(async () => {
     if (!trainingJoinModal?.booking || !platformUser || !isMember) return
@@ -670,23 +679,24 @@ const ClubPublicPage = () => {
     }
   }, [trainingJoinModal, platformUser, isMember, clubId, language, refreshClub, trainingJoinPaymentStyle, trainingJoinPaymentMethod, trainingJoinPaymentShares, navigate])
 
-  /** هل الوقت adjacent للنطاق؟ (قبل البداية بـ30 د أو بعد النهاية بـ30 د) */
+  /** هل الوقت مجاور للنطاق؟ (قبل البداية أو بعد النهاية بمقدار slotStep) */
   const isSlotAdjacentToRange = useCallback((timeSlot, startSlot, endSlot) => {
     const slotM = timeToMinutes(timeSlot)
     const startM = timeToMinutes(startSlot)
     const endM = timeToMinutes(endSlot)
-    return slotM === startM - 30 || slotM === endM + 30
-  }, [])
+    return slotM === startM - slotStepMinutes || slotM === endM + slotStepMinutes
+  }, [slotStepMinutes])
 
   const handleRangeMouseEnter = useCallback((court, dateStr, timeSlot, canBookForRange) => {
     if (!canBookForRange) return
     const courtId = (court?.id || court?.name || '').toString()
     const setNewRange = () => {
       const spanMin = minBookingDurationForHover
-      let endSlot = addMinutesToTime(timeSlot, spanMin - 30)
+      const numCells = Math.max(1, Math.ceil(spanMin / slotStepMinutes))
+      let endSlot = addMinutesToTime(timeSlot, (numCells - 1) * slotStepMinutes)
       const closingM = timeToMinutes(club?.settings?.closingTime || '23:00')
-      if (timeToMinutes(endSlot) + 30 > closingM) {
-        endSlot = addMinutesToTime('00:00', closingM - 30)
+      if (timeToMinutes(endSlot) + slotStepMinutes > closingM) {
+        endSlot = addMinutesToTime('00:00', closingM - slotStepMinutes)
       }
       setHoveredRange({ court, courtId, startSlot: timeSlot, endSlot, fromCanBook: true })
     }
@@ -704,13 +714,13 @@ const ClubPublicPage = () => {
       const slotM = timeToMinutes(timeSlot)
       const newStart = slotM < startM ? timeSlot : hoveredRange.startSlot
       const newEnd = slotM > endM ? timeSlot : hoveredRange.endSlot
-      const newDuration = timeToMinutes(newEnd) - timeToMinutes(newStart) + 30
+      const newDuration = timeToMinutes(newEnd) - timeToMinutes(newStart) + slotStepMinutes
       if (newDuration > maxBookingDuration) return
       setHoveredRange(prev => ({ ...prev, startSlot: newStart, endSlot: newEnd }))
       return
     }
     setNewRange()
-  }, [hoveredRange, isSlotAdjacentToRange, maxBookingDuration, minBookingDurationForHover, club?.settings?.closingTime])
+  }, [hoveredRange, isSlotAdjacentToRange, maxBookingDuration, minBookingDurationForHover, slotStepMinutes, club?.settings?.closingTime])
 
   const handleRangeMouseLeave = useCallback(() => {
     setHoveredRange(null)
@@ -727,23 +737,24 @@ const ClubPublicPage = () => {
     if (!courtId || !timeSlot || !dateStr || el.getAttribute('data-can-book-range') !== '1') return
     if (courtId !== touchSelectRef.current.courtId) return
     const spanMin = minBookingDurationForHover
-    let endSlot = addMinutesToTime(timeSlot, spanMin - 30)
+    const numCells = Math.max(1, Math.ceil(spanMin / slotStepMinutes))
+    let endSlot = addMinutesToTime(timeSlot, (numCells - 1) * slotStepMinutes)
     const closingM = timeToMinutes(club?.settings?.closingTime || '23:00')
-    if (timeToMinutes(endSlot) + 30 > closingM) endSlot = addMinutesToTime('00:00', closingM - 30)
+    if (timeToMinutes(endSlot) + slotStepMinutes > closingM) endSlot = addMinutesToTime('00:00', closingM - slotStepMinutes)
     setHoveredRange(prev => {
       if (!prev || prev.courtId !== courtId) return { court: touchSelectRef.current.court, courtId, startSlot: timeSlot, endSlot, fromCanBook: true }
       const slotM = timeToMinutes(timeSlot)
       const startM = timeToMinutes(prev.startSlot)
       const endM = timeToMinutes(prev.endSlot)
-      if (slotM >= startM - 30 && slotM <= endM + 30) {
+      if (slotM >= startM - slotStepMinutes && slotM <= endM + slotStepMinutes) {
         const newStart = slotM < startM ? timeSlot : prev.startSlot
         const newEnd = slotM > endM ? timeSlot : prev.endSlot
-        const dur = timeToMinutes(newEnd) - timeToMinutes(newStart) + 30
+        const dur = timeToMinutes(newEnd) - timeToMinutes(newStart) + slotStepMinutes
         if (dur <= maxBookingDuration) return { ...prev, startSlot: newStart, endSlot: newEnd }
       }
       return { court: touchSelectRef.current.court, courtId, startSlot: timeSlot, endSlot, fromCanBook: true }
     })
-  }, [maxBookingDuration, minBookingDurationForHover, club?.settings?.closingTime])
+  }, [maxBookingDuration, minBookingDurationForHover, slotStepMinutes, club?.settings?.closingTime])
 
   const handleTouchEndRange = useCallback(() => {
     touchSelectRef.current = null
@@ -1373,7 +1384,7 @@ const ClubPublicPage = () => {
                           const isRangeBlockStart = isInRange && hoveredRange && timeToMinutes(timeSlot) === timeToMinutes(hoveredRange.startSlot)
                           const isRangeBlockContinuation = isInRange && !isRangeBlockStart
                           const rangeSpan = isRangeBlockStart && hoveredRange
-                            ? Math.max(1, Math.round((timeToMinutes(hoveredRange.endSlot) - timeToMinutes(hoveredRange.startSlot)) / 30) + 1)
+                            ? Math.max(1, Math.round((timeToMinutes(hoveredRange.endSlot) - timeToMinutes(hoveredRange.startSlot)) / slotStepMinutes) + 1)
                             : 0
                           const trainingStart = bookedItem && (bookedItem.startTime || bookedItem.timeSlot || '').toString().trim()
                           const trainingEnd = (bookedItem?.endTime || '').toString().trim() || (trainingStart ? addMinutesToTime(trainingStart, club?.settings?.bookingDuration || 60) : '')
@@ -1389,7 +1400,7 @@ const ClubPublicPage = () => {
                             } else if (isInRange && hoveredRange) {
                               const startM = timeToMinutes(hoveredRange.startSlot)
                               const endM = timeToMinutes(hoveredRange.endSlot)
-                              const duration = endM - startM + 30
+                              const duration = endM - startM + slotStepMinutes
                               slotPrice = calculateBookingPrice(club, dateStr, hoveredRange.startSlot, duration).price
                             } else if (canBook && !isInRange) {
                               let dur = club?.settings?.bookingDuration ?? 60
