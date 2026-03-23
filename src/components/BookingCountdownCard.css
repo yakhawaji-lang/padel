@@ -25,7 +25,7 @@
   transform: translateY(-2px);
 }
 
-/* شريط لوني جانبي */
+/* شريط لوني جانبي — ملعب (أزرق) / تدريب (بنفسجي) */
 .booking-countdown-card__accent {
   position: absolute;
   top: 0;
@@ -36,10 +36,37 @@
   border-radius: 4px 0 0 4px;
 }
 
+.booking-countdown-card--training .booking-countdown-card__accent {
+  background: linear-gradient(180deg, #8b5cf6 0%, #6d28d9 100%);
+  width: 5px;
+}
+
 [dir="rtl"] .booking-countdown-card__accent {
   inset-inline-start: auto;
   inset-inline-end: 0;
   border-radius: 0 4px 4px 0;
+}
+
+/* وسم النوع: ملعب / حصص تدريب */
+.booking-countdown-card__type-badge {
+  display: inline-block;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.booking-countdown-card__type-badge--court {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.booking-countdown-card__type-badge--training {
+  background: #ede9fe;
+  color: #6d28d9;
 }
 
 .booking-countdown-card--playing .booking-countdown-card__accent {

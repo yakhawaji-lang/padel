@@ -50,9 +50,10 @@ export default function BookingCountdownCard({ booking, formatDate, language, on
   const { dateStr, startTime, endTime, resource, courtName, court, memberName, customerName, customer } = booking
   const courtLabel = resource || courtName || court || '—'
   const customerLabel = memberName || customerName || customer || '—'
+  const isTraining = booking?.type === 'training' || booking?.data?.type === 'training'
 
   const status = getPlayStatus(dateStr, startTime, endTime)
-  const needsPayment = ['pending_payments', 'partially_paid'].includes((booking?.status || '').toString())
+  const needsPayment = ['pending_payment', 'pending_payments', 'partially_paid'].includes((booking?.status || '').toString())
   const paymentDeadlineAt = booking?.paymentDeadlineAt || booking?.payment_deadline_at
 
   const [secondsUntilPay, setSecondsUntilPay] = useState(() => getSecondsUntilPaymentDeadline(paymentDeadlineAt))
@@ -73,8 +74,8 @@ export default function BookingCountdownCard({ booking, formatDate, language, on
   }, [dateStr, startTime, status])
 
   const t = language === 'ar'
-    ? { startsIn: 'يبدأ بعد', payIn: 'ادفع خلال', payExpired: 'انتهت مهلة الدفع', playingNow: 'يلعب الآن', over: 'انتهى', day: 'يوم', days: 'أيام', hr: 'س', min: 'د', sec: 'ث' }
-    : { startsIn: 'Starts in', payIn: 'Pay within', payExpired: 'Payment deadline passed', playingNow: 'Playing now', over: 'Ended', day: 'Day', days: 'Days', hr: 'Hrs', min: 'Min', sec: 'Sec' }
+    ? { startsIn: 'يبدأ بعد', payIn: 'ادفع خلال', payExpired: 'انتهت مهلة الدفع', playingNow: 'يلعب الآن', over: 'انتهى', day: 'يوم', days: 'أيام', hr: 'س', min: 'د', sec: 'ث', court: 'ملعب', training: 'حصص تدريب' }
+    : { startsIn: 'Starts in', payIn: 'Pay within', payExpired: 'Payment deadline passed', playingNow: 'Playing now', over: 'Ended', day: 'Day', days: 'Days', hr: 'Hrs', min: 'Min', sec: 'Sec', court: 'Court', training: 'Training' }
 
   const showPaymentCountdown = needsPayment && paymentDeadlineAt && secondsUntilPay != null && secondsUntilPay > 0
   const paymentParts = showPaymentCountdown ? getCountdownParts(secondsUntilPay) : null
@@ -84,7 +85,7 @@ export default function BookingCountdownCard({ booking, formatDate, language, on
   const isClickable = typeof onClick === 'function'
   return (
     <article
-      className={`booking-countdown-card booking-countdown-card--${status} ${isClickable ? 'booking-countdown-card--clickable' : ''}`}
+      className={`booking-countdown-card booking-countdown-card--${status} ${isTraining ? 'booking-countdown-card--training' : 'booking-countdown-card--court'} ${isClickable ? 'booking-countdown-card--clickable' : ''}`}
       role={isClickable ? 'button' : undefined}
       tabIndex={isClickable ? 0 : undefined}
       onClick={isClickable ? () => onClick(booking) : undefined}
@@ -93,8 +94,11 @@ export default function BookingCountdownCard({ booking, formatDate, language, on
       <div className="booking-countdown-card__accent" aria-hidden />
       <div className="booking-countdown-card__body">
         <div className="booking-countdown-card__main">
-          <span className="booking-countdown-card__court-icon" aria-hidden>🏸</span>
+          <span className="booking-countdown-card__court-icon" aria-hidden>{isTraining ? '🏋️' : '🏸'}</span>
           <div className="booking-countdown-card__info">
+            <span className={`booking-countdown-card__type-badge ${isTraining ? 'booking-countdown-card__type-badge--training' : 'booking-countdown-card__type-badge--court'}`}>
+              {isTraining ? t.training : t.court}
+            </span>
             <h3 className="booking-countdown-card__court">{courtLabel}</h3>
             <p className="booking-countdown-card__meta">
               <span className="booking-countdown-card__date">{formatDate(dateStr)}</span>

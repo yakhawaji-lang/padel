@@ -353,6 +353,68 @@
   background: var(--mb-bg);
 }
 
+/* نوع الحجز + حالة الدفع — جدول */
+.my-bookings-type-badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin-inline-end: 8px;
+}
+
+.my-bookings-type-badge--court {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.my-bookings-type-badge--training {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.my-bookings-payment-badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin-inline-end: 8px;
+}
+
+.my-bookings-payment-badge--paid {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.my-bookings-payment-badge--pending {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+/* صفوف الجدول — لون شريط جانبي للتمييز */
+.my-bookings-table-row {
+  border-inline-start: 4px solid transparent;
+}
+
+.my-bookings-table-row--court.my-bookings-table-row--paid {
+  border-inline-start-color: #22c55e;
+}
+
+.my-bookings-table-row--court.my-bookings-table-row--pending {
+  border-inline-start-color: #d97706;
+}
+
+.my-bookings-table-row--training.my-bookings-table-row--paid {
+  border-inline-start-color: #8b5cf6;
+}
+
+.my-bookings-table-row--training.my-bookings-table-row--pending {
+  border-inline-start-color: #c084fc;
+}
+
 .my-bookings-club-link {
   color: var(--mb-primary);
   text-decoration: none;
@@ -658,11 +720,63 @@
 }
 
 .my-bookings-card {
+  position: relative;
   background: var(--mb-surface);
   border-radius: var(--mb-radius);
   box-shadow: var(--mb-shadow-card);
   padding: 20px;
+  padding-inline-start: 24px;
   border: 1px solid var(--mb-border);
+  overflow: hidden;
+}
+
+/* شريط لوني جانبي — بطاقات الموبايل */
+.my-bookings-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+  width: 5px;
+  height: 100%;
+  border-radius: 4px 0 0 4px;
+}
+
+[dir="rtl"] .my-bookings-card::before {
+  border-radius: 0 4px 4px 0;
+}
+
+.my-bookings-card--court.my-bookings-card--paid::before {
+  background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+}
+
+.my-bookings-card--court.my-bookings-card--pending::before {
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+}
+
+.my-bookings-card--training.my-bookings-card--paid::before {
+  background: linear-gradient(180deg, #8b5cf6 0%, #6d28d9 100%);
+}
+
+.my-bookings-card--training.my-bookings-card--pending::before {
+  background: linear-gradient(180deg, #c084fc 0%, #a855f7 100%);
+}
+
+.my-bookings-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.my-bookings-card-badges .my-bookings-type-badge,
+.my-bookings-card-badges .my-bookings-payment-badge {
+  margin-inline-end: 0;
+}
+
+.my-bookings-card-meta .my-bookings-card-icon {
+  font-size: 1.125rem;
+  margin-inline-end: 6px;
 }
 
 .my-bookings-card-clickable {

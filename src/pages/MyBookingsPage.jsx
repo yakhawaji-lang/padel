@@ -18,7 +18,10 @@ function getBookingDisplayProps({ booking, club }, language) {
     ? (language === 'ar' ? (club.nameAr || club.name) : (club.name || club.nameAr))
     : '—'
   const clubLink = club ? `/clubs/${club.id}` : null
-  return { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink }
+  const isTraining = booking?.type === 'training' || booking?.data?.type === 'training'
+  const isPaid = ['confirmed'].includes((booking?.status || '').toString())
+  const isPendingPayment = ['pending_payment', 'pending_payments', 'partially_paid', 'initiated', 'locked'].includes((booking?.status || '').toString())
+  return { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isPaid, isPendingPayment }
 }
 
 const MyBookingsPage = () => {
@@ -215,7 +218,11 @@ const MyBookingsPage = () => {
       payNow: 'Pay now',
       loading: 'Loading…',
       bookCourt: 'Book a court',
-      paymentSuccess: 'Payment completed successfully!'
+      paymentSuccess: 'Payment completed successfully!',
+      typeCourt: 'Court',
+      typeTraining: 'Training',
+      paidLabel: 'Paid',
+      awaitingPayment: 'Awaiting payment'
     },
     ar: {
       myBookings: 'حجوزاتي',
@@ -247,7 +254,11 @@ const MyBookingsPage = () => {
       payNow: 'ادفع الآن',
       loading: 'جاري التحميل…',
       bookCourt: 'احجز ملعباً',
-      paymentSuccess: 'تم الدفع بنجاح!'
+      paymentSuccess: 'تم الدفع بنجاح!',
+      typeCourt: 'ملعب',
+      typeTraining: 'حصص تدريب',
+      paidLabel: 'مدفوع',
+      awaitingPayment: 'بانتظار الدفع'
     }
   }
   const c = t[language] || t.en
@@ -281,7 +292,7 @@ const MyBookingsPage = () => {
   }
 
   const renderBookingRow = ({ booking, club }, i) => {
-    const { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink } = getBookingDisplayProps({ booking, club }, language)
+    const { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isPaid, isPendingPayment } = getBookingDisplayProps({ booking, club }, language)
     const priceText = priceVal != null ? `${Number(priceVal)} ${currencyStr}` : '—'
     const isUpcoming = filter === 'upcoming'
     const canCancel = isUpcoming && club && !['cancelled', 'expired'].includes((booking.status || '').toString())
@@ -302,7 +313,10 @@ const MyBookingsPage = () => {
       canCancel,
       isUpcoming,
       formatDate,
-      payOptions
+      payOptions,
+      isTraining,
+      isPaid,
+      isPendingPayment
     }
   }
 
@@ -391,10 +405,15 @@ const MyBookingsPage = () => {
                   </thead>
                   <tbody>
                     {rows.map((r) => (
-                      <tr key={r.key}>
+                      <tr key={r.key} className={`my-bookings-table-row ${r.isTraining ? 'my-bookings-table-row--training' : 'my-bookings-table-row--court'} ${r.isPaid ? 'my-bookings-table-row--paid' : 'my-bookings-table-row--pending'}`}>
                         <td>{r.formatDate(r.dateStr)}</td>
                         <td>{r.timeStr || '—'}</td>
-                        <td>{r.courtName}</td>
+                        <td>
+                          <span className={`my-bookings-type-badge ${r.isTraining ? 'my-bookings-type-badge--training' : 'my-bookings-type-badge--court'}`}>
+                            {r.isTraining ? c.typeTraining : c.typeCourt}
+                          </span>
+                          {r.courtName}
+                        </td>
                         <td>
                           {r.clubLink ? (
                             <Link to={r.clubLink} className="my-bookings-club-link">
@@ -404,6 +423,9 @@ const MyBookingsPage = () => {
                         </td>
                         <td>{r.priceText}</td>
                         <td>
+                          <span className={`my-bookings-payment-badge ${r.isPaid ? 'my-bookings-payment-badge--paid' : 'my-bookings-payment-badge--pending'}`}>
+                            {r.isPaid ? c.paidLabel : c.awaitingPayment}
+                          </span>
                           <span className={`my-bookings-status ${r.getStatusClass(r.booking.status)}`}>
                             {r.getStatusLabel(r.booking.status)}
                           </span>
@@ -530,17 +552,26 @@ const MyBookingsPage = () => {
               {rows.map((r) => (
                 <article
                   key={r.key}
-                  className="my-bookings-card my-bookings-card-clickable"
+                  className={`my-bookings-card my-bookings-card-clickable ${r.isTraining ? 'my-bookings-card--training' : 'my-bookings-card--court'} ${r.isPaid ? 'my-bookings-card--paid' : 'my-bookings-card--pending'}`}
                   role="button"
                   tabIndex={0}
                   onClick={() => setDetailRow(r)}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailRow(r) } }}
                 >
                   <div className="my-bookings-card-main">
+                    <div className="my-bookings-card-badges">
+                      <span className={`my-bookings-type-badge ${r.isTraining ? 'my-bookings-type-badge--training' : 'my-bookings-type-badge--court'}`}>
+                        {r.isTraining ? c.typeTraining : c.typeCourt}
+                      </span>
+                      <span className={`my-bookings-payment-badge ${r.isPaid ? 'my-bookings-payment-badge--paid' : 'my-bookings-payment-badge--pending'}`}>
+                        {r.isPaid ? c.paidLabel : c.awaitingPayment}
+                      </span>
+                    </div>
                     <div className="my-bookings-card-date">
                       {r.formatDate(r.dateStr)}
                     </div>
                     <div className="my-bookings-card-meta">
+                      <span className="my-bookings-card-icon" aria-hidden>{r.isTraining ? '🏋️' : '🏸'}</span>
                       <span className="my-bookings-card-time">{r.timeStr || '—'}</span>
                       <span className="my-bookings-card-court">{r.courtName}</span>
                     </div>
