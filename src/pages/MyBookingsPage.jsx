@@ -571,7 +571,7 @@ const MyBookingsPage = () => {
                       {r.formatDate(r.dateStr)}
                     </div>
                     <div className="my-bookings-card-meta">
-                      <span className="my-bookings-card-icon" aria-hidden>{r.isTraining ? '🏓' : '🏸'}</span>
+                      <span className="my-bookings-card-icon" aria-hidden>{r.isTraining ? '👨‍🏫' : '🏸'}</span>
                       <span className="my-bookings-card-time">{r.timeStr || '—'}</span>
                       <span className="my-bookings-card-court">{r.courtName}</span>
                     </div>
