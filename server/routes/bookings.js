@@ -214,7 +214,10 @@ router.post('/confirm', async (req, res) => {
 
     await logAudit({ tableName: 'club_bookings', recordId: bid, action: 'INSERT', ...actor, clubId, newValue: { status, memberId } })
 
-    const paymentUrl = isOnlinePayment ? `${baseUrl.replace(/\/$/, '')}/pay/${bid}?method=${paymentMethod}` : null
+    const initiatorElectronic = hasShares && (initiatorPaymentMethod === 'credit_card' || initiatorPaymentMethod === 'mada')
+    const paymentUrl = isOnlinePayment
+      ? `${baseUrl.replace(/\/$/, '')}/pay/${bid}?method=${paymentMethod}`
+      : (initiatorElectronic ? `${baseUrl.replace(/\/$/, '')}/pay-share/booking/${bid}?clubId=${clubId}` : null)
 
     // Optional: send SMS/WhatsApp confirmation to booker (if phone exists and channel configured)
     try {
@@ -362,7 +365,7 @@ router.post('/coach-training', async (req, res) => {
 /** POST /api/bookings/join-training - Member joins a coach training slot (adds as trainee/payment share) */
 router.post('/join-training', async (req, res) => {
   try {
-    const { bookingId, clubId, memberId, memberName, paymentStyle, paymentMethod } = req.body || {}
+    const { bookingId, clubId, memberId, memberName, paymentStyle, paymentMethod, paymentShares } = req.body || {}
     if (!bookingId || !clubId || !memberId) {
       return res.status(400).json({ error: 'bookingId, clubId, memberId required' })
     }
@@ -396,12 +399,34 @@ router.post('/join-training', async (req, res) => {
     const payStyle = (paymentStyle || 'at_club').toString().toLowerCase()
     const payMethod = (paymentMethod || 'at_club').toString().toLowerCase()
     const isFull = payStyle === 'full'
-    const shareAmount = isFull ? totalAmount : Math.round((totalAmount / maxTrainees) * 100) / 100
+    const hasShares = Array.isArray(paymentShares) && paymentShares.length > 0
+    const participantsSum = (paymentShares || []).reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
+    const bookerAmount = hasShares ? Math.max(0, totalAmount - participantsSum) : (isFull ? totalAmount : Math.round((totalAmount / maxTrainees) * 100) / 100)
+    if (hasShares && (participantsSum > totalAmount || bookerAmount <= 0)) {
+      return res.status(400).json({ error: 'Invalid payment split. Sum must not exceed total.' })
+    }
+    const effectivePayMethod = payMethod === 'credit_card' || payMethod === 'mada' ? payMethod : 'at_club'
     await query(
       `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, amount, payment_method)
        VALUES (?, ?, 'registered', ?, ?, ?, ?)`,
-      [bookingId, clubId, memberId, memberName || null, shareAmount, payMethod === 'credit_card' || payMethod === 'mada' ? payMethod : 'at_club']
+      [bookingId, clubId, memberId, memberName || null, bookerAmount, effectivePayMethod]
     )
+    for (const s of paymentShares || []) {
+      const token = `inv_${crypto.randomBytes(16).toString('hex')}`
+      const isUnregistered = s.type === 'unregistered'
+      const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
+      const basePath = (process.env.BASE_PATH || '/app').replace(/\/$/, '')
+      const ref = req.headers.origin || req.headers.referer || ''
+      const origin = ref ? (() => { try { return new URL(ref).origin } catch (_) { return ref.replace(/\/$/, '') } })() : ''
+      const baseUrl = process.env.BASE_URL || process.env.PUBLIC_BASE_URL || (origin ? `${origin}${basePath}` : 'https://playtix.app/app')
+      const payUrl = `${baseUrl.replace(/\/$/, '')}/${payPath}/${token}`
+      const waLink = (payUrl ? `https://wa.me/?text=${encodeURIComponent(payUrl)}` : null) || s.whatsappLink
+      await query(
+        `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [bookingId, clubId, s.type || 'registered', s.memberId || null, s.memberName || null, s.phone || null, parseFloat(s.amount) || 0, waLink || null, token]
+      )
+    }
     const { rows: allShares } = await query(
       'SELECT amount, paid_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
       [bookingId, clubId]
@@ -409,10 +434,23 @@ router.post('/join-training', async (req, res) => {
     const paidAmount = (allShares || []).reduce((s, x) => s + (x.paid_at ? parseFloat(x.amount) || 0 : 0), 0)
     const status = paidAmount >= totalAmount - 0.01 ? 'confirmed' : (paidAmount > 0 ? 'partially_paid' : 'pending_payments')
     await bookingService.updateBookingPayment(bookingId, clubId, paidAmount, status)
+    const settings = await getBookingSettings(clubId)
+    const paymentDeadlineMinutes = hasShares ? (settings?.splitPaymentDeadlineMinutes ?? 30) : null
+    if (paymentDeadlineMinutes != null) {
+      const paymentDeadline = new Date(Date.now() + paymentDeadlineMinutes * 60 * 1000)
+      await bookingService.updateBookingPaymentDeadline(bookingId, clubId, paymentDeadline)
+    }
     const { rows: dateRow } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bookingId, clubId])
     const dateStr = dateRow[0]?.booking_date ? String(dateRow[0].booking_date).split('T')[0] : null
     if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
-    res.json({ ok: true, amount: shareAmount })
+    const basePath = (process.env.BASE_PATH || '/app').replace(/\/$/, '')
+    const ref = req.headers.origin || req.headers.referer || ''
+    const origin = ref ? (() => { try { return new URL(ref).origin } catch (_) { return ref.replace(/\/$/, '') } })() : ''
+    const baseUrl = process.env.BASE_URL || process.env.PUBLIC_BASE_URL || (origin ? `${origin}${basePath}` : 'https://playtix.app/app')
+    const paymentUrl = (effectivePayMethod === 'credit_card' || effectivePayMethod === 'mada')
+      ? `${baseUrl.replace(/\/$/, '')}/pay-share/booking/${bookingId}?clubId=${clubId}`
+      : null
+    res.json({ ok: true, amount: bookerAmount, ...(paymentUrl && { paymentUrl }) })
   } catch (e) {
     console.error('bookings join-training error:', e)
     res.status(500).json({ error: dbError(e) })

@@ -197,6 +197,7 @@ const ClubPublicPage = () => {
   const [trainingJoinSubmitting, setTrainingJoinSubmitting] = useState(false)
   const [trainingJoinPaymentStyle, setTrainingJoinPaymentStyle] = useState('single') // 'single' | 'split' — مطابق حجز الملاعب
   const [trainingJoinPaymentMethod, setTrainingJoinPaymentMethod] = useState('at_club')
+  const [trainingJoinPaymentShares, setTrainingJoinPaymentShares] = useState([])
   const [hoveredRange, setHoveredRange] = useState(null) // { court, courtId, startSlot, endSlot } - نطاق التمرير للحجز
   const hasTouch = typeof window !== 'undefined' && 'ontouchstart' in window
   const touchSelectRef = React.useRef(null) // { court, courtId, dateStr, startSlot } during touch drag
@@ -233,6 +234,7 @@ const ClubPublicPage = () => {
     if (trainingJoinModal) {
       setTrainingJoinPaymentStyle('single')
       setTrainingJoinPaymentMethod('at_club')
+      setTrainingJoinPaymentShares([])
     }
   }, [trainingJoinModal])
 
@@ -606,20 +608,36 @@ const ClubPublicPage = () => {
       setLockError(language === 'en' ? 'This slot is in the past.' : 'هذا الوقت منتهٍ.')
       return
     }
+    const totalAmt = parseFloat(b?.totalAmount) || 0
+    const sharedSum = (trainingJoinPaymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
+    if (trainingJoinPaymentStyle === 'split' && sharedSum > totalAmt) return
     setTrainingJoinSubmitting(true)
     setLockError(null)
     try {
       const payStyle = trainingJoinPaymentStyle || 'single'
       const backendPayStyle = payStyle === 'single' ? 'full' : 'split'
-      await bookingApi.joinTrainingSlot({
+      const isElectronic = trainingJoinPaymentMethod === 'credit_card' || trainingJoinPaymentMethod === 'mada'
+      const res = await bookingApi.joinTrainingSlot({
         bookingId: b.id,
         clubId,
         memberId: platformUser.id,
         memberName: platformUser.name || platformUser.email || platformUser.displayName || '',
         paymentStyle: backendPayStyle,
-        paymentMethod: trainingJoinPaymentMethod || 'at_club'
+        paymentMethod: trainingJoinPaymentMethod || 'at_club',
+        paymentShares: payStyle === 'split' && (trainingJoinPaymentShares || []).length > 0 ? trainingJoinPaymentShares : undefined
       })
       setTrainingJoinModal(null)
+      setTrainingJoinPaymentShares([])
+      if (res?.paymentUrl && isElectronic) {
+        try {
+          const u = new URL(res.paymentUrl)
+          const path = u.pathname + u.search
+          navigate(path || res.paymentUrl)
+        } catch (_) {
+          navigate(res.paymentUrl)
+        }
+        return
+      }
       refreshClub()
       await refreshClubsFromApi()
       loadClubs()
@@ -638,7 +656,7 @@ const ClubPublicPage = () => {
     } finally {
       setTrainingJoinSubmitting(false)
     }
-  }, [trainingJoinModal, platformUser, isMember, clubId, language, refreshClub, trainingJoinPaymentStyle, trainingJoinPaymentMethod])
+  }, [trainingJoinModal, platformUser, isMember, clubId, language, refreshClub, trainingJoinPaymentStyle, trainingJoinPaymentMethod, trainingJoinPaymentShares, navigate])
 
   /** هل الوقت adjacent للنطاق؟ (قبل البداية بـ30 د أو بعد النهاية بـ30 د) */
   const isSlotAdjacentToRange = useCallback((timeSlot, startSlot, endSlot) => {
@@ -1036,12 +1054,17 @@ const ClubPublicPage = () => {
       const bookingId = res?.bookingId
       const paymentUrl = res?.paymentUrl
       setActiveLock(null)
-      if (paymentUrl && isOnlinePayment && bookingId) {
+      if (paymentUrl && bookingId) {
         setBookingModal(null)
         setPaymentShares([])
         setPaymentStyle('single')
         setPaymentMethod('at_club')
-        navigate(`/pay/${bookingId}?method=${paymentMethod}`)
+        try {
+          const path = paymentUrl.startsWith('http') ? (() => { const u = new URL(paymentUrl); return u.pathname + u.search })() : paymentUrl
+          navigate(path)
+        } catch (_) {
+          navigate(paymentUrl)
+        }
         return
       }
       setBookingSuccessId(bookingId || true)
@@ -1634,12 +1657,36 @@ const ClubPublicPage = () => {
                     </div>
                   </div>
                 )}
+                {trainingJoinPaymentStyle === 'split' && (
+                  <BookingPaymentShare
+                    totalPrice={parseFloat(trainingJoinModal?.booking?.totalAmount) || 0}
+                    currency={currency}
+                    clubName={language === 'ar' && club?.nameAr ? club.nameAr : club?.name}
+                    clubId={clubId}
+                    dateStr={(trainingJoinModal?.booking?.date || trainingJoinModal?.booking?.startDate || '').toString().split('T')[0]}
+                    startTime={trainingJoinModal?.booking?.startTime || trainingJoinModal?.booking?.timeSlot || ''}
+                    clubMembers={clubMembersList}
+                    allPlatformMembers={allPlatformMembersList}
+                    currentMemberId={platformUser?.id}
+                    language={language}
+                    value={trainingJoinPaymentShares}
+                    onChange={setTrainingJoinPaymentShares}
+                  />
+                )}
               </div>
               <div className="club-public-booking-modal-actions">
                 <button type="button" className="club-public-booking-modal-cancel" onClick={() => { if (!trainingJoinSubmitting) { setTrainingJoinModal(null); setLockError(null) } }} disabled={trainingJoinSubmitting}>
                   {language === 'en' ? 'Cancel' : 'إلغاء'}
                 </button>
-                <button type="button" className="club-public-booking-modal-confirm" onClick={handleJoinTraining} disabled={trainingJoinSubmitting}>
+                <button
+                  type="button"
+                  className="club-public-booking-modal-confirm"
+                  onClick={handleJoinTraining}
+                  disabled={
+                    trainingJoinSubmitting ||
+                    (trainingJoinPaymentStyle === 'split' && (trainingJoinPaymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) > (parseFloat(trainingJoinModal?.booking?.totalAmount) || 0))
+                  }
+                >
                   {trainingJoinSubmitting ? (language === 'en' ? 'Joining...' : 'جاري الانضمام...') : c.confirmJoinTraining}
                 </button>
               </div>
