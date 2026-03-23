@@ -584,16 +584,44 @@ const CoachDashboardPage = () => {
         </section>
 
         {/* Coach slot edit/delete modal */}
-        {coachSlotModal && (
+        {coachSlotModal && (() => {
+          const b = coachSlotModal.booking
+          const data = b?.data && typeof b.data === 'object' ? b.data : {}
+          const coachId = (data.coachId || b?.memberId || '').toString()
+          const shares = (b?.paymentShares || []).filter(s => String(s.memberId || '') !== coachId)
+          const totalAmount = parseFloat(b?.totalAmount) || 0
+          const paidSum = (b?.paymentShares || []).reduce((s, sh) => s + (sh.paidAt ? (parseFloat(sh.amount) || 0) : 0), 0)
+          const isConfirmed = b?.status === 'confirmed' || paidSum >= totalAmount - 0.01
+          return (
           <div className="coach-slot-modal-backdrop" onClick={() => setCoachSlotModal(null)}>
             <div className="coach-slot-modal" onClick={e => e.stopPropagation()}>
               <h3>{t('Your booking', 'حجزك', language)}</h3>
-              <p className="coach-slot-modal-info">
-                {language === 'ar' && coachSlotModal.court?.nameAr ? coachSlotModal.court.nameAr : coachSlotModal.court?.name} — {formatDate((coachSlotModal.booking?.date || coachSlotModal.booking?.startDate || '').toString().split('T')[0])} {coachSlotModal.booking?.startTime}{coachSlotModal.booking?.endTime ? ` – ${coachSlotModal.booking.endTime}` : ''}
-              </p>
+              <div className="coach-slot-modal-details">
+                <p className="coach-slot-modal-info">
+                  {language === 'ar' && coachSlotModal.court?.nameAr ? coachSlotModal.court.nameAr : coachSlotModal.court?.name} — {formatDate((b?.date || b?.startDate || '').toString().split('T')[0])} {b?.startTime || b?.timeSlot || ''}{b?.endTime ? ` – ${b.endTime}` : ''}
+                </p>
+                <p className="coach-slot-modal-price">
+                  {t('Total', 'الإجمالي', language)}: <strong>{totalAmount} {currency}</strong>
+                  {isConfirmed && <span className="coach-slot-status-confirmed"> ({t('Confirmed', 'مؤكد', language)})</span>}
+                </p>
+                {shares.length > 0 && (
+                  <div className="coach-slot-modal-trainees">
+                    <p className="coach-slot-modal-trainees-title">{t('Trainees', 'المتدربون', language)}:</p>
+                    <ul className="coach-slot-modal-trainees-list">
+                      {shares.map((s, i) => (
+                        <li key={s.id || i}>
+                          <span className="trainee-name">{s.memberName || s.phone || t('Member', 'عضو', language)}</span>
+                          <span className="trainee-amount">{parseFloat(s.amount) || 0} {currency}</span>
+                          <span className="trainee-method">{s.paymentMethod === 'credit_card' ? (language === 'en' ? 'Card' : 'بطاقة') : s.paymentMethod === 'mada' ? 'Mada' : (language === 'en' ? 'At club' : 'في النادي')}</span>
+                          {s.paidAt && <span className="trainee-paid">✓</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
               <div className="coach-slot-modal-actions">
                 <button type="button" className="coach-slot-modal-btn coach-slot-modal-edit" onClick={() => {
-                  const b = coachSlotModal.booking
                   const data = b?.data && typeof b.data === 'object' ? b.data : {}
                   const startTime = (b?.startTime || b?.timeSlot || '').toString().trim() || '16:00'
                   let endTime = (b?.endTime || '').toString().trim()
@@ -610,7 +638,7 @@ const CoachDashboardPage = () => {
                 }}>
                   ✏️ {language === 'en' ? 'Edit' : 'تعديل'}
                 </button>
-                <button type="button" className="coach-slot-modal-btn coach-slot-modal-delete" onClick={() => handleCoachSlotDelete(coachSlotModal.booking?.id)} disabled={!!submitting}>
+                <button type="button" className="coach-slot-modal-btn coach-slot-modal-delete" onClick={() => handleCoachSlotDelete(b?.id)} disabled={!!submitting}>
                   🗑️ {language === 'en' ? 'Delete' : 'حذف'}
                 </button>
                 <button type="button" className="coach-slot-modal-btn coach-slot-modal-cancel" onClick={() => setCoachSlotModal(null)}>
@@ -619,7 +647,8 @@ const CoachDashboardPage = () => {
               </div>
             </div>
           </div>
-        )}
+          )
+        })()}
 
         {/* Edit slot form modal */}
         {editSlotForm && (() => {

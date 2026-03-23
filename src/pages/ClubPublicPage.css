@@ -1059,6 +1059,7 @@
   color: #64748b;
   margin: 0 0 12px 0;
 }
+.club-public-training-payment-btns { flex-direction: row; flex-wrap: wrap; gap: 6px; }
 .club-public-booking-payment-style-btns {
   display: flex;
   flex-direction: column;

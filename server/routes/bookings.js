@@ -362,7 +362,7 @@ router.post('/coach-training', async (req, res) => {
 /** POST /api/bookings/join-training - Member joins a coach training slot (adds as trainee/payment share) */
 router.post('/join-training', async (req, res) => {
   try {
-    const { bookingId, clubId, memberId, memberName } = req.body || {}
+    const { bookingId, clubId, memberId, memberName, paymentStyle, paymentMethod } = req.body || {}
     if (!bookingId || !clubId || !memberId) {
       return res.status(400).json({ error: 'bookingId, clubId, memberId required' })
     }
@@ -393,11 +393,14 @@ router.post('/join-training', async (req, res) => {
     const alreadyJoined = (shares || []).some(s => String(s.member_id || '') === String(memberId))
     if (alreadyJoined) return res.status(409).json({ error: 'Already joined' })
     const totalAmount = parseFloat(b.total_amount) || 0
-    const amountPerTrainee = Math.round((totalAmount / maxTrainees) * 100) / 100
+    const payStyle = (paymentStyle || 'at_club').toString().toLowerCase()
+    const payMethod = (paymentMethod || 'at_club').toString().toLowerCase()
+    const isFull = payStyle === 'full'
+    const shareAmount = isFull ? totalAmount : Math.round((totalAmount / maxTrainees) * 100) / 100
     await query(
       `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, amount, payment_method)
-       VALUES (?, ?, 'registered', ?, ?, ?, 'at_club')`,
-      [bookingId, clubId, memberId, memberName || null, amountPerTrainee]
+       VALUES (?, ?, 'registered', ?, ?, ?, ?)`,
+      [bookingId, clubId, memberId, memberName || null, shareAmount, payMethod === 'credit_card' || payMethod === 'mada' ? payMethod : 'at_club']
     )
     const { rows: allShares } = await query(
       'SELECT amount, paid_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',

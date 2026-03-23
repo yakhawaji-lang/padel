@@ -195,6 +195,8 @@ const ClubPublicPage = () => {
   const [detailBooking, setDetailBooking] = useState(null)
   const [trainingJoinModal, setTrainingJoinModal] = useState(null) // { booking, court } - للانضمام لجلسة تدريب
   const [trainingJoinSubmitting, setTrainingJoinSubmitting] = useState(false)
+  const [trainingJoinPaymentStyle, setTrainingJoinPaymentStyle] = useState('at_club') // 'at_club' | 'direct' | 'split' | 'full'
+  const [trainingJoinPaymentMethod, setTrainingJoinPaymentMethod] = useState('at_club')
   const [hoveredRange, setHoveredRange] = useState(null) // { court, courtId, startSlot, endSlot } - نطاق التمرير للحجز
   const hasTouch = typeof window !== 'undefined' && 'ontouchstart' in window
   const touchSelectRef = React.useRef(null) // { court, courtId, dateStr, startSlot } during touch drag
@@ -226,6 +228,23 @@ const ClubPublicPage = () => {
       else setPaymentGateways({ enabledChannels: { at_club: true, credit_card: false, mada: false, split: true } })
     }).catch(() => setPaymentGateways({ enabledChannels: { at_club: true, credit_card: false, mada: false, split: true } }))
   }, [])
+
+  useEffect(() => {
+    if (trainingJoinModal) {
+      setTrainingJoinPaymentStyle('at_club')
+      setTrainingJoinPaymentMethod('at_club')
+    }
+  }, [trainingJoinModal])
+
+  useEffect(() => {
+    if (trainingJoinPaymentStyle === 'direct' && !paymentGateways?.enabledChannels) return
+    const ch = paymentGateways?.enabledChannels || {}
+    const valid = trainingJoinPaymentMethod === 'credit_card' ? ch.credit_card : trainingJoinPaymentMethod === 'mada' ? ch.mada : false
+    if (!valid && trainingJoinPaymentStyle === 'direct') {
+      const first = ch.credit_card ? 'credit_card' : ch.mada ? 'mada' : 'at_club'
+      setTrainingJoinPaymentMethod(first)
+    }
+  }, [trainingJoinPaymentStyle, trainingJoinPaymentMethod, paymentGateways])
 
   // When payment method is disabled (e.g. admin turned off at_club), switch to first available
   useEffect(() => {
@@ -590,11 +609,15 @@ const ClubPublicPage = () => {
     setTrainingJoinSubmitting(true)
     setLockError(null)
     try {
+      const payStyle = trainingJoinPaymentStyle || 'at_club'
+      const payMethod = payStyle === 'direct' ? (trainingJoinPaymentMethod || 'credit_card') : (payStyle === 'at_club' ? 'at_club' : (payStyle === 'full' ? 'at_club' : 'at_club'))
       await bookingApi.joinTrainingSlot({
         bookingId: b.id,
         clubId,
         memberId: platformUser.id,
-        memberName: platformUser.name || platformUser.email || platformUser.displayName || ''
+        memberName: platformUser.name || platformUser.email || platformUser.displayName || '',
+        paymentStyle: payStyle,
+        paymentMethod: payMethod
       })
       setTrainingJoinModal(null)
       refreshClub()
@@ -615,7 +638,7 @@ const ClubPublicPage = () => {
     } finally {
       setTrainingJoinSubmitting(false)
     }
-  }, [trainingJoinModal, platformUser, isMember, clubId, language, refreshClub])
+  }, [trainingJoinModal, platformUser, isMember, clubId, language, refreshClub, trainingJoinPaymentStyle, trainingJoinPaymentMethod])
 
   /** هل الوقت adjacent للنطاق؟ (قبل البداية بـ30 د أو بعد النهاية بـ30 د) */
   const isSlotAdjacentToRange = useCallback((timeSlot, startSlot, endSlot) => {
@@ -822,6 +845,10 @@ const ClubPublicPage = () => {
       joinTrainingPrice: 'Price (one slot)',
       totalPrice: 'Total price',
       trainingSessionsLabel: 'Training sessions',
+      trainingPayAtClub: 'Pay at club',
+      trainingPayDirect: 'Direct payment',
+      trainingPaySplit: 'Share with others',
+      trainingPayFull: 'Pay full amount',
       confirmJoinTraining: 'Confirm join',
     },
     ar: {
@@ -900,6 +927,10 @@ const ClubPublicPage = () => {
       joinTrainingPrice: 'السعر (حصة واحدة)',
       totalPrice: 'الإجمالي',
       trainingSessionsLabel: 'حصص تدريب',
+      trainingPayAtClub: 'الدفع في النادي',
+      trainingPayDirect: 'الدفع مباشرة',
+      trainingPaySplit: 'المشاركة مع أعضاء آخرين',
+      trainingPayFull: 'الدفع كامل المبلغ',
       confirmJoinTraining: 'تأكيد الانضمام',
     }
   }
@@ -1555,6 +1586,52 @@ const ClubPublicPage = () => {
                     {(parseFloat(trainingJoinModal.booking?.totalAmount) || 0).toFixed(2)} {currency}
                   </strong>
                 </div>
+                <div className="club-public-booking-payment-section">
+                  <p className="club-public-booking-payment-section-title">{c.paymentStyle}</p>
+                  <p className="club-public-booking-payment-section-desc">{c.paymentMethodDesc}</p>
+                  <div className="club-public-booking-payment-style-btns club-public-training-payment-btns">
+                    {paymentGateways?.enabledChannels?.at_club !== false && (
+                      <label className={`club-public-booking-payment-style-btn ${trainingJoinPaymentStyle === 'at_club' ? 'active' : ''}`}>
+                        <input type="radio" name="trainingPaymentStyle" checked={trainingJoinPaymentStyle === 'at_club'} onChange={() => { setTrainingJoinPaymentStyle('at_club'); setTrainingJoinPaymentMethod('at_club') }} />
+                        <span className="style-label">{c.trainingPayAtClub}</span>
+                      </label>
+                    )}
+                    {(paymentGateways?.enabledChannels?.credit_card || paymentGateways?.enabledChannels?.mada) && (
+                      <label className={`club-public-booking-payment-style-btn ${trainingJoinPaymentStyle === 'direct' ? 'active' : ''}`}>
+                        <input type="radio" name="trainingPaymentStyle" checked={trainingJoinPaymentStyle === 'direct'} onChange={() => setTrainingJoinPaymentStyle('direct')} />
+                        <span className="style-label">{c.trainingPayDirect}</span>
+                      </label>
+                    )}
+                    {paymentGateways?.enabledChannels?.split !== false && (
+                      <label className={`club-public-booking-payment-style-btn ${trainingJoinPaymentStyle === 'split' ? 'active' : ''}`}>
+                        <input type="radio" name="trainingPaymentStyle" checked={trainingJoinPaymentStyle === 'split'} onChange={() => { setTrainingJoinPaymentStyle('split'); setTrainingJoinPaymentMethod('at_club') }} />
+                        <span className="style-label">{c.trainingPaySplit}</span>
+                      </label>
+                    )}
+                    <label className={`club-public-booking-payment-style-btn ${trainingJoinPaymentStyle === 'full' ? 'active' : ''}`}>
+                      <input type="radio" name="trainingPaymentStyle" checked={trainingJoinPaymentStyle === 'full'} onChange={() => { setTrainingJoinPaymentStyle('full'); setTrainingJoinPaymentMethod('at_club') }} />
+                      <span className="style-label">{c.trainingPayFull}</span>
+                    </label>
+                  </div>
+                </div>
+                {trainingJoinPaymentStyle === 'direct' && (
+                  <div className="club-public-booking-payment-method">
+                    <div className="club-public-booking-payment-method-options">
+                      {paymentGateways?.enabledChannels?.credit_card && (
+                        <label className="club-public-booking-payment-radio">
+                          <input type="radio" name="trainingPaymentMethod" checked={trainingJoinPaymentMethod === 'credit_card'} onChange={() => setTrainingJoinPaymentMethod('credit_card')} />
+                          <span>{c.creditCard}</span>
+                        </label>
+                      )}
+                      {paymentGateways?.enabledChannels?.mada && (
+                        <label className="club-public-booking-payment-radio">
+                          <input type="radio" name="trainingPaymentMethod" checked={trainingJoinPaymentMethod === 'mada'} onChange={() => setTrainingJoinPaymentMethod('mada')} />
+                          <span>{c.mada}</span>
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="club-public-booking-modal-actions">
                 <button type="button" className="club-public-booking-modal-cancel" onClick={() => { if (!trainingJoinSubmitting) { setTrainingJoinModal(null); setLockError(null) } }} disabled={trainingJoinSubmitting}>

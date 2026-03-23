@@ -459,7 +459,19 @@
 }
 
 .coach-slot-modal h3 { margin: 0 0 0.5rem; font-size: 1rem; font-weight: 600; color: #1e293b; }
-.coach-slot-modal-info { margin: 0 0 0.75rem; font-size: 0.8125rem; color: #64748b; line-height: 1.4; }
+.coach-slot-modal-details { margin-bottom: 0.75rem; }
+.coach-slot-modal-info { margin: 0 0 0.5rem; font-size: 0.8125rem; color: #64748b; line-height: 1.4; }
+.coach-slot-modal-price { margin: 0 0 0.5rem; font-size: 0.875rem; color: #334155; }
+.coach-slot-modal-price strong { color: #0f172a; }
+.coach-slot-status-confirmed { color: #059669; font-size: 0.75rem; font-weight: 500; }
+.coach-slot-modal-trainees { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #e2e8f0; }
+.coach-slot-modal-trainees-title { margin: 0 0 0.375rem; font-size: 0.75rem; font-weight: 600; color: #475569; }
+.coach-slot-modal-trainees-list { margin: 0; padding: 0 0 0 1.25rem; font-size: 0.8125rem; }
+.coach-slot-modal-trainees-list li { margin-bottom: 0.25rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.coach-slot-modal-trainees-list .trainee-name { flex: 1; min-width: 80px; }
+.coach-slot-modal-trainees-list .trainee-amount { font-weight: 600; color: #0f172a; }
+.coach-slot-modal-trainees-list .trainee-method { font-size: 0.7rem; color: #64748b; }
+.coach-slot-modal-trainees-list .trainee-paid { color: #059669; font-weight: 700; }
 
 .coach-slot-modal-actions { display: flex; flex-wrap: wrap; gap: 0.375rem; }
 .coach-slot-modal-btn {
