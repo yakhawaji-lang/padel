@@ -50,11 +50,17 @@
   background: #059669;
   background: linear-gradient(135deg, #059669 0%, #047857 100%);
   color: #fff;
-  padding: 16px 20px;
-  padding-top: max(16px, env(safe-area-inset-top));
-  padding-left: max(20px, env(safe-area-inset-left));
-  padding-right: max(20px, env(safe-area-inset-right));
-  box-shadow: 0 2px 12px rgba(5, 150, 105, 0.25);
+  padding: 12px 16px;
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.2);
+}
+
+@media (min-width: 640px) {
+  .coach-dashboard-header {
+    padding: 14px 20px;
+  }
 }
 
 .coach-dashboard-header-inner {
@@ -132,45 +138,45 @@
   touch-action: pan-y;
   max-width: 1100px;
   margin: 0 auto;
-  padding: 20px 16px;
-  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  padding: 16px 16px;
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
   width: 100%;
   box-sizing: border-box;
 }
 
 @media (min-width: 640px) {
   .coach-dashboard-main {
-    padding: 24px 20px;
+    padding: 20px 20px;
   }
 }
 
-/* Stats cards */
+/* Stats cards - أحجام ومساحات متوازنة */
 .coach-dashboard-stats {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: 10px;
+  margin-bottom: 20px;
 }
 
 @media (min-width: 480px) {
   .coach-dashboard-stats {
     grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
+    gap: 12px;
   }
 }
 
 .coach-stat-card {
   background: #fff;
   border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 14px 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   border: 1px solid #e2e8f0;
   text-align: center;
 }
 
 .coach-stat-value {
   display: block;
-  font-size: 1.5rem;
+  font-size: 1.375rem;
   font-weight: 700;
   color: #0f172a;
   line-height: 1.2;
@@ -178,21 +184,22 @@
 
 .coach-stat-label {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: #64748b;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 @media (min-width: 640px) {
   .coach-stat-card {
-    padding: 20px;
-    border-radius: 16px;
+    padding: 16px 14px;
+    border-radius: 12px;
   }
   .coach-stat-value {
-    font-size: 1.75rem;
+    font-size: 1.5rem;
   }
   .coach-stat-label {
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
+    margin-top: 4px;
   }
 }
 
@@ -207,50 +214,50 @@
 /* Schedule section - جدول الملاعب */
 .coach-dashboard-create {
   background: #fff;
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   border: 1px solid #e2e8f0;
 }
 
 @media (min-width: 640px) {
   .coach-dashboard-create {
-    padding: 24px;
+    padding: 20px;
   }
 }
 
 .coach-dashboard-create h2 {
-  margin: 0 0 12px 0;
-  font-size: 1.125rem;
+  margin: 0 0 8px 0;
+  font-size: 1.0625rem;
   font-weight: 700;
   color: #0f172a;
 }
 
 .coach-create-hint {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: #64748b;
-  margin: 0 0 16px 0;
-  line-height: 1.5;
+  margin: 0 0 12px 0;
+  line-height: 1.4;
 }
 
 .coach-create-date-row {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .coach-create-date-row label {
   display: block;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: #475569;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .coach-create-config {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 12px;
   align-items: flex-end;
 }
 
@@ -299,10 +306,10 @@
 }
 
 .coach-dates-badge {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: #059669;
   font-weight: 600;
-  margin: 0 0 12px 0;
+  margin: 0 0 10px 0;
 }
 
 /* Court grid container */
@@ -312,8 +319,8 @@
   -moz-overflow-scrolling: touch;
   -ms-overflow-style: -ms-autohiding-scrollbar;
   overscroll-behavior-x: contain;
-  padding-bottom: 12px;
-  margin-top: 16px;
+  padding-bottom: 10px;
+  margin-top: 12px;
 }
 
 .coach-court-grid-wrap::-webkit-scrollbar {
@@ -627,78 +634,78 @@
 
 /* Confirmed days */
 .coach-dashboard-confirmed {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .coach-dashboard-confirmed h2 {
-  margin: 0 0 16px 0;
-  font-size: 1.125rem;
+  margin: 0 0 12px 0;
+  font-size: 1.0625rem;
   font-weight: 700;
   color: #0f172a;
 }
 
 .coach-confirmed-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
 }
 
 .coach-confirmed-card {
   background: #059669;
   background: linear-gradient(135deg, #059669 0%, #047857 100%);
   color: #fff;
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 10px;
+  padding: 12px;
   text-align: center;
 }
 
 .coach-confirmed-date {
   display: block;
   font-weight: 600;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
 }
 
 .coach-confirmed-court {
   display: block;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   opacity: 0.9;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .coach-confirmed-count {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   opacity: 0.85;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 /* Tabs & Bookings */
 .coach-dashboard-bookings {
   background: #fff;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   border: 1px solid #e2e8f0;
 }
 
 @media (min-width: 640px) {
   .coach-dashboard-bookings {
-    padding: 24px;
+    padding: 18px;
   }
 }
 
 .coach-tabs {
   display: flex;
   gap: 4px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   border-bottom: 1px solid #e2e8f0;
 }
 
 .coach-tab {
-  padding: 12px 20px;
+  padding: 10px 16px;
   border: none;
   background: none;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #64748b;
   cursor: pointer;
@@ -736,7 +743,7 @@
 .coach-bookings-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .coach-booking-card {
@@ -744,10 +751,10 @@
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
-  padding: 16px;
+  gap: 10px;
+  padding: 12px 14px;
   background: #f8fafc;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid #e2e8f0;
 }
 
@@ -853,9 +860,9 @@
 .coach-bookings-empty {
   text-align: center;
   color: #94a3b8;
-  padding: 32px 16px;
+  padding: 24px 12px;
   margin: 0;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
 }
 
 /* ========== Desktop layout - تصميم خاص للمتصفح من الكمبيوتر ========== */
@@ -866,34 +873,37 @@
   }
 
   .coach-dashboard-header {
-    padding: 20px 32px;
+    padding: 16px 28px;
   }
 
   .coach-dashboard-header-inner {
-    max-width: 1400px;
+    max-width: 1320px;
   }
 
   .coach-dashboard-title {
-    font-size: 1.375rem;
+    font-size: 1.25rem;
   }
 
   .coach-dashboard-main {
-    max-width: 1400px;
-    padding: 32px 40px;
+    max-width: 1320px;
+    padding: 24px 28px;
     display: grid;
-    grid-template-columns: 1fr 420px;
+    grid-template-columns: 1fr 360px;
     grid-auto-rows: min-content;
-    gap: 32px;
+    gap: 24px;
     align-items: start;
   }
 
   .coach-dashboard-stats {
     grid-column: 1;
+    margin-bottom: 0;
+    gap: 10px;
   }
 
   .coach-dashboard-create {
     grid-column: 1;
     margin-bottom: 0;
+    padding: 20px 22px;
   }
 
   .coach-dashboard-confirmed {
@@ -905,34 +915,36 @@
     grid-column: 2;
     grid-row: 1 / -1;
     position: sticky;
-    top: 24px;
+    top: 20px;
+    padding: 18px 20px;
   }
 
   .coach-stat-card {
-    padding: 24px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    padding: 14px 12px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   }
 
   .coach-stat-value {
-    font-size: 2rem;
+    font-size: 1.5rem;
   }
 
   .coach-stat-label {
-    font-size: 0.875rem;
+    font-size: 0.75rem;
   }
 
   .coach-tabs {
     flex-direction: column;
     gap: 4px;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     border-bottom: none;
   }
 
   .coach-tab {
-    padding: 14px 20px;
-    border-radius: 10px;
+    padding: 12px 16px;
+    border-radius: 8px;
     border-bottom: none;
     margin-bottom: 0;
+    font-size: 0.875rem;
   }
 
   .coach-tab:hover {
@@ -949,20 +961,16 @@
     background: rgba(255, 255, 255, 0.3);
   }
 
-  .coach-dashboard-create {
-    padding: 28px;
-  }
-
   .coach-dashboard-create h2 {
-    font-size: 1.25rem;
-    margin-bottom: 16px;
+    font-size: 1.125rem;
+    margin-bottom: 10px;
   }
 
   .coach-booking-card {
-    padding: 18px;
+    padding: 12px 14px;
   }
 
   .coach-booking-card-available {
-    padding: 18px;
+    padding: 12px 14px;
   }
 }
