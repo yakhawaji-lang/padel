@@ -94,7 +94,7 @@ export default function BookingCountdownCard({ booking, formatDate, language, on
       <div className="booking-countdown-card__accent" aria-hidden />
       <div className="booking-countdown-card__body">
         <div className="booking-countdown-card__main">
-          <span className="booking-countdown-card__court-icon" aria-hidden>{isTraining ? '👨‍🏫' : '🏸'}</span>
+          <span className="booking-countdown-card__court-icon" aria-hidden>{isTraining ? '\u{1F393}' : '🏸'}</span>
           <div className="booking-countdown-card__info">
             <span className={`booking-countdown-card__type-badge ${isTraining ? 'booking-countdown-card__type-badge--training' : 'booking-countdown-card__type-badge--court'}`}>
               {isTraining ? t.training : t.court}
