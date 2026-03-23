@@ -235,6 +235,7 @@ const ClubPublicPage = () => {
       setTrainingJoinPaymentStyle('single')
       setTrainingJoinPaymentMethod('at_club')
       setTrainingJoinPaymentShares([])
+      setLockError(null)
     }
   }, [trainingJoinModal])
 
@@ -648,11 +649,13 @@ const ClubPublicPage = () => {
       setBookingSuccessId(true)
     } catch (e) {
       const msg = (e?.message || '').trim()
-      const fullMsg = msg.includes('Training full')
+      let fullMsg = msg.includes('Training full')
         ? (language === 'en' ? 'This training session is full.' : 'حصة التدريب مكتملة.')
         : msg.includes('Already joined')
           ? (language === 'en' ? 'You have already joined this training.' : 'انضممت لهذه الحصة مسبقاً.')
-          : (msg || (language === 'en' ? 'Could not join. Try again.' : 'لم نتمكن من الانضمام. حاول مجدداً.'))
+          : (e?.status === 409
+            ? (language === 'en' ? 'Unable to join. The slot may be full or you have already joined.' : 'تعذر الانضمام. قد تكون الحصة مكتملة أو انضممت مسبقاً.')
+            : (msg || (language === 'en' ? 'Could not join. Try again.' : 'لم نتمكن من الانضمام. حاول مجدداً.')))
       setLockError(fullMsg)
     } finally {
       setTrainingJoinSubmitting(false)
@@ -1593,6 +1596,12 @@ const ClubPublicPage = () => {
           <div className="club-public-booking-modal-backdrop" onClick={() => { if (!trainingJoinSubmitting) { setTrainingJoinModal(null); setLockError(null) } }} role="presentation">
             <div className="club-public-booking-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="join-training-modal-title">
               <h3 id="join-training-modal-title" className="club-public-booking-modal-title">{c.joinTraining}</h3>
+              {lockError && (
+                <div className="club-public-booking-modal-error" role="alert">
+                  {lockError}
+                  <button type="button" onClick={() => setLockError(null)} aria-label={language === 'en' ? 'Dismiss' : 'إغلاق'}>×</button>
+                </div>
+              )}
               <div className="club-public-booking-modal-body">
                 <p className="club-public-booking-modal-row">
                   <span>{c.court}:</span>

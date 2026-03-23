@@ -870,9 +870,29 @@
   margin: 0;
   padding: 20px 24px 16px;
   font-size: 1.25rem;
-  font-weight: 700;
-  color: #0f172a;
-  border-bottom: 1px solid #e2e8f0;
+}
+.club-public-booking-modal-error {
+  margin: 0 24px 12px;
+  padding: 12px 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #b91c1c;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.club-public-booking-modal-error button {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: inherit;
+  padding: 0 4px;
+  flex-shrink: 0;
+  line-height: 1;
 }
 .club-public-booking-modal-body {
   padding: 20px 24px;
