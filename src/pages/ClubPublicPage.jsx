@@ -546,6 +546,14 @@ const ClubPublicPage = () => {
     return valid.length > 0 ? Math.max(...valid) : (club?.settings?.bookingDuration ?? 180)
   }, [club?.settings?.bookingPrices?.durationPrices, club?.settings?.bookingDuration])
 
+  /** أقل مدة من Price per duration — تُستخدم لدمج الخلايا عند التمرير */
+  const minBookingDurationForHover = useMemo(() => {
+    const dp = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
+    const minDur = club?.settings?.bookingDuration ?? 60
+    const valid = (dp || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
+    return valid.length > 0 ? Math.min(...valid) : minDur
+  }, [club?.settings?.bookingPrices?.durationPrices, club?.settings?.bookingDuration])
+
   const handleRangeClick = useCallback(async (court, dateStr, startSlot, endSlot, existingLock = null) => {
     if (existingLock) {
       handleSlotClick(court, dateStr, startSlot, existingLock)
@@ -673,7 +681,15 @@ const ClubPublicPage = () => {
   const handleRangeMouseEnter = useCallback((court, dateStr, timeSlot, canBookForRange) => {
     if (!canBookForRange) return
     const courtId = (court?.id || court?.name || '').toString()
-    const setNewRange = () => setHoveredRange({ court, courtId, startSlot: timeSlot, endSlot: timeSlot, fromCanBook: true })
+    const setNewRange = () => {
+      const spanMin = minBookingDurationForHover
+      let endSlot = addMinutesToTime(timeSlot, spanMin - 30)
+      const closingM = timeToMinutes(club?.settings?.closingTime || '23:00')
+      if (timeToMinutes(endSlot) + 30 > closingM) {
+        endSlot = addMinutesToTime('00:00', closingM - 30)
+      }
+      setHoveredRange({ court, courtId, startSlot: timeSlot, endSlot, fromCanBook: true })
+    }
     if (!hoveredRange || !hoveredRange.fromCanBook) {
       setNewRange()
       return
@@ -694,7 +710,7 @@ const ClubPublicPage = () => {
       return
     }
     setNewRange()
-  }, [hoveredRange, isSlotAdjacentToRange, maxBookingDuration])
+  }, [hoveredRange, isSlotAdjacentToRange, maxBookingDuration, minBookingDurationForHover, club?.settings?.closingTime])
 
   const handleRangeMouseLeave = useCallback(() => {
     setHoveredRange(null)
@@ -710,8 +726,12 @@ const ClubPublicPage = () => {
     const dateStr = el.getAttribute('data-date')
     if (!courtId || !timeSlot || !dateStr || el.getAttribute('data-can-book-range') !== '1') return
     if (courtId !== touchSelectRef.current.courtId) return
+    const spanMin = minBookingDurationForHover
+    let endSlot = addMinutesToTime(timeSlot, spanMin - 30)
+    const closingM = timeToMinutes(club?.settings?.closingTime || '23:00')
+    if (timeToMinutes(endSlot) + 30 > closingM) endSlot = addMinutesToTime('00:00', closingM - 30)
     setHoveredRange(prev => {
-      if (!prev || prev.courtId !== courtId) return { court: touchSelectRef.current.court, courtId, startSlot: timeSlot, endSlot: timeSlot, fromCanBook: true }
+      if (!prev || prev.courtId !== courtId) return { court: touchSelectRef.current.court, courtId, startSlot: timeSlot, endSlot, fromCanBook: true }
       const slotM = timeToMinutes(timeSlot)
       const startM = timeToMinutes(prev.startSlot)
       const endM = timeToMinutes(prev.endSlot)
@@ -721,9 +741,9 @@ const ClubPublicPage = () => {
         const dur = timeToMinutes(newEnd) - timeToMinutes(newStart) + 30
         if (dur <= maxBookingDuration) return { ...prev, startSlot: newStart, endSlot: newEnd }
       }
-      return prev
+      return { court: touchSelectRef.current.court, courtId, startSlot: timeSlot, endSlot, fromCanBook: true }
     })
-  }, [maxBookingDuration])
+  }, [maxBookingDuration, minBookingDurationForHover, club?.settings?.closingTime])
 
   const handleTouchEndRange = useCallback(() => {
     touchSelectRef.current = null
