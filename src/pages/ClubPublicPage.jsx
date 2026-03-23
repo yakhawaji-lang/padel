@@ -820,6 +820,7 @@ const ClubPublicPage = () => {
       joinPreviouslyMemberHint: 'Previously a member? Refresh the page or ask the club to re-add you.',
       joinTraining: 'Join training',
       joinTrainingPrice: 'Price (one slot)',
+      totalPrice: 'Total price',
       confirmJoinTraining: 'Confirm join',
     },
     ar: {
@@ -896,6 +897,7 @@ const ClubPublicPage = () => {
       joinPreviouslyMemberHint: 'كنت عضواً سابقاً؟ حدّث الصفحة أو اطلب من إدارة النادي إعادة ربط العضوية.',
       joinTraining: 'انضم للتدريب',
       joinTrainingPrice: 'السعر (حصة واحدة)',
+      totalPrice: 'الإجمالي',
       confirmJoinTraining: 'تأكيد الانضمام',
     }
   }
@@ -1539,14 +1541,9 @@ const ClubPublicPage = () => {
                   <strong>{trainingJoinModal.booking?.startTime || trainingJoinModal.booking?.timeSlot || ''} – {trainingJoinModal.booking?.endTime || ''}</strong>
                 </p>
                 <div className="club-public-booking-modal-price">
-                  <span>{c.joinTrainingPrice}:</span>
+                  <span>{c.totalPrice}:</span>
                   <strong className="club-public-booking-modal-price-value">
-                    {(() => {
-                      const b = trainingJoinModal.booking
-                      const total = parseFloat(b?.totalAmount) || 0
-                      const maxT = Math.min(4, Math.max(1, parseInt(b?.data?.maxTrainees || b?.maxTrainees, 10) || 4))
-                      return (Math.round((total / maxT) * 100) / 100).toFixed(2)
-                    })()} {currency}
+                    {(parseFloat(trainingJoinModal.booking?.totalAmount) || 0).toFixed(2)} {currency}
                   </strong>
                 </div>
               </div>
