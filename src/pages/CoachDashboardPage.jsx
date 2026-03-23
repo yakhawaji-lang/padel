@@ -410,57 +410,43 @@ const CoachDashboardPage = () => {
       </header>
 
       <main className="coach-dashboard-main">
-        {/* Stats */}
-        <section className="coach-dashboard-stats">
-          <div className="coach-stat-card coach-stat-available">
-            <span className="coach-stat-value">{stats.availableCount}</span>
-            <span className="coach-stat-label">{t('Available slots', 'أوقات متاحة', language)}</span>
-          </div>
-          <div className="coach-stat-card">
-            <span className="coach-stat-value">{stats.upcomingCount}</span>
-            <span className="coach-stat-label">{t('Booked', 'محجوزة', language)}</span>
-          </div>
-          <div className="coach-stat-card">
-            <span className="coach-stat-value">{stats.pastCount}</span>
-            <span className="coach-stat-label">{t('Past', 'السابقة', language)}</span>
-          </div>
-          <div className="coach-stat-card coach-stat-revenue">
-            <span className="coach-stat-value">{stats.totalRevenue} {currency}</span>
-            <span className="coach-stat-label">{t('Revenue', 'الإيرادات', language)}</span>
-          </div>
-        </section>
-
-        {/* Create training slots - Court grid like main page */}
         <section className="coach-dashboard-create">
-          <h2>{t('Set your availability', 'حدد أوقات تواجدك', language)}</h2>
-          <p className="coach-create-hint">{t('Select a date, then click empty slots to add. Click your slots to edit or delete.', 'اختر تاريخاً واضغط على الأوقات الفارغة للإضافة. اضغط على حجوزاتك للتعديل أو الحذف.', language)}</p>
-          <div className="coach-create-date-row">
-            <label>{t('Select date', 'اختر التاريخ', language)} — {t('Days with your slots', 'أيام فيها حجوزاتك', language)}:</label>
-            <MultiDatePicker
-              viewingDate={gridDate}
-              onDateClick={setGridDate}
-              highlightedDates={datesWithCoachSlots}
-              minDate={todayStr}
-              language={language}
-            />
-          </div>
-          <div className="coach-create-config">
-            <div className="coach-create-row coach-create-row-inline">
-              <label>{t('Price per hour', 'السعر بالساعة', language)} ({currency})</label>
-              <input type="number" min={1} value={createPrice} onChange={e => setCreatePrice(Number(e.target.value) || 0)} />
-            </div>
-            <div className="coach-create-row coach-create-row-inline">
-              <label>{t('Max trainees', 'الحد الأقصى', language)}</label>
-              <select value={createMaxTrainees} onChange={e => setCreateMaxTrainees(Number(e.target.value))}>
-                {[1, 2, 3, 4].map(n => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
+          <div className="coach-create-head">
+            <h2>{t('Set your availability', 'حدد أوقات تواجدك', language)}</h2>
+            <div className="coach-stats-row">
+              <span><strong>{stats.availableCount}</strong> {t('Available', 'متاحة', language)}</span>
+              <span><strong>{stats.upcomingCount}</strong> {t('Booked', 'محجوزة', language)}</span>
+              <span><strong>{stats.pastCount}</strong> {t('Past', 'سابقة', language)}</span>
+              <span className="coach-stat-rev"><strong>{stats.totalRevenue}</strong> {currency}</span>
             </div>
           </div>
-          {datesWithCoachSlots.length > 0 && (
-            <p className="coach-dates-badge">{t('You have slots on', 'لديك أوقات في')} {datesWithCoachSlots.length} {t('day(s)', 'يوم', language)}</p>
-          )}
+          <p className="coach-create-hint">{t('Select date, click empty slots to add. Click your slots to edit or delete.', 'اختر التاريخ واضغط على الفراغ للإضافة، أو على حجزك للتعديل/الحذف.', language)}</p>
+          <div className="coach-create-toolbar">
+            <div className="coach-toolbar-date">
+              <label>{t('Date', 'التاريخ', language)}</label>
+              <MultiDatePicker
+                viewingDate={gridDate}
+                onDateClick={setGridDate}
+                highlightedDates={datesWithCoachSlots}
+                minDate={todayStr}
+                language={language}
+              />
+            </div>
+            <div className="coach-toolbar-config">
+              <div className="coach-create-row coach-create-row-inline">
+                <label>{t('Price/hr', 'السعر/ساعة', language)} ({currency})</label>
+                <input type="number" min={1} value={createPrice} onChange={e => setCreatePrice(Number(e.target.value) || 0)} />
+              </div>
+              <div className="coach-create-row coach-create-row-inline">
+                <label>{t('Max', 'الحد الأقصى', language)}</label>
+                <select value={createMaxTrainees} onChange={e => setCreateMaxTrainees(Number(e.target.value))}>
+                  {[1, 2, 3, 4].map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
           {createError && <p className="coach-create-error">{createError}</p>}
           <div
             className="coach-court-grid-wrap"
@@ -478,9 +464,9 @@ const CoachDashboardPage = () => {
                 <div
                   className="coach-court-grid club-public-court-grid club-public-court-grid-times-horizontal"
                   style={{
-                    gridTemplateColumns: `80px repeat(${timeSlots.length}, minmax(60px, 1fr))`,
-                    gridTemplateRows: `40px repeat(${courts.length}, 36px)`,
-                    minWidth: `${80 + timeSlots.length * 60}px`
+                    gridTemplateColumns: `70px repeat(${timeSlots.length}, minmax(44px, 1fr))`,
+                    gridTemplateRows: `28px repeat(${courts.length}, 28px)`,
+                    minWidth: `${70 + timeSlots.length * 44}px`
                   }}
                 >
                   <div className="club-public-court-grid-corner" />
@@ -698,22 +684,6 @@ const CoachDashboardPage = () => {
           </div>
           )
         })()}
-
-        {/* Confirmed days */}
-        {confirmedDates.length > 0 && (
-          <section className="coach-dashboard-confirmed">
-            <h2>{t('Confirmed days', 'الأيام المؤكدة', language)}</h2>
-            <div className="coach-confirmed-grid">
-              {confirmedDates.map(({ date, courtId, count }) => (
-                <div key={date} className="coach-confirmed-card">
-                  <span className="coach-confirmed-date">{formatDate(date)}</span>
-                  <span className="coach-confirmed-court">{courtName(courtId)}</span>
-                  <span className="coach-confirmed-count">{count} {t('slot(s)', 'حجز', language)}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
 
         {/* Tabs: Available / Booked / Past */}
         <section className="coach-dashboard-bookings">
