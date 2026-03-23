@@ -1284,9 +1284,11 @@ const ClubPublicPage = () => {
                           })()
                           const trainingStart = bookedItem && (bookedItem.startTime || bookedItem.timeSlot || '').toString().trim()
                           const trainingEnd = (bookedItem?.endTime || '').toString().trim() || (trainingStart ? addMinutesToTime(trainingStart, club?.settings?.bookingDuration || 60) : '')
-                          const isTrainingBlockStart = canJoinTraining && timeToMinutes(timeSlot) === timeToMinutes(trainingStart)
-                          const isTrainingBlockEnd = canJoinTraining && timeToMinutes(timeSlot) + 30 >= timeToMinutes(trainingEnd)
-                          const isTrainingBlockContinuation = canJoinTraining && !isTrainingBlockStart
+                          const isTrainingBlockStart = isTraining && timeToMinutes(timeSlot) === timeToMinutes(trainingStart)
+                          const isTrainingBlockContinuation = isTraining && !isTrainingBlockStart
+                          const trainingSpan = isTrainingBlockStart
+                            ? Math.max(1, Math.round((timeToMinutes(trainingEnd) - timeToMinutes(trainingStart)) / 30))
+                            : 0
                           let slotPrice = null
                           if (isCellClickable) {
                             if (canJoinTraining) {
@@ -1303,6 +1305,9 @@ const ClubPublicPage = () => {
                               }
                               slotPrice = calculateBookingPrice(club, dateStr, timeSlot, dur).price
                             }
+                          }
+                          if (isTrainingBlockContinuation) {
+                            return null
                           }
                           const handleCellClick = () => {
                             if (canJoinTraining) {
@@ -1332,7 +1337,8 @@ const ClubPublicPage = () => {
                               key={timeSlot}
                               role={isCellClickable ? 'button' : undefined}
                               tabIndex={isCellClickable ? 0 : undefined}
-                              className={`club-public-court-grid-cell ${cellStatus} ${isCellClickable ? 'clickable' : ''} ${isInRange ? 'in-range hovered' : ''} ${isTrainingBlockStart ? 'training-block-start' : ''} ${isTrainingBlockContinuation ? 'training-block-continuation' : ''} ${isTrainingBlockEnd ? 'training-block-end' : ''}`}
+                              className={`club-public-court-grid-cell ${cellStatus} ${isCellClickable ? 'clickable' : ''} ${isInRange ? 'in-range hovered' : ''} ${isTrainingBlockStart ? 'training-block-merged' : ''}`}
+                              style={trainingSpan > 0 ? { gridColumn: `span ${trainingSpan}` } : undefined}
                               title={slotTitle}
                               {...(canBookForRange && { 'data-court-id': courtIdForMatch, 'data-date': dateStr, 'data-time-slot': timeSlot, 'data-can-book-range': '1' })}
                               onMouseEnter={canBookForRange ? () => handleRangeMouseEnter(court, dateStr, timeSlot, canBookForRange) : (isCellClickable ? () => setHoveredRange({ court, courtId: (court.id || court.name || '').toString(), startSlot: timeSlot, endSlot: timeSlot, fromCanBook: false }) : undefined)}
@@ -1340,10 +1346,10 @@ const ClubPublicPage = () => {
                               onClick={isCellClickable ? handleCellClick : undefined}
                               onKeyDown={isCellClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCellClick() } } : undefined}
                             >
-                              {isTrainingBlockStart && slotPrice != null ? (
+                              {isTrainingBlockStart ? (
                                 <span className="club-public-cell-training-block">
                                   <span className="club-public-cell-time-range">{trainingStart}{trainingEnd ? ` – ${trainingEnd}` : ''}</span>
-                                  <span className="club-public-cell-price">{slotPrice} {currency}</span>
+                                  {slotPrice != null ? <span className="club-public-cell-price">{slotPrice} {currency}</span> : null}
                                 </span>
                               ) : isInRange && slotPrice != null ? (
                                 <span className="club-public-cell-price">{slotPrice} {currency}</span>
