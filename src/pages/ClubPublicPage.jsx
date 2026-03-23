@@ -821,6 +821,7 @@ const ClubPublicPage = () => {
       joinTraining: 'Join training',
       joinTrainingPrice: 'Price (one slot)',
       totalPrice: 'Total price',
+      trainingSessionsLabel: 'Training sessions',
       confirmJoinTraining: 'Confirm join',
     },
     ar: {
@@ -898,6 +899,7 @@ const ClubPublicPage = () => {
       joinTraining: 'انضم للتدريب',
       joinTrainingPrice: 'السعر (حصة واحدة)',
       totalPrice: 'الإجمالي',
+      trainingSessionsLabel: 'حصص تدريب',
       confirmJoinTraining: 'تأكيد الانضمام',
     }
   }
@@ -1348,6 +1350,7 @@ const ClubPublicPage = () => {
                             >
                               {isTrainingBlockStart ? (
                                 <span className="club-public-cell-training-block">
+                                  <span className="club-public-cell-training-label">{c.trainingSessionsLabel}</span>
                                   <span className="club-public-cell-time-range">{trainingStart}{trainingEnd ? ` – ${trainingEnd}` : ''}</span>
                                   {slotPrice != null ? <span className="club-public-cell-price">{slotPrice} {currency}</span> : null}
                                 </span>

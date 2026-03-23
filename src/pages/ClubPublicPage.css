@@ -793,7 +793,8 @@
 
 /* كتلة التدريب الموحدة — خلية مدمجة واحدة */
 .club-public-court-grid-cell.training-block-merged {
-  justify-content: flex-start;
+  justify-content: center;
+  align-items: center;
   padding-inline: 10px;
 }
 .club-public-cell-training-block {
@@ -801,10 +802,19 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  text-align: center;
+  justify-content: center;
   gap: 2px;
   font-size: 0.7rem;
   text-align: center;
   white-space: nowrap;
+}
+.club-public-cell-training-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 .club-public-cell-time-range {
   font-weight: 500;
