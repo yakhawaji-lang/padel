@@ -847,6 +847,32 @@
   font-weight: 800;
 }
 
+/* كتلة النطاق المحدد — خلايا مدمجة بعرض السعر الإجمالي بالمنتصف */
+.club-public-court-grid-cell.range-block-merged {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 4px 14px;
+  min-height: 36px;
+  border-radius: 8px;
+  margin: 1px 2px;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
+  border: 2px solid #22c55e;
+  background: #bbf7d0;
+}
+.club-public-cell-range-block {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+}
+.club-public-cell-range-block .club-public-cell-price {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #166534;
+}
+
 /* Booking modal */
 .club-public-booking-modal-backdrop {
   position: fixed;
