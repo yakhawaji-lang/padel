@@ -156,9 +156,9 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
         defaultLanguage: fd.defaultLanguage,
         timezone: fd.timezone,
         currency: fd.currency,
-        bookingDuration: fd.bookingDuration,
-        maxBookingAdvance: fd.maxBookingAdvance,
-        cancellationPolicy: fd.cancellationPolicy,
+        bookingDuration: Math.min(180, Math.max(15, Number(fd.bookingDuration) || 60)),
+        maxBookingAdvance: Math.max(1, Number(fd.maxBookingAdvance) || 30),
+        cancellationPolicy: Math.max(0, Number(fd.cancellationPolicy) || 24),
         ...BOOKING_NUMBER_FIELDS.reduce((acc, { key, default: d }) => ({ ...acc, [key]: toNum(fd[key], d) }), {}),
         [BOOKING_CHECKBOX_FIELD]: !!fd[BOOKING_CHECKBOX_FIELD],
         openingTime: fd.openingTime,
@@ -611,16 +611,88 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
               <div className="form-row form-row-3">
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Minimum booking duration (min)', 'أقل مدة للحجز (دقيقة)', lang)}</label>
-                  <input type="text" inputMode="numeric" pattern="[0-9]*" className="settings-input" dir="ltr" lang="en" minLength={1} maxLength={3} value={String(formData.bookingDuration)} onChange={(e) => { const v = parseInt(e.target.value.replace(/\D/g, ''), 10); setFormData(prev => ({ ...prev, bookingDuration: isNaN(v) ? 60 : Math.min(180, Math.max(15, v)) })) }} title={t('Minimum duration; no booking can be shorter.', 'أقل مدة؛ لا يمكن طلب حجز أقل من هذه القيمة.')} />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    className="settings-input"
+                    dir="ltr"
+                    lang="en"
+                    minLength={1}
+                    maxLength={3}
+                    value={formData.bookingDuration === '' || formData.bookingDuration === undefined ? '' : String(formData.bookingDuration)}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, '')
+                      if (raw === '') {
+                        setFormData(prev => ({ ...prev, bookingDuration: '' }))
+                        return
+                      }
+                      const v = parseInt(raw, 10)
+                      if (!Number.isNaN(v)) setFormData(prev => ({ ...prev, bookingDuration: v }))
+                    }}
+                    onBlur={() => {
+                      const v = Number(formData.bookingDuration)
+                      if (formData.bookingDuration === '' || formData.bookingDuration === undefined || Number.isNaN(v) || v < 15 || v > 180) {
+                        setFormData(prev => ({ ...prev, bookingDuration: Math.min(180, Math.max(15, Number(prev.bookingDuration) || 60)) }))
+                      }
+                    }}
+                    title={t('Minimum duration; no booking can be shorter.', 'أقل مدة؛ لا يمكن طلب حجز أقل من هذه القيمة.')}
+                  />
                   <span className="field-hint">{t('Minimum booking duration. No booking can be shorter than this value.', 'أقل مدة للحجز. لا يمكن طلب حجز أقل من هذه القيمة.')}</span>
                 </div>
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Max Advance (days)', 'الحد الأقصى للحجز مسبقاً (يوم)', lang)}</label>
-                  <input type="text" inputMode="numeric" pattern="[0-9]*" className="settings-input" dir="ltr" lang="en" value={String(formData.maxBookingAdvance)} onChange={(e) => { const v = parseInt(e.target.value.replace(/\D/g, ''), 10); setFormData(prev => ({ ...prev, maxBookingAdvance: isNaN(v) ? 30 : Math.max(1, v) })) }} />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    className="settings-input"
+                    dir="ltr"
+                    lang="en"
+                    value={formData.maxBookingAdvance === '' || formData.maxBookingAdvance === undefined ? '' : String(formData.maxBookingAdvance)}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, '')
+                      if (raw === '') {
+                        setFormData(prev => ({ ...prev, maxBookingAdvance: '' }))
+                        return
+                      }
+                      const v = parseInt(raw, 10)
+                      if (!Number.isNaN(v)) setFormData(prev => ({ ...prev, maxBookingAdvance: v }))
+                    }}
+                    onBlur={() => {
+                      const v = Number(formData.maxBookingAdvance)
+                      if (formData.maxBookingAdvance === '' || formData.maxBookingAdvance === undefined || Number.isNaN(v) || v < 1) {
+                        setFormData(prev => ({ ...prev, maxBookingAdvance: Math.max(1, Number(prev.maxBookingAdvance) || 30) }))
+                      }
+                    }}
+                  />
                 </div>
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Cancellation (hours before)', 'الإلغاء (ساعات قبل)', lang)}</label>
-                  <input type="text" inputMode="numeric" pattern="[0-9]*" className="settings-input" dir="ltr" lang="en" value={String(formData.cancellationPolicy)} onChange={(e) => { const v = parseInt(e.target.value.replace(/\D/g, ''), 10); setFormData(prev => ({ ...prev, cancellationPolicy: isNaN(v) ? 24 : Math.max(0, v) })) }} />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    className="settings-input"
+                    dir="ltr"
+                    lang="en"
+                    value={formData.cancellationPolicy === '' || formData.cancellationPolicy === undefined ? '' : String(formData.cancellationPolicy)}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, '')
+                      if (raw === '') {
+                        setFormData(prev => ({ ...prev, cancellationPolicy: '' }))
+                        return
+                      }
+                      const v = parseInt(raw, 10)
+                      if (!Number.isNaN(v)) setFormData(prev => ({ ...prev, cancellationPolicy: v }))
+                    }}
+                    onBlur={() => {
+                      const v = Number(formData.cancellationPolicy)
+                      if (formData.cancellationPolicy === '' || formData.cancellationPolicy === undefined || Number.isNaN(v) || v < 0) {
+                        setFormData(prev => ({ ...prev, cancellationPolicy: Math.max(0, Number(prev.cancellationPolicy) || 24) }))
+                      }
+                    }}
+                  />
                 </div>
               </div>
               <div className="form-row form-row-3" style={{ marginTop: 16 }}>
@@ -634,12 +706,21 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                       className="settings-input"
                       dir="ltr"
                       lang="en"
-                      value={String(numDisplay(formData[key], def))}
+                      value={formData[key] === '' || formData[key] === undefined ? '' : String(formData[key])}
                       onChange={(e) => {
                         const raw = e.target.value.replace(/\D/g, '')
-                        const v = raw === '' ? def : parseInt(raw, 10)
-                        const clamped = max ? Math.min(max, Math.max(0, isNaN(v) ? def : v)) : Math.max(0, isNaN(v) ? def : v)
-                        setFormData(prev => ({ ...prev, [key]: clamped }))
+                        if (raw === '') {
+                          setFormData(prev => ({ ...prev, [key]: '' }))
+                          return
+                        }
+                        const v = parseInt(raw, 10)
+                        if (!Number.isNaN(v)) setFormData(prev => ({ ...prev, [key]: v }))
+                      }}
+                      onBlur={() => {
+                        const v = Number(formData[key])
+                        if (formData[key] === '' || formData[key] === undefined || Number.isNaN(v) || v < 0 || (max != null && v > max)) {
+                          setFormData(prev => ({ ...prev, [key]: max != null ? Math.min(max, Math.max(0, Number(prev[key]) || def)) : Math.max(0, Number(prev[key]) || def) }))
+                        }
                       }}
                     />
                     {hintEn && <span className="field-hint">{t(hintEn, hintAr, lang)}</span>}
