@@ -1280,12 +1280,15 @@ const ClubPublicPage = () => {
                             const endM = timeToMinutes(hoveredRange.endSlot)
                             return slotM >= startM && slotM <= endM
                           })()
+                          const trainingStart = bookedItem && (bookedItem.startTime || bookedItem.timeSlot || '').toString().trim()
+                          const trainingEnd = (bookedItem?.endTime || '').toString().trim() || (trainingStart ? addMinutesToTime(trainingStart, club?.settings?.bookingDuration || 60) : '')
+                          const isTrainingBlockStart = canJoinTraining && timeToMinutes(timeSlot) === timeToMinutes(trainingStart)
+                          const isTrainingBlockEnd = canJoinTraining && timeToMinutes(timeSlot) + 30 >= timeToMinutes(trainingEnd)
+                          const isTrainingBlockContinuation = canJoinTraining && !isTrainingBlockStart
                           let slotPrice = null
                           if (isCellClickable) {
                             if (canJoinTraining) {
-                              const total = parseFloat(bookedItem?.totalAmount) || 0
-                              const maxT = Math.min(4, Math.max(1, parseInt(bookedItem?.data?.maxTrainees || bookedItem?.maxTrainees, 10) || 4))
-                              slotPrice = total > 0 ? Math.round((total / maxT) * 100) / 100 : 0
+                              slotPrice = parseFloat(bookedItem?.totalAmount) || 0
                             } else if (isInRange && hoveredRange) {
                               const startM = timeToMinutes(hoveredRange.startSlot)
                               const endM = timeToMinutes(hoveredRange.endSlot)
@@ -1327,7 +1330,7 @@ const ClubPublicPage = () => {
                               key={timeSlot}
                               role={isCellClickable ? 'button' : undefined}
                               tabIndex={isCellClickable ? 0 : undefined}
-                              className={`club-public-court-grid-cell ${cellStatus} ${isCellClickable ? 'clickable' : ''} ${isInRange ? 'in-range hovered' : ''}`}
+                              className={`club-public-court-grid-cell ${cellStatus} ${isCellClickable ? 'clickable' : ''} ${isInRange ? 'in-range hovered' : ''} ${isTrainingBlockStart ? 'training-block-start' : ''} ${isTrainingBlockContinuation ? 'training-block-continuation' : ''} ${isTrainingBlockEnd ? 'training-block-end' : ''}`}
                               title={slotTitle}
                               {...(canBookForRange && { 'data-court-id': courtIdForMatch, 'data-date': dateStr, 'data-time-slot': timeSlot, 'data-can-book-range': '1' })}
                               onMouseEnter={canBookForRange ? () => handleRangeMouseEnter(court, dateStr, timeSlot, canBookForRange) : (isCellClickable ? () => setHoveredRange({ court, courtId: (court.id || court.name || '').toString(), startSlot: timeSlot, endSlot: timeSlot, fromCanBook: false }) : undefined)}
@@ -1335,7 +1338,12 @@ const ClubPublicPage = () => {
                               onClick={isCellClickable ? handleCellClick : undefined}
                               onKeyDown={isCellClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCellClick() } } : undefined}
                             >
-                              {isInRange && slotPrice != null ? (
+                              {isTrainingBlockStart && slotPrice != null ? (
+                                <span className="club-public-cell-training-block">
+                                  <span className="club-public-cell-time-range">{trainingStart}{trainingEnd ? ` – ${trainingEnd}` : ''}</span>
+                                  <span className="club-public-cell-price">{slotPrice} {currency}</span>
+                                </span>
+                              ) : isInRange && slotPrice != null ? (
                                 <span className="club-public-cell-price">{slotPrice} {currency}</span>
                               ) : (
                                 ''

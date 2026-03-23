@@ -791,6 +791,35 @@
   border-right: none;
 }
 
+/* كتلة التدريب الموحدة — إزالة الحدود الفاصلة بين الخلايا المتصلة */
+.club-public-court-grid-cell.training-block-start:has(+ .training-block-continuation) {
+  border-inline-end: none;
+}
+.club-public-court-grid-cell.training-block-continuation {
+  margin-inline-start: -1px;
+  border-inline-end: none;
+}
+.club-public-court-grid-cell.training-block-end {
+  border-inline-end: 1px solid rgba(0,0,0,0.12) !important;
+}
+.club-public-cell-training-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 0.7rem;
+  text-align: center;
+  white-space: nowrap;
+}
+.club-public-cell-time-range {
+  font-weight: 500;
+  opacity: 0.95;
+}
+.club-public-cell-training-block .club-public-cell-price {
+  font-weight: 700;
+}
+
 /* Booking modal */
 .club-public-booking-modal-backdrop {
   position: fixed;
