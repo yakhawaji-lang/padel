@@ -193,6 +193,7 @@ CREATE TABLE IF NOT EXISTS club_settings (
   timezone VARCHAR(50) DEFAULT 'Asia/Riyadh',
   currency VARCHAR(10) DEFAULT 'SAR',
   booking_duration INT DEFAULT 60,
+  preparation_time_minutes INT DEFAULT 0,
   max_booking_advance INT DEFAULT 30,
   cancellation_policy INT DEFAULT 24,
   opening_time VARCHAR(10) DEFAULT '06:00',
