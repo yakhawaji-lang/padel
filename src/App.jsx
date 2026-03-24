@@ -68,7 +68,7 @@ function App({ currentUser }) {
     startTime: '09:00',
     endTime: '18:00',
     tournamentType: 'king', // 'king' or 'social'
-    tournamentCourtIds: [] // ملاعب محجوزة لبطولة ملك الملعب (معرف أو اسم الملعب)
+    tournamentCourtIds: [] // ملاعب محجوزة لبطولة ملك الملعب أو سوشيال (معرف أو اسم الملعب)
   })
   const [viewedTournamentBooking, setViewedTournamentBooking] = useState(null) // { id, date, startTime, endTime, tournamentType } - which scheduled tournament is being viewed (shows its tabs)
 
@@ -3680,10 +3680,11 @@ function App({ currentUser }) {
       }
     }
     const tournamentType = tournamentBookingData.tournamentType || 'king'
-    const kingCourtIds = tournamentType === 'king'
+    const needsCourtReservation = tournamentType === 'king' || tournamentType === 'social'
+    const tournamentCourtIds = needsCourtReservation
       ? (tournamentBookingData.tournamentCourtIds || []).map(x => String(x).trim()).filter(Boolean)
       : []
-    if (tournamentType === 'king' && kingCourtIds.length === 0) {
+    if (needsCourtReservation && tournamentCourtIds.length === 0) {
       alert(language === 'en'
         ? 'Select at least one court for the tournament. Those courts will be blocked on the public schedule.'
         : 'اختر ملعباً واحداً على الأقل. سيتم حجز هذه الملاعب في جدول الحجز العام.')
@@ -3693,18 +3694,18 @@ function App({ currentUser }) {
       tournamentBookingData.date,
       tournamentBookingData.startTime,
       tournamentBookingData.endTime,
-      tournamentType === 'king' ? kingCourtIds : []
+      needsCourtReservation ? tournamentCourtIds : []
     )) {
       alert(language === 'en'
         ? 'This time overlaps with another scheduled tournament on the same day (same court). Please choose a different time, date, or courts.'
         : 'هذا الوقت يتداخل مع بطولة أخرى على نفس الملاعب. اختر وقتاً أو ملاعب مختلفة.')
       return
     }
-    if (tournamentType === 'king' && hasRegularBookingConflictWithCourts(
+    if (needsCourtReservation && hasRegularBookingConflictWithCourts(
       tournamentBookingData.date,
       tournamentBookingData.startTime,
       tournamentBookingData.endTime,
-      kingCourtIds
+      tournamentCourtIds
     )) {
       alert(language === 'en'
         ? 'One or more selected courts already have a booking at this time.'
@@ -3726,7 +3727,7 @@ function App({ currentUser }) {
       isTournament: true,
       tournamentType,
       tournamentId: currentTournamentId,
-      ...(tournamentType === 'king' && kingCourtIds.length > 0 ? { tournamentCourtIds: kingCourtIds } : {})
+      ...(needsCourtReservation && tournamentCourtIds.length > 0 ? { tournamentCourtIds } : {})
     }
 
     const updatedLocalBookings = [...localBookings, tournamentBooking]
@@ -3740,7 +3741,7 @@ function App({ currentUser }) {
       startTime: currentClub?.settings?.openingTime || '09:00',
       endTime: currentClub?.settings?.closingTime || '18:00',
       tournamentType: activeTab === 'social' ? 'social' : 'king',
-      tournamentCourtIds: activeTab === 'social' ? [] : (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean)
+      tournamentCourtIds: (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean)
     })
     alert(language === 'en' 
       ? 'Tournament scheduled successfully! You can schedule more tournaments or start adding teams.'
@@ -4843,7 +4844,7 @@ function App({ currentUser }) {
                   style={{ width: '100%', padding: '10px', border: '2px solid #ddd', borderRadius: '6px', fontSize: '16px' }}
                 />
               </div>
-              {tournamentBookingData.tournamentType === 'king' && (currentClub?.courts || []).filter(c => !c.maintenance).length > 0 && (
+              {['king', 'social'].includes(tournamentBookingData.tournamentType) && (currentClub?.courts || []).filter(c => !c.maintenance).length > 0 && (
                 <div className="form-group" style={{ marginBottom: '16px' }}>
                   <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
                     {language === 'en' ? 'Courts reserved for this tournament (blocked on public booking)' : 'الملاعب المحجوزة للبطولة (غير متاحة للحجز العام)'} *
@@ -6895,7 +6896,7 @@ function App({ currentUser }) {
                       startTime: currentClub?.settings?.openingTime || '09:00',
                       endTime: currentClub?.settings?.closingTime || '18:00',
                       tournamentType: 'social',
-                      tournamentCourtIds: []
+                      tournamentCourtIds: (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean)
                     })
                     setShowTournamentBookingModal(true)
                   }}

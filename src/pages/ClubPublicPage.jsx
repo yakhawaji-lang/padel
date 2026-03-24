@@ -91,7 +91,7 @@ const getBlockedRangesForCourtAndDate = (courtNameOrId, dateStr, bookings, activ
   }
   ;(bookings || []).forEach(b => {
     if (b.isTournament) {
-      if (b.tournamentType !== 'king' || !kingTournamentReservesCourtIds(courtIds, b)) return
+      if (!['king', 'social'].includes(b.tournamentType) || !kingTournamentReservesCourtIds(courtIds, b)) return
       if (['cancelled', 'expired'].includes((b.status || '').toString())) return
       const bDate = (b.date || b.startDate || '').toString().split('T')[0]
       if (bDate !== dateStr) return
@@ -945,6 +945,7 @@ const ClubPublicPage = () => {
       available: 'Available',
       booked: 'Booked',
       tournamentBooked: 'Tournament (King of the Court)',
+      tournamentBookedSocial: 'Tournament (Social)',
       bookNow: 'Book now',
       bookingPrice: 'Price',
       confirmBooking: 'Confirm booking',
@@ -1031,6 +1032,7 @@ const ClubPublicPage = () => {
       available: 'متاح',
       booked: 'محجوز',
       tournamentBooked: 'بطولة (ملك الملعب)',
+      tournamentBookedSocial: 'بطولة (سوشيال)',
       bookNow: 'احجز الآن',
       bookingPrice: 'السعر',
       confirmBooking: 'تأكيد الحجز',
@@ -1461,7 +1463,7 @@ const ClubPublicPage = () => {
                           const isInPreparation = !isBooked && !isLocked && overlapsAny(slotM, slotM + slotStepMinutes, blockedForCourt)
                           const canBook = !isBooked && !isInPreparation && !isPast && (hasDuration || isMyLock) && isMember && platformUser && (!isLocked || isMyLock)
                           const cellStatus = isLocked ? 'in-progress' : isBooked ? (isTournamentBlock ? 'booked tournament' : isTraining ? (canJoinTraining ? 'booked training joinable' : 'booked training') : 'booked') : isInPreparation ? 'preparation' : isPast ? 'past' : 'available'
-                          const slotTitle = isMyLock ? (language === 'en' ? 'Complete your booking' : 'أكمل حجزك') : isLocked ? (language === 'en' ? 'In progress' : 'قيد الإجراء') : canJoinTraining ? (language === 'en' ? 'Join training' : 'انضم للتدريب') : isTournamentBlock ? (c.tournamentBooked || 'Tournament') : isBooked ? (c.booked || 'Booked') : isInPreparation ? (language === 'en' ? 'Preparation time' : 'وقت الاستعداد') : isPast ? (language === 'en' ? 'Past' : 'منتهي') : canBook ? (c.bookNow || 'Book now') : (c.available || 'Available')
+                          const slotTitle = isMyLock ? (language === 'en' ? 'Complete your booking' : 'أكمل حجزك') : isLocked ? (language === 'en' ? 'In progress' : 'قيد الإجراء') : canJoinTraining ? (language === 'en' ? 'Join training' : 'انضم للتدريب') : isTournamentBlock ? (bookedItem?.tournamentType === 'social' ? (c.tournamentBookedSocial || c.socialTournament) : (c.tournamentBooked || 'Tournament')) : isBooked ? (c.booked || 'Booked') : isInPreparation ? (language === 'en' ? 'Preparation time' : 'وقت الاستعداد') : isPast ? (language === 'en' ? 'Past' : 'منتهي') : canBook ? (c.bookNow || 'Book now') : (c.available || 'Available')
                           const isCellClickable = canBook || canJoinTraining
                           const canBookForRange = canBook && !isMyLock && !canJoinTraining
                           const isInRange = hoveredRange && hoveredRange.courtId === (court.id || court.name || '').toString() && (() => {

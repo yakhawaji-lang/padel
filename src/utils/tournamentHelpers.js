@@ -47,9 +47,9 @@ export function isMemberInTournamentBooking(club, booking, memberId) {
   return false
 }
 
-/** مفاتيح الملعب (معرّف / اسم) تتطابق مع قائمة حجز البطولة؟ */
+/** مفاتيح الملعب (معرّف / اسم) تتطابق مع قائمة حجز البطولة؟ (ملك الملعب أو سوشيال) */
 export function kingTournamentReservesCourtIds(courtIdentifierKeys, booking) {
-  if (!booking?.isTournament || booking.tournamentType !== 'king') return false
+  if (!booking?.isTournament || !['king', 'social'].includes(booking.tournamentType)) return false
   if (['cancelled', 'expired'].includes((booking.status || '').toString())) return false
   const ids = booking.tournamentCourtIds
   if (!Array.isArray(ids) || ids.length === 0) return false
@@ -57,7 +57,7 @@ export function kingTournamentReservesCourtIds(courtIdentifierKeys, booking) {
   return ids.some((tid) => row.has(String(tid).trim()))
 }
 
-/** هل بطولة ملك الملعب تحجز هذا الصف (كائن ملعب من النادي)؟ */
+/** هل بطولة مجدولة (ملك / سوشيال) تحجز هذا الصف؟ */
 export function kingTournamentReservesCourt(court, booking) {
   if (!court) return false
   return kingTournamentReservesCourtIds([court.id, court.name], booking)
