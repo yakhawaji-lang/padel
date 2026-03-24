@@ -2988,6 +2988,45 @@ button:active {
   border: 1px solid rgba(0,0,0,0.1);
 }
 
+/* تمييز بطولات ملك الملعب / سوشيال عن حجوزات الملاعب العادية */
+.booking-event.booking-event--tournament-king {
+  background: linear-gradient(145deg, #eef2ff 0%, #e0e7ff 100%) !important;
+  border-left: 4px solid #4f46e5 !important;
+  color: #1e1b4b !important;
+  box-shadow: 0 2px 12px rgba(79, 70, 229, 0.18) !important;
+}
+
+.booking-event.booking-event--tournament-social {
+  background: linear-gradient(145deg, #ecfdf5 0%, #d1fae5 100%) !important;
+  border-left: 4px solid #059669 !important;
+  color: #064e3b !important;
+  box-shadow: 0 2px 12px rgba(5, 150, 105, 0.14) !important;
+}
+
+.booking-event.booking-event--tournament .booking-title {
+  margin-left: 22px;
+}
+
+[dir="rtl"] .booking-event.booking-event--tournament .booking-title {
+  margin-left: 0;
+  margin-right: 22px;
+}
+
+.booking-tournament-badge {
+  position: absolute;
+  top: 3px;
+  left: 5px;
+  font-size: 12px;
+  line-height: 1;
+  z-index: 2;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.15));
+}
+
+[dir="rtl"] .booking-tournament-badge {
+  left: auto;
+  right: 5px;
+}
+
 .booking-status-badge {
   position: absolute;
   top: 2px;

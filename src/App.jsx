@@ -68,7 +68,8 @@ function App({ currentUser }) {
     startTime: '09:00',
     endTime: '18:00',
     tournamentType: 'king', // 'king' or 'social'
-    tournamentCourtIds: [] // ملاعب محجوزة لبطولة ملك الملعب أو سوشيال (معرف أو اسم الملعب)
+    tournamentCourtIds: [], // ملاعب محجوزة لبطولة ملك الملعب أو سوشيال (معرف أو اسم الملعب)
+    editingBookingId: null // عند التعديل من تقويم الحجوزات
   })
   const [viewedTournamentBooking, setViewedTournamentBooking] = useState(null) // { id, date, startTime, endTime, tournamentType } - which scheduled tournament is being viewed (shows its tabs)
 
@@ -3622,11 +3623,15 @@ function App({ currentUser }) {
     return ex.some(x => setA.has(String(x).trim()))
   }
 
-  const hasTournamentScheduleConflict = (date, startTime, endTime, courtIds) => {
+  const hasTournamentScheduleConflict = (date, startTime, endTime, courtIds, excludeBookingId = null) => {
     const newStart = timeToMinutes(startTime)
     const newEnd = timeToMinutes(endTime)
     if (newStart >= newEnd) return true
-    const sameDayTournaments = localBookings.filter(b => b.isTournament && b.date === date)
+    const sameDayTournaments = localBookings.filter(b => {
+      if (!b.isTournament || b.date !== date) return false
+      if (excludeBookingId != null && String(b.id) === String(excludeBookingId)) return false
+      return true
+    })
     for (const b of sameDayTournaments) {
       const existingStart = timeToMinutes(b.startTime)
       const existingEnd = timeToMinutes(b.endTime)
@@ -3690,11 +3695,13 @@ function App({ currentUser }) {
         : 'اختر ملعباً واحداً على الأقل. سيتم حجز هذه الملاعب في جدول الحجز العام.')
       return
     }
+    const editId = tournamentBookingData.editingBookingId
     if (hasTournamentScheduleConflict(
       tournamentBookingData.date,
       tournamentBookingData.startTime,
       tournamentBookingData.endTime,
-      needsCourtReservation ? tournamentCourtIds : []
+      needsCourtReservation ? tournamentCourtIds : [],
+      editId
     )) {
       alert(language === 'en'
         ? 'This time overlaps with another scheduled tournament on the same day (same court). Please choose a different time, date, or courts.'
@@ -3713,24 +3720,28 @@ function App({ currentUser }) {
       return
     }
     const isSocial = tournamentType === 'social'
+    const existing = editId ? localBookings.find(b => String(b.id) === String(editId)) : null
     const tournamentBooking = {
-      id: `tournament_${Date.now()}`,
+      ...(existing || {}),
+      id: existing?.id || `tournament_${Date.now()}`,
       date: tournamentBookingData.date,
       startTime: tournamentBookingData.startTime,
       endTime: tournamentBookingData.endTime,
       resource: isSocial ? (language === 'en' ? 'Social Tournament' : 'بطولة سوشيال') : (language === 'en' ? 'King of the Court' : 'ملك الملعب'),
-      amount: '',
-      participants: [],
+      amount: existing?.amount ?? '',
+      participants: existing?.participants ?? [],
       notes: isSocial ? (language === 'en' ? 'Social Tournament' : 'بطولة سوشيال') : (language === 'en' ? 'King of the Court Tournament' : 'بطولة ملك الملعب'),
-      source: 'local',
-      status: 'confirmed',
+      source: existing?.source || 'local',
+      status: existing?.status || 'confirmed',
       isTournament: true,
       tournamentType,
-      tournamentId: currentTournamentId,
+      tournamentId: existing?.tournamentId ?? currentTournamentId,
       ...(needsCourtReservation && tournamentCourtIds.length > 0 ? { tournamentCourtIds } : {})
     }
 
-    const updatedLocalBookings = [...localBookings, tournamentBooking]
+    const updatedLocalBookings = editId
+      ? localBookings.map(b => (String(b.id) === String(editId) ? { ...b, ...tournamentBooking } : b))
+      : [...localBookings, tournamentBooking]
     setLocalBookings(updatedLocalBookings)
     saveBookingsToClub(updatedLocalBookings)
     mergeBookings(updatedLocalBookings, playtomicBookings)
@@ -3741,11 +3752,12 @@ function App({ currentUser }) {
       startTime: currentClub?.settings?.openingTime || '09:00',
       endTime: currentClub?.settings?.closingTime || '18:00',
       tournamentType: activeTab === 'social' ? 'social' : 'king',
-      tournamentCourtIds: (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean)
+      tournamentCourtIds: (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean),
+      editingBookingId: null
     })
-    alert(language === 'en' 
-      ? 'Tournament scheduled successfully! You can schedule more tournaments or start adding teams.'
-      : 'تم جدولة البطولة بنجاح! يمكنك جدولة المزيد من البطولات أو البدء بإضافة الفرق.')
+    alert(language === 'en'
+      ? (editId ? 'Tournament updated successfully.' : 'Tournament scheduled successfully! You can schedule more tournaments or start adding teams.')
+      : (editId ? 'تم تحديث البطولة بنجاح.' : 'تم جدولة البطولة بنجاح! يمكنك جدولة المزيد من البطولات أو البدء بإضافة الفرق.'))
   }
 
   // Handle tournament deletion - delete by booking id (when called from list) or by date+type (legacy)
@@ -4032,13 +4044,31 @@ function App({ currentUser }) {
     })
   }
 
+  const tournamentBookingUsesCourtLabel = (booking, courtLabel) => {
+    if (!booking?.isTournament || !['king', 'social'].includes(booking.tournamentType)) return false
+    const ids = booking.tournamentCourtIds
+    if (!Array.isArray(ids) || ids.length === 0) return false
+    const label = String(courtLabel || '').trim()
+    const norm = (x) => String(x ?? '').trim()
+    return ids.some((tid) => {
+      if (norm(tid) === label) return true
+      const c = (currentClub?.courts || []).find(
+        (co) => norm(co.id) === norm(tid) || norm(co.name) === norm(tid) || norm(co.nameAr) === norm(tid)
+      )
+      if (!c) return false
+      return norm(c.name) === label || norm(c.nameAr) === label
+    })
+  }
+
   const getBookingsForCourtSlot = (court, timeSlot, date) => {
-    // Only return bookings that START at this time slot for the specific court and date
     return bookings.filter(booking => {
       const bookingDate = new Date(booking.date)
       const bookingDay = bookingDate.toISOString().split('T')[0]
-      const selectedDay = date
-      return bookingDay === selectedDay && booking.resource === court && booking.startTime === timeSlot
+      if (bookingDay !== date || booking.startTime !== timeSlot) return false
+      if (booking.isTournament && ['king', 'social'].includes(booking.tournamentType)) {
+        return tournamentBookingUsesCourtLabel(booking, court)
+      }
+      return booking.resource === court
     })
   }
 
@@ -4772,7 +4802,10 @@ function App({ currentUser }) {
         <div
           className="modal-overlay"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setShowTournamentBookingModal(false)
+            if (e.target === e.currentTarget) {
+              setShowTournamentBookingModal(false)
+              setTournamentBookingData(prev => ({ ...prev, editingBookingId: null }))
+            }
           }}
           style={{
             zIndex: 999999,
@@ -4805,8 +4838,12 @@ function App({ currentUser }) {
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '2px solid #eee', paddingBottom: '12px' }}>
-              <h2 style={{ margin: 0, fontSize: '22px', color: '#1e3a5f' }}>{language === 'en' ? 'Schedule Tournament' : 'جدولة البطولة'}</h2>
-              <button type="button" onClick={() => setShowTournamentBookingModal(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', padding: '0 8px' }} aria-label="Close">✕</button>
+              <h2 style={{ margin: 0, fontSize: '22px', color: '#1e3a5f' }}>
+                {tournamentBookingData.editingBookingId
+                  ? (language === 'en' ? 'Edit tournament' : 'تعديل البطولة')
+                  : (language === 'en' ? 'Schedule Tournament' : 'جدولة البطولة')}
+              </h2>
+              <button type="button" onClick={() => { setShowTournamentBookingModal(false); setTournamentBookingData(prev => ({ ...prev, editingBookingId: null })) }} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', padding: '0 8px' }} aria-label="Close">✕</button>
             </div>
             <div className="modal-body">
               <div className="form-group" style={{ marginBottom: '16px' }}>
@@ -4816,7 +4853,7 @@ function App({ currentUser }) {
                   value={tournamentBookingData.date}
                   onChange={(e) => setTournamentBookingData({ ...tournamentBookingData, date: e.target.value })}
                   required
-                  min={new Date().toISOString().split('T')[0]}
+                  min={tournamentBookingData.editingBookingId ? undefined : new Date().toISOString().split('T')[0]}
                   style={{ width: '100%', padding: '10px', border: '2px solid #ddd', borderRadius: '6px', fontSize: '16px' }}
                 />
               </div>
@@ -4886,9 +4923,32 @@ function App({ currentUser }) {
                 </div>
               </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px', paddingTop: '16px', borderTop: '2px solid #eee' }}>
-              <button type="button" className="btn-secondary" onClick={() => setShowTournamentBookingModal(false)}>{t.cancel}</button>
-              <button type="button" className="btn-primary" onClick={handleCreateTournamentBooking}>{language === 'en' ? 'Schedule' : 'جدولة'}</button>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginTop: '20px', paddingTop: '16px', borderTop: '2px solid #eee' }}>
+              <div>
+                {tournamentBookingData.editingBookingId && (
+                  <button
+                    type="button"
+                    className="btn-danger"
+                    onClick={async () => {
+                      const id = tournamentBookingData.editingBookingId
+                      const typ = tournamentBookingData.tournamentType || 'king'
+                      if (!id) return
+                      if (!window.confirm(language === 'en' ? 'Delete this tournament? Team data for this event will be removed.' : 'حذف هذه البطولة؟ ستُزال بيانات الفرق المرتبطة بهذا الحدث.')) return
+                      await handleDeleteTournamentBooking({ id, tournamentType: typ }, typ)
+                      setShowTournamentBookingModal(false)
+                      setTournamentBookingData(prev => ({ ...prev, editingBookingId: null }))
+                    }}
+                  >
+                    {language === 'en' ? 'Delete tournament' : 'حذف البطولة'}
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button type="button" className="btn-secondary" onClick={() => { setShowTournamentBookingModal(false); setTournamentBookingData(prev => ({ ...prev, editingBookingId: null })) }}>{t.cancel}</button>
+                <button type="button" className="btn-primary" onClick={handleCreateTournamentBooking}>
+                  {tournamentBookingData.editingBookingId ? (language === 'en' ? 'Save changes' : 'حفظ التعديلات') : (language === 'en' ? 'Schedule' : 'جدولة')}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -6128,14 +6188,29 @@ function App({ currentUser }) {
                                 const widthPercent = totalBookings > 1 ? (100 / totalBookings) : 100
                                 const leftPercent = totalBookings > 1 ? bookingIdx * widthPercent : 0
                                 
+                                const isTournamentBooking = !!booking.isTournament
+                                const tournamentKind = booking.tournamentType === 'social' ? 'social' : 'king'
                                 return (
                                   <div
                                     key={booking.id}
-                                    className={`booking-event ${totalBookings > 1 ? 'booking-event-multiple' : ''} ${paymentStatus === 'paid' ? 'paid' : paymentStatus === 'partially_paid' ? 'partially-paid' : 'not-paid'}`}
+                                    className={`booking-event ${totalBookings > 1 ? 'booking-event-multiple' : ''} ${isTournamentBooking ? `booking-event--tournament booking-event--tournament-${tournamentKind}` : (paymentStatus === 'paid' ? 'paid' : paymentStatus === 'partially_paid' ? 'partially-paid' : 'not-paid')}`}
                                     onMouseEnter={() => setHoveredBooking(booking.id)}
                                     onMouseLeave={() => setHoveredBooking(null)}
                                     onClick={(e) => {
                                       e.stopPropagation()
+                                      if (booking.isTournament) {
+                                        const courtsDefault = (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean)
+                                        setTournamentBookingData({
+                                          date: (booking.date || '').toString().split('T')[0],
+                                          startTime: booking.startTime || '09:00',
+                                          endTime: booking.endTime || '18:00',
+                                          tournamentType: booking.tournamentType || 'king',
+                                          tournamentCourtIds: Array.isArray(booking.tournamentCourtIds) && booking.tournamentCourtIds.length > 0 ? [...booking.tournamentCourtIds] : courtsDefault,
+                                          editingBookingId: booking.id
+                                        })
+                                        setShowTournamentBookingModal(true)
+                                        return
+                                      }
                                       // If booking doesn't have an ID, assign one immediately
                                       let bookingToEdit = { ...booking, date: booking.date }
                                       if (!booking.id || booking.id <= 0) {
@@ -6161,7 +6236,7 @@ function App({ currentUser }) {
                                       setShowBookingModal(true)
                                     }}
                                     style={{
-                                      backgroundColor: bookingColor,
+                                      ...(!isTournamentBooking ? { backgroundColor: bookingColor } : {}),
                                       position: 'absolute',
                                       top: 0,
                                       left: totalBookings > 1 ? `calc(${leftPercent}% + ${bookingIdx > 0 ? gap : 0}px)` : '2px',
@@ -6170,7 +6245,9 @@ function App({ currentUser }) {
                                       minHeight: '28px',
                                       zIndex: 3 + bookingIdx,
                                       cursor: 'pointer',
-                                      borderLeft: `3px solid ${paymentStatus === 'paid' ? '#28a745' : paymentStatus === 'partially_paid' ? '#ffc107' : '#dc3545'}`,
+                                      ...(!isTournamentBooking ? {
+                                        borderLeft: `3px solid ${paymentStatus === 'paid' ? '#28a745' : paymentStatus === 'partially_paid' ? '#ffc107' : '#dc3545'}`
+                                      } : {}),
                                       borderRight: totalBookings > 1 && bookingIdx < totalBookings - 1 ? '1px solid rgba(0,0,0,0.1)' : 'none',
                                       boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
                                       borderRadius: totalBookings > 1 
@@ -6178,9 +6255,14 @@ function App({ currentUser }) {
                                         : '4px'
                                     }}
                                   >
+                                      {!isTournamentBooking && (
                                       <div className="booking-status-badge">
                                         {paymentStatus === 'paid' ? '✓' : paymentStatus === 'partially_paid' ? '⚠' : '✗'}
                                       </div>
+                                      )}
+                                      {isTournamentBooking && (
+                                        <div className="booking-tournament-badge" aria-hidden="true">{booking.tournamentType === 'social' ? '👥' : '🏆'}</div>
+                                      )}
                                       {(booking.source === 'playtomic' || booking.id?.toString().startsWith('playtomic_')) && (
                                         <div style={{ 
                                           position: 'absolute', 
@@ -6416,21 +6498,34 @@ function App({ currentUser }) {
                                   const bookingHeight = getBookingMinHeight(booking, baseHeight)
                                   const paymentStatus = getPaymentStatus(booking)
                                   const bookingColor = getBookingColor(booking)
+                                  const isTournamentBooking = !!booking.isTournament
+                                  const tournamentKind = booking.tournamentType === 'social' ? 'social' : 'king'
                                   return (
                                     <div
                                       key={booking.id}
-                                      className={`booking-event ${paymentStatus === 'paid' ? 'paid' : paymentStatus === 'partially_paid' ? 'partially-paid' : 'not-paid'}`}
+                                      className={`booking-event ${isTournamentBooking ? `booking-event--tournament booking-event--tournament-${tournamentKind}` : (paymentStatus === 'paid' ? 'paid' : paymentStatus === 'partially_paid' ? 'partially-paid' : 'not-paid')}`}
                                       onMouseEnter={() => setHoveredBooking(booking.id)}
                                       onMouseLeave={() => setHoveredBooking(null)}
                                       onClick={(e) => {
                                         e.stopPropagation()
-                                        // If booking doesn't have an ID, assign one immediately
+                                        if (booking.isTournament) {
+                                          const courtsDefault = (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean)
+                                          setTournamentBookingData({
+                                            date: (booking.date || '').toString().split('T')[0],
+                                            startTime: booking.startTime || '09:00',
+                                            endTime: booking.endTime || '18:00',
+                                            tournamentType: booking.tournamentType || 'king',
+                                            tournamentCourtIds: Array.isArray(booking.tournamentCourtIds) && booking.tournamentCourtIds.length > 0 ? [...booking.tournamentCourtIds] : courtsDefault,
+                                            editingBookingId: booking.id
+                                          })
+                                          setShowTournamentBookingModal(true)
+                                          return
+                                        }
                                         let bookingToEdit = { ...booking, date: booking.date }
                                         if (!booking.id || booking.id <= 0) {
                                           const existingIds = bookings.filter(b => b.id != null && b.id > 0).map(b => b.id)
                                           const newId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1
                                           bookingToEdit.id = newId
-                                          // Update the booking in the array with the new ID
                                           const updatedBookings = bookings.map(b => 
                                             (b.date === booking.date && 
                                              b.startTime === booking.startTime && 
@@ -6449,7 +6544,7 @@ function App({ currentUser }) {
                                         setShowBookingModal(true)
                                       }}
                                       style={{
-                                        backgroundColor: bookingColor,
+                                        ...(!isTournamentBooking ? { backgroundColor: bookingColor } : {}),
                                         position: 'absolute',
                                         top: 0,
                                         left: '2px',
@@ -6460,9 +6555,14 @@ function App({ currentUser }) {
                                         cursor: 'pointer'
                                       }}
                                     >
+                                      {!isTournamentBooking && (
                                       <div className="booking-status-badge">
                                         {paymentStatus === 'paid' ? '✓' : paymentStatus === 'partially_paid' ? '⚠' : '✗'}
                                       </div>
+                                      )}
+                                      {isTournamentBooking && (
+                                        <div className="booking-tournament-badge" aria-hidden="true">{booking.tournamentType === 'social' ? '👥' : '🏆'}</div>
+                                      )}
                                       {(booking.source === 'playtomic' || booking.id?.toString().startsWith('playtomic_')) && (
                                         <div style={{ 
                                           position: 'absolute', 
@@ -6492,6 +6592,12 @@ function App({ currentUser }) {
                                               ))}
                                             </div>
                                           </div>
+                                        ) : booking.isTournament ? (
+                                          <span style={{ fontWeight: 700, fontSize: '11px' }}>
+                                            {booking.tournamentType === 'social'
+                                              ? (language === 'en' ? 'Social' : 'سوشيال')
+                                              : (language === 'en' ? 'King' : 'ملك الملعب')}
+                                          </span>
                                         ) : (
                                           new Date(booking.date).toLocaleDateString(language === 'en' ? 'en-US' : 'ar-SA', { month: 'short', day: 'numeric' })
                                         )}
@@ -6499,9 +6605,14 @@ function App({ currentUser }) {
                                       {hoveredBooking === booking.id && (
                                         <div className="booking-tooltip">
                                           <div style={{ marginBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '6px' }}>
-                                            <div><strong>{booking.resource}</strong></div>
+                                            <div><strong>{booking.isTournament ? (booking.tournamentType === 'social' ? (language === 'en' ? 'Social tournament' : 'بطولة سوشيال') : (language === 'en' ? 'King of the Court' : 'ملك الملعب')) : booking.resource}</strong></div>
                                             <div style={{ fontSize: '11px', marginTop: '2px' }}>{booking.startTime} - {booking.endTime}</div>
                                             <div style={{ fontSize: '11px', marginTop: '2px' }}>{new Date(booking.date).toLocaleDateString()}</div>
+                                            {booking.isTournament && Array.isArray(booking.tournamentCourtIds) && booking.tournamentCourtIds.length > 0 && (
+                                              <div style={{ fontSize: '10px', marginTop: '6px', opacity: 0.95 }}>
+                                                {language === 'en' ? 'Courts:' : 'الملاعب:'} {booking.tournamentCourtIds.length}
+                                              </div>
+                                            )}
                                           </div>
                                           {(booking.participants?.length || 0) > 0 && (
                                             <div style={{ marginBottom: '8px' }}>
@@ -6796,7 +6907,8 @@ function App({ currentUser }) {
                       startTime: currentClub?.settings?.openingTime || '09:00',
                       endTime: currentClub?.settings?.closingTime || '18:00',
                       tournamentType: 'king',
-                      tournamentCourtIds: (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean)
+                      tournamentCourtIds: (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean),
+                      editingBookingId: null
                     })
                     setShowTournamentBookingModal(true)
                   }}
@@ -6896,7 +7008,8 @@ function App({ currentUser }) {
                       startTime: currentClub?.settings?.openingTime || '09:00',
                       endTime: currentClub?.settings?.closingTime || '18:00',
                       tournamentType: 'social',
-                      tournamentCourtIds: (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean)
+                      tournamentCourtIds: (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean),
+                      editingBookingId: null
                     })
                     setShowTournamentBookingModal(true)
                   }}
@@ -8543,6 +8656,10 @@ function BookingFormModal({ bookingData, members, courts: courtsProp, clubOpenin
     { value: 'cash', label: translations.cash },
     { value: 'card', label: language === 'en' ? 'Card' : 'بطاقة'}
   ]
+
+  if (bookingData?.isTournament) {
+    return null
+  }
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
