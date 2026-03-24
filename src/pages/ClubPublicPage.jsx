@@ -15,7 +15,7 @@ import BookingCountdownCard from '../components/BookingCountdownCard'
 import BookingPaymentShare from '../components/BookingPaymentShare'
 import BookingDetailModal from '../components/BookingDetailModal'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
-import { isTournamentWithoutMembers } from '../utils/tournamentHelpers'
+import { isTournamentWithoutMembers, kingTournamentReservesCourt, kingTournamentReservesCourtIds } from '../utils/tournamentHelpers'
 import './ClubPublicPage.css'
 import '../components/BookingPaymentShare.css'
 
@@ -90,7 +90,17 @@ const getBlockedRangesForCourtAndDate = (courtNameOrId, dateStr, bookings, activ
     if (endM > startM) ranges.push({ startM, endM })
   }
   ;(bookings || []).forEach(b => {
-    if (b.isTournament) return
+    if (b.isTournament) {
+      if (b.tournamentType !== 'king' || !kingTournamentReservesCourtIds(courtIds, b)) return
+      if (['cancelled', 'expired'].includes((b.status || '').toString())) return
+      const bDate = (b.date || b.startDate || '').toString().split('T')[0]
+      if (bDate !== dateStr) return
+      const start = (b.startTime || b.timeSlot || '').toString().trim()
+      let end = (b.endTime || '').toString().trim()
+      if (!end && start) end = addMinutesToTime(start, 60)
+      push(start, end, true)
+      return
+    }
     if (['cancelled', 'expired'].includes((b.status || '').toString())) return
     const bDate = (b.date || b.startDate || '').toString().split('T')[0]
     if (bDate !== dateStr) return
@@ -476,8 +486,7 @@ const ClubPublicPage = () => {
       return fromSettings.length > 0 ? fromSettings : [{ durationMinutes: min, price: 0 }]
     }
     const court = bookingModal.court
-    const courtId = (court?.name || court?.id || '').toString()
-    const blocked = getBlockedRangesForCourtAndDate(courtId, bookingModal.dateStr, bookings, activeLocks, activeLock?.lockId || null, club?.settings?.preparationTimeMinutes ?? 0)
+    const blocked = getBlockedRangesForCourtAndDate(court, bookingModal.dateStr, bookings, activeLocks, activeLock?.lockId || null, club?.settings?.preparationTimeMinutes ?? 0)
     const closing = club?.settings?.closingTime || '23:00'
     const availableSet = new Set(getAvailableDurations(min, bookingModal.startTime, closing, blocked))
     const filtered = fromSettings.filter(d => availableSet.has(d.durationMinutes))
@@ -511,8 +520,7 @@ const ClubPublicPage = () => {
     const durationPrices = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
     let configured = (durationPrices || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
     if (configured.length === 0) configured = [minDur]
-    const courtId = (court?.name || court?.id || '').toString()
-    const blocked = getBlockedRangesForCourtAndDate(courtId, dateStr, bookings, activeLocks, null, club?.settings?.preparationTimeMinutes ?? 0)
+    const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, club?.settings?.preparationTimeMinutes ?? 0)
     const closing = club?.settings?.closingTime || '23:00'
     const available = getAvailableDurations(minDur, startTime, closing, blocked)
     const availableSet = new Set(available)
@@ -538,8 +546,7 @@ const ClubPublicPage = () => {
     const durationPrices = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
     let configured = (durationPrices || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
     if (configured.length === 0) configured = [minDur]
-    const courtId = (court?.name || court?.id || '').toString()
-    const blocked = getBlockedRangesForCourtAndDate(courtId, dateStr, bookings, activeLocks, null, club?.settings?.preparationTimeMinutes ?? 0)
+    const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, club?.settings?.preparationTimeMinutes ?? 0)
     const closing = club?.settings?.closingTime || '23:00'
     const available = getAvailableDurations(minDur, startTime, closing, blocked)
     const availableSet = new Set(available)
@@ -551,6 +558,7 @@ const ClubPublicPage = () => {
     const lockDur = Math.max(...allowed)
     const endTime = addMinutesToTime(startTime, lockDur)
     const lockMinutes = club?.settings?.lockMinutes ?? 10
+    const courtId = (court?.id || court?.name || '').toString()
     try {
       const result = await bookingApi.acquireBookingLock({
         clubId,
@@ -608,8 +616,7 @@ const ClubPublicPage = () => {
       handleSlotClick(court, dateStr, startSlot, null)
       return
     }
-    const courtId = (court?.id || court?.name || '').toString()
-    const blocked = getBlockedRangesForCourtAndDate(court || courtId, dateStr, bookings, activeLocks, null, club?.settings?.preparationTimeMinutes ?? 0)
+    const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, club?.settings?.preparationTimeMinutes ?? 0)
     const closing = club?.settings?.closingTime || '23:00'
     const maxCap = maxBookingDuration
     const available = getAvailableDurations(club?.settings?.bookingDuration ?? 60, startSlot, closing, blocked, maxCap)
@@ -937,6 +944,7 @@ const ClubPublicPage = () => {
       selectDate: 'Select date',
       available: 'Available',
       booked: 'Booked',
+      tournamentBooked: 'Tournament (King of the Court)',
       bookNow: 'Book now',
       bookingPrice: 'Price',
       confirmBooking: 'Confirm booking',
@@ -1022,6 +1030,7 @@ const ClubPublicPage = () => {
       selectDate: 'اختر التاريخ',
       available: 'متاح',
       booked: 'محجوز',
+      tournamentBooked: 'بطولة (ملك الملعب)',
       bookNow: 'احجز الآن',
       bookingPrice: 'السعر',
       confirmBooking: 'تأكيد الحجز',
@@ -1386,8 +1395,7 @@ const ClubPublicPage = () => {
                       <div key={t} className="club-public-court-grid-time-header">{t}</div>
                     ))}
                     {courts.map(court => {
-                      const courtIdForBlocked = (court.id || court.name || '').toString()
-                      const blockedForCourt = getBlockedRangesForCourtAndDate(courtIdForBlocked, courtGridDate, bookings, activeLocks, null, club?.settings?.preparationTimeMinutes ?? 0)
+                      const blockedForCourt = getBlockedRangesForCourtAndDate(court, courtGridDate, bookings, activeLocks, null, club?.settings?.preparationTimeMinutes ?? 0)
                       return (
                       <React.Fragment key={court.id}>
                         <div className="club-public-court-grid-court-name">
@@ -1398,13 +1406,16 @@ const ClubPublicPage = () => {
                           const courtIdForMatch = (court.id || court.name || '').toString()
                           const dateStr = courtGridDate
                           const bookedItem = bookings.find(b => {
-                            if (b.isTournament) return false
                             const status = (b.status || '').toString()
                             if (['cancelled', 'expired'].includes(status)) return false
                             const bDate = (b.date || b.startDate || '').toString().split('T')[0]
                             if (bDate !== dateStr) return false
-                            const res = (b.resource || b.court || b.courtId || '').toString().trim()
-                            if (res !== courtName && res !== courtIdForMatch) return false
+                            if (b.isTournament) {
+                              if (!kingTournamentReservesCourt(court, b)) return false
+                            } else {
+                              const res = (b.resource || b.court || b.courtId || '').toString().trim()
+                              if (res !== courtName && res !== courtIdForMatch) return false
+                            }
                             const start = (b.startTime || b.timeSlot || '').toString().trim()
                             let end = (b.endTime || '').toString().trim()
                             if (!end && start) {
@@ -1415,7 +1426,8 @@ const ClubPublicPage = () => {
                             return isTimeSlotCoveredByBooking(timeSlot, start, end || start)
                           })
                           const isBooked = !!bookedItem
-                          const isTraining = isBooked && (bookedItem?.type === 'training' || bookedItem?.data?.type === 'training')
+                          const isTournamentBlock = isBooked && bookedItem?.isTournament && bookedItem?.tournamentType === 'king'
+                          const isTraining = isBooked && !isTournamentBlock && (bookedItem?.type === 'training' || bookedItem?.data?.type === 'training')
                           const isLocked = activeLocks.some(l => {
                             const lCourt = (l.court_id || '').toString()
                             if (lCourt !== courtName && lCourt !== courtIdForMatch) return false
@@ -1448,8 +1460,8 @@ const ClubPublicPage = () => {
                           const slotM = timeToMinutes(timeSlot)
                           const isInPreparation = !isBooked && !isLocked && overlapsAny(slotM, slotM + slotStepMinutes, blockedForCourt)
                           const canBook = !isBooked && !isInPreparation && !isPast && (hasDuration || isMyLock) && isMember && platformUser && (!isLocked || isMyLock)
-                          const cellStatus = isLocked ? 'in-progress' : isBooked ? (isTraining ? (canJoinTraining ? 'booked training joinable' : 'booked training') : 'booked') : isInPreparation ? 'preparation' : isPast ? 'past' : 'available'
-                          const slotTitle = isMyLock ? (language === 'en' ? 'Complete your booking' : 'أكمل حجزك') : isLocked ? (language === 'en' ? 'In progress' : 'قيد الإجراء') : canJoinTraining ? (language === 'en' ? 'Join training' : 'انضم للتدريب') : isBooked ? (c.booked || 'Booked') : isInPreparation ? (language === 'en' ? 'Preparation time' : 'وقت الاستعداد') : isPast ? (language === 'en' ? 'Past' : 'منتهي') : canBook ? (c.bookNow || 'Book now') : (c.available || 'Available')
+                          const cellStatus = isLocked ? 'in-progress' : isBooked ? (isTournamentBlock ? 'booked tournament' : isTraining ? (canJoinTraining ? 'booked training joinable' : 'booked training') : 'booked') : isInPreparation ? 'preparation' : isPast ? 'past' : 'available'
+                          const slotTitle = isMyLock ? (language === 'en' ? 'Complete your booking' : 'أكمل حجزك') : isLocked ? (language === 'en' ? 'In progress' : 'قيد الإجراء') : canJoinTraining ? (language === 'en' ? 'Join training' : 'انضم للتدريب') : isTournamentBlock ? (c.tournamentBooked || 'Tournament') : isBooked ? (c.booked || 'Booked') : isInPreparation ? (language === 'en' ? 'Preparation time' : 'وقت الاستعداد') : isPast ? (language === 'en' ? 'Past' : 'منتهي') : canBook ? (c.bookNow || 'Book now') : (c.available || 'Available')
                           const isCellClickable = canBook || canJoinTraining
                           const canBookForRange = canBook && !isMyLock && !canJoinTraining
                           const isInRange = hoveredRange && hoveredRange.courtId === (court.id || court.name || '').toString() && (() => {

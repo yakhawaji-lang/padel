@@ -67,7 +67,8 @@ function App({ currentUser }) {
     date: '',
     startTime: '09:00',
     endTime: '18:00',
-    tournamentType: 'king' // 'king' or 'social'
+    tournamentType: 'king', // 'king' or 'social'
+    tournamentCourtIds: [] // ملاعب محجوزة لبطولة ملك الملعب (معرف أو اسم الملعب)
   })
   const [viewedTournamentBooking, setViewedTournamentBooking] = useState(null) // { id, date, startTime, endTime, tournamentType } - which scheduled tournament is being viewed (shows its tabs)
 
@@ -3609,19 +3610,48 @@ function App({ currentUser }) {
     return (h || 0) * 60 + (m || 0)
   }
 
-  // التحقق من تداخل وقت البطولة الجديدة مع أي بطولة مجدولة في نفس اليوم
-  const hasTournamentTimeOverlap = (date, startTime, endTime) => {
+  /** تداخل زمني + نفس الملاعب (أو حجز قديم بلا قائمة ملاعب = يُعامل كتعارض مع الجميع) */
+  const tournamentsShareCourtsOrLegacy = (newCourtIds, existing) => {
+    const ex = existing?.tournamentCourtIds
+    const nw = newCourtIds || []
+    const hasEx = Array.isArray(ex) && ex.length > 0
+    const hasNw = Array.isArray(nw) && nw.length > 0
+    if (!hasEx && !hasNw) return true
+    if (!hasEx || !hasNw) return true
+    const setA = new Set(nw.map(x => String(x).trim()))
+    return ex.some(x => setA.has(String(x).trim()))
+  }
+
+  const hasTournamentScheduleConflict = (date, startTime, endTime, courtIds) => {
     const newStart = timeToMinutes(startTime)
     const newEnd = timeToMinutes(endTime)
-    if (newStart >= newEnd) return true // وقت غير صالح
-    const sameDayTournaments = localBookings.filter(
-      b => b.isTournament && b.date === date
-    )
+    if (newStart >= newEnd) return true
+    const sameDayTournaments = localBookings.filter(b => b.isTournament && b.date === date)
     for (const b of sameDayTournaments) {
       const existingStart = timeToMinutes(b.startTime)
       const existingEnd = timeToMinutes(b.endTime)
-      // تداخل: الفترتان تتقاطعان إذا newStart < existingEnd && existingStart < newEnd
-      if (newStart < existingEnd && existingStart < newEnd) return true
+      if (newStart >= existingEnd || existingStart >= newEnd) continue
+      if (tournamentsShareCourtsOrLegacy(courtIds, b)) return true
+    }
+    return false
+  }
+
+  const hasRegularBookingConflictWithCourts = (date, startTime, endTime, courtIds) => {
+    const newStart = timeToMinutes(startTime)
+    const newEnd = timeToMinutes(endTime)
+    if (!courtIds || courtIds.length === 0) return false
+    const setCourts = new Set(courtIds.map(x => String(x).trim()))
+    for (const b of localBookings) {
+      if (b.isTournament) continue
+      if (['cancelled', 'expired'].includes((b.status || '').toString())) continue
+      const bDate = (b.date || b.startDate || '').toString().split('T')[0]
+      if (bDate !== date) continue
+      const res = (b.resource || b.court || b.courtId || '').toString().trim()
+      if (!setCourts.has(res)) continue
+      const bs = timeToMinutes(b.startTime || b.timeSlot)
+      let be = timeToMinutes(b.endTime)
+      if ((!b.endTime || be <= bs) && b.startTime) be = bs + 60
+      if (newStart < be && bs < newEnd) return true
     }
     return false
   }
@@ -3649,13 +3679,38 @@ function App({ currentUser }) {
         return
       }
     }
-    if (hasTournamentTimeOverlap(tournamentBookingData.date, tournamentBookingData.startTime, tournamentBookingData.endTime)) {
+    const tournamentType = tournamentBookingData.tournamentType || 'king'
+    const kingCourtIds = tournamentType === 'king'
+      ? (tournamentBookingData.tournamentCourtIds || []).map(x => String(x).trim()).filter(Boolean)
+      : []
+    if (tournamentType === 'king' && kingCourtIds.length === 0) {
       alert(language === 'en'
-        ? 'This time overlaps with another scheduled tournament on the same day. Please choose a different time or date.'
-        : 'هذا الوقت يتداخل مع بطولة مجدولة أخرى في نفس اليوم. اختر وقتاً أو تاريخاً مختلفاً.')
+        ? 'Select at least one court for the tournament. Those courts will be blocked on the public schedule.'
+        : 'اختر ملعباً واحداً على الأقل. سيتم حجز هذه الملاعب في جدول الحجز العام.')
       return
     }
-    const tournamentType = tournamentBookingData.tournamentType || 'king'
+    if (hasTournamentScheduleConflict(
+      tournamentBookingData.date,
+      tournamentBookingData.startTime,
+      tournamentBookingData.endTime,
+      tournamentType === 'king' ? kingCourtIds : []
+    )) {
+      alert(language === 'en'
+        ? 'This time overlaps with another scheduled tournament on the same day (same court). Please choose a different time, date, or courts.'
+        : 'هذا الوقت يتداخل مع بطولة أخرى على نفس الملاعب. اختر وقتاً أو ملاعب مختلفة.')
+      return
+    }
+    if (tournamentType === 'king' && hasRegularBookingConflictWithCourts(
+      tournamentBookingData.date,
+      tournamentBookingData.startTime,
+      tournamentBookingData.endTime,
+      kingCourtIds
+    )) {
+      alert(language === 'en'
+        ? 'One or more selected courts already have a booking at this time.'
+        : 'أحد الملاعب المختارة محجوز في هذا الوقت.')
+      return
+    }
     const isSocial = tournamentType === 'social'
     const tournamentBooking = {
       id: `tournament_${Date.now()}`,
@@ -3670,7 +3725,8 @@ function App({ currentUser }) {
       status: 'confirmed',
       isTournament: true,
       tournamentType,
-      tournamentId: currentTournamentId
+      tournamentId: currentTournamentId,
+      ...(tournamentType === 'king' && kingCourtIds.length > 0 ? { tournamentCourtIds: kingCourtIds } : {})
     }
 
     const updatedLocalBookings = [...localBookings, tournamentBooking]
@@ -3683,7 +3739,8 @@ function App({ currentUser }) {
       date: today,
       startTime: currentClub?.settings?.openingTime || '09:00',
       endTime: currentClub?.settings?.closingTime || '18:00',
-      tournamentType: activeTab === 'social' ? 'social' : 'king'
+      tournamentType: activeTab === 'social' ? 'social' : 'king',
+      tournamentCourtIds: activeTab === 'social' ? [] : (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean)
     })
     alert(language === 'en' 
       ? 'Tournament scheduled successfully! You can schedule more tournaments or start adding teams.'
@@ -4786,6 +4843,40 @@ function App({ currentUser }) {
                   style={{ width: '100%', padding: '10px', border: '2px solid #ddd', borderRadius: '6px', fontSize: '16px' }}
                 />
               </div>
+              {tournamentBookingData.tournamentType === 'king' && (currentClub?.courts || []).filter(c => !c.maintenance).length > 0 && (
+                <div className="form-group" style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
+                    {language === 'en' ? 'Courts reserved for this tournament (blocked on public booking)' : 'الملاعب المحجوزة للبطولة (غير متاحة للحجز العام)'} *
+                  </label>
+                  <p style={{ margin: '0 0 10px', fontSize: '13px', color: '#64748b' }}>
+                    {language === 'en'
+                      ? 'These courts will show as unavailable during the tournament time on the club page.'
+                      : 'ستظهر هذه الملاعب غير متاحة خلال وقت البطولة في صفحة النادي.'}
+                  </p>
+                  {(currentClub.courts || []).filter(c => !c.maintenance).map(court => {
+                    const key = (court.id != null && court.id !== '') ? String(court.id) : String(court.name || '')
+                    if (!key) return null
+                    const checked = (tournamentBookingData.tournamentCourtIds || []).includes(key)
+                    return (
+                      <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', cursor: 'pointer', fontWeight: '500' }}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setTournamentBookingData(prev => {
+                              const cur = new Set(prev.tournamentCourtIds || [])
+                              if (cur.has(key)) cur.delete(key)
+                              else cur.add(key)
+                              return { ...prev, tournamentCourtIds: [...cur] }
+                            })
+                          }}
+                        />
+                        <span>{language === 'ar' && court.nameAr ? court.nameAr : (court.name || key)}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
               {/* نوع البطولة ثابت حسب التبويب (ملك الملعب أو بطولة سوشيال) */}
               <div className="form-group" style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600' }}>{language === 'en' ? 'Tournament Type' : 'نوع البطولة'}</label>
@@ -6703,7 +6794,8 @@ function App({ currentUser }) {
                       date: today,
                       startTime: currentClub?.settings?.openingTime || '09:00',
                       endTime: currentClub?.settings?.closingTime || '18:00',
-                      tournamentType: 'king'
+                      tournamentType: 'king',
+                      tournamentCourtIds: (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean)
                     })
                     setShowTournamentBookingModal(true)
                   }}
@@ -6802,7 +6894,8 @@ function App({ currentUser }) {
                       date: today,
                       startTime: currentClub?.settings?.openingTime || '09:00',
                       endTime: currentClub?.settings?.closingTime || '18:00',
-                      tournamentType: 'social'
+                      tournamentType: 'social',
+                      tournamentCourtIds: []
                     })
                     setShowTournamentBookingModal(true)
                   }}
