@@ -1,6 +1,8 @@
 // Admin Storage - Multi-club management
 // All data from u502561206_padel_db via API only - no localStorage
 
+import { isMemberInTournamentBooking } from '../utils/tournamentHelpers.js'
+
 const USE_POSTGRES = true // Keep for compatibility in saveClubs etc
 
 const ADMIN_STORAGE_KEYS = {
@@ -752,10 +754,13 @@ export function getMemberBookings(memberId) {
   clubs.forEach(club => {
     const list = club?.bookings && Array.isArray(club.bookings) ? club.bookings : []
     list.forEach(b => {
-      if (b.isTournament) return
-      const isInitiator = String(b.memberId || b.initiatorMemberId || b.member_id || '') === memberIdStr
-      const isParticipant = Array.isArray(b.paymentShares) && b.paymentShares.some(s => String(s.memberId || '') === memberIdStr)
-      if (!isInitiator && !isParticipant) return
+      if (b.isTournament) {
+        if (!isMemberInTournamentBooking(club, b, memberIdStr)) return
+      } else {
+        const isInitiator = String(b.memberId || b.initiatorMemberId || b.member_id || '') === memberIdStr
+        const isParticipant = Array.isArray(b.paymentShares) && b.paymentShares.some(s => String(s.memberId || '') === memberIdStr)
+        if (!isInitiator && !isParticipant) return
+      }
       const rawDate = b.date || b.startDate || ''
       const dateStr = typeof rawDate === 'string'
         ? rawDate.split('T')[0]

@@ -15,6 +15,7 @@ import BookingCountdownCard from '../components/BookingCountdownCard'
 import BookingPaymentShare from '../components/BookingPaymentShare'
 import BookingDetailModal from '../components/BookingDetailModal'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
+import { isTournamentWithoutMembers } from '../utils/tournamentHelpers'
 import './ClubPublicPage.css'
 import '../components/BookingPaymentShare.css'
 
@@ -387,6 +388,16 @@ const ClubPublicPage = () => {
       .sort((a, b) => a.dateStr.localeCompare(b.dateStr) || (a.startTime || '').localeCompare(b.startTime || ''))
       .slice(0, 20),
     [tournamentBookings, today]
+  )
+
+  const futureTournamentsUnassigned = useMemo(() =>
+    futureTournaments.filter(b => isTournamentWithoutMembers(club, b)),
+    [futureTournaments, club?.tournamentData, club?.id]
+  )
+
+  const futureTournamentsWithMembers = useMemo(() =>
+    futureTournaments.filter(b => !isTournamentWithoutMembers(club, b)),
+    [futureTournaments, club?.tournamentData, club?.id]
   )
 
   const storeCategories = useMemo(() => {
@@ -908,6 +919,9 @@ const ClubPublicPage = () => {
       currentTournamentsEmpty: 'No tournaments scheduled for today.',
       futureTournaments: 'Upcoming tournaments',
       futureTournamentsEmpty: 'No upcoming tournaments scheduled.',
+      futureTournamentsOpen: 'Upcoming — open registration',
+      futureTournamentsOpenHint: 'No members assigned to teams yet.',
+      futureTournamentsWithTeams: 'Upcoming — teams registered',
       kingOfCourt: 'King of the Court',
       socialTournament: 'Social Tournament',
       validUntil: 'Valid until',
@@ -990,6 +1004,9 @@ const ClubPublicPage = () => {
       currentTournamentsEmpty: 'لا توجد بطولات مجدولة لليوم.',
       futureTournaments: 'البطولات المجدولة القادمة',
       futureTournamentsEmpty: 'لا توجد بطولات مجدولة قادمة.',
+      futureTournamentsOpen: 'قادمة — التسجيل مفتوح',
+      futureTournamentsOpenHint: 'لم يُعيَّن أعضاء في الفرق بعد.',
+      futureTournamentsWithTeams: 'قادمة — فرق مسجّلة',
       kingOfCourt: 'ملك الملعب',
       socialTournament: 'بطولة سوشيال',
       validUntil: 'صالح حتى',
@@ -1991,25 +2008,50 @@ const ClubPublicPage = () => {
             {futureTournaments.length === 0 ? (
               <p className="club-public-no-data">{c.futureTournamentsEmpty}</p>
             ) : (
-              <div className="club-public-table-wrap">
-                <table className="club-public-table">
-                  <thead>
-                    <tr>
-                      <th>{c.date}</th>
-                      <th>{c.time}</th>
-                      <th>{language === 'en' ? 'Type' : 'النوع'}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {futureTournaments.map((b, i) => (
-                      <tr key={b.id || i}>
-                        <td>{formatDate(b.dateStr)}</td>
-                        <td>{b.startTime} – {b.endTime}</td>
-                        <td>{tournamentTypeName(b.tournamentType)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="club-public-future-tournaments-blocks">
+                {futureTournamentsUnassigned.length > 0 && (
+                  <div className="club-public-tournaments-open-block">
+                    <h3 className="club-public-subsection-heading">{c.futureTournamentsOpen}</h3>
+                    <p className="club-public-tournaments-open-hint">{c.futureTournamentsOpenHint}</p>
+                    <div className="club-public-tournaments-grid club-public-tournaments-grid--open">
+                      {futureTournamentsUnassigned.map((b, i) => (
+                        <div key={b.id || `open-${i}`} className="club-public-tournament-card club-public-tournament-card--open">
+                          <span className="tournament-type">{tournamentTypeName(b.tournamentType)}</span>
+                          <span className="tournament-date">{formatDate(b.dateStr)}</span>
+                          <span className="tournament-time">{b.startTime} – {b.endTime}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {futureTournamentsWithMembers.length > 0 && (
+                  <div className="club-public-tournaments-scheduled-block">
+                    <h3 className="club-public-subsection-heading">{c.futureTournamentsWithTeams}</h3>
+                    <div className="club-public-table-wrap">
+                      <table className="club-public-table">
+                        <thead>
+                          <tr>
+                            <th>{c.date}</th>
+                            <th>{c.time}</th>
+                            <th>{language === 'en' ? 'Type' : 'النوع'}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {futureTournamentsWithMembers.map((b, i) => (
+                            <tr key={b.id || i}>
+                              <td>{formatDate(b.dateStr)}</td>
+                              <td>{b.startTime} – {b.endTime}</td>
+                              <td>{tournamentTypeName(b.tournamentType)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                {futureTournamentsUnassigned.length === 0 && futureTournamentsWithMembers.length === 0 && (
+                  <p className="club-public-no-data">{c.futureTournamentsEmpty}</p>
+                )}
               </div>
             )}
           </div>

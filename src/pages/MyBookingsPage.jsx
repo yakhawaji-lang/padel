@@ -11,17 +11,20 @@ import './MyBookingsPage.css'
 function getBookingDisplayProps({ booking, club }, language) {
   const dateStr = booking.dateStr || booking.date || (booking.startDate && (typeof booking.startDate === 'string' ? booking.startDate : booking.startDate.toISOString?.()?.split('T')[0])) || ''
   const timeStr = (booking.startTime || booking.timeSlot || '') + (booking.endTime ? ` – ${booking.endTime}` : '')
-  const courtName = booking.resource || booking.courtName || booking.court || (Array.isArray(club?.courts) && booking.courtId && club.courts.find(c => String(c.id) === String(booking.courtId))?.name) || booking.courtId || '—'
-  const priceVal = booking.price != null ? booking.price : (booking.totalAmount != null && booking.totalAmount !== 0 ? booking.totalAmount : null)
+  const isTournament = booking?.isTournament === true
+  const courtName = isTournament
+    ? (booking.resource || booking.notes || (language === 'en' ? 'Tournament' : 'بطولة'))
+    : (booking.resource || booking.courtName || booking.court || (Array.isArray(club?.courts) && booking.courtId && club.courts.find(c => String(c.id) === String(booking.courtId))?.name) || booking.courtId || '—')
+  const priceVal = booking.price != null ? booking.price : (booking.totalAmount != null && booking.totalAmount !== '' && booking.totalAmount !== 0 ? booking.totalAmount : null)
   const currencyStr = booking.currency || club?.settings?.currency || 'SAR'
   const clubName = club
     ? (language === 'ar' ? (club.nameAr || club.name) : (club.name || club.nameAr))
     : '—'
   const clubLink = club ? `/clubs/${club.id}` : null
-  const isTraining = booking?.type === 'training' || booking?.data?.type === 'training'
+  const isTraining = !isTournament && (booking?.type === 'training' || booking?.data?.type === 'training')
   const isPaid = ['confirmed'].includes((booking?.status || '').toString())
   const isPendingPayment = ['pending_payment', 'pending_payments', 'partially_paid', 'initiated', 'locked'].includes((booking?.status || '').toString())
-  return { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isPaid, isPendingPayment }
+  return { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isTournament, isPaid, isPendingPayment }
 }
 
 const MyBookingsPage = () => {
@@ -221,6 +224,7 @@ const MyBookingsPage = () => {
       paymentSuccess: 'Payment completed successfully!',
       typeCourt: 'Court',
       typeTraining: 'Training',
+      typeTournament: 'Tournament',
       paidLabel: 'Paid',
       awaitingPayment: 'Awaiting payment'
     },
@@ -257,6 +261,7 @@ const MyBookingsPage = () => {
       paymentSuccess: 'تم الدفع بنجاح!',
       typeCourt: 'ملعب',
       typeTraining: 'حصص تدريب',
+      typeTournament: 'بطولة',
       paidLabel: 'مدفوع',
       awaitingPayment: 'بانتظار الدفع'
     }
@@ -292,7 +297,7 @@ const MyBookingsPage = () => {
   }
 
   const renderBookingRow = ({ booking, club }, i) => {
-    const { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isPaid, isPendingPayment } = getBookingDisplayProps({ booking, club }, language)
+    const { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isTournament, isPaid, isPendingPayment } = getBookingDisplayProps({ booking, club }, language)
     const priceText = priceVal != null ? `${Number(priceVal)} ${currencyStr}` : '—'
     const isUpcoming = filter === 'upcoming'
     const canCancel = isUpcoming && club && !['cancelled', 'expired'].includes((booking.status || '').toString())
@@ -315,6 +320,7 @@ const MyBookingsPage = () => {
       formatDate,
       payOptions,
       isTraining,
+      isTournament,
       isPaid,
       isPendingPayment
     }
@@ -405,12 +411,12 @@ const MyBookingsPage = () => {
                   </thead>
                   <tbody>
                     {rows.map((r) => (
-                      <tr key={r.key} className={`my-bookings-table-row ${r.isTraining ? 'my-bookings-table-row--training' : 'my-bookings-table-row--court'} ${r.isPaid ? 'my-bookings-table-row--paid' : 'my-bookings-table-row--pending'}`}>
+                      <tr key={r.key} className={`my-bookings-table-row ${r.isTournament ? 'my-bookings-table-row--tournament' : r.isTraining ? 'my-bookings-table-row--training' : 'my-bookings-table-row--court'} ${r.isPaid ? 'my-bookings-table-row--paid' : 'my-bookings-table-row--pending'}`}>
                         <td>{r.formatDate(r.dateStr)}</td>
                         <td>{r.timeStr || '—'}</td>
                         <td>
-                          <span className={`my-bookings-type-badge ${r.isTraining ? 'my-bookings-type-badge--training' : 'my-bookings-type-badge--court'}`}>
-                            {r.isTraining ? c.typeTraining : c.typeCourt}
+                          <span className={`my-bookings-type-badge ${r.isTournament ? 'my-bookings-type-badge--tournament' : r.isTraining ? 'my-bookings-type-badge--training' : 'my-bookings-type-badge--court'}`}>
+                            {r.isTournament ? c.typeTournament : r.isTraining ? c.typeTraining : c.typeCourt}
                           </span>
                           {r.courtName}
                         </td>
@@ -552,7 +558,7 @@ const MyBookingsPage = () => {
               {rows.map((r) => (
                 <article
                   key={r.key}
-                  className={`my-bookings-card my-bookings-card-clickable ${r.isTraining ? 'my-bookings-card--training' : 'my-bookings-card--court'} ${r.isPaid ? 'my-bookings-card--paid' : 'my-bookings-card--pending'}`}
+                  className={`my-bookings-card my-bookings-card-clickable ${r.isTournament ? 'my-bookings-card--tournament' : r.isTraining ? 'my-bookings-card--training' : 'my-bookings-card--court'} ${r.isPaid ? 'my-bookings-card--paid' : 'my-bookings-card--pending'}`}
                   role="button"
                   tabIndex={0}
                   onClick={() => setDetailRow(r)}
@@ -560,8 +566,8 @@ const MyBookingsPage = () => {
                 >
                   <div className="my-bookings-card-main">
                     <div className="my-bookings-card-badges">
-                      <span className={`my-bookings-type-badge ${r.isTraining ? 'my-bookings-type-badge--training' : 'my-bookings-type-badge--court'}`}>
-                        {r.isTraining ? c.typeTraining : c.typeCourt}
+                      <span className={`my-bookings-type-badge ${r.isTournament ? 'my-bookings-type-badge--tournament' : r.isTraining ? 'my-bookings-type-badge--training' : 'my-bookings-type-badge--court'}`}>
+                        {r.isTournament ? c.typeTournament : r.isTraining ? c.typeTraining : c.typeCourt}
                       </span>
                       <span className={`my-bookings-payment-badge ${r.isPaid ? 'my-bookings-payment-badge--paid' : 'my-bookings-payment-badge--pending'}`}>
                         {r.isPaid ? c.paidLabel : c.awaitingPayment}

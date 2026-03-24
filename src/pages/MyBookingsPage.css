@@ -375,6 +375,11 @@
   color: #6d28d9;
 }
 
+.my-bookings-type-badge--tournament {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
 .my-bookings-payment-badge {
   display: inline-block;
   font-size: 0.6875rem;
@@ -413,6 +418,14 @@
 
 .my-bookings-table-row--training.my-bookings-table-row--pending {
   border-inline-start-color: #c084fc;
+}
+
+.my-bookings-table-row--tournament.my-bookings-table-row--paid {
+  border-inline-start-color: #ea580c;
+}
+
+.my-bookings-table-row--tournament.my-bookings-table-row--pending {
+  border-inline-start-color: #fb923c;
 }
 
 .my-bookings-club-link {
@@ -759,6 +772,14 @@
 
 .my-bookings-card--training.my-bookings-card--pending::before {
   background: linear-gradient(180deg, #c084fc 0%, #a855f7 100%);
+}
+
+.my-bookings-card--tournament.my-bookings-card--paid::before {
+  background: linear-gradient(180deg, #ea580c 0%, #c2410c 100%);
+}
+
+.my-bookings-card--tournament.my-bookings-card--pending::before {
+  background: linear-gradient(180deg, #fb923c 0%, #ea580c 100%);
 }
 
 .my-bookings-card-badges {

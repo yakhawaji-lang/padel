@@ -761,6 +761,30 @@
   color: #94a3b8;
   cursor: not-allowed;
 }
+.club-public-subsection-heading {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 8px;
+}
+.club-public-tournaments-open-hint {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0 0 14px;
+}
+.club-public-future-tournaments-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.club-public-tournament-card--open {
+  border: 2px dashed #f59e0b;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+.club-public-tournaments-grid--open {
+  margin-top: 4px;
+}
+
 .club-public-court-grid-cell.preparation {
   background: repeating-linear-gradient(
     -45deg,
