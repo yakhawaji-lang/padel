@@ -123,12 +123,19 @@ const getAvailableDurations = (minDur, startTime, closingTime, blockedRanges, ma
   return out
 }
 
-/** جميع الأوقات للعرض — الخطوة = وقت الاستعداد (دقيقة) إن وُجد، وإلا 30 */
+/** أقل مدة للحجز من الإعدادات — تُستخدم كخطوة الشقوق */
+const getMinSlotStep = (club) => {
+  const dp = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
+  const minDur = club?.settings?.bookingDuration ?? 60
+  const valid = (dp || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
+  return valid.length > 0 ? Math.min(...valid) : minDur
+}
+
+/** جميع الأوقات للعرض — الخطوة = Minimum booking duration (أقل مدة للحجز) */
 const getTimeSlotsForClub = (club) => {
   const open = club?.settings?.openingTime
   const close = club?.settings?.closingTime
-  const prep = Math.max(0, Math.min(60, Number(club?.settings?.preparationTimeMinutes) || 0))
-  const step = prep >= 1 ? prep : 30
+  const step = getMinSlotStep(club)
   const slots = []
   if (!open || !close) {
     for (let hour = 0; hour < 24; hour++) {
@@ -148,12 +155,11 @@ const getTimeSlotsForClub = (club) => {
   return slots
 }
 
-/** هل الوقت بداية صالحة للحجز؟ (مضاعف خطوة الشقوق = وقت الاستعداد أو 30) */
+/** هل الوقت بداية صالحة للحجز؟ (مضاعف Minimum booking duration) */
 const isSlotAValidBookableStart = (club, timeSlot) => {
   const open = club?.settings?.openingTime
   if (!open) return true
-  const prep = Math.max(0, Math.min(60, Number(club?.settings?.preparationTimeMinutes) || 0))
-  const step = prep >= 1 ? prep : 30
+  const step = getMinSlotStep(club)
   const openMinutes = timeToMinutes(open)
   const slotM = timeToMinutes(timeSlot)
   const diff = slotM - openMinutes
@@ -577,10 +583,7 @@ const ClubPublicPage = () => {
     return valid.length > 0 ? Math.min(...valid) : minDur
   }, [club?.settings?.bookingPrices?.durationPrices, club?.settings?.bookingDuration])
 
-  const slotStepMinutes = (() => {
-    const p = Math.max(0, Math.min(60, Number(club?.settings?.preparationTimeMinutes) || 0))
-    return p >= 1 ? p : 30
-  })()
+  const slotStepMinutes = minBookingDurationForHover
 
   const handleRangeClick = useCallback(async (court, dateStr, startSlot, endSlot, existingLock = null) => {
     if (existingLock) {

@@ -762,9 +762,16 @@
   cursor: not-allowed;
 }
 .club-public-court-grid-cell.preparation {
-  background: #fef9c3;
+  background: repeating-linear-gradient(
+    -45deg,
+    #fef9c3,
+    #fef9c3 4px,
+    #fef3c7 4px,
+    #fef3c7 8px
+  );
   color: #a16207;
   cursor: default;
+  border: 1px dashed rgba(161, 98, 7, 0.4);
 }
 .club-public-court-grid-cell.available.clickable {
   cursor: pointer;
