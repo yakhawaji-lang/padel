@@ -761,6 +761,11 @@
   color: #94a3b8;
   cursor: not-allowed;
 }
+.club-public-court-grid-cell.preparation {
+  background: #fef9c3;
+  color: #a16207;
+  cursor: default;
+}
 .club-public-court-grid-cell.available.clickable {
   cursor: pointer;
   transition: background 0.2s, transform 0.1s;

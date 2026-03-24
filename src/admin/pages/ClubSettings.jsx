@@ -61,6 +61,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
     timezone: 'Asia/Riyadh',
     currency: 'SAR',
     bookingDuration: 60,
+    preparationTimeMinutes: 0,
     maxBookingAdvance: 30,
     cancellationPolicy: 24,
     ...BOOKING_NUMBER_FIELDS.reduce((acc, { key, default: d }) => ({ ...acc, [key]: d }), {}),
@@ -108,6 +109,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
         timezone: club?.settings?.timezone || 'Asia/Riyadh',
         currency: club?.settings?.currency || 'SAR',
         bookingDuration: club?.settings?.bookingDuration || 60,
+        preparationTimeMinutes: club?.settings?.preparationTimeMinutes ?? 0,
         maxBookingAdvance: club?.settings?.maxBookingAdvance || 30,
         cancellationPolicy: club?.settings?.cancellationPolicy || 24,
         ...BOOKING_NUMBER_FIELDS.reduce((acc, { key, default: d }) => ({ ...acc, [key]: numDisplay(club?.settings?.[key], d) }), {}),
@@ -157,6 +159,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
         timezone: fd.timezone,
         currency: fd.currency,
         bookingDuration: Math.min(180, Math.max(15, Number(fd.bookingDuration) || 60)),
+        preparationTimeMinutes: Math.min(60, Math.max(0, Number(fd.preparationTimeMinutes) || 0)),
         maxBookingAdvance: Math.max(1, Number(fd.maxBookingAdvance) || 30),
         cancellationPolicy: Math.max(0, Number(fd.cancellationPolicy) || 24),
         ...BOOKING_NUMBER_FIELDS.reduce((acc, { key, default: d }) => ({ ...acc, [key]: toNum(fd[key], d) }), {}),
@@ -639,6 +642,37 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                     title={t('Minimum duration; no booking can be shorter.', 'أقل مدة؛ لا يمكن طلب حجز أقل من هذه القيمة.')}
                   />
                   <span className="field-hint">{t('Minimum booking duration. No booking can be shorter than this value.', 'أقل مدة للحجز. لا يمكن طلب حجز أقل من هذه القيمة.')}</span>
+                </div>
+                <div className="form-group settings-field">
+                  <label className="field-label">{t('Preparation time (min)', 'وقت الاستعداد (دقيقة)', lang)}</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    className="settings-input"
+                    dir="ltr"
+                    lang="en"
+                    minLength={1}
+                    maxLength={2}
+                    value={formData.preparationTimeMinutes === '' || formData.preparationTimeMinutes === undefined ? '' : String(formData.preparationTimeMinutes)}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, '')
+                      if (raw === '') {
+                        setFormData(prev => ({ ...prev, preparationTimeMinutes: '' }))
+                        return
+                      }
+                      const v = parseInt(raw, 10)
+                      if (!Number.isNaN(v)) setFormData(prev => ({ ...prev, preparationTimeMinutes: v }))
+                    }}
+                    onBlur={() => {
+                      const v = Number(formData.preparationTimeMinutes)
+                      if (formData.preparationTimeMinutes === '' || formData.preparationTimeMinutes === undefined || Number.isNaN(v) || v < 0 || v > 60) {
+                        setFormData(prev => ({ ...prev, preparationTimeMinutes: Math.min(60, Math.max(0, Number(prev.preparationTimeMinutes) || 0)) }))
+                      }
+                    }}
+                    title={t('Buffer between bookings for court preparation.', 'فترة فاصلة بين الحجوزات لتهيئة الملعب.')}
+                  />
+                  <span className="field-hint">{t('Buffer after each booking before the next can start.', 'فترة بعد كل حجز قبل بدء الحجز التالي.')}</span>
                 </div>
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Max Advance (days)', 'الحد الأقصى للحجز مسبقاً (يوم)', lang)}</label>
