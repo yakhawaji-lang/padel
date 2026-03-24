@@ -123,15 +123,16 @@ const getAvailableDurations = (minDur, startTime, closingTime, blockedRanges, ma
   return out
 }
 
-/** جميع الأوقات للعرض — كل 30 دقيقة من بداية وقت العمل */
+/** جميع الأوقات للعرض — الخطوة = وقت الاستعداد (دقيقة) إن وُجد، وإلا 30 */
 const getTimeSlotsForClub = (club) => {
   const open = club?.settings?.openingTime
   const close = club?.settings?.closingTime
+  const prep = Math.max(0, Math.min(60, Number(club?.settings?.preparationTimeMinutes) || 0))
+  const step = prep >= 1 ? prep : 30
   const slots = []
   if (!open || !close) {
     for (let hour = 0; hour < 24; hour++) {
-      slots.push(`${String(hour).padStart(2, '0')}:00`)
-      slots.push(`${String(hour).padStart(2, '0')}:30`)
+      for (let s = 0; s < 60; s += step) slots.push(`${String(hour).padStart(2, '0')}:${String(s).padStart(2, '0')}`)
     }
     return slots
   }
@@ -139,7 +140,7 @@ const getTimeSlotsForClub = (club) => {
   const [closeH, closeM] = close.split(':').map(Number)
   const openMinutes = openH * 60 + openM
   const closeMinutes = closeH * 60 + closeM
-  for (let m = openMinutes; m < closeMinutes; m += 30) {
+  for (let m = openMinutes; m < closeMinutes; m += step) {
     const h = Math.floor(m / 60) % 24
     const min = m % 60
     slots.push(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`)
@@ -147,14 +148,12 @@ const getTimeSlotsForClub = (club) => {
   return slots
 }
 
-/** هل الوقت بداية صالحة للحجز؟ (مضاعف أقل مدة من بداية العمل) */
+/** هل الوقت بداية صالحة للحجز؟ (مضاعف خطوة الشقوق = وقت الاستعداد أو 30) */
 const isSlotAValidBookableStart = (club, timeSlot) => {
   const open = club?.settings?.openingTime
   if (!open) return true
-  const dp = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
-  const minDur = club?.settings?.bookingDuration ?? 60
-  const valid = (dp || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
-  const step = valid.length > 0 ? Math.min(...valid) : minDur
+  const prep = Math.max(0, Math.min(60, Number(club?.settings?.preparationTimeMinutes) || 0))
+  const step = prep >= 1 ? prep : 30
   const openMinutes = timeToMinutes(open)
   const slotM = timeToMinutes(timeSlot)
   const diff = slotM - openMinutes
@@ -578,7 +577,10 @@ const ClubPublicPage = () => {
     return valid.length > 0 ? Math.min(...valid) : minDur
   }, [club?.settings?.bookingPrices?.durationPrices, club?.settings?.bookingDuration])
 
-  const slotStepMinutes = 30
+  const slotStepMinutes = (() => {
+    const p = Math.max(0, Math.min(60, Number(club?.settings?.preparationTimeMinutes) || 0))
+    return p >= 1 ? p : 30
+  })()
 
   const handleRangeClick = useCallback(async (court, dateStr, startSlot, endSlot, existingLock = null) => {
     if (existingLock) {
@@ -1446,7 +1448,7 @@ const ClubPublicPage = () => {
                           const isTrainingBlockStart = isTraining && timeToMinutes(timeSlot) === timeToMinutes(trainingStart)
                           const isTrainingBlockContinuation = isTraining && !isTrainingBlockStart
                           const trainingSpan = isTrainingBlockStart
-                            ? Math.max(1, Math.round((timeToMinutes(trainingEnd) - timeToMinutes(trainingStart)) / 30))
+                            ? Math.max(1, Math.round((timeToMinutes(trainingEnd) - timeToMinutes(trainingStart)) / slotStepMinutes))
                             : 0
                           let slotPrice = null
                           if (isCellClickable) {
