@@ -783,6 +783,7 @@
 .club-public-court-grid-cell.in-range.available.clickable {
   background: #bbf7d0;
   transform: scale(1.02);
+  transition: background 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, transform 0.15s ease;
 }
 .club-public-court-grid-cell.in-range.booked.training.joinable {
   background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
@@ -859,6 +860,10 @@
   box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
   border: 2px solid #22c55e;
   background: #bbf7d0;
+  transition: background 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, transform 0.15s ease;
+}
+.club-public-court-grid-cell.range-block-merged:hover {
+  box-shadow: 0 3px 12px rgba(34, 197, 94, 0.35);
 }
 .club-public-cell-range-block {
   display: flex;

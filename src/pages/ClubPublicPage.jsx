@@ -217,6 +217,7 @@ const ClubPublicPage = () => {
   const [hoveredRange, setHoveredRange] = useState(null) // { court, courtId, startSlot, endSlot } - نطاق التمرير للحجز
   const hasTouch = typeof window !== 'undefined' && 'ontouchstart' in window
   const touchSelectRef = React.useRef(null) // { court, courtId, dateStr, startSlot } during touch drag
+  const rangeLeaveTimeoutRef = React.useRef(null) // تأخير مسح النطاق عند المغادرة لتجنب الوَمْض
 
   useEffect(() => {
     setAppLanguage(language)
@@ -315,6 +316,10 @@ const ClubPublicPage = () => {
     const onMemberUpdate = () => setPlatformUser(getCurrentPlatformUser())
     window.addEventListener('member-updated', onMemberUpdate)
     return () => window.removeEventListener('member-updated', onMemberUpdate)
+  }, [])
+
+  useEffect(() => () => {
+    if (rangeLeaveTimeoutRef.current) clearTimeout(rangeLeaveTimeoutRef.current)
   }, [])
 
   useEffect(() => {
@@ -697,7 +702,18 @@ const ClubPublicPage = () => {
     return slotM === startM - slotStepMinutes || slotM === endM + slotStepMinutes
   }, [slotStepMinutes])
 
+  /** هل الوقت قريب من النطاق ضمن نطاقين؟ (لتوسيع ذكي عند التمرير السريع) */
+  const isSlotNearRange = useCallback((timeSlot, startSlot, endSlot) => {
+    const slotM = timeToMinutes(timeSlot)
+    const startM = timeToMinutes(startSlot)
+    const endM = timeToMinutes(endSlot)
+    const step = slotStepMinutes
+    return (slotM >= startM - 2 * step && slotM <= startM - step) ||
+      (slotM >= endM + step && slotM <= endM + 2 * step)
+  }, [slotStepMinutes])
+
   const handleRangeMouseEnter = useCallback((court, dateStr, timeSlot, canBookForRange) => {
+    cancelRangeLeaveTimeout()
     if (!canBookForRange) return
     const courtId = (court?.id || court?.name || '').toString()
     const setNewRange = () => {
@@ -729,11 +745,30 @@ const ClubPublicPage = () => {
       setHoveredRange(prev => ({ ...prev, startSlot: newStart, endSlot: newEnd }))
       return
     }
+    if (isSlotNearRange(timeSlot, hoveredRange.startSlot, hoveredRange.endSlot)) {
+      const startM = timeToMinutes(hoveredRange.startSlot)
+      const endM = timeToMinutes(hoveredRange.endSlot)
+      const slotM = timeToMinutes(timeSlot)
+      const newStart = slotM < startM ? timeSlot : hoveredRange.startSlot
+      const newEnd = slotM > endM ? timeSlot : hoveredRange.endSlot
+      const newDuration = timeToMinutes(newEnd) - timeToMinutes(newStart) + slotStepMinutes
+      if (newDuration > maxBookingDuration) return
+      setHoveredRange(prev => ({ ...prev, startSlot: newStart, endSlot: newEnd }))
+      return
+    }
     setNewRange()
-  }, [hoveredRange, isSlotAdjacentToRange, maxBookingDuration, minBookingDurationForHover, slotStepMinutes, club?.settings?.closingTime])
+  }, [cancelRangeLeaveTimeout, hoveredRange, isSlotAdjacentToRange, isSlotNearRange, maxBookingDuration, minBookingDurationForHover, slotStepMinutes, club?.settings?.closingTime])
+
+  const cancelRangeLeaveTimeout = useCallback(() => {
+    if (rangeLeaveTimeoutRef.current) {
+      clearTimeout(rangeLeaveTimeoutRef.current)
+      rangeLeaveTimeoutRef.current = null
+    }
+  }, [])
 
   const handleRangeMouseLeave = useCallback(() => {
-    setHoveredRange(null)
+    if (rangeLeaveTimeoutRef.current) clearTimeout(rangeLeaveTimeoutRef.current)
+    rangeLeaveTimeoutRef.current = setTimeout(() => setHoveredRange(null), 180)
   }, [])
 
   const handleTouchMoveRange = useCallback((e) => {
@@ -756,7 +791,9 @@ const ClubPublicPage = () => {
       const slotM = timeToMinutes(timeSlot)
       const startM = timeToMinutes(prev.startSlot)
       const endM = timeToMinutes(prev.endSlot)
-      if (slotM >= startM - slotStepMinutes && slotM <= endM + slotStepMinutes) {
+      const nearStart = slotM >= startM - 2 * slotStepMinutes && slotM < startM
+      const nearEnd = slotM > endM && slotM <= endM + 2 * slotStepMinutes
+      if (nearStart || nearEnd) {
         const newStart = slotM < startM ? timeSlot : prev.startSlot
         const newEnd = slotM > endM ? timeSlot : prev.endSlot
         const dur = timeToMinutes(newEnd) - timeToMinutes(newStart) + slotStepMinutes
@@ -1306,6 +1343,7 @@ const ClubPublicPage = () => {
                 <div
                   className="club-public-court-booking-wrap"
                   dir={language === 'ar' ? 'rtl' : 'ltr'}
+                  onMouseEnter={cancelRangeLeaveTimeout}
                   onMouseLeave={handleRangeMouseLeave}
                   onTouchMove={hasTouch ? handleTouchMoveRange : undefined}
                   onTouchEnd={hasTouch ? handleTouchEndRange : undefined}
