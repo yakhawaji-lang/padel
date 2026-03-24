@@ -69,7 +69,7 @@ const overlapsAny = (ourStartM, ourEndM, ranges) => {
   return ranges.some(({ startM, endM }) => ourStartM < endM && ourEndM > startM)
 }
 
-/** استخراج نطاقات محجوزة أو مقفلة لملعب وتاريخ معين (بالدقائق من منتصف الليل) — وقت الاستعداد يُضاف بعد نهاية كل حجز */
+/** استخراج نطاقات محجوزة أو مقفلة لملعب وتاريخ معين (بالدقائق من منتصف الليل) — preparationTimeMinutes معطّل (0) */
 const getBlockedRangesForCourtAndDate = (courtNameOrId, dateStr, bookings, activeLocks, excludeLockId = null, preparationTimeMinutes = 0) => {
   const courtIds = []
   if (courtNameOrId && typeof courtNameOrId === 'object') {
@@ -486,12 +486,12 @@ const ClubPublicPage = () => {
       return fromSettings.length > 0 ? fromSettings : [{ durationMinutes: min, price: 0 }]
     }
     const court = bookingModal.court
-    const blocked = getBlockedRangesForCourtAndDate(court, bookingModal.dateStr, bookings, activeLocks, activeLock?.lockId || null, club?.settings?.preparationTimeMinutes ?? 0)
+    const blocked = getBlockedRangesForCourtAndDate(court, bookingModal.dateStr, bookings, activeLocks, activeLock?.lockId || null, 0)
     const closing = club?.settings?.closingTime || '23:00'
     const availableSet = new Set(getAvailableDurations(min, bookingModal.startTime, closing, blocked))
     const filtered = fromSettings.filter(d => availableSet.has(d.durationMinutes))
     return filtered.length > 0 ? filtered : (fromSettings.length > 0 ? fromSettings : [{ durationMinutes: min, price: 0 }])
-  }, [club?.settings?.bookingDuration, club?.settings?.closingTime, club?.settings?.preparationTimeMinutes, club?.settings?.bookingPrices, bookingModal, bookings, activeLocks, activeLock?.lockId])
+  }, [club?.settings?.bookingDuration, club?.settings?.closingTime, club?.settings?.bookingPrices, bookingModal, bookings, activeLocks, activeLock?.lockId])
 
   useEffect(() => {
     if (bookingModal?.fromRange && bookingModal?.preselectDuration != null) {
@@ -520,13 +520,13 @@ const ClubPublicPage = () => {
     const durationPrices = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
     let configured = (durationPrices || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
     if (configured.length === 0) configured = [minDur]
-    const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, club?.settings?.preparationTimeMinutes ?? 0)
+    const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, 0)
     const closing = club?.settings?.closingTime || '23:00'
     const available = getAvailableDurations(minDur, startTime, closing, blocked)
     const availableSet = new Set(available)
     const allowed = configured.filter(d => availableSet.has(d))
     return allowed.length > 0
-  }, [club?.settings?.bookingDuration, club?.settings?.bookingPrices?.durationPrices, club?.settings?.closingTime, club?.settings?.preparationTimeMinutes, bookings, activeLocks])
+  }, [club?.settings?.bookingDuration, club?.settings?.bookingPrices?.durationPrices, club?.settings?.closingTime, bookings, activeLocks])
 
   const handleSlotClick = useCallback(async (court, dateStr, startTime, existingLock = null) => {
     if (!platformUser || !isMember) return
@@ -546,7 +546,7 @@ const ClubPublicPage = () => {
     const durationPrices = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
     let configured = (durationPrices || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
     if (configured.length === 0) configured = [minDur]
-    const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, club?.settings?.preparationTimeMinutes ?? 0)
+    const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, 0)
     const closing = club?.settings?.closingTime || '23:00'
     const available = getAvailableDurations(minDur, startTime, closing, blocked)
     const availableSet = new Set(available)
@@ -616,7 +616,7 @@ const ClubPublicPage = () => {
       handleSlotClick(court, dateStr, startSlot, null)
       return
     }
-    const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, club?.settings?.preparationTimeMinutes ?? 0)
+    const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, 0)
     const closing = club?.settings?.closingTime || '23:00'
     const maxCap = maxBookingDuration
     const available = getAvailableDurations(club?.settings?.bookingDuration ?? 60, startSlot, closing, blocked, maxCap)
@@ -1401,7 +1401,7 @@ const ClubPublicPage = () => {
                       <div key={t} className="club-public-court-grid-time-header">{t}</div>
                     ))}
                     {courts.map(court => {
-                      const blockedForCourt = getBlockedRangesForCourtAndDate(court, courtGridDate, bookings, activeLocks, null, club?.settings?.preparationTimeMinutes ?? 0)
+                      const blockedForCourt = getBlockedRangesForCourtAndDate(court, courtGridDate, bookings, activeLocks, null, 0)
                       return (
                       <React.Fragment key={court.id}>
                         <div className="club-public-court-grid-court-name">
