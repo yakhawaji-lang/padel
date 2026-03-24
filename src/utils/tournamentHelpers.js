@@ -32,6 +32,23 @@ export function isTournamentWithoutMembers(club, booking) {
   return countTournamentMemberAssignments(club, booking) === 0
 }
 
+/**
+ * تفاصيل الفرق لعرضها في صفحة النادي: عدد الفرق وعدد الأعضاء لكل فريق
+ * @returns {{ teamCount: number, totalMembers: number, teams: Array<{ id: string, name: string, memberCount: number }> }}
+ */
+export function getTournamentTeamsDetail(club, booking) {
+  const state = getTournamentStateForBooking(club, booking)
+  const raw = Array.isArray(state?.teams) ? state.teams : []
+  const teams = raw.map((t, idx) => {
+    const memberIds = Array.isArray(t.memberIds) ? t.memberIds.filter(Boolean) : []
+    const name = (t.name && String(t.name).trim()) || `Team ${idx + 1}`
+    const id = t.id != null ? String(t.id) : `team-${idx}`
+    return { id, name, memberCount: memberIds.length }
+  })
+  const totalMembers = teams.reduce((s, t) => s + t.memberCount, 0)
+  return { teamCount: teams.length, totalMembers, teams }
+}
+
 /** هل العضو مشارك في البطولة (ضمن فريق أو participants) */
 export function isMemberInTournamentBooking(club, booking, memberId) {
   if (!memberId || !booking?.isTournament) return false

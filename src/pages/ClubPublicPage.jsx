@@ -15,7 +15,7 @@ import BookingCountdownCard from '../components/BookingCountdownCard'
 import BookingPaymentShare from '../components/BookingPaymentShare'
 import BookingDetailModal from '../components/BookingDetailModal'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
-import { isTournamentWithoutMembers, kingTournamentReservesCourt, kingTournamentReservesCourtIds } from '../utils/tournamentHelpers'
+import { isTournamentWithoutMembers, kingTournamentReservesCourt, kingTournamentReservesCourtIds, getTournamentTeamsDetail } from '../utils/tournamentHelpers'
 import './ClubPublicPage.css'
 import '../components/BookingPaymentShare.css'
 
@@ -1016,6 +1016,10 @@ const ClubPublicPage = () => {
       futureTournamentsOpen: 'قادمة — التسجيل مفتوح',
       futureTournamentsOpenHint: 'لم يُعيَّن أعضاء في الفرق بعد.',
       futureTournamentsWithTeams: 'قادمة — فرق مسجّلة',
+      teamsRegisteredShort: 'الفرق',
+      membersTotalShort: 'الأعضاء',
+      membersInTeam: 'أعضاء',
+      teamRosterTitle: 'الفرق والأعضاء',
       kingOfCourt: 'ملك الملعب',
       socialTournament: 'بطولة سوشيال',
       validUntil: 'صالح حتى',
@@ -2041,25 +2045,46 @@ const ClubPublicPage = () => {
                 {futureTournamentsWithMembers.length > 0 && (
                   <div className="club-public-tournaments-scheduled-block">
                     <h3 className="club-public-subsection-heading">{c.futureTournamentsWithTeams}</h3>
-                    <div className="club-public-table-wrap">
-                      <table className="club-public-table">
-                        <thead>
-                          <tr>
-                            <th>{c.date}</th>
-                            <th>{c.time}</th>
-                            <th>{language === 'en' ? 'Type' : 'النوع'}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {futureTournamentsWithMembers.map((b, i) => (
-                            <tr key={b.id || i}>
-                              <td>{formatDate(b.dateStr)}</td>
-                              <td>{b.startTime} – {b.endTime}</td>
-                              <td>{tournamentTypeName(b.tournamentType)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="club-public-future-tournaments-registered-list">
+                      {futureTournamentsWithMembers.map((b, i) => {
+                        const roster = getTournamentTeamsDetail(club, b)
+                        return (
+                          <div key={b.id || i} className="club-public-future-tournament-roster-card">
+                            <div className="club-public-future-tournament-roster-card__head">
+                              <div className="club-public-future-tournament-roster-card__when">
+                                <span className="club-public-future-tournament-roster-card__date">{formatDate(b.dateStr)}</span>
+                                <span className="club-public-future-tournament-roster-card__time">{b.startTime} – {b.endTime}</span>
+                              </div>
+                              <span className="club-public-future-tournament-roster-card__type">{tournamentTypeName(b.tournamentType)}</span>
+                            </div>
+                            <div className="club-public-future-tournament-roster-card__stats" aria-label={language === 'en' ? 'Registration summary' : 'ملخص التسجيل'}>
+                              <div className="club-public-tournament-stat-pill">
+                                <span className="club-public-tournament-stat-pill__value">{roster.teamCount}</span>
+                                <span className="club-public-tournament-stat-pill__label">{c.teamsRegisteredShort}</span>
+                              </div>
+                              <div className="club-public-tournament-stat-pill club-public-tournament-stat-pill--accent">
+                                <span className="club-public-tournament-stat-pill__value">{roster.totalMembers}</span>
+                                <span className="club-public-tournament-stat-pill__label">{c.membersTotalShort}</span>
+                              </div>
+                            </div>
+                            <div className="club-public-future-tournament-roster-card__body">
+                              <h4 className="club-public-future-tournament-roster-card__subtitle">{c.teamRosterTitle}</h4>
+                              <ul className="club-public-future-tournament-team-list">
+                                {roster.teams.map((t) => (
+                                  <li key={t.id} className="club-public-future-tournament-team-row">
+                                    <span className="club-public-future-tournament-team-row__name">{t.name}</span>
+                                    <span className="club-public-future-tournament-team-row__count" title={language === 'en' ? 'Registered members' : 'الأعضاء المسجّلون'}>
+                                      <strong className="club-public-future-tournament-team-row__num">{t.memberCount}</strong>
+                                      {' '}
+                                      <span className="club-public-future-tournament-team-row__suffix">{c.membersInTeam}</span>
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )}
