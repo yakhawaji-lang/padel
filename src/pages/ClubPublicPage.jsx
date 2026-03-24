@@ -712,6 +712,13 @@ const ClubPublicPage = () => {
       (slotM >= endM + step && slotM <= endM + 2 * step)
   }, [slotStepMinutes])
 
+  const cancelRangeLeaveTimeout = useCallback(() => {
+    if (rangeLeaveTimeoutRef.current) {
+      clearTimeout(rangeLeaveTimeoutRef.current)
+      rangeLeaveTimeoutRef.current = null
+    }
+  }, [])
+
   const handleRangeMouseEnter = useCallback((court, dateStr, timeSlot, canBookForRange) => {
     cancelRangeLeaveTimeout()
     if (!canBookForRange) return
@@ -758,13 +765,6 @@ const ClubPublicPage = () => {
     }
     setNewRange()
   }, [cancelRangeLeaveTimeout, hoveredRange, isSlotAdjacentToRange, isSlotNearRange, maxBookingDuration, minBookingDurationForHover, slotStepMinutes, club?.settings?.closingTime])
-
-  const cancelRangeLeaveTimeout = useCallback(() => {
-    if (rangeLeaveTimeoutRef.current) {
-      clearTimeout(rangeLeaveTimeoutRef.current)
-      rangeLeaveTimeoutRef.current = null
-    }
-  }, [])
 
   const handleRangeMouseLeave = useCallback(() => {
     if (rangeLeaveTimeoutRef.current) clearTimeout(rangeLeaveTimeoutRef.current)
