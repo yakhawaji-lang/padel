@@ -188,7 +188,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
           open: (p.open || '06:00').toString().slice(0, 5),
           close: (p.close || '23:00').toString().slice(0, 5)
         }))
-        .filter(p => whToMinutes(p.open) < whToMinutes(p.close))
+        .filter(p => whToMinutes(p.open) !== whToMinutes(p.close))
     })).filter(s => s.periods.length > 0)
     const legacyBounds = getLegacyOpenCloseBounds({
       ...club?.settings,
@@ -253,8 +253,8 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
       }
       for (let pi = 0; pi < periods.length; pi++) {
         const p = periods[pi]
-        if (whToMinutes(p.open) >= whToMinutes(p.close)) {
-          alert(t(`Period ${pi + 1}: closing time must be after opening time.`, `الفترة ${pi + 1}: وقت الإغلاق يجب أن يكون بعد وقت الفتح.`, lang))
+        if (whToMinutes(p.open) === whToMinutes(p.close)) {
+          alert(t(`Period ${pi + 1}: open and close cannot be equal.`, `الفترة ${pi + 1}: وقت الفتح والإغلاق لا يمكن أن يكونا متطابقين.`, lang))
           return
         }
       }
@@ -946,8 +946,8 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
             </h3>
             <p className="field-hint field-hint-block">
               {t(
-                'Seasons (by month–day) and multiple periods per day (e.g. morning and evening). List default dates first, then overrides — the last matching season wins. Bookings use these windows; legacy fields store the overall earliest open and latest close.',
-                'مواسم (من شهر–يوم) وفترات متعددة يومياً (مثل صباح ومساء). ضع الموسم الافتراضي أولاً ثم التعديلات — آخر موسم مطابق يُطبَّق. الحجوزات تتبع هذه النوافذ؛ الحقلان القديمان يخزنان أبكر افتتاح وآخر إغلاق للتوافق.',
+                'Seasons (MM-DD). Put the default season first, then overrides — the last matching season wins. Same-day period: open earlier than close (e.g. 07:00–12:00). Overnight: one row only — open evening, close next morning (e.g. 16:00–04:00 means until 4:00 the next day). Do not split at midnight. With overnight hours, legacy time pickers allow the full day; real rules follow these windows.',
+                'مواسم (شهر-يوم). الموسم الافتراضي أولاً ثم التفضيلات — آخر موسم مطابق يُطبَّق. نفس اليوم: الفتح قبل الإغلاق (مثل 07:00–12:00). عمل ليلي: صف واحد فقط — افتح مساءً وأغلق صباح اليوم التالي (مثل 16:00–04:00 يعني حتى 4 صباحاً لليوم التالي). لا تقسّم عند منتصف الليل. عند وجود عمل ليلي، حقول الوقت القديمة تسمح بيوم كامل والتحقق الفعلي حسب هذه النوافذ.',
                 lang
               )}
             </p>

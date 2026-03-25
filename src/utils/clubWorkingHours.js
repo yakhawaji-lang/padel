@@ -29,12 +29,22 @@ export function monthDayInRange(mmdd, startMM, endMM) {
   return mmdd >= startMM || mmdd <= endMM
 }
 
+export function shiftIsoDate(isoDate, deltaDays) {
+  const [y, mo, d] = (isoDate || '').split('-').map(Number)
+  if (!y || !mo || !d) return null
+  const dt = new Date(y, mo - 1, d + (deltaDays || 0))
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+}
+
+/**
+ * Same calendar day [o,c), or overnight when clock open > close: opens today at o, closes tomorrow at c.
+ */
 function normalizePeriod(p) {
   const open = (p?.open || p?.start || '').toString().trim()
   const close = (p?.close || p?.end || '').toString().trim()
-  const o = timeToMinutes(open)
-  const c = timeToMinutes(close)
-  if (!open || !close || o >= c) return null
+  const o = timeToMinutes(open || '00:00')
+  const c = timeToMinutes(close || '00:00')
+  if (!open || !close || o === c) return null
   return { open: minutesToHHMM(o), close: minutesToHHMM(c) }
 }
 
@@ -43,8 +53,8 @@ function legacyPeriodsFromSettings(settings) {
   const close = (settings?.closingTime || '23:00').toString().trim()
   const o = timeToMinutes(open)
   const c = timeToMinutes(close)
-  if (o < c) return [{ open, close }]
-  return []
+  if (o === c) return []
+  return [{ open, close }]
 }
 
 export function normalizeWorkingHoursSeasons(settings) {
@@ -85,14 +95,6 @@ export function getSeasonForDate(settings, isoDate) {
   return match || seasons[0] || null
 }
 
-export function getDayPeriodsForDate(settings, isoDate) {
-  const s = getSeasonForDate(settings, isoDate)
-  if (!s?.periods?.length) return []
-  return s.periods
-    .map(p => ({ startM: timeToMinutes(p.open), endM: timeToMinutes(p.close) }))
-    .filter(r => r.endM > r.startM)
-}
-
 export function mergeMinuteRanges(ranges) {
   const arr = [...ranges].filter(r => r.endM > r.startM).sort((a, b) => a.startM - b.startM)
   if (arr.length === 0) return []
@@ -110,12 +112,57 @@ export function mergeMinuteRanges(ranges) {
   return out
 }
 
+/** Open intervals [startM,endM) on this calendar day (0–1440), including morning tail from previous day's overnight shift. */
+function minuteWindowsForCalendarDay(settings, isoDate) {
+  const ranges = []
+  const sToday = getSeasonForDate(settings, isoDate)
+  if (sToday?.periods?.length) {
+    for (const p of sToday.periods) {
+      const o = timeToMinutes(p.open)
+      const c = timeToMinutes(p.close)
+      if (o < c) {
+        ranges.push({ startM: o, endM: c })
+      } else if (o > c) {
+        ranges.push({ startM: o, endM: 1440 })
+      }
+    }
+  }
+  const prevIso = shiftIsoDate(isoDate, -1)
+  if (prevIso) {
+    const sPrev = getSeasonForDate(settings, prevIso)
+    if (sPrev?.periods?.length) {
+      for (const p of sPrev.periods) {
+        const o = timeToMinutes(p.open)
+        const c = timeToMinutes(p.close)
+        if (o > c) {
+          ranges.push({ startM: 0, endM: c })
+        }
+      }
+    }
+  }
+  return mergeMinuteRanges(ranges)
+}
+
 export function getMergedWindowsForDate(settings, isoDate) {
-  const merged = mergeMinuteRanges(getDayPeriodsForDate(settings, isoDate))
+  const merged = minuteWindowsForCalendarDay(settings, isoDate)
   if (merged.length > 0) return merged
   const o = timeToMinutes(settings?.openingTime || '06:00')
   const c = timeToMinutes(settings?.closingTime || '23:00')
   if (o < c) return [{ startM: o, endM: c }]
+  if (o > c) {
+    return minuteWindowsForCalendarDay(
+      {
+        ...settings,
+        workingHoursSeasons: [{
+          id: '_legacy_overnight',
+          startDate: '01-01',
+          endDate: '12-31',
+          periods: [{ open: settings?.openingTime || '06:00', close: settings?.closingTime || '23:00' }]
+        }]
+      },
+      isoDate
+    )
+  }
   return []
 }
 
@@ -161,20 +208,28 @@ export function getUnionTimeSlotsForDates(settings, isoDates, stepMinutes = 30) 
   return Array.from(set).sort((a, b) => timeToMinutes(a) - timeToMinutes(b))
 }
 
-/** Min–max envelope across all seasons (legacy min/max time inputs). */
+/** Min–max envelope for legacy <input type="time"> constraints; overnight seasons use full day. */
 export function getLegacyOpenCloseBounds(settings) {
   const seasons = normalizeWorkingHoursSeasons(settings)
   let minO = 24 * 60
   let maxC = 0
+  let hasOvernight = false
   for (const s of seasons) {
     for (const p of s.periods || []) {
       const o = timeToMinutes(p.open)
       const c = timeToMinutes(p.close)
-      if (o < c) {
+      if (o > c) {
+        hasOvernight = true
+        minO = Math.min(minO, o)
+        maxC = Math.max(maxC, c)
+      } else {
         minO = Math.min(minO, o)
         maxC = Math.max(maxC, c)
       }
     }
+  }
+  if (hasOvernight) {
+    return { openingTime: '00:00', closingTime: '23:59' }
   }
   if (minO >= maxC) {
     return {
