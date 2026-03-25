@@ -27,6 +27,136 @@ import {
   isSameDayIntervalWithinClubHours
 } from './utils/clubWorkingHours'
 
+/** Court rental vs training vs tournament blocks on the bookings calendar */
+function getBookingCalendarKind(booking) {
+  if (!booking) return 'court'
+  if (booking.isTournament) {
+    return (booking.tournamentType || '').toString().toLowerCase() === 'social' ? 'tournament_social' : 'tournament_king'
+  }
+  const d = booking.data && typeof booking.data === 'object' ? booking.data : {}
+  if ((booking.type || d.type || '').toString().toLowerCase() === 'training') return 'training'
+  return 'court'
+}
+
+function formatCalendarTooltipDate(dateRaw, language) {
+  const dateStr = (dateRaw || '').toString().split('T')[0]
+  if (!dateStr) return '—'
+  try {
+    return new Date(`${dateStr}T12:00:00`).toLocaleDateString(language === 'en' ? 'en-US' : 'ar-SA', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  } catch {
+    return dateStr
+  }
+}
+
+function CalendarBookingTooltip({ booking, language, t, currentClub, paymentLabel }) {
+  if (!booking) return null
+  const kind = getBookingCalendarKind(booking)
+  const typeLabel =
+    kind === 'court'
+      ? t.calendarKindCourt
+      : kind === 'training'
+        ? t.calendarKindTraining
+        : kind === 'tournament_king'
+          ? t.calendarKindTournamentKing
+          : t.calendarKindTournamentSocial
+  const shares = Array.isArray(booking.paymentShares) ? booking.paymentShares : []
+  const totalAmt = parseFloat(booking.totalAmount ?? booking.total_amount ?? booking.amount ?? 0) || 0
+  const paidFromShares = shares.reduce((s, sh) => s + (sh.paidAt ? (parseFloat(sh.amount) || 0) : 0), 0)
+  const currency = currentClub?.settings?.currency || 'SAR'
+  const isPlaytomic = booking.source === 'playtomic' || booking.id?.toString().startsWith('playtomic_')
+  let courtLine = booking.resource || booking.courtName || booking.court || '—'
+  if (booking.isTournament && Array.isArray(booking.tournamentCourtIds) && booking.tournamentCourtIds.length > 0) {
+    const courts = currentClub?.courts || []
+    const labels = booking.tournamentCourtIds.map((id) => {
+      const c = courts.find(
+        (co) => String(co.id) === String(id) || String(co.name) === String(id) || String(co.nameAr) === String(id)
+      )
+      return c ? (language === 'ar' ? c.nameAr || c.name : c.name) : String(id)
+    })
+    courtLine = `${courtLine} · ${labels.join(language === 'ar' ? '، ' : ', ')}`
+  }
+  const customer =
+    booking.memberName || booking.customerName || booking.customer || booking.initiatorName || ''
+  const statusRaw = (booking.status || '').toString()
+
+  return (
+    <div className="booking-tooltip booking-tooltip--calendar" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+      <div className="booking-tooltip__head">
+        <span className={`booking-tooltip__pill booking-tooltip__pill--${kind.replace(/_/g, '-')}`}>{typeLabel}</span>
+        {isPlaytomic && <span className="booking-tooltip__src">{t.calendarTooltipPlaytomic}</span>}
+      </div>
+      <div className="booking-tooltip__strong">{courtLine}</div>
+      <div className="booking-tooltip__muted">
+        {formatCalendarTooltipDate(booking.date || booking.startDate, language)} · {booking.startTime} – {booking.endTime}
+      </div>
+      {customer ? (
+        <div className="booking-tooltip__row">
+          <span className="booking-tooltip__k">{t.member}</span>
+          <span className="booking-tooltip__v">{customer}</span>
+        </div>
+      ) : null}
+      {statusRaw ? (
+        <div className="booking-tooltip__row">
+          <span className="booking-tooltip__k">{t.status}</span>
+          <span className="booking-tooltip__v">{statusRaw}</span>
+        </div>
+      ) : null}
+      {!booking.isTournament ? (
+        <div className="booking-tooltip__row">
+          <span className="booking-tooltip__k">{t.calendarTooltipPayment}</span>
+          <span className="booking-tooltip__v">{paymentLabel}</span>
+        </div>
+      ) : null}
+      {shares.length > 0 && totalAmt > 0 ? (
+        <div className="booking-tooltip__payment-box">
+          <div className="booking-tooltip__row">
+            <span className="booking-tooltip__k">{t.totalAmount}</span>
+            <span className="booking-tooltip__v">
+              {totalAmt} {currency}
+            </span>
+          </div>
+          <div className="booking-tooltip__row">
+            <span className="booking-tooltip__k">{t.calendarTooltipPaidOfTotal}</span>
+            <span className="booking-tooltip__v">
+              {paidFromShares.toFixed(2)} {currency}
+            </span>
+          </div>
+          <div className="booking-tooltip__row">
+            <span className="booking-tooltip__k">{t.calendarTooltipOutstanding}</span>
+            <span className="booking-tooltip__v">
+              {Math.max(0, totalAmt - paidFromShares).toFixed(2)} {currency}
+            </span>
+          </div>
+        </div>
+      ) : null}
+      {(booking.participants?.length || 0) > 0 && (
+        <div className="booking-tooltip__participants">
+          <div className="booking-tooltip__k">{t.participants}</div>
+          <ul className="booking-tooltip__ul">
+            {(booking.participants || []).map((p, idx) => (
+              <li key={idx}>{typeof p === 'object' ? p.name : p}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {parseFloat(booking.amount) > 0 && !shares.length ? (
+        <div className="booking-tooltip__row">
+          <span className="booking-tooltip__k">{t.amount}</span>
+          <span className="booking-tooltip__v">
+            {booking.amount} ({paymentLabel})
+          </span>
+        </div>
+      ) : null}
+      <div className="booking-tooltip__foot">{t.calendarClickEdit}</div>
+    </div>
+  )
+}
+
 function App({ currentUser }) {
   const { clubId } = useParams()
   const navigate = useNavigate()
@@ -4351,54 +4481,43 @@ function App({ currentUser }) {
   }
 
   const getPaymentStatus = (booking) => {
-    if (!booking.amount || booking.amount === '' || parseFloat(booking.amount) === 0) {
-      return 'not_paid' // No amount set = not paid
+    if (!booking) return 'not_paid'
+    if (booking.isTournament) return 'paid'
+
+    const shares = Array.isArray(booking.paymentShares) ? booking.paymentShares : []
+    const total = parseFloat(booking.totalAmount ?? booking.total_amount ?? booking.amount ?? 0) || 0
+
+    if (shares.length > 0) {
+      const paidSum = shares.reduce((s, sh) => s + (sh.paidAt ? (parseFloat(sh.amount) || 0) : 0), 0)
+      if (total > 0.01 && paidSum >= total - 0.02) return 'paid'
+      if (paidSum > 0.01) return 'partially_paid'
+      return 'not_paid'
     }
-    
+
+    const st = (booking.status || '').toString()
+    if (st === 'partially_paid') return 'partially_paid'
+    if (['pending_payment', 'pending_payments', 'initiated', 'locked'].includes(st)) return 'not_paid'
+    if (st === 'confirmed') return 'paid'
+    if (['cancelled', 'expired'].includes(st)) return 'not_paid'
+
+    if (!booking.amount || booking.amount === '' || parseFloat(booking.amount) === 0) {
+      return 'not_paid'
+    }
+
     const totalAmount = parseFloat(booking.amount) || 0
     if (totalAmount === 0) return 'not_paid'
-    
-    // Calculate total paid from participants (only count those marked as paid)
+
     const totalPaid = (booking.participants || []).reduce((sum, p) => {
       const participant = typeof p === 'object' ? p : { amount: '', paid: false }
-      // Only count amount if participant is marked as paid
       if (participant.paid) {
         return sum + (parseFloat(participant.amount) || 0)
       }
       return sum
     }, 0)
-    
+
     if (totalPaid === 0) return 'not_paid'
     if (totalPaid >= totalAmount) return 'paid'
     return 'partially_paid'
-  }
-
-  const getBookingColor = (booking) => {
-    // Playtomic bookings have a distinct border/background
-    const isPlaytomic = booking.source === 'playtomic' || booking.id?.toString().startsWith('playtomic_')
-    
-    const paymentStatus = getPaymentStatus(booking)
-    let baseColor
-    switch (paymentStatus) {
-      case 'paid':
-        baseColor = '#d4edda' // Green
-        break
-      case 'partially_paid':
-        baseColor = '#fff3cd' // Yellow
-        break
-      case 'not_paid':
-        baseColor = '#f8d7da' // Red
-        break
-      default:
-        baseColor = '#d4edda' // Default green
-    }
-    
-    // Add Playtomic indicator (lighter shade with border)
-    if (isPlaytomic) {
-      return baseColor // Keep same color but we'll add border in CSS
-    }
-    
-    return baseColor
   }
 
   // Accounting helper functions
@@ -6085,6 +6204,18 @@ function App({ currentUser }) {
                         )}
                       </div>
                     </div>
+                    <div className="bookings-calendar-legend" role="note">
+                      <span className="bookings-calendar-legend__title">{t.calendarLegend}</span>
+                      <div className="bookings-calendar-legend__strip">
+                        <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--court-paid" aria-hidden />{t.calendarLegendCourtPaid}</span>
+                        <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--court-partial" aria-hidden />{t.calendarLegendCourtPartial}</span>
+                        <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--court-unpaid" aria-hidden />{t.calendarLegendCourtUnpaid}</span>
+                        <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--training" aria-hidden />{t.calendarLegendTraining}</span>
+                        <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--king" aria-hidden />{t.calendarLegendKing}</span>
+                        <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--social" aria-hidden />{t.calendarLegendSocial}</span>
+                      </div>
+                      <p className="bookings-calendar-legend__hint">{t.calendarHoverForDetails}</p>
+                    </div>
                   </div>
                 
                 {/* Calendar Grid */}
@@ -6168,19 +6299,41 @@ function App({ currentUser }) {
                                 const baseHeight = rowSpan * 30 - 2
                                 const bookingHeight = getBookingMinHeight(booking, baseHeight)
                                 const paymentStatus = getPaymentStatus(booking)
-                                const bookingColor = getBookingColor(booking)
-                                // Render multiple bookings side-by-side with clean styling
                                 const totalBookings = slotBookings.length
-                                const gap = totalBookings > 1 ? 2 : 0 // 2px gap between bookings
+                                const gap = totalBookings > 1 ? 2 : 0
                                 const widthPercent = totalBookings > 1 ? (100 / totalBookings) : 100
                                 const leftPercent = totalBookings > 1 ? bookingIdx * widthPercent : 0
-                                
+
                                 const isTournamentBooking = !!booking.isTournament
                                 const tournamentKind = booking.tournamentType === 'social' ? 'social' : 'king'
+                                const calKind = getBookingCalendarKind(booking)
+                                const isPlaytomicBk = booking.source === 'playtomic' || booking.id?.toString().startsWith('playtomic_')
+                                let eventClass =
+                                  'booking-event' +
+                                  (totalBookings > 1 ? ' booking-event-multiple' : '') +
+                                  (isPlaytomicBk ? ' booking-event--playtomic' : '')
+                                if (isTournamentBooking) {
+                                  eventClass += ` booking-event--tournament booking-event--tournament-${tournamentKind}`
+                                } else {
+                                  eventClass += ` booking-event--kind-${calKind}`
+                                  eventClass +=
+                                    paymentStatus === 'paid'
+                                      ? ' booking-event--pay-paid'
+                                      : paymentStatus === 'partially_paid'
+                                        ? ' booking-event--pay-partial'
+                                        : ' booking-event--pay-unpaid'
+                                }
+                                const paymentLabelStr = isTournamentBooking
+                                  ? '—'
+                                  : paymentStatus === 'paid'
+                                    ? t.paid
+                                    : paymentStatus === 'partially_paid'
+                                      ? t.partiallyPaid
+                                      : t.notPaid
                                 return (
                                   <div
                                     key={booking.id}
-                                    className={`booking-event ${totalBookings > 1 ? 'booking-event-multiple' : ''} ${isTournamentBooking ? `booking-event--tournament booking-event--tournament-${tournamentKind}` : (paymentStatus === 'paid' ? 'paid' : paymentStatus === 'partially_paid' ? 'partially-paid' : 'not-paid')}`}
+                                    className={eventClass}
                                     onMouseEnter={() => setHoveredBooking(booking.id)}
                                     onMouseLeave={() => setHoveredBooking(null)}
                                     onClick={(e) => {
@@ -6223,7 +6376,6 @@ function App({ currentUser }) {
                                       setShowBookingModal(true)
                                     }}
                                     style={{
-                                      ...(!isTournamentBooking ? { backgroundColor: bookingColor } : {}),
                                       position: 'absolute',
                                       top: 0,
                                       left: totalBookings > 1 ? `calc(${leftPercent}% + ${bookingIdx > 0 ? gap : 0}px)` : '2px',
@@ -6232,14 +6384,10 @@ function App({ currentUser }) {
                                       minHeight: '28px',
                                       zIndex: 3 + bookingIdx,
                                       cursor: 'pointer',
-                                      ...(!isTournamentBooking ? {
-                                        borderLeft: `3px solid ${paymentStatus === 'paid' ? '#28a745' : paymentStatus === 'partially_paid' ? '#ffc107' : '#dc3545'}`
-                                      } : {}),
-                                      borderRight: totalBookings > 1 && bookingIdx < totalBookings - 1 ? '1px solid rgba(0,0,0,0.1)' : 'none',
-                                      boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                                      borderRadius: totalBookings > 1 
-                                        ? (bookingIdx === 0 ? '4px 0 0 4px' : bookingIdx === totalBookings - 1 ? '0 4px 4px 0' : '0')
-                                        : '4px'
+                                      borderRight: totalBookings > 1 && bookingIdx < totalBookings - 1 ? '1px solid rgba(0,0,0,0.06)' : 'none',
+                                      borderRadius: totalBookings > 1
+                                        ? (bookingIdx === 0 ? '8px 0 0 8px' : bookingIdx === totalBookings - 1 ? '0 8px 8px 0' : '0')
+                                        : '8px'
                                     }}
                                   >
                                       {!isTournamentBooking && (
@@ -6250,18 +6398,8 @@ function App({ currentUser }) {
                                       {isTournamentBooking && (
                                         <div className="booking-tournament-badge" aria-hidden="true">{booking.tournamentType === 'social' ? '👥' : '🏆'}</div>
                                       )}
-                                      {(booking.source === 'playtomic' || booking.id?.toString().startsWith('playtomic_')) && (
-                                        <div style={{ 
-                                          position: 'absolute', 
-                                          top: '2px', 
-                                          right: '2px', 
-                                          fontSize: '8px', 
-                                          backgroundColor: '#2196f3', 
-                                          color: 'white', 
-                                          padding: '1px 3px', 
-                                          borderRadius: '2px',
-                                          fontWeight: 'bold'
-                                        }}>
+                                      {isPlaytomicBk && (
+                                        <div className="booking-playtomic-corner" aria-hidden>
                                           P
                                         </div>
                                       )}
@@ -6306,44 +6444,13 @@ function App({ currentUser }) {
                                         </div>
                                       </div>
                                       {hoveredBooking === booking.id && (
-                                        <div className="booking-tooltip">
-                                          <div style={{ marginBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '6px' }}>
-                                            <div><strong>{booking.resource}</strong></div>
-                                            <div style={{ fontSize: '11px', marginTop: '2px' }}>{booking.startTime} - {booking.endTime}</div>
-                                          </div>
-                                          {(booking.participants?.length || 0) > 0 && (
-                                            <div style={{ marginBottom: '8px' }}>
-                                              <div style={{ fontWeight: '600', marginBottom: '4px', fontSize: '12px' }}>{t.participants}:</div>
-                                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                                {(booking.participants || []).map((p, idx) => (
-                                                  <div key={idx} style={{ 
-                                                    padding: '2px 0',
-                                                    fontSize: '13px',
-                                                    lineHeight: '1.4'
-                                                  }}>
-                                                    • {typeof p === 'object' ? p.name : p}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          )}
-                                          {booking.amount && (
-                                            <div style={{ marginBottom: '8px', borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: '6px' }}>
-                                              <div>
-                                                {t.amount}: {booking.amount}
-                                                {paymentStatus === 'paid' 
-                                                  ? ` (${language === 'en' ? 'Paid' : 'مدفوع'})`
-                                                  : paymentStatus === 'partially_paid'
-                                                  ? ` (${language === 'en' ? 'Partially Paid' : 'مدفوع جزئياً'})`
-                                                  : ` (${language === 'en' ? 'Not Paid' : 'غير مدفوع'})`
-                                                }
-                                              </div>
-                                            </div>
-                                          )}
-                                          <div style={{ marginTop: '8px', fontSize: '10px', color: '#b0bec5', fontStyle: 'italic', borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: '6px' }}>
-                                            {language === 'en' ? 'Click to edit' : 'انقر للتعديل'}
-                                          </div>
-                                        </div>
+                                        <CalendarBookingTooltip
+                                          booking={booking}
+                                          language={language}
+                                          t={t}
+                                          currentClub={currentClub}
+                                          paymentLabel={paymentLabelStr}
+                                        />
                                       )}
                                     </div>
                                   )
@@ -6484,13 +6591,33 @@ function App({ currentUser }) {
                                   const baseHeight = rowSpan * 30 - 2
                                   const bookingHeight = getBookingMinHeight(booking, baseHeight)
                                   const paymentStatus = getPaymentStatus(booking)
-                                  const bookingColor = getBookingColor(booking)
                                   const isTournamentBooking = !!booking.isTournament
                                   const tournamentKind = booking.tournamentType === 'social' ? 'social' : 'king'
+                                  const calKind = getBookingCalendarKind(booking)
+                                  const isPlaytomicBk = booking.source === 'playtomic' || booking.id?.toString().startsWith('playtomic_')
+                                  let eventClass = 'booking-event' + (isPlaytomicBk ? ' booking-event--playtomic' : '')
+                                  if (isTournamentBooking) {
+                                    eventClass += ` booking-event--tournament booking-event--tournament-${tournamentKind}`
+                                  } else {
+                                    eventClass += ` booking-event--kind-${calKind}`
+                                    eventClass +=
+                                      paymentStatus === 'paid'
+                                        ? ' booking-event--pay-paid'
+                                        : paymentStatus === 'partially_paid'
+                                          ? ' booking-event--pay-partial'
+                                          : ' booking-event--pay-unpaid'
+                                  }
+                                  const paymentLabelStr = isTournamentBooking
+                                    ? '—'
+                                    : paymentStatus === 'paid'
+                                      ? t.paid
+                                      : paymentStatus === 'partially_paid'
+                                        ? t.partiallyPaid
+                                        : t.notPaid
                                   return (
                                     <div
                                       key={booking.id}
-                                      className={`booking-event ${isTournamentBooking ? `booking-event--tournament booking-event--tournament-${tournamentKind}` : (paymentStatus === 'paid' ? 'paid' : paymentStatus === 'partially_paid' ? 'partially-paid' : 'not-paid')}`}
+                                      className={eventClass}
                                       onMouseEnter={() => setHoveredBooking(booking.id)}
                                       onMouseLeave={() => setHoveredBooking(null)}
                                       onClick={(e) => {
@@ -6531,7 +6658,6 @@ function App({ currentUser }) {
                                         setShowBookingModal(true)
                                       }}
                                       style={{
-                                        ...(!isTournamentBooking ? { backgroundColor: bookingColor } : {}),
                                         position: 'absolute',
                                         top: 0,
                                         left: '2px',
@@ -6539,7 +6665,8 @@ function App({ currentUser }) {
                                         height: `${bookingHeight}px`,
                                         minHeight: '28px',
                                         zIndex: 3,
-                                        cursor: 'pointer'
+                                        cursor: 'pointer',
+                                        borderRadius: '8px'
                                       }}
                                     >
                                       {!isTournamentBooking && (
@@ -6550,18 +6677,8 @@ function App({ currentUser }) {
                                       {isTournamentBooking && (
                                         <div className="booking-tournament-badge" aria-hidden="true">{booking.tournamentType === 'social' ? '👥' : '🏆'}</div>
                                       )}
-                                      {(booking.source === 'playtomic' || booking.id?.toString().startsWith('playtomic_')) && (
-                                        <div style={{ 
-                                          position: 'absolute', 
-                                          top: '2px', 
-                                          right: '2px', 
-                                          fontSize: '8px', 
-                                          backgroundColor: '#2196f3', 
-                                          color: 'white', 
-                                          padding: '1px 3px', 
-                                          borderRadius: '2px',
-                                          fontWeight: 'bold'
-                                        }}>
+                                      {isPlaytomicBk && (
+                                        <div className="booking-playtomic-corner" aria-hidden>
                                           P
                                         </div>
                                       )}
@@ -6590,50 +6707,13 @@ function App({ currentUser }) {
                                         )}
                                       </div>
                                       {hoveredBooking === booking.id && (
-                                        <div className="booking-tooltip">
-                                          <div style={{ marginBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '6px' }}>
-                                            <div><strong>{booking.isTournament ? (booking.tournamentType === 'social' ? (language === 'en' ? 'Social tournament' : 'بطولة سوشيال') : (language === 'en' ? 'King of the Court' : 'ملك الملعب')) : booking.resource}</strong></div>
-                                            <div style={{ fontSize: '11px', marginTop: '2px' }}>{booking.startTime} - {booking.endTime}</div>
-                                            <div style={{ fontSize: '11px', marginTop: '2px' }}>{new Date(booking.date).toLocaleDateString()}</div>
-                                            {booking.isTournament && Array.isArray(booking.tournamentCourtIds) && booking.tournamentCourtIds.length > 0 && (
-                                              <div style={{ fontSize: '10px', marginTop: '6px', opacity: 0.95 }}>
-                                                {language === 'en' ? 'Courts:' : 'الملاعب:'} {booking.tournamentCourtIds.length}
-                                              </div>
-                                            )}
-                                          </div>
-                                          {(booking.participants?.length || 0) > 0 && (
-                                            <div style={{ marginBottom: '8px' }}>
-                                              <div style={{ fontWeight: '600', marginBottom: '4px', fontSize: '12px' }}>{t.participants}:</div>
-                                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                                {(booking.participants || []).map((p, idx) => (
-                                                  <div key={idx} style={{ 
-                                                    padding: '2px 0',
-                                                    fontSize: '13px',
-                                                    lineHeight: '1.4'
-                                                  }}>
-                                                    • {typeof p === 'object' ? p.name : p}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          )}
-                                          {booking.amount && (
-                                            <div style={{ marginBottom: '8px', borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: '6px' }}>
-                                              <div>
-                                                {t.amount}: {booking.amount}
-                                                {paymentStatus === 'paid' 
-                                                  ? ` (${language === 'en' ? 'Paid' : 'مدفوع'})`
-                                                  : paymentStatus === 'partially_paid'
-                                                  ? ` (${language === 'en' ? 'Partially Paid' : 'مدفوع جزئياً'})`
-                                                  : ` (${language === 'en' ? 'Not Paid' : 'غير مدفوع'})`
-                                                }
-                                              </div>
-                                            </div>
-                                          )}
-                                          <div style={{ marginTop: '8px', fontSize: '10px', color: '#b0bec5', fontStyle: 'italic', borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: '6px' }}>
-                                            {language === 'en' ? 'Click to edit' : 'انقر للتعديل'}
-                                          </div>
-                                        </div>
+                                        <CalendarBookingTooltip
+                                          booking={booking}
+                                          language={language}
+                                          t={t}
+                                          currentClub={currentClub}
+                                          paymentLabel={paymentLabelStr}
+                                        />
                                       )}
                                     </div>
                                   )
