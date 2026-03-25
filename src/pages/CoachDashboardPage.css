@@ -283,10 +283,11 @@
 
 @media (min-width: 768px) {
   .coach-controls-panel {
-    grid-template-columns: minmax(220px, 1fr) minmax(200px, 1.2fr);
+    grid-template-columns: minmax(220px, 1fr) minmax(240px, 1.35fr);
     align-items: start;
   }
 
+  /* صف مستقل — لا نضع السياسة بجانب الحقول لتفادي التراص والتداخل */
   .coach-controls-section--policy {
     grid-column: 1 / -1;
   }
@@ -294,16 +295,13 @@
 
 @media (min-width: 1024px) {
   .coach-controls-panel {
-    grid-template-columns: minmax(240px, 1fr) minmax(220px, 1fr) minmax(200px, 0.95fr);
-  }
-
-  .coach-controls-section--policy {
-    grid-column: auto;
+    grid-template-columns: minmax(260px, 1fr) minmax(280px, 1.45fr);
   }
 }
 
 .coach-controls-section {
   min-width: 0;
+  overflow-x: clip;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: var(--coach-radius-sm);
