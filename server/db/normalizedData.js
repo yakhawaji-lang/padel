@@ -1163,6 +1163,7 @@ export async function updateClubSettingsInDb(clubId, settings, actor = {}) {
   const s = settings
   const toNum = (v, def) => { const n = Number(v); return (v != null && v !== '' && !Number.isNaN(n)) ? n : def }
   const bookingPricesJson = JSON.stringify(s.bookingPrices || {})
+  const workingHoursSeasonsJson = JSON.stringify(Array.isArray(s.workingHoursSeasons) ? s.workingHoursSeasons : [])
 
   const generalParams = [
     s.defaultLanguage || 'en', s.timezone || 'Asia/Riyadh', s.currency || 'SAR',
@@ -1170,7 +1171,7 @@ export async function updateClubSettingsInDb(clubId, settings, actor = {}) {
     s.openingTime || '06:00', s.closingTime || '23:00',
     s.headerBgColor || '#ffffff', s.headerTextColor || '#0f172a',
     s.heroBgColor || '#ffffff', s.heroBgOpacity ?? 85, s.heroTitleColor || '#0f172a', s.heroTextColor || '#475569', s.heroStatsColor || '#0f172a',
-    JSON.stringify(s.socialLinks || []), bookingPricesJson, actor.actorId || null, cid
+    JSON.stringify(s.socialLinks || []), bookingPricesJson, workingHoursSeasonsJson, actor.actorId || null, cid
   ]
 
   const lockMinutes = getSettingNum(s, 'lockMinutes', 'lock_minutes', 10)
