@@ -73,11 +73,29 @@ export function resolvePaymentShareDisplayName(share, memberDirectory) {
   return ph || '—'
 }
 
+/**
+ * حصة تم استردادها وبانتظار تأكيد المشارك باستلام المبلغ (حتى لو أُزيل من التقسيم).
+ */
+export function shareNeedsRefundAcknowledgment(share, member) {
+  if (!share?.refundedAt || share.refundAcknowledgedAt) return false
+  if (!member?.id) return false
+  if (String(share.memberId || share.member_id || '') === String(member.id)) return true
+  const tail = (raw) => {
+    const d = String(raw || '').replace(/\D/g, '')
+    return d.length >= 9 ? d.slice(-9) : d
+  }
+  const mp = tail(member.phone || member.mobile || '')
+  const sp = tail(share.phone || '')
+  return mp.length >= 8 && sp.length >= 8 && mp === sp
+}
+
 /** Non-tournament court/training booking: booker or split participant */
 export function memberRelatesToCourtBooking(booking, member) {
   if (!member?.id || !booking || booking.isTournament) return false
   const memberIdStr = String(member.id)
   const isInitiator = String(booking.memberId || booking.initiatorMemberId || booking.member_id || '') === memberIdStr
   if (isInitiator) return true
-  return !!findPaymentShareForMember(booking, member)
+  if (findPaymentShareForMember(booking, member)) return true
+  const shares = booking.paymentShares || []
+  return shares.some((s) => shareNeedsRefundAcknowledgment(s, member))
 }

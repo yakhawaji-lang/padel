@@ -62,6 +62,49 @@
   font-size: 0.95rem;
 }
 
+.booking-detail-refund-ack-banner {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #fff7ed 0%, #fff 100%);
+  border: 1px solid #fed7aa;
+}
+
+.booking-detail-refund-ack-title {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #c2410c;
+}
+
+.booking-detail-refund-ack-hint {
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  color: #78716c;
+  line-height: 1.4;
+}
+
+.booking-detail-refund-ack-btn {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+  color: #fff;
+}
+
+.booking-detail-refund-ack-btn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.booking-detail-refund-ack-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .booking-detail-customer {
   color: #64748b;
   font-size: 0.9rem;

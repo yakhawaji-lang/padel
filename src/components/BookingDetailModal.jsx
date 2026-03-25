@@ -4,7 +4,7 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import * as bookingApi from '../api/dbClient'
-import { resolvePaymentShareDisplayName } from '../utils/paymentShareMemberMatch'
+import { resolvePaymentShareDisplayName, shareNeedsRefundAcknowledgment } from '../utils/paymentShareMemberMatch'
 import './BookingDetailModal.css'
 
 function getMapUrl(club) {
@@ -31,6 +31,7 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
   const [markingPayAtClub, setMarkingPayAtClub] = useState(false)
   const [copied, setCopied] = useState(false)
   const [payMenuOpen, setPayMenuOpen] = useState(false)
+  const [ackRefundBusy, setAckRefundBusy] = useState(false)
 
   const dateStr = booking?.dateStr || booking?.date || (booking?.startDate || '').toString().split('T')[0]
   const startTime = booking?.startTime || booking?.timeSlot || ''
@@ -54,7 +55,9 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
   })
   const [fetchedInviteToken, setFetchedInviteToken] = useState(null)
   const inviteToken = userShare?.inviteToken || fetchedInviteToken
-  const isParticipantWithShare = !!userShare && !userShare.paidAt
+  const needsRefundAck =
+    !!platformUser && !!userShare && shareNeedsRefundAcknowledgment(userShare, platformUser)
+  const isParticipantWithShare = !!userShare && !userShare.paidAt && !needsRefundAck
   const chosePayAtClub = userShare && userShare.paymentMethod === 'at_club' && !userShare.paidAt
   const hasShares = paymentShares.length > 0
   const initiatorChosePayAtClub = !hasShares && (booking?.initiatorPaymentMethod === 'at_club' || booking?.data?.initiatorPaymentMethod === 'at_club')
@@ -113,6 +116,29 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
     }
   }, [inviteToken, club?.id, booking?.id, platformUser?.id, onClose, onUpdated, language])
 
+  const handleAcknowledgeRefund = useCallback(async () => {
+    if (!club?.id || !platformUser?.id || !userShare) return
+    setAckRefundBusy(true)
+    try {
+      await bookingApi.acknowledgeShareRefund({
+        shareId: userShare.id || undefined,
+        inviteToken: userShare.inviteToken || undefined,
+        clubId: club.id,
+        memberId: platformUser.id,
+        phone: platformUser.mobile || platformUser.phone
+      })
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      await onUpdated?.()
+    } catch (e) {
+      console.error(e)
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(language === 'ar' ? (e?.message || 'فشل التأكيد') : (e?.message || 'Confirmation failed'))
+      }
+    } finally {
+      setAckRefundBusy(false)
+    }
+  }, [club?.id, platformUser, userShare, onUpdated, language])
+
   const handleCopyLink = useCallback(() => {
     const url = window.location.href
     navigator.clipboard?.writeText(url).then(() => {
@@ -150,7 +176,10 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       addShare: 'Add participant',
       close: 'Close',
       noMap: 'No address set',
-      copied: 'Copied!'
+      copied: 'Copied!',
+      refundAckTitle: 'Refund pending your confirmation',
+      refundAckHint: 'The club recorded a refund for your share. Confirm when you have received the money.',
+      confirmRefundReceived: 'I received the refund'
     },
     ar: {
       title: 'تفاصيل الحجز',
@@ -174,7 +203,10 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       addShare: 'إضافة مشارك',
       close: 'إغلاق',
       noMap: 'لم يُضف عنوان',
-      copied: 'تم النسخ!'
+      copied: 'تم النسخ!',
+      refundAckTitle: 'الاسترداد بانتظار تأكيدك',
+      refundAckHint: 'سجّل النادي استرداد حصتك. أكّد هنا عند استلام المبلغ.',
+      confirmRefundReceived: 'استلمت الاسترداد'
     }
   }
   const c = t[language] || t.en
@@ -193,6 +225,21 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
             <p className="booking-detail-customer">{memberName}</p>
             {totalAmount > 0 && <p>{totalAmount} {currency}</p>}
           </div>
+
+            {needsRefundAck && club?.id && (
+              <div className="booking-detail-refund-ack-banner">
+                <p className="booking-detail-refund-ack-title">{c.refundAckTitle}</p>
+                <p className="booking-detail-refund-ack-hint">{c.refundAckHint}</p>
+                <button
+                  type="button"
+                  className="booking-detail-refund-ack-btn"
+                  disabled={ackRefundBusy}
+                  onClick={handleAcknowledgeRefund}
+                >
+                  {ackRefundBusy ? '…' : c.confirmRefundReceived}
+                </button>
+              </div>
+            )}
 
           <div className="booking-detail-actions">
             {club?.id && (
@@ -290,7 +337,15 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
                       <div key={s.id || idx} className="booking-detail-share-row">
                         <span>{resolvePaymentShareDisplayName(s, memberDirectory)}</span>
                         <span className={`booking-detail-share-status ${s.paidAt ? 'paid' : ''}`}>
-                          {s.paidAt ? '✓ ' + c.paid : s.paymentMethod === 'at_club' ? '◐ ' + c.waitingConfirm : '○ ' + c.pending}
+                          {s.refundedAt && !s.refundAcknowledgedAt
+                            ? '⏳ ' + (language === 'ar' ? 'بانتظار تأكيد الاسترداد' : 'Awaiting refund confirmation')
+                            : s.refundedAt && s.refundAcknowledgedAt
+                              ? '✓ ' + (language === 'ar' ? 'أُكّد الاسترداد' : 'Refund confirmed')
+                              : s.paidAt
+                                ? '✓ ' + c.paid
+                                : s.paymentMethod === 'at_club'
+                                  ? '◐ ' + c.waitingConfirm
+                                  : '○ ' + c.pending}
                         </span>
                         {isMyShare && !s.paidAt && needsPayment && (
                           <button

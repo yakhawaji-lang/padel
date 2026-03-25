@@ -7,7 +7,7 @@ import LanguageIcon from '../components/LanguageIcon'
 import BookingDetailModal from '../components/BookingDetailModal'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './MyBookingsPage.css'
-import { findPaymentShareForMember, resolvePaymentShareDisplayName } from '../utils/paymentShareMemberMatch.js'
+import { findPaymentShareForMember, resolvePaymentShareDisplayName, shareNeedsRefundAcknowledgment } from '../utils/paymentShareMemberMatch.js'
 
 function getBookingDisplayProps({ booking, club }, language) {
   const dateStr = booking.dateStr || booking.date || (booking.startDate && (typeof booking.startDate === 'string' ? booking.startDate : booking.startDate.toISOString?.()?.split('T')[0])) || ''
@@ -278,19 +278,6 @@ const MyBookingsPage = () => {
     return ''
   }
 
-  const shareNeedsRefundAck = (share, m) => {
-    if (!share?.refundedAt || share.refundAcknowledgedAt || share.removedAt) return false
-    if (!m?.id) return false
-    if (String(share.memberId || '') === String(m.id)) return true
-    const tail = (raw) => {
-      const d = String(raw || '').replace(/\D/g, '')
-      return d.length >= 9 ? d.slice(-9) : d
-    }
-    const mp = tail(m.phone || m.mobile || '')
-    const sp = tail(share.phone || '')
-    return mp.length >= 8 && sp.length >= 8 && mp === sp
-  }
-
   const handleAckRefund = async (share, clubId) => {
     if (!member?.id || !clubId) return
     setMarkingPayAtClub(`ack-${share.id || share.inviteToken}`)
@@ -483,7 +470,10 @@ const MyBookingsPage = () => {
     const isUpcoming = filter === 'upcoming'
     const canCancel = isUpcoming && club && !['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes((booking.status || '').toString())
     const payOptions = getPayOptions(booking, club)
-    const visibleShares = (booking.paymentShares || []).filter((s) => !s.removedAt)
+    const visibleShares = (booking.paymentShares || []).filter((s) => {
+      if (!s.removedAt && !s.removed_at) return true
+      return member && shareNeedsRefundAcknowledgment(s, member)
+    })
     const showAddSplit = canAddSplitParticipants(booking, club, member)
 
     return {
@@ -709,7 +699,7 @@ const MyBookingsPage = () => {
                                   <span className={s.refundedAt ? 'my-bookings-refunded' : s.paidAt ? 'my-bookings-paid' : ''}>
                                     {s.refundedAt ? (language === 'en' ? 'Refunded' : 'مسترد') : s.paidAt ? '✓ ' + c.paid : c.pending}
                                   </span>
-                                  {shareNeedsRefundAck(s, member) && r.club?.id && filter === 'upcoming' && (
+                                  {shareNeedsRefundAcknowledgment(s, member) && r.club?.id && filter === 'upcoming' && (
                                     <button
                                       type="button"
                                       className="my-bookings-ack-refund-btn"
@@ -892,7 +882,7 @@ const MyBookingsPage = () => {
                           <span className={s.refundedAt ? 'my-bookings-refunded' : s.paidAt ? 'my-bookings-paid' : ''}>
                             {s.refundedAt ? '↩' : s.paidAt ? '✓' : '○'}
                           </span>
-                          {shareNeedsRefundAck(s, member) && r.club?.id && filter === 'upcoming' && (
+                          {shareNeedsRefundAcknowledgment(s, member) && r.club?.id && filter === 'upcoming' && (
                             <button type="button" className="my-bookings-ack-refund-btn" disabled={!!markingPayAtClub} onClick={(e) => { e.stopPropagation(); handleAckRefund(s, r.club.id) }}>
                               {language === 'en' ? 'OK' : '✓'}
                             </button>
