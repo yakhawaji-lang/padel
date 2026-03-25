@@ -216,6 +216,24 @@ function App({ currentUser }) {
     () => getLegacyOpenCloseBounds(currentClub?.settings || {}),
     [currentClub?.settings]
   )
+
+  /** Padel grid uses 30-minute slots; booking must have end > start for club-hours validation. */
+  const addMinutesToTimeStr = (timeStr, deltaMinutes) => {
+    const parts = (timeStr || '00:00').split(':')
+    const h = parseInt(parts[0], 10) || 0
+    const m = parseInt(parts[1], 10) || 0
+    let total = h * 60 + m + deltaMinutes
+    total = Math.min(Math.max(total, 0), 24 * 60 - 1)
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+  }
+  const ensureEndTimeAfterStart = (start, end, minGapMinutes = 30) => {
+    const toMin = (t) => {
+      const [a, b] = (t || '00:00').split(':').map((x) => parseInt(x, 10) || 0)
+      return a * 60 + b
+    }
+    if (toMin(end) <= toMin(start)) return addMinutesToTimeStr(start, minGapMinutes)
+    return end
+  }
   
   // Members state (persistent across tournaments)
   const [members, setMembers] = useState([])
@@ -4285,6 +4303,8 @@ function App({ currentUser }) {
     return courts.map(c => c.name || c.nameAr || 'Court')
   }
 
+  const courtsListStable = useMemo(() => getCourts(), [currentClub])
+
   const getBookingRowSpan = (booking) => {
     // Calculate how many 30-minute slots the booking spans
     const startParts = booking.startTime.split(':')
@@ -4442,7 +4462,8 @@ function App({ currentUser }) {
   const handleGridMouseUp = () => {
     if (dragSelection && dragSelection.startCell && dragSelection.endCell) {
       const startTime = dragSelection.startTime
-      const endTime = dragSelection.endTime || dragSelection.startTime
+      const endRaw = dragSelection.endTime || dragSelection.startTime
+      const endTime = ensureEndTimeAfterStart(startTime, endRaw, 30)
       const date = dragSelection.startCell.day
       
       // Open booking modal with prefilled data
@@ -4487,7 +4508,8 @@ function App({ currentUser }) {
   const handleCourtGridMouseUp = () => {
     if (dragSelection && dragSelection.startCell && dragSelection.endCell) {
       const startTime = dragSelection.startTime
-      const endTime = dragSelection.endTime || dragSelection.startTime
+      const endRaw = dragSelection.endTime || dragSelection.startTime
+      const endTime = ensureEndTimeAfterStart(startTime, endRaw, 30)
       const date = dragSelection.startCell.date
       const court = dragSelection.startCell.court
       
@@ -4552,7 +4574,10 @@ function App({ currentUser }) {
     }
 
     const closingTime = clubLegacyHours.closingTime || bookingData.endTime || '23:00'
-    const effectiveEndTime = bookingData.isOpenEnded ? closingTime : bookingData.endTime
+    let effectiveEndTime = bookingData.isOpenEnded ? closingTime : bookingData.endTime
+    if (!bookingData.isOpenEnded) {
+      effectiveEndTime = ensureEndTimeAfterStart(bookingData.startTime, effectiveEndTime, 30)
+    }
 
     let participants = Array.isArray(bookingData.participants) ? [...bookingData.participants] : []
     if (bookingData.markFullyPaidAtClub && participants.length > 0) {
@@ -4583,9 +4608,15 @@ function App({ currentUser }) {
     })
 
     const paidSum = paymentShares.reduce((s, sh) => s + (sh.paidAt ? sh.amount : 0), 0)
+    const hasParticipants = participants.length > 0
+
     let status = 'confirmed'
-    if (totalAmt > 0.01 && paidSum < totalAmt - 0.02) {
+    if (bookingData.markFullyPaidAtClub && totalAmt > 0.01) {
+      status = 'confirmed'
+    } else if (hasParticipants && totalAmt > 0.01 && paidSum < totalAmt - 0.02) {
       status = paidSum > 0.01 ? 'partially_paid' : 'pending_payment'
+    } else if (!hasParticipants && totalAmt > 0.01) {
+      status = 'pending_payment'
     }
 
     const primaryName =
@@ -4593,7 +4624,9 @@ function App({ currentUser }) {
         ? typeof participants[0] === 'object'
           ? participants[0].name || ''
           : String(participants[0])
-        : ''
+        : language === 'en'
+          ? 'Walk-in / Club desk'
+          : 'حضور / استقبال النادي'
 
     const [sh, sm] = (bookingData.startTime || '00:00').split(':').map((x) => parseInt(x, 10) || 0)
     const [eh, em] = (effectiveEndTime || '00:00').split(':').map((x) => parseInt(x, 10) || 0)
@@ -7010,7 +7043,7 @@ function App({ currentUser }) {
                 <BookingFormModal
                   bookingData={bookingFormData || {}}
                   members={members}
-                  courts={getCourts()}
+                  courts={courtsListStable}
                   clubOpeningTime={clubLegacyHours.openingTime}
                   clubClosingTime={clubLegacyHours.closingTime}
                   clubId={clubId}
@@ -7211,7 +7244,7 @@ function App({ currentUser }) {
                 <BookingFormModal
                   bookingData={bookingFormData}
                   members={members}
-                  courts={getCourts()}
+                  courts={courtsListStable}
                   clubOpeningTime={clubLegacyHours.openingTime}
                   clubClosingTime={clubLegacyHours.closingTime}
                   clubId={clubId}
@@ -8982,7 +9015,7 @@ function BookingFormModal({
       participants: mapParticipantsIn(bookingData.participants || []),
       notes: bookingData.notes || '',
     })
-  }, [bookingSyncKey, courts, defaultStart, defaultEnd, closingForOpen])
+  }, [bookingSyncKey, defaultStart, defaultEnd, closingForOpen])
 
   // Calculate isEditMode based on formData.id (which syncs with bookingData.id)
   const isEditMode = !!(formData.id || bookingData?.id)
@@ -9061,11 +9094,24 @@ function BookingFormModal({
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    let end = isOpenEnded ? closingForOpen : formData.endTime
+    const toMin = (t) => {
+      const [a, b] = (t || '00:00').split(':').map((x) => parseInt(x, 10) || 0)
+      return a * 60 + b
+    }
+    if (!isOpenEnded && toMin(end) <= toMin(formData.startTime)) {
+      const parts = (formData.startTime || '00:00').split(':')
+      const h = parseInt(parts[0], 10) || 0
+      const m = parseInt(parts[1], 10) || 0
+      let total = h * 60 + m + 30
+      total = Math.min(Math.max(total, 0), 24 * 60 - 1)
+      end = `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+    }
     onSave({
       ...formData,
+      endTime: end,
       isOpenEnded,
       markFullyPaidAtClub,
-      endTime: isOpenEnded ? closingForOpen : formData.endTime,
     })
   }
 
@@ -9224,6 +9270,7 @@ function BookingFormModal({
             <div className="booking-form-modal__section">
               <div className="booking-form-modal__section-title">{translations.bookingPeopleSection}</div>
               <p className="booking-form-modal__muted booking-form-modal__hint-block">{translations.bookingSharePaymentHint}</p>
+              <p className="booking-form-modal__muted booking-form-modal__hint-block">{translations.bookingParticipantsOptional}</p>
               <div style={{ marginBottom: '15px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <label style={{ fontWeight: '600', color: '#1e293b' }}>

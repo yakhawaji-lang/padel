@@ -224,13 +224,15 @@ export const translations = {
     bookingPhone: 'Phone (for WhatsApp)',
     bookingWhatsAppInvite: 'WhatsApp',
     bookingWhatsAppNeedPhone: 'Add a valid phone number to send a WhatsApp invite.',
-    bookingMarkAllPaidAtClub: 'Mark everyone paid (collected cash at venue)',
+    bookingMarkAllPaidAtClub: 'Full payment collected at club (walk-in / desk — no participants required)',
     bookingSharePaymentHint:
       'Members see the booking under My bookings. Guests receive a WhatsApp message with registration and payment instructions.',
     bookingScheduleSection: 'Schedule',
     bookingCourtSection: 'Court & price',
     bookingPeopleSection: 'Participants & payment',
     bookingWorkingHoursHint: 'Prefer times within your usual opening range; all times remain editable.',
+    bookingParticipantsOptional:
+      'Participants are optional. Record court, time, and amount only — then check “payment collected” if the guest already paid at the desk.',
   },
   ar: {
     title: 'بطولة هلا بادل',
@@ -457,13 +459,15 @@ export const translations = {
     bookingPhone: 'الجوال (للواتساب)',
     bookingWhatsAppInvite: 'واتساب',
     bookingWhatsAppNeedPhone: 'أضف رقم جوال صالح لإرسال دعوة واتساب.',
-    bookingMarkAllPaidAtClub: 'تسجيل سداد الجميع (استلام نقداً في المنشأة)',
+    bookingMarkAllPaidAtClub: 'تم استلام المبلغ كاملاً في النادي (حضور / استقبال — دون إجبار إضافة مشاركين)',
     bookingSharePaymentHint:
       'يظهر الحجز للأعضاء المسجلين في «حجوزاتي». يُرسل للضيف رابط تسجيل واستكمال الدفع عبر واتساب.',
     bookingScheduleSection: 'الجدولة',
     bookingCourtSection: 'الملعب والسعر',
     bookingPeopleSection: 'المشاركون والدفع',
     bookingWorkingHoursHint: 'يُفضّل ضمن أوقات العمل المعتادة؛ ويبقى تعديل جميع الأوقات ممكناً.',
+    bookingParticipantsOptional:
+      'المشاركون اختياريون. يمكنك حفظ الملعب والوقت والمبلغ فقط — ثم تفعيل «تم استلام المبلغ» إذا دفع في الاستقبال.',
   }
 }
 
