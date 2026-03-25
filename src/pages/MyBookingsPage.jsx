@@ -8,6 +8,23 @@ import BookingDetailModal from '../components/BookingDetailModal'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './MyBookingsPage.css'
 
+function phoneTailKey(s) {
+  const d = (s || '').replace(/\D/g, '')
+  return d.length >= 9 ? d.slice(-9) : d
+}
+
+/** Match share row to member (by id or phone) — same rules as participant listings */
+function findMemberShareInBooking(booking, member) {
+  if (!member?.id || !Array.isArray(booking?.paymentShares)) return null
+  const mid = String(member.id)
+  const mPhone = phoneTailKey(member.phone || member.mobile || '')
+  return booking.paymentShares.find(s => {
+    if (String(s.memberId || s.member_id || '') === mid) return true
+    if (mPhone.length >= 8 && phoneTailKey(s.phone || '') === mPhone) return true
+    return false
+  }) || null
+}
+
 function getBookingDisplayProps({ booking, club }, language) {
   const dateStr = booking.dateStr || booking.date || (booking.startDate && (typeof booking.startDate === 'string' ? booking.startDate : booking.startDate.toISOString?.()?.split('T')[0])) || ''
   const timeStr = (booking.startTime || booking.timeSlot || '') + (booking.endTime ? ` – ${booking.endTime}` : '')
@@ -282,7 +299,7 @@ const MyBookingsPage = () => {
   const getPayOptions = (booking, club) => {
     const memberIdStr = String(member?.id || '')
     const isInitiator = String(booking.memberId || booking.initiatorMemberId || '') === memberIdStr
-    const userShare = Array.isArray(booking.paymentShares) && booking.paymentShares.find(s => String(s.memberId || '') === memberIdStr)
+    const userShare = findMemberShareInBooking(booking, member)
     if (userShare?.paidAt) return null
     const inviteToken = userShare?.inviteToken
     const chosePayAtClub = userShare && userShare.paymentMethod === 'at_club' && !userShare.paidAt
@@ -297,7 +314,16 @@ const MyBookingsPage = () => {
   }
 
   const renderBookingRow = ({ booking, club }, i) => {
-    const { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isTournament, isPaid, isPendingPayment } = getBookingDisplayProps({ booking, club }, language)
+    let { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isTournament, isPaid, isPendingPayment } = getBookingDisplayProps({ booking, club }, language)
+    if (!booking.isTournament) {
+      const isInitiator = String(booking.memberId || booking.initiatorMemberId || '') === String(member?.id || '')
+      if (!isInitiator && member) {
+        const share = findMemberShareInBooking(booking, member)
+        if (share && share.amount != null && share.amount !== '') {
+          priceVal = share.amount
+        }
+      }
+    }
     const priceText = priceVal != null ? `${Number(priceVal)} ${currencyStr}` : '—'
     const isUpcoming = filter === 'upcoming'
     const canCancel = isUpcoming && club && !['cancelled', 'expired'].includes((booking.status || '').toString())

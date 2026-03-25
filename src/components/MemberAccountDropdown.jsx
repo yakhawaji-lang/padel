@@ -4,7 +4,7 @@ import { updatePlatformMember, logoutPlatformUser } from '../storage/platformAut
 import { changeMemberPassword, sendPhoneChangeCode, verifyPhoneChange } from '../api/dbClient'
 import './MemberAccountDropdown.css'
 
-const MemberAccountDropdown = ({ member, onUpdate, language = 'en', clubId, children, className = '', isCoach }) => {
+const MemberAccountDropdown = ({ member, onUpdate, language = 'en', clubId, children, className = '', isCoach, openProfileEditSignal = 0 }) => {
   const [open, setOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', email: '', avatar: '', mobile: '' })
@@ -42,7 +42,13 @@ const MemberAccountDropdown = ({ member, onUpdate, language = 'en', clubId, chil
       setPhoneChangeError('')
       return
     }
-    await updatePlatformMember(member.id, { name: editForm.name.trim(), email: editForm.email.trim(), avatar: editForm.avatar || undefined, mobile: newMobile || undefined })
+    await updatePlatformMember(member.id, {
+      name: editForm.name.trim(),
+      email: editForm.email.trim(),
+      avatar: editForm.avatar || undefined,
+      mobile: newMobile || undefined,
+      profileIncomplete: false
+    })
     setEditOpen(false)
     setPhoneChangeStep('idle')
     if (onUpdate) onUpdate()
@@ -72,7 +78,8 @@ const MemberAccountDropdown = ({ member, onUpdate, language = 'en', clubId, chil
         name: editForm.name.trim(),
         email: editForm.email.trim(),
         avatar: editForm.avatar || undefined,
-        mobile: phoneChangeNewPhone
+        mobile: phoneChangeNewPhone,
+        profileIncomplete: false
       })
       setPhoneChangeStep('done')
       setEditForm(f => ({ ...f, mobile: phoneChangeNewPhone }))
@@ -111,6 +118,7 @@ const MemberAccountDropdown = ({ member, onUpdate, language = 'en', clubId, chil
     setChangePasswordSubmitting(true)
     try {
       await changeMemberPassword(member.id, current, newPw)
+      await updatePlatformMember(member.id, { profileIncomplete: false })
       setChangePasswordSuccess(true)
       setChangePasswordForm({ current: '', new: '', confirm: '' })
       if (onUpdate) onUpdate()

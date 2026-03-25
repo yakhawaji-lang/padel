@@ -252,6 +252,7 @@ const ClubPublicPage = () => {
   })
   const [joinStatus, setJoinStatus] = useState(null)
   const [platformUser, setPlatformUser] = useState(null)
+  const [openProfileEditSignal, setOpenProfileEditSignal] = useState(0)
   const [courtGridDate, setCourtGridDate] = useState(() => {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -989,6 +990,8 @@ const ClubPublicPage = () => {
       joinPromptTitle: 'You\'re one step away!',
       joinPromptText: 'Join this club now to book courts, participate in tournaments, and enjoy member benefits.',
       joinPreviouslyMemberHint: 'Previously a member? Refresh the page or ask the club to re-add you.',
+      profileIncompleteText: 'Please complete your member registration details (profile, phone if needed, password) from your account.',
+      profileIncompleteCta: 'Complete profile',
       joinTraining: 'Join training',
       joinTrainingPrice: 'Price (one slot)',
       totalPrice: 'Total price',
@@ -1087,6 +1090,8 @@ const ClubPublicPage = () => {
       joinPromptTitle: 'أنت على بُعد خطوة واحدة!',
       joinPromptText: 'انضم للنادي الآن لحجز الملاعب والمشاركة في البطولات والاستفادة من مزايا العضوية.',
       joinPreviouslyMemberHint: 'كنت عضواً سابقاً؟ حدّث الصفحة أو اطلب من إدارة النادي إعادة ربط العضوية.',
+      profileIncompleteText: 'يرجى استكمال بيانات تسجيل العضو (الملف، الجوال إن لزم، كلمة المرور) من حسابك أعلاه.',
+      profileIncompleteCta: 'استكمال البيانات',
       joinTraining: 'انضم للتدريب',
       joinTrainingPrice: 'السعر (حصة واحدة)',
       totalPrice: 'الإجمالي',
@@ -1299,6 +1304,7 @@ const ClubPublicPage = () => {
                 clubId={clubId}
                 className="club-public-member-account"
                 isCoach={club && (club?.memberCoaches || []).some(mc => String(mc) === String(platformUser?.id))}
+                openProfileEditSignal={openProfileEditSignal}
               />
             ) : (
               <div className="club-public-auth-links">
@@ -1332,6 +1338,21 @@ const ClubPublicPage = () => {
           </div>
         </div>
       </header>
+
+      {platformUser?.profileIncomplete && (
+        <section className="club-public-profile-incomplete-banner" role="region" aria-live="polite">
+          <div className="club-public-profile-incomplete-inner">
+            <p className="club-public-profile-incomplete-text">{c.profileIncompleteText}</p>
+            <button
+              type="button"
+              className="club-public-profile-incomplete-btn"
+              onClick={() => setOpenProfileEditSignal((n) => n + 1)}
+            >
+              {c.profileIncompleteCta}
+            </button>
+          </div>
+        </section>
+      )}
 
       {club.banner ? (
         <section className="club-public-banner club-public-banner-with-hero">

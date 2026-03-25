@@ -28,7 +28,9 @@ const Register = () => {
   const joinClubId = searchParams.get('join')
   const phoneFromUrl = searchParams.get('phone')
   const returnTo = searchParams.get('returnTo') || ''
-  const isPhoneOnlyFlow = !!(joinClubId && phoneFromUrl && phoneDigits(phoneFromUrl).length >= 8)
+  const isPayInviteFlow = typeof returnTo === 'string' && returnTo.startsWith('/pay-invite/')
+  const isPhoneOnlyFlow =
+    !isPayInviteFlow && !!(joinClubId && phoneFromUrl && phoneDigits(phoneFromUrl).length >= 8)
   const [language, setLanguage] = useState(getAppLanguage())
   const [formData, setFormData] = useState({
     name: '',
@@ -61,12 +63,18 @@ const Register = () => {
 
   const t = {
     en: {
-      title: isPhoneOnlyFlow ? 'Quick register — payment share' : 'Register on PlayTix',
-      subtitle: isPhoneOnlyFlow
-        ? 'Register with your phone number to participate in the booking. Temporary password = your phone number.'
-        : joinClubId
-          ? 'Create an account to join the club.'
-          : 'Create an account to browse clubs, book courts, buy products and participate in tournaments.',
+      title: isPayInviteFlow
+        ? 'Register — pay your share'
+        : isPhoneOnlyFlow
+          ? 'Quick register — payment share'
+          : 'Register on PlayTix',
+      subtitle: isPayInviteFlow
+        ? 'Enter your email first — we will send a verification code. Then complete your name, phone, and password. You will continue to pay your share (at the club or online).'
+        : isPhoneOnlyFlow
+          ? 'Register with your phone number to participate in the booking. Temporary password = your phone number.'
+          : joinClubId
+            ? 'Create an account to join the club.'
+            : 'Create an account to browse clubs, book courts, buy products and participate in tournaments.',
       or: 'Create with email',
       name: 'Full name',
       email: 'Email',
@@ -95,12 +103,18 @@ const Register = () => {
       backToEmail: 'Change email'
     },
     ar: {
-      title: isPhoneOnlyFlow ? 'تسجيل سريع — مشاركة بالدفع' : 'التسجيل في PlayTix',
-      subtitle: isPhoneOnlyFlow
-        ? 'سجّل برقم جوالك للمشاركة في الحجز. كلمة المرور المؤقتة = رقم جوالك.'
-        : joinClubId
-          ? 'أنشئ حساباً للانضمام للنادي.'
-          : 'أنشئ حساباً لتصفح النوادي وحجز الملاعب وشراء المنتجات والمشاركة في البطولات.',
+      title: isPayInviteFlow
+        ? 'التسجيل — دفع حصتك'
+        : isPhoneOnlyFlow
+          ? 'تسجيل سريع — مشاركة بالدفع'
+          : 'التسجيل في PlayTix',
+      subtitle: isPayInviteFlow
+        ? 'أدخل بريدك أولاً — سنرسل كود تحقق. ثم أكمل الاسم والجوال وكلمة المرور. ستنتقل مباشرة لدفع حصتك (في النادي أو إلكترونياً).'
+        : isPhoneOnlyFlow
+          ? 'سجّل برقم جوالك للمشاركة في الحجز. كلمة المرور المؤقتة = رقم جوالك.'
+          : joinClubId
+            ? 'أنشئ حساباً للانضمام للنادي.'
+            : 'أنشئ حساباً لتصفح النوادي وحجز الملاعب وشراء المنتجات والمشاركة في البطولات.',
       or: 'إنشاء حساب بالإيميل',
       name: 'الاسم الكامل',
       email: 'البريد الإلكتروني',
@@ -194,6 +208,10 @@ const Register = () => {
       setError(language === 'en' ? 'Please fill all required fields.' : 'يرجى تعبئة جميع الحقول المطلوبة.')
       return
     }
+    if (isPayInviteFlow && (!formData.phone || phoneDigits(formData.phone).length < 8)) {
+      setError(language === 'en' ? 'Mobile number is required to match your payment invite.' : 'رقم الجوال مطلوب لمطابقة دعوة الدفع.')
+      return
+    }
     if (phoneOnly && !formData.phone?.trim()) {
       setError(language === 'en' ? 'Phone number is required.' : 'رقم الجوال مطلوب.')
       return
@@ -219,7 +237,8 @@ const Register = () => {
       password: effectivePassword,
       clubIds: joinClubId ? [joinClubId] : [],
       role: 'member',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      ...(isPayInviteFlow ? { profileIncomplete: true } : {})
     }
     const ok = await upsertMember(newMember)
     if (!ok) {
@@ -294,7 +313,7 @@ const Register = () => {
         <div className="register-card">
           <h1 className="register-title">{c.title}</h1>
           <p className="register-subtitle">{c.subtitle}</p>
-          {!isPhoneOnlyFlow && <p className="register-or">{c.or}</p>}
+          {!isPhoneOnlyFlow && !isPayInviteFlow && <p className="register-or">{c.or}</p>}
           <form
             onSubmit={
               isPhoneOnlyFlow || regStep === 'form'
@@ -387,14 +406,14 @@ const Register = () => {
             )}
             {(isPhoneOnlyFlow || regStep === 'form') && (
             <div className="form-group">
-              <label htmlFor="phone">{c.phone} {isPhoneOnlyFlow ? '*' : ''}</label>
+              <label htmlFor="phone">{c.phone} {(isPhoneOnlyFlow || isPayInviteFlow) ? '*' : ''}</label>
               <input
                 id="phone"
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 placeholder={c.phonePlaceholder}
-                required={isPhoneOnlyFlow}
+                required={isPhoneOnlyFlow || isPayInviteFlow}
                 autoComplete="tel"
               />
             </div>

@@ -212,6 +212,49 @@
   line-height: 1.4;
 }
 
+.club-public-profile-incomplete-banner {
+  width: 100%;
+  flex-shrink: 0;
+  padding: 14px 20px;
+  background: #fef9c3;
+  border-bottom: 1px solid #eab308;
+}
+.club-public-profile-incomplete-inner {
+  max-width: var(--club-content-max, 960px);
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.club-public-profile-incomplete-text {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: #713f12;
+  line-height: 1.5;
+  flex: 1;
+  min-width: 200px;
+}
+.club-public-profile-incomplete-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+  background: #b45309;
+  border: none;
+  border-radius: var(--club-radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, transform 0.2s;
+}
+.club-public-profile-incomplete-btn:hover {
+  background: #92400e;
+  transform: translateY(-1px);
+}
+
 .club-public-main {
   flex: 1;
   max-width: var(--club-content-max);

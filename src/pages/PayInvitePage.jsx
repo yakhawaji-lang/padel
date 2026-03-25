@@ -1,7 +1,7 @@
 /**
  * PayInvitePage - صفحة المشاركة في الدفع عبر رابط الدعوة
  * /pay-invite/:token
- * توجه المدعو للتسجيل برقم الجوال فقط (كلمة سر مؤقتة = رقم الجوال) ثم الموافقة على المشاركة
+ * المدعو يسجّل بالبريد (كود تحقق) ثم يكمل البيانات ويُوجَّه لدفع الحصة (نادي / إلكتروني)
  */
 import React, { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
@@ -149,8 +149,8 @@ const PayInvitePage = () => {
         </h1>
         <p className="pay-invite-intro">
           {t(
-            'You have been invited to share the cost of a court booking. Register with your phone number, then confirm your participation.',
-            'تمت دعوتك للمشاركة في دفع حجز ملعب. سجّل برقم جوالك ثم أكّد مشاركتك.'
+            'You have been invited to share the cost of a court booking. Add your email and confirm it with the code we send you, then complete your account — you will go straight to payment (at the club or online). Your booking will appear under My Bookings (courts).',
+            'تمت دعوتك للمشاركة في دفع حجز ملعب. أدخل بريدك وأكّده بالكود، ثم أكمل بياناتك — ستنتقل مباشرة للدفع (في النادي أو إلكترونياً). سيظهر الحجز في «حجوزاتي» ضمن جدول الملاعب.'
           )}
         </p>
 
@@ -172,12 +172,13 @@ const PayInvitePage = () => {
         {!platformUser ? (
           <div className="pay-invite-actions">
             <a href={registerUrl} className="pay-invite-btn pay-invite-btn-primary">
-              {data.phone
-                ? t('Register with my number and participate', 'التسجيل برقمي والمشاركة')
-                : t('Register with phone and participate', 'التسجيل بالجوال والمشاركة')}
+              {t('Register with email and continue to payment', 'التسجيل بالبريد والمتابعة للدفع')}
             </a>
             <p className="pay-invite-hint">
-              {t('Only your phone number is needed. Your temporary password will be the same as your phone number.', 'يكفي رقم الجوال. كلمة المرور المؤقتة = نفس رقم الجوال.')}
+              {t(
+                'We will ask for your email first, send a verification code, then your name, mobile number, and password. After that you choose how to pay your share.',
+                'نطلب بريدك أولاً ونرسل كود تحقق، ثم الاسم والجوال وكلمة المرور. بعد ذلك تختار طريقة دفع حصتك.'
+              )}
             </p>
             <a href={`${baseUrl}/login?return=${encodeURIComponent(returnTo)}`} className="pay-invite-link-secondary">
               {t('Already registered? Log in', 'مسجل مسبقاً؟ سجّل الدخول')}
@@ -225,8 +226,8 @@ const PayInvitePage = () => {
         <div className="pay-invite-completion-notice">
           <p>
             {t(
-              'You can complete your profile later (e.g. set a permanent password, add email) from your account or after payment.',
-              'يمكنك إكمال بيانات حسابك لاحقاً (مثل كلمة مرور دائمة أو البريد) من حسابك أو بعد الدفع.'
+              'After payment, open the club page — a yellow notice will remind you to finish your member profile from your account menu.',
+              'بعد الدفع، عند زيارة صفحة النادي تظهر لك تنبيهات صفراء لاستكمال بيانات عضويتك من قائمة حسابك.'
             )}
           </p>
         </div>
