@@ -1,7 +1,7 @@
 -- ============================================================================
--- PlayTix — إنشاء جداول ناقصة + أعمدة ناقصة (MariaDB / MySQL — phpMyAdmin)
--- نفّذ وهكذا: u502561206_padel_db ← اختر القاعدة ← SQL ← لصق ← تنفيذ
--- تجاهل أخطاء: Duplicate column name, Duplicate key name, Table already exists
+-- PlayTix — إنشاء جداول ناقصة + أعمدة ناقصة (يفضّل MariaDB 10.3.7+ — Hostinger)
+-- نفّذ: اختر القاعدة ← SQL ← لصق ← تنفيذ
+-- يستخدم ADD COLUMN IF NOT EXISTS و CREATE INDEX IF NOT EXISTS لتجنّب توقف phpMyAdmin عند أعمدة/فهارس موجودة
 -- رابط GitHub:
 --   https://github.com/yakhawaji-lang/padel/blob/main/server/db/migrations/phpmyadmin-create-missing-tables-and-columns.sql
 -- للمخطط الكامل (كل الجداول): server/db/CREATE_ALL_TABLES.sql
@@ -73,48 +73,47 @@ INSERT INTO platform_payment_gateways (gateway_key, enabled, config_json, displa
 ('split', 1, '{"deadlineMinutes":30,"description":"Split payment with other participants"}', 'Split payment', 'تقسيم المبلغ', 4)
 ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;
 
--- -------------------- أعمدة ناقصة (ترقية مخطط قديم) --------------------
-ALTER TABLE matches ADD COLUMN deleted_at DATETIME NULL;
-ALTER TABLE matches ADD COLUMN deleted_by VARCHAR(255) NULL;
-ALTER TABLE member_stats ADD COLUMN deleted_at DATETIME NULL;
-ALTER TABLE member_stats ADD COLUMN deleted_by VARCHAR(255) NULL;
-ALTER TABLE tournament_summaries ADD COLUMN deleted_at DATETIME NULL;
-ALTER TABLE tournament_summaries ADD COLUMN deleted_by VARCHAR(255) NULL;
+-- -------------------- أعمدة ناقصة (ترقية مخطط قديم) — MariaDB: IF NOT EXISTS --------------------
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS deleted_at DATETIME NULL;
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(255) NULL;
+ALTER TABLE member_stats ADD COLUMN IF NOT EXISTS deleted_at DATETIME NULL;
+ALTER TABLE member_stats ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(255) NULL;
+ALTER TABLE tournament_summaries ADD COLUMN IF NOT EXISTS deleted_at DATETIME NULL;
+ALTER TABLE tournament_summaries ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(255) NULL;
 
-ALTER TABLE members ADD COLUMN name_ar VARCHAR(255) NULL;
-ALTER TABLE members ADD COLUMN mobile VARCHAR(50) NULL;
-ALTER TABLE members ADD COLUMN password_hash VARCHAR(255) NULL;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS name_ar VARCHAR(255) NULL;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS mobile VARCHAR(50) NULL;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255) NULL;
 
-ALTER TABLE member_clubs ADD COLUMN is_coach TINYINT(1) DEFAULT 0;
+ALTER TABLE member_clubs ADD COLUMN IF NOT EXISTS is_coach TINYINT(1) DEFAULT 0;
 
-ALTER TABLE club_settings ADD COLUMN preparation_time_minutes INT DEFAULT 0;
-ALTER TABLE club_settings ADD COLUMN lock_minutes INT DEFAULT 10;
-ALTER TABLE club_settings ADD COLUMN payment_deadline_minutes INT DEFAULT 10;
-ALTER TABLE club_settings ADD COLUMN split_manage_minutes INT DEFAULT 15;
-ALTER TABLE club_settings ADD COLUMN split_payment_deadline_minutes INT DEFAULT 30;
-ALTER TABLE club_settings ADD COLUMN refund_days INT DEFAULT 3;
-ALTER TABLE club_settings ADD COLUMN allow_incomplete_bookings TINYINT(1) DEFAULT 0;
-ALTER TABLE club_settings ADD COLUMN working_hours_seasons JSON NULL;
-ALTER TABLE club_settings ADD COLUMN payment_enabled_channels JSON NULL;
+ALTER TABLE club_settings ADD COLUMN IF NOT EXISTS preparation_time_minutes INT DEFAULT 0;
+ALTER TABLE club_settings ADD COLUMN IF NOT EXISTS lock_minutes INT DEFAULT 10;
+ALTER TABLE club_settings ADD COLUMN IF NOT EXISTS payment_deadline_minutes INT DEFAULT 10;
+ALTER TABLE club_settings ADD COLUMN IF NOT EXISTS split_manage_minutes INT DEFAULT 15;
+ALTER TABLE club_settings ADD COLUMN IF NOT EXISTS split_payment_deadline_minutes INT DEFAULT 30;
+ALTER TABLE club_settings ADD COLUMN IF NOT EXISTS refund_days INT DEFAULT 3;
+ALTER TABLE club_settings ADD COLUMN IF NOT EXISTS allow_incomplete_bookings TINYINT(1) DEFAULT 0;
+ALTER TABLE club_settings ADD COLUMN IF NOT EXISTS working_hours_seasons JSON NULL;
+ALTER TABLE club_settings ADD COLUMN IF NOT EXISTS payment_enabled_channels JSON NULL;
 
-ALTER TABLE club_bookings ADD COLUMN start_time VARCHAR(10) NULL;
-ALTER TABLE club_bookings ADD COLUMN end_time VARCHAR(10) NULL;
-ALTER TABLE club_bookings ADD COLUMN locked_at DATETIME NULL;
-ALTER TABLE club_bookings ADD COLUMN payment_deadline_at DATETIME NULL;
-ALTER TABLE club_bookings ADD COLUMN total_amount DECIMAL(10,2) DEFAULT 0;
-ALTER TABLE club_bookings ADD COLUMN paid_amount DECIMAL(10,2) DEFAULT 0;
-ALTER TABLE club_bookings ADD COLUMN initiator_member_id VARCHAR(255) NULL;
+ALTER TABLE club_bookings ADD COLUMN IF NOT EXISTS start_time VARCHAR(10) NULL;
+ALTER TABLE club_bookings ADD COLUMN IF NOT EXISTS end_time VARCHAR(10) NULL;
+ALTER TABLE club_bookings ADD COLUMN IF NOT EXISTS locked_at DATETIME NULL;
+ALTER TABLE club_bookings ADD COLUMN IF NOT EXISTS payment_deadline_at DATETIME NULL;
+ALTER TABLE club_bookings ADD COLUMN IF NOT EXISTS total_amount DECIMAL(10,2) DEFAULT 0;
+ALTER TABLE club_bookings ADD COLUMN IF NOT EXISTS paid_amount DECIMAL(10,2) DEFAULT 0;
+ALTER TABLE club_bookings ADD COLUMN IF NOT EXISTS initiator_member_id VARCHAR(255) NULL;
 
-ALTER TABLE booking_payment_shares ADD COLUMN invite_token VARCHAR(64) NULL;
-ALTER TABLE booking_payment_shares ADD COLUMN paid_at DATETIME NULL;
-ALTER TABLE booking_payment_shares ADD COLUMN payment_reference VARCHAR(255) NULL;
-ALTER TABLE booking_payment_shares ADD COLUMN payment_method VARCHAR(50) NULL;
+ALTER TABLE booking_payment_shares ADD COLUMN IF NOT EXISTS invite_token VARCHAR(64) NULL;
+ALTER TABLE booking_payment_shares ADD COLUMN IF NOT EXISTS paid_at DATETIME NULL;
+ALTER TABLE booking_payment_shares ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(255) NULL;
+ALTER TABLE booking_payment_shares ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50) NULL;
 
--- فهارس (تجاهل Duplicate key)
-CREATE INDEX idx_bps_invite_token ON booking_payment_shares (invite_token);
-ALTER TABLE club_bookings ADD INDEX idx_cb_club_date (club_id, booking_date);
-ALTER TABLE club_bookings ADD INDEX idx_cb_club_deleted (club_id, deleted_at);
-ALTER TABLE booking_slot_locks ADD INDEX idx_bsl_club_date (club_id, booking_date);
+CREATE INDEX IF NOT EXISTS idx_bps_invite_token ON booking_payment_shares (invite_token);
+CREATE INDEX IF NOT EXISTS idx_cb_club_date ON club_bookings (club_id, booking_date);
+CREATE INDEX IF NOT EXISTS idx_cb_club_deleted ON club_bookings (club_id, deleted_at);
+CREATE INDEX IF NOT EXISTS idx_bsl_club_date ON booking_slot_locks (club_id, booking_date);
 
 UPDATE club_bookings SET start_time = time_slot WHERE start_time IS NULL AND time_slot IS NOT NULL;
 
