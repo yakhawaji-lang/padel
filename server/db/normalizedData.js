@@ -44,6 +44,18 @@ function bookingNumToDb(val, defaultVal) {
   return Number.isNaN(n) ? defaultVal : n
 }
 
+/** member_name احتياطي من رقم الجوال في booking_payment_shares */
+function shareStoredNameLooksLikePhone(str) {
+  if (!str || typeof str !== 'string') return false
+  const t = str.trim()
+  if (!t) return false
+  const d = t.replace(/\D/g, '')
+  if (d.length < 9) return false
+  if (/^\+[\d\s-]+$/.test(t)) return true
+  if (/^[\d\s-]+$/.test(t)) return true
+  return false
+}
+
 /** Ensure club_settings has booking-related columns so all settings persist in padel_db */
 async function ensureClubSettingsBookingColumns() {
   const cols = [
@@ -714,15 +726,42 @@ export async function getClubsFromNormalized() {
     }
   })
 
+  const bpsRows = bpsRes?.rows || bpsRes || []
+  const memberIdsForShareLabels = [...new Set(bpsRows.map(r => r.member_id).filter(Boolean).map(id => String(id)))]
+  const shareMemberNameById = new Map()
+  if (memberIdsForShareLabels.length > 0) {
+    try {
+      const ph = memberIdsForShareLabels.map(() => '?').join(',')
+      const { rows: nmRows } = await query(
+        `SELECT id, name FROM members WHERE deleted_at IS NULL AND id IN (${ph})`,
+        memberIdsForShareLabels
+      )
+      ;(nmRows || []).forEach(row => {
+        if (row.name && String(row.name).trim()) shareMemberNameById.set(String(row.id), String(row.name).trim())
+      })
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
   const paymentSharesByBooking = {}
-  ;(bpsRes?.rows || bpsRes || []).forEach(r => {
+  bpsRows.forEach(r => {
     const key = `${r.club_id}:${r.booking_id}`
     if (!paymentSharesByBooking[key]) paymentSharesByBooking[key] = []
+    const storedName = (r.member_name || '').trim()
+    const fromMember = shareMemberNameById.get(String(r.member_id || ''))
+    let resolvedMemberName
+    if (fromMember) {
+      if (!storedName || shareStoredNameLooksLikePhone(storedName)) resolvedMemberName = fromMember
+      else resolvedMemberName = storedName
+    } else {
+      resolvedMemberName = storedName || undefined
+    }
     paymentSharesByBooking[key].push({
       id: r.id,
       type: r.participant_type || 'registered',
       memberId: r.member_id || undefined,
-      memberName: r.member_name || undefined,
+      memberName: resolvedMemberName,
       phone: r.phone || undefined,
       amount: parseFloat(r.amount) || 0,
       whatsappLink: r.whatsapp_link || undefined,

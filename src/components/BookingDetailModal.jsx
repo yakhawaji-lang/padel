@@ -4,6 +4,7 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import * as bookingApi from '../api/dbClient'
+import { resolvePaymentShareDisplayName } from '../utils/paymentShareMemberMatch'
 import './BookingDetailModal.css'
 
 function getMapUrl(club) {
@@ -26,7 +27,7 @@ function buildWhatsAppMapMessage(clubName, mapUrl, language) {
   return `https://wa.me/?text=${encodeURIComponent(text)}`
 }
 
-export default function BookingDetailModal({ booking, club, platformUser, language, onClose, onUpdated }) {
+export default function BookingDetailModal({ booking, club, platformUser, language, onClose, onUpdated, memberDirectory = [] }) {
   const [markingPayAtClub, setMarkingPayAtClub] = useState(false)
   const [copied, setCopied] = useState(false)
   const [payMenuOpen, setPayMenuOpen] = useState(false)
@@ -287,7 +288,7 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
                     const isMyShare = userShare && (s.id === userShare.id || (s.memberId === userShare.memberId && s.memberName === userShare.memberName))
                     return (
                       <div key={s.id || idx} className="booking-detail-share-row">
-                        <span>{s.memberName || s.phone || '—'}</span>
+                        <span>{resolvePaymentShareDisplayName(s, memberDirectory)}</span>
                         <span className={`booking-detail-share-status ${s.paidAt ? 'paid' : ''}`}>
                           {s.paidAt ? '✓ ' + c.paid : s.paymentMethod === 'at_club' ? '◐ ' + c.waitingConfirm : '○ ' + c.pending}
                         </span>

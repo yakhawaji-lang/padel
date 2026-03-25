@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react'
-import { loadClubs, getClubById, getClubMembersFromStorage, deleteBookingFromClub, updateBookingInClub } from '../../storage/adminStorage'
+import React, { useState, useEffect, useMemo } from 'react'
+import { loadClubs, getClubById, getClubMembersFromStorage, getAllMembersFromStorage, deleteBookingFromClub, updateBookingInClub } from '../../storage/adminStorage'
+import { resolvePaymentShareDisplayName } from '../../utils/paymentShareMemberMatch'
 import * as bookingApi from '../../api/dbClient'
 import CalendarPicker from '../../components/CalendarPicker'
 import { calculateBookingPrice } from '../../utils/bookingPricing'
@@ -290,7 +291,16 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   const c = t[language] || t.en
 
   const courts = club?.courts || []
-  const members = getClubMembersFromStorage(club?.id) || []
+  const members = useMemo(() => {
+    const byId = new Map()
+    for (const m of getClubMembersFromStorage(club?.id) || []) {
+      if (m?.id != null) byId.set(String(m.id), m)
+    }
+    for (const m of getAllMembersFromStorage() || []) {
+      if (m?.id != null && !byId.has(String(m.id))) byId.set(String(m.id), m)
+    }
+    return [...byId.values()]
+  }, [club?.id])
 
   if (!club) return null
 
@@ -478,7 +488,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                       return (
                                         <div key={s.id || idx} className={`booking-payment-share-item ${s.paidAt ? 'paid' : 'pending'}`}>
                                           <span className="booking-payment-share-name">
-                                            {s.memberName || s.phone || '—'}{isBooker ? ` (${c.booker})` : ''}
+                                            {resolvePaymentShareDisplayName(s, members)}{isBooker ? ` (${c.booker})` : ''}
                                           </span>
                                           <span className="booking-payment-share-amount">{parseFloat(s.amount) || 0} {currency}</span>
                                           <span className="booking-payment-share-status">

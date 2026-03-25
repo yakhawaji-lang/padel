@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
-import { getMemberBookings, deleteBookingFromClub, getClubById, loadClubs, refreshClubsFromApi } from '../storage/adminStorage'
+import { getMemberBookings, deleteBookingFromClub, getClubById, loadClubs, refreshClubsFromApi, getClubMembersFromStorage, getAllMembersFromStorage } from '../storage/adminStorage'
 import * as bookingApi from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
 import BookingDetailModal from '../components/BookingDetailModal'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './MyBookingsPage.css'
-import { findPaymentShareForMember } from '../utils/paymentShareMemberMatch.js'
+import { findPaymentShareForMember, resolvePaymentShareDisplayName } from '../utils/paymentShareMemberMatch.js'
 
 function getBookingDisplayProps({ booking, club }, language) {
   const dateStr = booking.dateStr || booking.date || (booking.startDate && (typeof booking.startDate === 'string' ? booking.startDate : booking.startDate.toISOString?.()?.split('T')[0])) || ''
@@ -91,6 +91,23 @@ const MyBookingsPage = () => {
   const upcoming = bookings.filter(r => normDate(r) >= today)
   const past = bookings.filter(r => normDate(r) < today)
   const displayed = filter === 'upcoming' ? upcoming : past
+
+  const shareMemberDirectory = React.useMemo(() => {
+    const byId = new Map()
+    for (const m of getAllMembersFromStorage() || []) {
+      if (m?.id != null) byId.set(String(m.id), m)
+    }
+    const clubIds = new Set()
+    bookings.forEach(({ club }) => {
+      if (club?.id) clubIds.add(club.id)
+    })
+    clubIds.forEach((cid) => {
+      for (const m of getClubMembersFromStorage(cid) || []) {
+        if (m?.id != null && !byId.has(String(m.id))) byId.set(String(m.id), m)
+      }
+    })
+    return [...byId.values()]
+  }, [bookings])
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '—'
@@ -523,7 +540,13 @@ const MyBookingsPage = () => {
                             <div className="my-bookings-shares">
                               {r.booking.paymentShares.slice(0, 10).map((s, idx) => (
                                 <div key={s.id || idx} className="my-bookings-share-row">
-                                  <span>{s.memberName || s.phone || (s.type === 'unregistered' ? c.pending : '—')}</span>
+                                  <span>
+                                    {(() => {
+                                      const lbl = resolvePaymentShareDisplayName(s, shareMemberDirectory)
+                                      if (lbl !== '—') return lbl
+                                      return s.type === 'unregistered' ? c.pending : '—'
+                                    })()}
+                                  </span>
                                   <span className={s.paidAt ? 'my-bookings-paid' : ''}>
                                     {s.paidAt ? '✓ ' + c.paid : c.pending}
                                   </span>
@@ -607,7 +630,13 @@ const MyBookingsPage = () => {
                     <div className="my-bookings-card-shares">
                       {r.booking.paymentShares.slice(0, 5).map((s, idx) => (
                         <div key={s.id || idx} className="my-bookings-share-row">
-                          <span>{s.memberName || s.phone || (s.type === 'unregistered' ? c.pending : '—')}</span>
+                          <span>
+                            {(() => {
+                              const lbl = resolvePaymentShareDisplayName(s, shareMemberDirectory)
+                              if (lbl !== '—') return lbl
+                              return s.type === 'unregistered' ? c.pending : '—'
+                            })()}
+                          </span>
                           <span className={s.paidAt ? 'my-bookings-paid' : ''}>
                             {s.paidAt ? '✓' : '○'}
                           </span>
@@ -710,6 +739,7 @@ const MyBookingsPage = () => {
             booking={detailRow.booking}
             club={detailRow.club}
             platformUser={member}
+            memberDirectory={shareMemberDirectory}
             language={language}
             onClose={() => setDetailRow(null)}
             onUpdated={async () => {

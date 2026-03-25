@@ -559,6 +559,17 @@ const ClubPublicPage = () => {
     }
   }, [club?.id])
 
+  const bookingMemberDirectory = React.useMemo(() => {
+    const byId = new Map()
+    for (const m of clubMembersList || []) {
+      if (m?.id != null) byId.set(String(m.id), m)
+    }
+    for (const m of allPlatformMembersList || []) {
+      if (m?.id != null && !byId.has(String(m.id))) byId.set(String(m.id), m)
+    }
+    return [...byId.values()]
+  }, [clubMembersList, allPlatformMembersList])
+
   const [bookingSubmitting, setBookingSubmitting] = useState(false)
   const [bookingDuration, setBookingDuration] = useState(60)
   const durationOptions = useMemo(() => {
@@ -2086,6 +2097,7 @@ const ClubPublicPage = () => {
                     booking={detailBooking}
                     club={club}
                     platformUser={platformUser}
+                    memberDirectory={bookingMemberDirectory}
                     language={language}
                     onClose={() => setDetailBooking(null)}
                     onUpdated={() => { refreshClub(); setDetailBooking(null) }}
