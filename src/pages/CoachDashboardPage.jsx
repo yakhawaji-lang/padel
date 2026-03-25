@@ -67,8 +67,10 @@ const CoachDashboardPage = () => {
   const [inviteBusyMemberId, setInviteBusyMemberId] = useState(null)
   const [quickInvitePhone, setQuickInvitePhone] = useState('')
   const [favoritesSectionOpen, setFavoritesSectionOpen] = useState(true)
+  const [inviteModalFavoritesOpen, setInviteModalFavoritesOpen] = useState(true)
 
   const favoritesStorageKey = `padel_coach_favorites_open_${clubId}`
+  const inviteModalFavStorageKey = `padel_coach_invite_modal_fav_${clubId}`
 
   useEffect(() => {
     try {
@@ -78,6 +80,27 @@ const CoachDashboardPage = () => {
       setFavoritesSectionOpen(true)
     }
   }, [favoritesStorageKey])
+
+  useEffect(() => {
+    try {
+      const v = typeof window !== 'undefined' ? window.localStorage.getItem(inviteModalFavStorageKey) : null
+      setInviteModalFavoritesOpen(v !== '0')
+    } catch (_) {
+      setInviteModalFavoritesOpen(true)
+    }
+  }, [inviteModalFavStorageKey])
+
+  const toggleInviteModalFavorites = useCallback(() => {
+    setInviteModalFavoritesOpen((prev) => {
+      const next = !prev
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(inviteModalFavStorageKey, next ? '1' : '0')
+        }
+      } catch (_) {}
+      return next
+    })
+  }, [inviteModalFavStorageKey])
 
   const toggleFavoritesSection = useCallback(() => {
     setFavoritesSectionOpen((prev) => {
@@ -878,100 +901,152 @@ const CoachDashboardPage = () => {
           const isConfirmed = b?.status === 'confirmed' || paidSum >= totalAmount - 0.01
           return (
           <div className="coach-slot-modal-backdrop" onClick={() => setCoachSlotModal(null)}>
-            <div className="coach-slot-modal" onClick={e => e.stopPropagation()}>
-              <h3>{t('Your booking', 'حجزك', language)}</h3>
-              <div className="coach-slot-modal-details">
-                <p className="coach-slot-modal-info">
-                  {language === 'ar' && coachSlotModal.court?.nameAr ? coachSlotModal.court.nameAr : coachSlotModal.court?.name} — {formatDate((b?.date || b?.startDate || '').toString().split('T')[0])} {b?.startTime || b?.timeSlot || ''}{b?.endTime ? ` – ${b.endTime}` : ''}
-                </p>
-                <p className="coach-slot-modal-price">
-                  {t('Total', 'الإجمالي', language)}: <strong>{totalAmount} {currency}</strong>
-                  {isConfirmed && <span className="coach-slot-status-confirmed"> ({t('Confirmed', 'مؤكد', language)})</span>}
-                </p>
-                {shares.length > 0 && (
-                  <div className="coach-slot-modal-trainees">
-                    <p className="coach-slot-modal-trainees-title">{t('Trainees', 'المتدربون', language)}:</p>
-                    <ul className="coach-slot-modal-trainees-list">
-                      {shares.map((s, i) => (
-                        <li key={s.id || i}>
-                          <span className="trainee-name">{s.memberName || s.phone || t('Member', 'عضو', language)}</span>
-                          <span className="trainee-amount">{parseFloat(s.amount) || 0} {currency}</span>
-                          <span className="trainee-method">{s.paymentMethod === 'credit_card' ? (language === 'en' ? 'Card' : 'بطاقة') : s.paymentMethod === 'mada' ? 'Mada' : (language === 'en' ? 'At club' : 'في النادي')}</span>
-                          {s.paidAt && <span className="trainee-paid">✓</span>}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+            <div className="coach-slot-modal coach-slot-modal--booking" onClick={e => e.stopPropagation()} role="dialog" aria-labelledby="coach-slot-booking-title">
+              <div className="coach-slot-modal-card-head">
+                <h3 id="coach-slot-booking-title" className="coach-slot-modal-title">{t('Your booking', 'حجزك', language)}</h3>
               </div>
-              <div className="coach-slot-modal-invite">
-                <h4 className="coach-slot-modal-invite-title">{t('Invite via WhatsApp', 'دعوة عبر واتساب', language)}</h4>
-                <p className="coach-slot-modal-invite-hint">{t('Sends a club link and records the invite on the member’s account.', 'يُرسل رابط النادي ويُسجَّل الطلب في حساب العضو.', language)}</p>
-                {favoritesIds.length > 0 && (
-                  <ul className="coach-slot-modal-fav-list">
-                    {favoritesIds.map(fid => {
-                      const m = favoritesMemberMap[fid] || (getClubMembersFromStorage(clubId) || []).find(x => String(x.id) === String(fid)) || (getAllMembersFromStorage() || []).find(x => String(x.id) === String(fid))
-                      const rawPhone = normalizeMemberPhone(m?.mobile || m?.phone || '')
-                      const label = m ? (m.name || m.email || fid) : fid
+              <div className="coach-slot-modal-card-body">
+                <div className="coach-slot-booking-summary">
+                  <p className="coach-slot-modal-info">
+                    {language === 'ar' && coachSlotModal.court?.nameAr ? coachSlotModal.court.nameAr : coachSlotModal.court?.name} — {formatDate((b?.date || b?.startDate || '').toString().split('T')[0])}{' '}
+                    {b?.startTime || b?.timeSlot || ''}{b?.endTime ? ` – ${b.endTime}` : ''}
+                  </p>
+                  <p className="coach-slot-modal-price">
+                    {t('Total', 'الإجمالي', language)}: <strong>{totalAmount} {currency}</strong>
+                    {isConfirmed && <span className="coach-slot-status-confirmed"> ({t('Confirmed', 'مؤكد', language)})</span>}
+                  </p>
+                  {shares.length > 0 && (
+                    <div className="coach-slot-modal-trainees">
+                      <p className="coach-slot-modal-trainees-title">{t('Trainees', 'المتدربون', language)}</p>
+                      <ul className="coach-slot-modal-trainees-list">
+                        {shares.map((s, i) => (
+                          <li key={s.id || i}>
+                            <span className="trainee-name">{s.memberName || s.phone || t('Member', 'عضو', language)}</span>
+                            <span className="trainee-amount">{parseFloat(s.amount) || 0} {currency}</span>
+                            <span className="trainee-method">{s.paymentMethod === 'credit_card' ? (language === 'en' ? 'Card' : 'بطاقة') : s.paymentMethod === 'mada' ? 'Mada' : (language === 'en' ? 'At club' : 'في النادي')}</span>
+                            {s.paidAt && <span className="trainee-paid">✓</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="coach-slot-invite-panel">
+                  <div className="coach-slot-invite-panel-head">
+                    <span className="coach-slot-invite-panel-icon" aria-hidden>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path fill="#fff" d="M20.52 3.48A11.87 11.87 0 0 0 12.04 0C5.5 0 .27 5.23.27 11.77c0 2.08.54 4.09 1.57 5.87L0 24l6.5-1.7a11.7 11.7 0 0 0 5.53 1.42h.01c6.54 0 11.77-5.23 11.77-11.77 0-3.14-1.22-6.1-3.29-8.47zM12.05 21.5h-.01a9.65 9.65 0 0 1-4.92-1.35l-.35-.21-3.67.96.98-3.58-.23-.37a9.58 9.58 0 0 1-1.47-5.1c0-5.31 4.32-9.63 9.65-9.63 2.58 0 5 1.01 6.82 2.83a9.58 9.58 0 0 1 2.82 6.8c0 5.32-4.32 9.64-9.64 9.64zm5.17-7.04c-.28-.14-1.68-.83-1.94-.93-.26-.09-.45-.14-.64.14-.19.28-.74.93-.9 1.12-.17.19-.33.21-.61.07-.28-.14-1.18-.44-2.25-1.39-.83-.74-1.39-1.65-1.55-1.93-.17-.28-.02-.43.13-.57.13-.13.28-.33.42-.5.14-.17.19-.28.28-.47.09-.19.05-.35-.02-.5-.07-.14-.64-1.55-.88-2.12-.23-.55-.47-.48-.64-.49h-.55c-.19 0-.5.07-.76.35-.26.1-1 1 1-4.96.26-.45.44-.76.47-1.01.05-.29-.02-.55-.19-.76-.14-.19-.76-.93-2.12-1.24-1.36-.3-2.88-.24-4.09-.14-1.21.1-4.03 1.64-4.45 3.93-.42 2.28.95 4.64 1.11 4.96.16.33 2.5 4.04 6.1 5.53 3.6 1.5 3.6.98 4.25.92.65-.06 2.09-.86 2.39-1.69.3-.83.3-1.55.21-1.69z" />
+                      </svg>
+                    </span>
+                    <div className="coach-slot-invite-panel-titles">
+                      <h4 className="coach-slot-modal-invite-title">{t('Invite via WhatsApp', 'دعوة عبر واتساب', language)}</h4>
+                      <p className="coach-slot-modal-invite-hint">{t('Sends a club link and records the invite on the member’s account.', 'يُرسل رابط النادي ويُسجَّل الطلب في حساب العضو.', language)}</p>
+                    </div>
+                  </div>
+
+                  {favoritesIds.length > 0 && (
+                    <>
+                      <div className="coach-slot-invite-fav-toolbar">
+                        <span className="coach-slot-invite-fav-badge">
+                          {favoritesIds.length} {t('in favorites', 'في المفضلة', language)}
+                        </span>
+                        <button
+                          type="button"
+                          className={`coach-slot-invite-fav-toggle ${inviteModalFavoritesOpen ? 'is-expanded' : ''}`}
+                          onClick={toggleInviteModalFavorites}
+                          aria-expanded={inviteModalFavoritesOpen}
+                          aria-controls="coach-slot-invite-fav-panel"
+                        >
+                          <span className="coach-slot-invite-fav-toggle-label">
+                            {inviteModalFavoritesOpen
+                              ? t('Hide favorites', 'إخفاء المفضلة', language)
+                              : t('Show favorites', 'إظهار المفضلة', language)}
+                          </span>
+                          <span className="coach-slot-invite-fav-chevron" aria-hidden />
+                        </button>
+                      </div>
+                      <div
+                        id="coach-slot-invite-fav-panel"
+                        className={`coach-slot-invite-fav-collapse ${inviteModalFavoritesOpen ? 'is-open' : ''}`}
+                        aria-hidden={!inviteModalFavoritesOpen}
+                      >
+                        <div className="coach-slot-invite-fav-collapse-inner">
+                          <ul className="coach-slot-modal-fav-list">
+                            {favoritesIds.map(fid => {
+                              const m = favoritesMemberMap[fid] || (getClubMembersFromStorage(clubId) || []).find(x => String(x.id) === String(fid)) || (getAllMembersFromStorage() || []).find(x => String(x.id) === String(fid))
+                              const rawPhone = normalizeMemberPhone(m?.mobile || m?.phone || '')
+                              const label = m ? (m.name || m.email || fid) : fid
+                              const initial = label.toString().trim().charAt(0).toUpperCase() || '?'
+                              return (
+                                <li key={fid} className="coach-slot-modal-fav-row">
+                                  <span className="coach-slot-modal-fav-avatar" aria-hidden>{initial}</span>
+                                  <span className="coach-slot-modal-fav-name">{label}</span>
+                                  <button
+                                    type="button"
+                                    className="coach-slot-modal-wa-btn"
+                                    disabled={!rawPhone || inviteBusyMemberId === fid}
+                                    onClick={() => sendTrainingInviteWhatsApp(b, fid, rawPhone)}
+                                  >
+                                    {language === 'en' ? 'WhatsApp' : 'واتساب'}
+                                  </button>
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="coach-slot-modal-quick-invite">
+                    <label className="coach-slot-modal-quick-label" htmlFor="coach-quick-invite-mobile">{t('Or find member by mobile', 'أو ابحث برقم الجوال', language)}</label>
+                    <div className="coach-favorites-phone-row coach-slot-modal-quick-row">
+                      <CountryCodeSelect value={countryCode} onChange={setCountryCode} language={language} className="coach-favorites-country-select" />
+                      <div className="coach-favorites-phone-field coach-slot-modal-phone-field">
+                        <input
+                          id="coach-quick-invite-mobile"
+                          type="tel"
+                          inputMode="numeric"
+                          className="coach-favorites-number-input"
+                          placeholder={language === 'en' ? 'Mobile' : 'جوال'}
+                          value={quickInvitePhone}
+                          onChange={e => setQuickInvitePhone(e.target.value)}
+                          autoComplete="tel-national"
+                        />
+                      </div>
+                    </div>
+                    {(() => {
+                      const otherMembers = (getClubMembersFromStorage(clubId) || []).filter(x => String(x?.id) !== String(platformUser?.id))
+                      const qDigits = normalizeSearchDigits(countryCode, quickInvitePhone)
+                      const minD = countryCode.length + getMinDigitsForCountry(countryCode)
+                      if (qDigits.length < minD) return null
+                      const match = otherMembers.find(m => {
+                        const mp = normalizeMemberPhone(m?.mobile || m?.phone || '')
+                        return mp && (mp.includes(qDigits) || qDigits.includes(mp))
+                      })
+                      if (!match) {
+                        return <p className="coach-slot-modal-invite-empty">{t('No club member with this number.', 'لا يوجد عضو بهذا الرقم في النادي.', language)}</p>
+                      }
+                      const p = normalizeMemberPhone(match.mobile || match.phone || '')
                       return (
-                        <li key={fid} className="coach-slot-modal-fav-row">
-                          <span>{label}</span>
+                        <div className="coach-slot-modal-quick-match">
+                          <span className="coach-slot-modal-quick-match-name">{match.name || match.email || match.id}</span>
                           <button
                             type="button"
                             className="coach-slot-modal-wa-btn"
-                            disabled={!rawPhone || inviteBusyMemberId === fid}
-                            onClick={() => sendTrainingInviteWhatsApp(b, fid, rawPhone)}
+                            disabled={!p || inviteBusyMemberId === match.id}
+                            onClick={() => sendTrainingInviteWhatsApp(b, match.id, p)}
                           >
                             {language === 'en' ? 'WhatsApp' : 'واتساب'}
                           </button>
-                        </li>
+                        </div>
                       )
-                    })}
-                  </ul>
-                )}
-                <div className="coach-slot-modal-quick-invite">
-                  <label className="coach-slot-modal-quick-label">{t('Or find member by mobile', 'أو ابحث برقم الجوال', language)}</label>
-                  <div className="coach-favorites-phone-row coach-slot-modal-quick-row">
-                    <CountryCodeSelect value={countryCode} onChange={setCountryCode} language={language} className="coach-favorites-country-select" />
-                    <input
-                      type="tel"
-                      inputMode="numeric"
-                      className="coach-favorites-number-input"
-                      placeholder={language === 'en' ? 'Mobile' : 'جوال'}
-                      value={quickInvitePhone}
-                      onChange={e => setQuickInvitePhone(e.target.value)}
-                    />
+                    })()}
                   </div>
-                  {(() => {
-                    const otherMembers = (getClubMembersFromStorage(clubId) || []).filter(x => String(x?.id) !== String(platformUser?.id))
-                    const qDigits = normalizeSearchDigits(countryCode, quickInvitePhone)
-                    const minD = countryCode.length + getMinDigitsForCountry(countryCode)
-                    if (qDigits.length < minD) return null
-                    const match = otherMembers.find(m => {
-                      const mp = normalizeMemberPhone(m?.mobile || m?.phone || '')
-                      return mp && (mp.includes(qDigits) || qDigits.includes(mp))
-                    })
-                    if (!match) {
-                      return <p className="coach-slot-modal-invite-empty">{t('No club member with this number.', 'لا يوجد عضو بهذا الرقم في النادي.', language)}</p>
-                    }
-                    const p = normalizeMemberPhone(match.mobile || match.phone || '')
-                    return (
-                      <div className="coach-slot-modal-quick-match">
-                        <span>{match.name || match.email || match.id}</span>
-                        <button
-                          type="button"
-                          className="coach-slot-modal-wa-btn"
-                          disabled={!p || inviteBusyMemberId === match.id}
-                          onClick={() => sendTrainingInviteWhatsApp(b, match.id, p)}
-                        >
-                          {language === 'en' ? 'WhatsApp' : 'واتساب'}
-                        </button>
-                      </div>
-                    )
-                  })()}
                 </div>
               </div>
-              <div className="coach-slot-modal-actions">
+              <div className="coach-slot-modal-actions coach-slot-modal-actions--footer">
                 <button type="button" className="coach-slot-modal-btn coach-slot-modal-edit" onClick={() => {
                   const data = b?.data && typeof b.data === 'object' ? b.data : {}
                   const startTime = (b?.startTime || b?.timeSlot || '').toString().trim() || '16:00'
