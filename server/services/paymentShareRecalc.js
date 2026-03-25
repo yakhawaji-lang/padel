@@ -89,7 +89,7 @@ export async function recalculateBookingPaymentAfterShareChange(bookingId, clubI
   }
 
   const { rows: dateRow } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bookingId, clubId])
-  const dateStr = dateRow[0]?.booking_date ? String(dateRow[0].booking_date).split('T')[0] : null
+  const dateStr = bookingService.normalizeBookingDateYmd(dateRow[0]?.booking_date)
 
   return { paidAmount, status, bookingDate: dateStr }
 }

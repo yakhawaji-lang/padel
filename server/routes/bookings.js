@@ -995,6 +995,34 @@ router.post('/acknowledge-share-refund', async (req, res) => {
   }
 })
 
+/** POST /api/bookings/admin-extend-split-deadline — بعد تعديل الحجز من لوحة الإدارة: إعادة مهلة الدفع حسب split_payment_deadline_minutes */
+router.post('/admin-extend-split-deadline', async (req, res) => {
+  try {
+    const normalized = await hasNormalizedTables()
+    if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
+    const { bookingId, clubId } = req.body || {}
+    if (!bookingId || !clubId) return res.status(400).json({ error: 'bookingId and clubId required' })
+    const { rows } = await query(
+      `SELECT status FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
+      [bookingId, clubId]
+    )
+    if (!rows?.length) return res.status(404).json({ error: 'Booking not found' })
+    const st = (rows[0].status || '').toString()
+    const awaiting = ['initiated', 'locked', 'pending_payments', 'pending_payment', 'partially_paid']
+    if (!awaiting.includes(st)) {
+      return res.json({ ok: true, skipped: true })
+    }
+    const deadline = await bookingService.extendPaymentDeadlineAfterShareProgress(bookingId, clubId)
+    const { rows: dr } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bookingId, clubId])
+    const dateStr = bookingService.normalizeBookingDateYmd(dr[0]?.booking_date)
+    if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
+    res.json({ ok: true, paymentDeadlineAt: deadline?.toISOString?.() ?? null })
+  } catch (e) {
+    console.error('bookings admin-extend-split-deadline error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
 /** POST /api/bookings/add-split-participants — الحاجز يضيف مشاركين بعد فتح إعادة الدعوة */
 router.post('/add-split-participants', async (req, res) => {
   try {
@@ -1081,10 +1109,6 @@ router.post('/add-split-participants', async (req, res) => {
       created.push({ ...s, inviteToken: token, payInviteUrl: payUrl })
     }
     const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bookingId, clubId)
-    const settings = await getBookingSettings(clubId)
-    const paymentDeadlineMinutes = settings?.splitPaymentDeadlineMinutes ?? 30
-    const paymentDeadline = new Date(Date.now() + paymentDeadlineMinutes * 60 * 1000)
-    await bookingService.updateBookingPaymentDeadline(bookingId, clubId, paymentDeadline)
     if (clubId && rec?.bookingDate) slotCache.invalidateLocks(clubId, rec.bookingDate)
     res.json({ ok: true, paymentShares: created, ...rec })
   } catch (e) {

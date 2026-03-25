@@ -68,9 +68,28 @@ export async function updateBookingPaymentDeadline(bookingId, clubId, paymentDea
 }
 
 /**
- * After a participant pays (or club marks a share paid), move payment_deadline_at forward so the
- * expire job does not immediately re-mark partially_paid bookings as expired.
- * Uses max(now + split_payment_deadline_minutes, end of booking_date local day).
+ * Normalize DB booking_date (string YYYY-MM-DD, Date, or driver-specific) to YYYY-MM-DD.
+ * Avoids Invalid Date when mysql2 returns a Date and String(d).split('T')[0] is wrong.
+ */
+export function normalizeBookingDateYmd(bookingDate) {
+  if (bookingDate == null) return null
+  if (typeof bookingDate === 'string') {
+    const m = bookingDate.trim().match(/^(\d{4}-\d{2}-\d{2})/)
+    return m ? m[1] : null
+  }
+  if (bookingDate instanceof Date && !Number.isNaN(bookingDate.getTime())) {
+    const y = bookingDate.getFullYear()
+    const mo = String(bookingDate.getMonth() + 1).padStart(2, '0')
+    const d = String(bookingDate.getDate()).padStart(2, '0')
+    return `${y}-${mo}-${d}`
+  }
+  const m = String(bookingDate).match(/(\d{4}-\d{2}-\d{2})/)
+  return m ? m[1] : null
+}
+
+/**
+ * After share/recalc or admin edit: reset payment_deadline to now + club split_payment_deadline_minutes
+ * (capped at end of booking_date local calendar day). Uses exact setting (min 1 minute).
  */
 export async function extendPaymentDeadlineAfterShareProgress(bookingId, clubId) {
   const { rows } = await query(
@@ -81,11 +100,21 @@ export async function extendPaymentDeadlineAfterShareProgress(bookingId, clubId)
     [bookingId, clubId]
   )
   if (!rows?.length) return null
-  const dateStr = rows[0].booking_date ? String(rows[0].booking_date).split('T')[0] : null
-  const mins = Math.max(15, parseInt(rows[0].split_payment_deadline_minutes, 10) || 30)
-  const fromNow = new Date(Date.now() + mins * 60 * 1000)
-  const endOfBookingDay = dateStr ? new Date(dateStr + 'T23:59:59') : fromNow
-  const deadline = new Date(Math.max(fromNow.getTime(), endOfBookingDay.getTime()))
+  const dateYmd = normalizeBookingDateYmd(rows[0].booking_date)
+  const rawMins = parseInt(rows[0].split_payment_deadline_minutes, 10)
+  const mins = Number.isFinite(rawMins) && rawMins > 0 ? rawMins : 30
+  const fromNowMs = Date.now() + mins * 60 * 1000
+  let deadlineMs = fromNowMs
+  if (dateYmd) {
+    const [y, mo, d] = dateYmd.split('-').map(Number)
+    if (y && mo && d) {
+      const endOfBookingDay = new Date(y, mo - 1, d, 23, 59, 59, 999)
+      if (!Number.isNaN(endOfBookingDay.getTime())) {
+        deadlineMs = Math.min(fromNowMs, endOfBookingDay.getTime())
+      }
+    }
+  }
+  const deadline = new Date(deadlineMs)
   await updateBookingPaymentDeadline(bookingId, clubId, deadline)
   return deadline
 }

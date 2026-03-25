@@ -114,6 +114,14 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
         status: editForm.status,
         durationMinutes: dur
       })
+      const stAfter = (editForm.status || '').toString()
+      if (['initiated', 'locked', 'pending_payments', 'pending_payment', 'partially_paid'].includes(stAfter)) {
+        try {
+          await bookingApi.adminExtendSplitPaymentDeadline({ bookingId: editBooking.id, clubId: club.id })
+        } catch (e) {
+          console.error('adminExtendSplitPaymentDeadline:', e)
+        }
+      }
       setEditBooking(null)
       refreshFromServer()
     } catch (e) {

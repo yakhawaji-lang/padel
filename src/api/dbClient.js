@@ -549,6 +549,14 @@ export async function addSplitParticipants({ bookingId, clubId, memberId, paymen
   })
 }
 
+/** بعد حفظ تعديل حجز من الأدمن: إعادة مهلة الدفع حسب إعداد النادي */
+export async function adminExtendSplitPaymentDeadline({ bookingId, clubId }) {
+  return fetchJson('/api/bookings/admin-extend-split-deadline', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId })
+  })
+}
+
 // ---- Invite ----
 export async function getInviteByToken(token) {
   return fetchJson(`/api/bookings/invite/${encodeURIComponent(token)}`)
