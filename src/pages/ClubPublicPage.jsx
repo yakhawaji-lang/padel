@@ -926,6 +926,8 @@ const ClubPublicPage = () => {
       legendCourt: 'Court booking',
       legendCoach: 'Coach session',
       legendTournament: 'Tournament',
+      schedulePrevDay: 'Previous day',
+      scheduleNextDay: 'Next day',
     },
     ar: {
       backToHome: 'العودة للرئيسية',
@@ -1021,6 +1023,8 @@ const ClubPublicPage = () => {
       legendCourt: 'حجز ملعب',
       legendCoach: 'حصة مدرب',
       legendTournament: 'بطولة',
+      schedulePrevDay: 'اليوم السابق',
+      scheduleNextDay: 'اليوم التالي',
     }
   }
   const c = t[language] || t.en
@@ -1035,6 +1039,23 @@ const ClubPublicPage = () => {
     } catch (e) {
       return dateStr
     }
+  }
+
+  const shiftIsoDateByDays = (isoDateStr, deltaDays) => {
+    const [y, mo, d] = (isoDateStr || '').split('-').map(Number)
+    if (!y || !mo || !d) return null
+    const dt = new Date(y, mo - 1, d + deltaDays)
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+  }
+
+  const goSchedulePrevDay = () => {
+    const prev = shiftIsoDateByDays(courtGridDate, -1)
+    if (prev && prev >= today) setCourtGridDate(prev)
+  }
+
+  const goScheduleNextDay = () => {
+    const next = shiftIsoDateByDays(courtGridDate, 1)
+    if (next) setCourtGridDate(next)
   }
 
   const tournamentTypeName = (type) => type === 'social' ? c.socialTournament : c.kingOfCourt
@@ -1332,28 +1353,57 @@ const ClubPublicPage = () => {
                 <div
                   className="club-public-court-booking-wrap club-public-court-booking-wrap--schedule"
                   dir={language === 'ar' ? 'rtl' : 'ltr'}
-                  onMouseEnter={cancelRangeLeaveTimeout}
-                  onMouseLeave={handleRangeMouseLeave}
-                  onTouchMove={hasTouch ? handleTouchMoveRange : undefined}
-                  onTouchEnd={hasTouch ? handleTouchEndRange : undefined}
-                  onTouchCancel={hasTouch ? handleTouchEndRange : undefined}
                 >
-                  {isMember && (
-                    <div className="club-public-court-booking-schedule-hint" role="note">
-                      {c.scheduleSlotHint}
+                  <div className="club-public-court-booking-sticky-stack">
+                    <div className="club-public-court-booking-date-nav">
+                      <button
+                        type="button"
+                        className="club-public-court-booking-date-nav-btn"
+                        onClick={goSchedulePrevDay}
+                        disabled={courtGridDate <= today}
+                        aria-label={c.schedulePrevDay}
+                        title={c.schedulePrevDay}
+                      >
+                        <span className="club-public-court-booking-date-nav-icon" aria-hidden="true">‹</span>
+                      </button>
+                      <div className="club-public-court-booking-date-nav-label" aria-live="polite">
+                        {formatDate(courtGridDate)}
+                      </div>
+                      <button
+                        type="button"
+                        className="club-public-court-booking-date-nav-btn"
+                        onClick={goScheduleNextDay}
+                        aria-label={c.scheduleNextDay}
+                        title={c.scheduleNextDay}
+                      >
+                        <span className="club-public-court-booking-date-nav-icon" aria-hidden="true">›</span>
+                      </button>
                     </div>
-                  )}
-                  <div className="club-public-court-booking-schedule-legend" aria-hidden="true">
-                    <span className="club-public-court-booking-legend-item">
-                      <span className="club-public-legend-swatch club-public-legend-swatch--court" /> {c.legendCourt}
-                    </span>
-                    <span className="club-public-court-booking-legend-item">
-                      <span className="club-public-legend-swatch club-public-legend-swatch--coach" /> {c.legendCoach}
-                    </span>
-                    <span className="club-public-court-booking-legend-item">
-                      <span className="club-public-legend-swatch club-public-legend-swatch--tournament" /> {c.legendTournament}
-                    </span>
+                    {isMember && (
+                      <div className="club-public-court-booking-schedule-hint" role="note">
+                        {c.scheduleSlotHint}
+                      </div>
+                    )}
+                    <div className="club-public-court-booking-schedule-legend" aria-hidden="true">
+                      <span className="club-public-court-booking-legend-item">
+                        <span className="club-public-legend-swatch club-public-legend-swatch--court" /> {c.legendCourt}
+                      </span>
+                      <span className="club-public-court-booking-legend-item">
+                        <span className="club-public-legend-swatch club-public-legend-swatch--coach" /> {c.legendCoach}
+                      </span>
+                      <span className="club-public-court-booking-legend-item">
+                        <span className="club-public-legend-swatch club-public-legend-swatch--tournament" /> {c.legendTournament}
+                      </span>
+                    </div>
                   </div>
+                  <div
+                    className="club-public-court-booking-grid-scroll"
+                    onMouseEnter={cancelRangeLeaveTimeout}
+                    onMouseLeave={handleRangeMouseLeave}
+                    onTouchMove={hasTouch ? handleTouchMoveRange : undefined}
+                    onTouchEnd={hasTouch ? handleTouchEndRange : undefined}
+                    onTouchCancel={hasTouch ? handleTouchEndRange : undefined}
+                  >
                   <div
                     className="club-public-court-grid club-public-court-grid-times-horizontal"
                     style={{
@@ -1544,6 +1594,7 @@ const ClubPublicPage = () => {
                       </React.Fragment>
                     )
                     })}
+                  </div>
                   </div>
                 </div>
               )
