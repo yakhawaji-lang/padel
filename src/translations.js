@@ -218,7 +218,19 @@ export const translations = {
     calendarTooltipOutstanding: 'Outstanding',
     calendarTooltipCourts: 'Courts',
     calendarClickEdit: 'Click to edit',
-    calendarHoverForDetails: 'Hover a block for details'
+    calendarHoverForDetails: 'Hover a block for details',
+    bookingOpenEnded: 'Open-ended (until club closing)',
+    bookingOpenEndedHint: 'End time matches closing time for that day; you can still change start time.',
+    bookingPhone: 'Phone (for WhatsApp)',
+    bookingWhatsAppInvite: 'WhatsApp',
+    bookingWhatsAppNeedPhone: 'Add a valid phone number to send a WhatsApp invite.',
+    bookingMarkAllPaidAtClub: 'Mark everyone paid (collected cash at venue)',
+    bookingSharePaymentHint:
+      'Members see the booking under My bookings. Guests receive a WhatsApp message with registration and payment instructions.',
+    bookingScheduleSection: 'Schedule',
+    bookingCourtSection: 'Court & price',
+    bookingPeopleSection: 'Participants & payment',
+    bookingWorkingHoursHint: 'Prefer times within your usual opening range; all times remain editable.',
   },
   ar: {
     title: 'بطولة هلا بادل',
@@ -439,7 +451,19 @@ export const translations = {
     calendarTooltipOutstanding: 'المتبقي',
     calendarTooltipCourts: 'الملاعب',
     calendarClickEdit: 'انقر للتعديل',
-    calendarHoverForDetails: 'مرّر المؤشر على الحجز للتفاصيل'
+    calendarHoverForDetails: 'مرّر المؤشر على الحجز للتفاصيل',
+    bookingOpenEnded: 'حجز مفتوح حتى نهاية الدوام',
+    bookingOpenEndedHint: 'يطابق وقت الإغلاق اليومي، ويمكنك تعديل وقت البداية بحرية.',
+    bookingPhone: 'الجوال (للواتساب)',
+    bookingWhatsAppInvite: 'واتساب',
+    bookingWhatsAppNeedPhone: 'أضف رقم جوال صالح لإرسال دعوة واتساب.',
+    bookingMarkAllPaidAtClub: 'تسجيل سداد الجميع (استلام نقداً في المنشأة)',
+    bookingSharePaymentHint:
+      'يظهر الحجز للأعضاء المسجلين في «حجوزاتي». يُرسل للضيف رابط تسجيل واستكمال الدفع عبر واتساب.',
+    bookingScheduleSection: 'الجدولة',
+    bookingCourtSection: 'الملعب والسعر',
+    bookingPeopleSection: 'المشاركون والدفع',
+    bookingWorkingHoursHint: 'يُفضّل ضمن أوقات العمل المعتادة؛ ويبقى تعديل جميع الأوقات ممكناً.',
   }
 }
 

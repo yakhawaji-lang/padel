@@ -19,6 +19,7 @@ import { loadClubs, getClubById, saveClubs, upsertMember, addMemberToClub, delet
 import { getClubAdminSession } from './storage/clubAuth'
 import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import LanguageIcon from './components/LanguageIcon'
+import { buildWhatsAppLink, buildWhatsAppLinkForRegistered } from './components/BookingPaymentShare'
 import playtomicApi from './services/playtomicApi'
 import {
   getPublicBookingTimeSlots,
@@ -4550,8 +4551,71 @@ function App({ currentUser }) {
       return
     }
 
-    const bDate = (bookingData.date || '').toString().split('T')[0]
-    if (bDate && !isSameDayIntervalWithinClubHours(currentClub?.settings, bDate, bookingData.startTime, bookingData.endTime)) {
+    const closingTime = clubLegacyHours.closingTime || bookingData.endTime || '23:00'
+    const effectiveEndTime = bookingData.isOpenEnded ? closingTime : bookingData.endTime
+
+    let participants = Array.isArray(bookingData.participants) ? [...bookingData.participants] : []
+    if (bookingData.markFullyPaidAtClub && participants.length > 0) {
+      const totalF = parseFloat(bookingData.amount) || 0
+      const each = participants.length > 0 ? (totalF / participants.length).toFixed(2) : '0'
+      participants = participants.map((p) => {
+        const po = typeof p === 'object' ? { ...p } : { id: null, name: p, phone: '', amount: '', paymentMethod: 'cash', paid: false }
+        return {
+          ...po,
+          paid: true,
+          paymentMethod: po.paymentMethod || 'cash',
+          amount: po.amount && String(po.amount).trim() !== '' ? po.amount : each,
+        }
+      })
+    }
+
+    const totalAmt = parseFloat(bookingData.amount) || 0
+    const paymentShares = participants.map((p) => {
+      const po = typeof p === 'object' ? p : { id: null, name: p, phone: '' }
+      const amt = parseFloat(po.amount) || 0
+      return {
+        memberId: po.id || null,
+        memberName: po.name || '',
+        phone: (po.phone || '').trim(),
+        amount: amt,
+        paidAt: po.paid ? new Date().toISOString() : null,
+      }
+    })
+
+    const paidSum = paymentShares.reduce((s, sh) => s + (sh.paidAt ? sh.amount : 0), 0)
+    let status = 'confirmed'
+    if (totalAmt > 0.01 && paidSum < totalAmt - 0.02) {
+      status = paidSum > 0.01 ? 'partially_paid' : 'pending_payment'
+    }
+
+    const primaryName =
+      participants.length > 0
+        ? typeof participants[0] === 'object'
+          ? participants[0].name || ''
+          : String(participants[0])
+        : ''
+
+    const [sh, sm] = (bookingData.startTime || '00:00').split(':').map((x) => parseInt(x, 10) || 0)
+    const [eh, em] = (effectiveEndTime || '00:00').split(':').map((x) => parseInt(x, 10) || 0)
+    const durationMinutes = Math.max(30, eh * 60 + em - (sh * 60 + sm))
+
+    const normalizedBooking = {
+      ...bookingData,
+      endTime: effectiveEndTime,
+      isOpenEnded: !!bookingData.isOpenEnded,
+      participants,
+      paymentShares,
+      totalAmount: totalAmt,
+      memberName: primaryName,
+      customerName: primaryName,
+      customer: primaryName,
+      status,
+      durationMinutes,
+    }
+    delete normalizedBooking.markFullyPaidAtClub
+
+    const bDate = (normalizedBooking.date || '').toString().split('T')[0]
+    if (bDate && !isSameDayIntervalWithinClubHours(currentClub?.settings, bDate, normalizedBooking.startTime, effectiveEndTime)) {
       const { openingTime: o, closingTime: c } = clubLegacyHours
       alert(
         language === 'en'
@@ -4562,7 +4626,7 @@ function App({ currentUser }) {
     }
 
     // Check for conflicts (excluding the current booking if editing)
-    const conflict = checkBookingConflict(bookingData, bookingData.id || null)
+    const conflict = checkBookingConflict(normalizedBooking, bookingData.id || null)
     
     if (conflict) {
       const conflictStart = conflict.startTime
@@ -4578,8 +4642,8 @@ function App({ currentUser }) {
     let updatedLocalBookings
     if (bookingData.id && bookingData.id > 0 && !bookingData.id.toString().startsWith('playtomic_')) {
       // Update existing local booking by ID
-      updatedLocalBookings = localBookings.map(b => 
-        b.id === bookingData.id ? { ...bookingData, id: bookingData.id, source: 'local' } : b
+      updatedLocalBookings = localBookings.map(b =>
+        b.id === bookingData.id ? { ...normalizedBooking, id: bookingData.id, source: 'local' } : b
       )
     } else {
       // Create new local booking
@@ -4588,10 +4652,9 @@ function App({ currentUser }) {
         .map(b => b.id)
       const nextId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1
       const newBooking = {
-        ...bookingData,
+        ...normalizedBooking,
         id: nextId,
         source: 'local',
-        status: 'confirmed' // Default status
       }
       updatedLocalBookings = [...localBookings, newBooking]
     }
@@ -4619,12 +4682,12 @@ function App({ currentUser }) {
       if (club) {
         const savedBooking = updatedLocalBookings.find(b => 
           (bookingData.id && b.id === bookingData.id) ||
-          (b.date === bookingData.date && b.startTime === bookingData.startTime && b.resource === bookingData.resource)
+          (b.date === normalizedBooking.date && b.startTime === normalizedBooking.startTime && b.resource === normalizedBooking.resource)
         )
         const bookingId = savedBooking?.id || bookingData.id
         if (bookingId) {
-          const amount = parseFloat(bookingData.amount) || 0
-          const desc = `${bookingData.resource || 'Court'} - ${bookingData.date || ''} ${(bookingData.startTime || '')}-${(bookingData.endTime || '')}`.trim()
+          const amount = parseFloat(normalizedBooking.amount) || 0
+          const desc = `${normalizedBooking.resource || 'Court'} - ${normalizedBooking.date || ''} ${(normalizedBooking.startTime || '')}-${(effectiveEndTime || '')}`.trim()
           const acc = club.accounting || []
           const without = acc.filter(a => a.bookingId !== bookingId)
           const entry = {
@@ -6950,6 +7013,9 @@ function App({ currentUser }) {
                   courts={getCourts()}
                   clubOpeningTime={clubLegacyHours.openingTime}
                   clubClosingTime={clubLegacyHours.closingTime}
+                  clubId={clubId}
+                  clubName={currentClub?.nameAr || currentClub?.name || ''}
+                  currency={currentClub?.settings?.currency || 'SAR'}
                   onSave={saveBooking}
                   onDelete={(bookingId) => {
                     if (!bookingId || bookingId === null || bookingId === undefined) {
@@ -7148,6 +7214,9 @@ function App({ currentUser }) {
                   courts={getCourts()}
                   clubOpeningTime={clubLegacyHours.openingTime}
                   clubClosingTime={clubLegacyHours.closingTime}
+                  clubId={clubId}
+                  clubName={currentClub?.nameAr || currentClub?.name || ''}
+                  currency={currentClub?.settings?.currency || 'SAR'}
                   onSave={(bookingData) => {
                     saveBooking(bookingData)
                     setShowBookingModal(false)
@@ -8816,7 +8885,21 @@ function MemberForm({ member, onSave, onCancel, translations, language }) {
 }
 
 // Booking Form Modal Component
-function BookingFormModal({ bookingData, members, courts: courtsProp, clubOpeningTime, clubClosingTime, onSave, onDelete, onCancel, translations, language }) {
+function BookingFormModal({
+  bookingData,
+  members,
+  courts: courtsProp,
+  clubOpeningTime,
+  clubClosingTime,
+  onSave,
+  onDelete,
+  onCancel,
+  translations,
+  language,
+  clubId,
+  clubName,
+  currency = 'SAR',
+}) {
   const courts = courtsProp && courtsProp.length > 0 ? courtsProp : ['Court 1', 'Court 2', 'Court 3', 'Court 4']
   const defaultStart = clubOpeningTime || '09:00'
   const defaultEnd = (() => {
@@ -8832,6 +8915,20 @@ function BookingFormModal({ bookingData, members, courts: courtsProp, clubOpenin
     }
     return '10:00'
   })()
+  const closingForOpen = clubClosingTime || defaultEnd
+
+  const mapParticipantsIn = (list) =>
+    (list || []).map((p) => {
+      if (typeof p === 'object') {
+        return {
+          ...p,
+          phone: p.phone || p.mobile || '',
+          paid: p.paid !== undefined ? p.paid : false,
+        }
+      }
+      return { id: null, name: p, phone: '', amount: '', paymentMethod: 'card', paid: false }
+    })
+
   const [formData, setFormData] = useState({
     id: bookingData?.id || null,
     date: bookingData?.date || '',
@@ -8839,40 +8936,53 @@ function BookingFormModal({ bookingData, members, courts: courtsProp, clubOpenin
     endTime: bookingData?.endTime || defaultEnd,
     resource: bookingData?.resource || courts[0] || 'Court 1',
     amount: bookingData?.amount || '',
-    participants: (bookingData?.participants || []).map(p => {
-      // Ensure all participants have paid field
-      if (typeof p === 'object') {
-        return { ...p, paid: p.paid !== undefined ? p.paid : false }
-      }
-      return { id: null, name: p, amount: '', paymentMethod: 'card', paid: false }
-    }),
-    notes: bookingData?.notes || ''
+    participants: mapParticipantsIn(bookingData?.participants || []),
+    notes: bookingData?.notes || '',
   })
+  const [isOpenEnded, setIsOpenEnded] = useState(!!bookingData?.isOpenEnded)
+  const [markFullyPaidAtClub, setMarkFullyPaidAtClub] = useState(false)
   const [participantSearch, setParticipantSearch] = useState('')
   const [showParticipantSelector, setShowParticipantSelector] = useState(false)
   const [newParticipantName, setNewParticipantName] = useState('')
+  const [newParticipantPhone, setNewParticipantPhone] = useState('')
   const [participantSelectorMode, setParticipantSelectorMode] = useState('member') // 'member' or 'manual'
 
-  // Sync formData when bookingData changes (when a different booking is opened)
+  const bookingSyncKey = useMemo(
+    () =>
+      JSON.stringify({
+        id: bookingData?.id,
+        date: bookingData?.date,
+        startTime: bookingData?.startTime,
+        endTime: bookingData?.endTime,
+        resource: bookingData?.resource,
+        amount: bookingData?.amount,
+        notes: bookingData?.notes,
+        isOpenEnded: bookingData?.isOpenEnded,
+        participants: bookingData?.participants,
+      }),
+    [bookingData]
+  )
+
+  // Sync form when opening a different booking or when server data changes
   useEffect(() => {
-    if (bookingData) {
-      setFormData({
-        id: bookingData.id || null,
-        date: bookingData.date || '',
-        startTime: bookingData.startTime || defaultStart,
-        endTime: bookingData.endTime || defaultEnd,
-        resource: courts.includes(bookingData.resource) ? bookingData.resource : (courts[0] || 'Court 1'),
-        amount: bookingData.amount || '',
-        participants: (bookingData.participants || []).map(p => {
-          if (typeof p === 'object') {
-            return { ...p, paid: p.paid !== undefined ? p.paid : false }
-          }
-          return { id: null, name: p, amount: '', paymentMethod: 'card', paid: false }
-        }),
-        notes: bookingData.notes || ''
-      })
-    }
-  }, [bookingData?.id, bookingData?.date, bookingData?.startTime, courts, defaultStart, defaultEnd])
+    if (!bookingData) return
+    const res = bookingData.resource
+    const resourceVal =
+      courts.includes(res) ? res : courts.find((c) => String(c).toLowerCase() === String(res).toLowerCase()) || courts[0] || 'Court 1'
+    const oe = !!bookingData.isOpenEnded
+    setIsOpenEnded(oe)
+    setMarkFullyPaidAtClub(false)
+    setFormData({
+      id: bookingData.id || null,
+      date: (bookingData.date || '').toString().split('T')[0],
+      startTime: bookingData.startTime || defaultStart,
+      endTime: oe ? closingForOpen : (bookingData.endTime || defaultEnd),
+      resource: resourceVal,
+      amount: bookingData.amount ?? '',
+      participants: mapParticipantsIn(bookingData.participants || []),
+      notes: bookingData.notes || '',
+    })
+  }, [bookingSyncKey, courts, defaultStart, defaultEnd, closingForOpen])
 
   // Calculate isEditMode based on formData.id (which syncs with bookingData.id)
   const isEditMode = !!(formData.id || bookingData?.id)
@@ -8882,7 +8992,17 @@ function BookingFormModal({ bookingData, members, courts: courtsProp, clubOpenin
     if (member && !formData.participants.find(p => (typeof p === 'object' ? p.id : p) === participantId)) {
       setFormData({
         ...formData,
-        participants: [...formData.participants, { id: member.id, name: member.name, amount: '', paymentMethod: 'card', paid: false }]
+        participants: [
+          ...formData.participants,
+          {
+            id: member.id,
+            name: member.name,
+            phone: member.mobile || member.phone || '',
+            amount: '',
+            paymentMethod: 'card',
+            paid: false,
+          },
+        ],
       })
       setShowParticipantSelector(false)
       setParticipantSearch('')
@@ -8896,9 +9016,20 @@ function BookingFormModal({ bookingData, members, courts: courtsProp, clubOpenin
     })) {
       setFormData({
         ...formData,
-        participants: [...formData.participants, { id: null, name: newParticipantName.trim(), amount: '', paymentMethod: 'card', paid: false }]
+        participants: [
+          ...formData.participants,
+          {
+            id: null,
+            name: newParticipantName.trim(),
+            phone: (newParticipantPhone || '').trim(),
+            amount: '',
+            paymentMethod: 'card',
+            paid: false,
+          },
+        ],
       })
       setNewParticipantName('')
+      setNewParticipantPhone('')
       setShowParticipantSelector(false)
     }
   }
@@ -8930,7 +9061,26 @@ function BookingFormModal({ bookingData, members, courts: courtsProp, clubOpenin
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    onSave(formData)
+    onSave({
+      ...formData,
+      isOpenEnded,
+      markFullyPaidAtClub,
+      endTime: isOpenEnded ? closingForOpen : formData.endTime,
+    })
+  }
+
+  const timeRangeLabel = `${formData.startTime} – ${isOpenEnded ? closingForOpen : formData.endTime}`
+  const dateStr = (formData.date || '').toString().split('T')[0]
+
+  const whatsappForParticipant = (po) => {
+    const phone = (po.phone || '').trim()
+    const digits = phone.replace(/\D/g, '')
+    if (digits.length < 8) return null
+    const amt = parseFloat(po.amount) || 0
+    if (po.id) {
+      return buildWhatsAppLinkForRegistered(phone, clubName || '', dateStr, timeRangeLabel, amt, currency, language)
+    }
+    return buildWhatsAppLink(phone, clubName || '', dateStr, timeRangeLabel, amt, currency, clubId || '')
   }
 
   const paymentMethods = [
@@ -8944,59 +9094,87 @@ function BookingFormModal({ bookingData, members, courts: courtsProp, clubOpenin
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
-      <div className="member-selector-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }}>
+      <div
+        className="member-selector-modal booking-form-modal"
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: '760px', maxHeight: '92vh', overflowY: 'auto' }}
+      >
         <div className="modal-header">
           <h3>{isEditMode ? (language === 'en' ? 'Edit Booking' : 'تعديل الحجز') : translations.createRegularBooking}</h3>
-          <button className="modal-close" onClick={onCancel}>×</button>
+          <button type="button" className="modal-close" onClick={onCancel}>×</button>
         </div>
         <div className="modal-body">
           <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', color: '#2c3e50' }}>
-                {translations.date}
+            <p className="booking-form-modal__muted">{translations.bookingWorkingHoursHint}</p>
+
+            <div className="booking-form-modal__section">
+              <div className="booking-form-modal__section-title">{translations.bookingScheduleSection}</div>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#1e293b' }}>
+                  {translations.date}
+                </label>
+                <input
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  className="search-input"
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#1e293b' }}>
+                    {translations.startTime}
+                  </label>
+                  <input
+                    type="time"
+                    value={formData.startTime}
+                    onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                    className="search-input"
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#1e293b' }}>
+                    {translations.endTime}
+                  </label>
+                  <input
+                    type="time"
+                    value={isOpenEnded ? closingForOpen : formData.endTime}
+                    disabled={isOpenEnded}
+                    onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                    className="search-input"
+                    required
+                  />
+                </div>
+              </div>
+
+              <label className="booking-form-modal__check">
+                <input
+                  type="checkbox"
+                  checked={isOpenEnded}
+                  onChange={(e) => {
+                    const on = e.target.checked
+                    setIsOpenEnded(on)
+                    if (on) {
+                      setFormData((prev) => ({ ...prev, endTime: closingForOpen }))
+                    } else {
+                      setFormData((prev) => ({ ...prev, endTime: prev.endTime === closingForOpen ? defaultEnd : prev.endTime }))
+                    }
+                  }}
+                />
+                <span>{translations.bookingOpenEnded}</span>
               </label>
-              <input
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                className="search-input"
-                required
-              />
-            </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', color: '#2c3e50' }}>
-                  {translations.startTime}
-                </label>
-                <input
-                  type="time"
-                  value={formData.startTime}
-                  min={clubOpeningTime || undefined}
-                  max={clubClosingTime || undefined}
-                  onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                  className="search-input"
-                  required
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', color: '#2c3e50' }}>
-                  {translations.endTime}
-                </label>
-                <input
-                  type="time"
-                  value={formData.endTime}
-                  min={clubOpeningTime || undefined}
-                  max={clubClosingTime || undefined}
-                  onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                  className="search-input"
-                  required
-                />
-              </div>
+              {isOpenEnded ? (
+                <p className="booking-form-modal__hint">{translations.bookingOpenEndedHint}</p>
+              ) : null}
             </div>
 
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', color: '#2c3e50' }}>
+            <div className="booking-form-modal__section">
+              <div className="booking-form-modal__section-title">{translations.bookingCourtSection}</div>
+              <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#1e293b' }}>
                 {translations.resource}
               </label>
               <select
@@ -9041,10 +9219,14 @@ function BookingFormModal({ bookingData, members, courts: courtsProp, clubOpenin
                 </button>
               )}
             </div>
+            </div>
 
-            <div style={{ marginBottom: '15px' }}>
+            <div className="booking-form-modal__section">
+              <div className="booking-form-modal__section-title">{translations.bookingPeopleSection}</div>
+              <p className="booking-form-modal__muted booking-form-modal__hint-block">{translations.bookingSharePaymentHint}</p>
+              <div style={{ marginBottom: '15px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <label style={{ fontWeight: '500', color: '#2c3e50' }}>
+                <label style={{ fontWeight: '600', color: '#1e293b' }}>
                   {translations.participants}
                 </label>
                 <button
@@ -9178,16 +9360,19 @@ function BookingFormModal({ bookingData, members, courts: courtsProp, clubOpenin
                           {language === 'en' ? 'Add' : 'إضافة'}
                         </button>
                       </div>
-                      <p style={{ 
-                        color: '#64748b', 
-                        fontSize: '13px', 
-                        margin: 0, 
-                        lineHeight: 1.5,
-                        paddingLeft: '2px'
-                      }}>
-                        {language === 'en' 
-                          ? 'Enter the name of a participant who is not in the members list'
-                          : 'أدخل اسم مشارك غير موجود في قائمة الأعضاء'}
+                      <input
+                        type="tel"
+                        inputMode="tel"
+                        placeholder={translations.bookingPhone}
+                        value={newParticipantPhone}
+                        onChange={(e) => setNewParticipantPhone(e.target.value)}
+                        className="search-input"
+                        style={{ marginBottom: '10px' }}
+                      />
+                      <p className="booking-form-modal__hint">
+                        {language === 'en'
+                          ? 'Guest: add name and phone to send a WhatsApp invite with registration & payment link.'
+                          : 'للضيف: أضف الاسم والجوال لإرسال دعوة واتساب برابط التسجيل والدفع.'}
                       </p>
                     </div>
                   )}
@@ -9196,34 +9381,41 @@ function BookingFormModal({ bookingData, members, courts: courtsProp, clubOpenin
 
               {formData.participants.map((participant, index) => {
                 const participantName = typeof participant === 'object' ? participant.name : participant
-                const participantId = typeof participant === 'object' ? participant.id : null
-                const participantObj = typeof participant === 'object' ? participant : { id: null, name: participant, amount: '', paymentMethod: 'card', paid: false }
+                const participantObj =
+                  typeof participant === 'object'
+                    ? participant
+                    : { id: null, name: participant, phone: '', amount: '', paymentMethod: 'card', paid: false }
+                const waHref = whatsappForParticipant(participantObj)
                 return (
-                  <div key={index} style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: '2fr 1fr 1.5fr 1fr auto auto', 
-                    gap: '10px', 
-                    alignItems: 'center',
-                    marginBottom: '10px',
-                    padding: '10px',
-                    backgroundColor: participantObj.paid ? '#d4edda' : '#f8f9fa',
-                    borderRadius: '5px',
-                    border: participantObj.paid ? '2px solid #28a745' : '1px solid #dee2e6'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span>{participantName}</span>
-                      {participantObj.id === null && (
-                        <span style={{ 
-                          fontSize: '10px', 
-                          padding: '2px 6px', 
-                          backgroundColor: '#e9ecef', 
-                          borderRadius: '10px',
-                          color: '#6c757d'
-                        }}>
+                  <div
+                    key={`${participantObj.id || 'g'}-${index}`}
+                    className={`booking-form-modal__participant-row${participantObj.paid ? ' booking-form-modal__participant-row--paid' : ''}`}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span className="booking-form-modal__participant-name">{participantName}</span>
+                      {participantObj.id === null || participantObj.id === undefined ? (
+                        <span className="booking-form-modal__guest-badge">
                           {language === 'en' ? 'Guest' : 'ضيف'}
+                        </span>
+                      ) : (
+                        <span className="booking-form-modal__member-badge">
+                          {language === 'en' ? 'Member' : 'عضو'}
                         </span>
                       )}
                     </div>
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      placeholder={translations.bookingPhone}
+                      value={participantObj.phone || ''}
+                      onChange={(e) => {
+                        const updated = [...formData.participants]
+                        updated[index] = { ...participantObj, phone: e.target.value }
+                        setFormData({ ...formData, participants: updated })
+                      }}
+                      className="search-input"
+                      style={{ fontSize: '14px' }}
+                    />
                     <input
                       type="number"
                       placeholder={translations.amount}
@@ -9250,7 +9442,7 @@ function BookingFormModal({ bookingData, members, courts: courtsProp, clubOpenin
                         <option key={method.value} value={method.value}>{method.label}</option>
                       ))}
                     </select>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '13px' }}>
+                    <label className="booking-form-modal__paid-check">
                       <input
                         type="checkbox"
                         checked={participantObj.paid || false}
@@ -9259,15 +9451,28 @@ function BookingFormModal({ bookingData, members, courts: courtsProp, clubOpenin
                           updated[index] = { ...participantObj, paid: e.target.checked }
                           setFormData({ ...formData, participants: updated })
                         }}
-                        style={{ cursor: 'pointer' }}
                       />
                       <span>{language === 'en' ? 'Paid' : 'مدفوع'}</span>
                     </label>
+                    {waHref ? (
+                      <a
+                        href={waHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="booking-form-modal__wa-btn"
+                        title={translations.bookingWhatsAppInvite}
+                      >
+                        {translations.bookingWhatsAppInvite}
+                      </a>
+                    ) : (
+                      <span className="booking-form-modal__wa-placeholder" title={translations.bookingWhatsAppNeedPhone}>
+                        —
+                      </span>
+                    )}
                     <button
                       type="button"
-                      className="btn-secondary btn-small"
+                      className="btn-secondary btn-small booking-form-modal__remove-participant"
                       onClick={() => handleRemoveParticipant(index)}
-                      style={{ padding: '5px 10px' }}
                     >
                       ×
                     </button>
@@ -9275,6 +9480,16 @@ function BookingFormModal({ bookingData, members, courts: courtsProp, clubOpenin
                 )
               })}
             </div>
+            </div>
+
+            <label className="booking-form-modal__check booking-form-modal__check--block">
+              <input
+                type="checkbox"
+                checked={markFullyPaidAtClub}
+                onChange={(e) => setMarkFullyPaidAtClub(e.target.checked)}
+              />
+              <span>{translations.bookingMarkAllPaidAtClub}</span>
+            </label>
 
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', color: '#2c3e50' }}>
