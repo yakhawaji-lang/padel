@@ -267,7 +267,17 @@ const Register = () => {
           <h1 className="register-title">{c.title}</h1>
           <p className="register-subtitle">{c.subtitle}</p>
           {!isPhoneOnlyFlow && <p className="register-or">{c.or}</p>}
-          <form onSubmit={regStep === 'form' ? handleSubmit : (e) => { e.preventDefault(); regStep === 'email' ? handleSendCode(e) : handleVerifyCode(e); }} className="register-form">
+          <form
+            onSubmit={
+              isPhoneOnlyFlow || regStep === 'form'
+                ? handleSubmit
+                : (e) => {
+                    e.preventDefault()
+                    regStep === 'email' ? handleSendCode(e) : handleVerifyCode(e)
+                  }
+            }
+            className="register-form"
+          >
             {error && <p className="register-error">{error}</p>}
             {!isPhoneOnlyFlow && regStep === 'email' && (
               <>
