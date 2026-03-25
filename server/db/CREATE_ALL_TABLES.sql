@@ -208,6 +208,7 @@ CREATE TABLE IF NOT EXISTS club_settings (
   social_links JSON NULL,
   booking_prices JSON NULL,
   working_hours_seasons JSON NULL,
+  payment_enabled_channels JSON NULL,
   lock_minutes INT DEFAULT 10,
   payment_deadline_minutes INT DEFAULT 10,
   split_manage_minutes INT DEFAULT 15,

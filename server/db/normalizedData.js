@@ -54,7 +54,8 @@ async function ensureClubSettingsBookingColumns() {
     { name: 'refund_days', type: 'INT', def: '3' },
     { name: 'allow_incomplete_bookings', type: 'TINYINT(1)', def: '0' },
     { name: 'preparation_time_minutes', type: 'INT', def: '0' },
-    { name: 'working_hours_seasons', type: 'JSON', def: 'NULL' }
+    { name: 'working_hours_seasons', type: 'JSON', def: 'NULL' },
+    { name: 'payment_enabled_channels', type: 'JSON', def: 'NULL' }
   ]
   for (const { name, type, def } of cols) {
     if (!(await columnExists('club_settings', name))) {
@@ -461,7 +462,37 @@ function settingsFromSettingsRow(s) {
         } catch { return [] }
       }
       return []
+    })(),
+    ...(() => {
+      const v = row.payment_enabled_channels
+      if (v && typeof v === 'object' && !Array.isArray(v)) return { paymentEnabledChannels: v }
+      if (typeof v === 'string' && v.trim()) {
+        try {
+          const p = JSON.parse(v)
+          if (p && typeof p === 'object' && !Array.isArray(p)) return { paymentEnabledChannels: p }
+        } catch { /* ignore */ }
+      }
+      return {}
     })()
+  }
+}
+
+/** قيمة JSON لعمود payment_enabled_channels: لا تُمس الحقل المخزَّن إن لم يُرسل في الطلب. */
+async function resolvePaymentChannelsJsonForSave(clubId, s) {
+  if (s.paymentEnabledChannels !== undefined) {
+    if (s.paymentEnabledChannels === null) return null
+    const o = s.paymentEnabledChannels
+    return JSON.stringify(typeof o === 'object' && o !== null && !Array.isArray(o) ? o : {})
+  }
+  const cid = clubId ? String(clubId) : ''
+  if (!cid) return null
+  try {
+    const { rows } = await query('SELECT payment_enabled_channels AS pec FROM club_settings WHERE club_id = ?', [cid])
+    const raw = rows?.[0]?.pec
+    if (raw == null || raw === '') return null
+    return typeof raw === 'string' ? raw : JSON.stringify(raw)
+  } catch {
+    return null
   }
 }
 
@@ -624,9 +655,9 @@ export async function getClubsFromNormalized() {
 
   let settingsRes
   try {
-    settingsRes = await query(`SELECT club_id, default_language, timezone, currency, booking_duration, preparation_time_minutes, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, updated_by FROM club_settings WHERE club_id IN (${placeholders})`, clubIds)
+    settingsRes = await query(`SELECT club_id, default_language, timezone, currency, booking_duration, preparation_time_minutes, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, payment_enabled_channels, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, updated_by FROM club_settings WHERE club_id IN (${placeholders})`, clubIds)
   } catch (e) {
-    if (e?.message?.includes('Unknown column') && (e?.message?.includes('lock_minutes') || e?.message?.includes('preparation_time_minutes') || e?.message?.includes('working_hours_seasons'))) {
+    if (e?.message?.includes('Unknown column') && (e?.message?.includes('lock_minutes') || e?.message?.includes('preparation_time_minutes') || e?.message?.includes('working_hours_seasons') || e?.message?.includes('payment_enabled_channels'))) {
       await ensureClubSettingsBookingColumns()
       settingsRes = await query(`SELECT * FROM club_settings WHERE club_id IN (${placeholders})`, clubIds)
     } else throw e
@@ -814,45 +845,46 @@ export async function saveClubsToNormalized(items, actor = {}) {
     const toNum = (v, def) => { const n = Number(v); return (v != null && v !== '' && !Number.isNaN(n)) ? n : def }
     const bookingPricesJson = JSON.stringify(s.bookingPrices || {})
     const workingHoursSeasonsJson = JSON.stringify(Array.isArray(s.workingHoursSeasons) ? s.workingHoursSeasons : [])
+    const paymentChannelsJson = await resolvePaymentChannelsJsonForSave(cid, s)
     const settingsParamsNoBooking = [
       s.defaultLanguage || 'en', s.timezone || 'Asia/Riyadh', s.currency || 'SAR',
       toNum(s.bookingDuration, 60), toNum(s.maxBookingAdvance, 30), toNum(s.cancellationPolicy, 24),
       s.openingTime || '06:00', s.closingTime || '23:00',
       s.headerBgColor || '#ffffff', s.headerTextColor || '#0f172a',
       s.heroBgColor || '#ffffff', s.heroBgOpacity ?? 85, s.heroTitleColor || '#0f172a', s.heroTextColor || '#475569', s.heroStatsColor || '#0f172a',
-      JSON.stringify(s.socialLinks || []), bookingPricesJson, workingHoursSeasonsJson, actor.actorId || null, cid
+      JSON.stringify(s.socialLinks || []), bookingPricesJson, workingHoursSeasonsJson, paymentChannelsJson, actor.actorId || null, cid
     ]
     try {
       const { rows: existingRow } = await query('SELECT club_id FROM club_settings WHERE club_id = ?', [cid])
       if (existingRow && existingRow.length > 0) {
         await query(
-          `UPDATE club_settings SET default_language=?, timezone=?, currency=?, booking_duration=?, max_booking_advance=?, cancellation_policy=?, opening_time=?, closing_time=?, header_bg_color=?, header_text_color=?, hero_bg_color=?, hero_bg_opacity=?, hero_title_color=?, hero_text_color=?, hero_stats_color=?, social_links=?, booking_prices=?, working_hours_seasons=?, updated_at=NOW(), updated_by=? WHERE club_id=?`,
+          `UPDATE club_settings SET default_language=?, timezone=?, currency=?, booking_duration=?, max_booking_advance=?, cancellation_policy=?, opening_time=?, closing_time=?, header_bg_color=?, header_text_color=?, hero_bg_color=?, hero_bg_opacity=?, hero_title_color=?, hero_text_color=?, hero_stats_color=?, social_links=?, booking_prices=?, working_hours_seasons=?, payment_enabled_channels=?, updated_at=NOW(), updated_by=? WHERE club_id=?`,
           settingsParamsNoBooking
         )
       } else {
         const bookingDefaults = [10, 10, 15, 30, 3, 0]
-        const insertParams = [cid, ...settingsParamsNoBooking.slice(0, 18), ...bookingDefaults, settingsParamsNoBooking[18]]
+        const insertParams = [cid, ...settingsParamsNoBooking.slice(0, 19), ...bookingDefaults, settingsParamsNoBooking[19]]
         await query(
-          `INSERT INTO club_settings (club_id, default_language, timezone, currency, booking_duration, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, updated_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO club_settings (club_id, default_language, timezone, currency, booking_duration, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, payment_enabled_channels, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, updated_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           insertParams
         )
       }
     } catch (e) {
-      if (e?.message?.includes('Unknown column') && (e?.message?.includes('lock_minutes') || e?.message?.includes('refund_days') || e?.message?.includes('allow_incomplete') || e?.message?.includes('preparation_time_minutes') || e?.message?.includes('working_hours_seasons'))) {
+      if (e?.message?.includes('Unknown column') && (e?.message?.includes('lock_minutes') || e?.message?.includes('refund_days') || e?.message?.includes('allow_incomplete') || e?.message?.includes('preparation_time_minutes') || e?.message?.includes('working_hours_seasons') || e?.message?.includes('payment_enabled_channels'))) {
         await ensureClubSettingsBookingColumns()
         const { rows: existingRow2 } = await query('SELECT club_id FROM club_settings WHERE club_id = ?', [cid])
         if (existingRow2 && existingRow2.length > 0) {
           await query(
-            `UPDATE club_settings SET default_language=?, timezone=?, currency=?, booking_duration=?, max_booking_advance=?, cancellation_policy=?, opening_time=?, closing_time=?, header_bg_color=?, header_text_color=?, hero_bg_color=?, hero_bg_opacity=?, hero_title_color=?, hero_text_color=?, hero_stats_color=?, social_links=?, booking_prices=?, working_hours_seasons=?, updated_at=NOW(), updated_by=? WHERE club_id=?`,
+            `UPDATE club_settings SET default_language=?, timezone=?, currency=?, booking_duration=?, max_booking_advance=?, cancellation_policy=?, opening_time=?, closing_time=?, header_bg_color=?, header_text_color=?, hero_bg_color=?, hero_bg_opacity=?, hero_title_color=?, hero_text_color=?, hero_stats_color=?, social_links=?, booking_prices=?, working_hours_seasons=?, payment_enabled_channels=?, updated_at=NOW(), updated_by=? WHERE club_id=?`,
             settingsParamsNoBooking
           )
         } else {
           const bookingDefaults = [10, 10, 15, 30, 3, 0]
-          const insertParams = [cid, ...settingsParamsNoBooking.slice(0, 18), ...bookingDefaults, settingsParamsNoBooking[18]]
+          const insertParams = [cid, ...settingsParamsNoBooking.slice(0, 19), ...bookingDefaults, settingsParamsNoBooking[19]]
           await query(
-            `INSERT INTO club_settings (club_id, default_language, timezone, currency, booking_duration, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, updated_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO club_settings (club_id, default_language, timezone, currency, booking_duration, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, payment_enabled_channels, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, updated_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             insertParams
           )
         }
@@ -1164,6 +1196,7 @@ export async function updateClubSettingsInDb(clubId, settings, actor = {}) {
   const toNum = (v, def) => { const n = Number(v); return (v != null && v !== '' && !Number.isNaN(n)) ? n : def }
   const bookingPricesJson = JSON.stringify(s.bookingPrices || {})
   const workingHoursSeasonsJson = JSON.stringify(Array.isArray(s.workingHoursSeasons) ? s.workingHoursSeasons : [])
+  const paymentChannelsJson = await resolvePaymentChannelsJsonForSave(cid, s)
 
   const generalParams = [
     s.defaultLanguage || 'en', s.timezone || 'Asia/Riyadh', s.currency || 'SAR',
@@ -1171,7 +1204,7 @@ export async function updateClubSettingsInDb(clubId, settings, actor = {}) {
     s.openingTime || '06:00', s.closingTime || '23:00',
     s.headerBgColor || '#ffffff', s.headerTextColor || '#0f172a',
     s.heroBgColor || '#ffffff', s.heroBgOpacity ?? 85, s.heroTitleColor || '#0f172a', s.heroTextColor || '#475569', s.heroStatsColor || '#0f172a',
-    JSON.stringify(s.socialLinks || []), bookingPricesJson, workingHoursSeasonsJson, actor.actorId || null, cid
+    JSON.stringify(s.socialLinks || []), bookingPricesJson, workingHoursSeasonsJson, paymentChannelsJson, actor.actorId || null, cid
   ]
 
   const lockMinutes = getSettingNum(s, 'lockMinutes', 'lock_minutes', 10)
@@ -1182,17 +1215,17 @@ export async function updateClubSettingsInDb(clubId, settings, actor = {}) {
   const allowIncomplete = getSettingBool(s, ALLOW_INCOMPLETE_JS, 'allow_incomplete_bookings') ? 1 : 0
   const bookingParams = [lockMinutes, paymentDeadlineMinutes, splitManageMinutes, splitPaymentDeadlineMinutes, refundDays, allowIncomplete, actor.actorId || null, cid]
 
-  const generalUpdateSql = `UPDATE club_settings SET default_language=?, timezone=?, currency=?, booking_duration=?, preparation_time_minutes=?, max_booking_advance=?, cancellation_policy=?, opening_time=?, closing_time=?, header_bg_color=?, header_text_color=?, hero_bg_color=?, hero_bg_opacity=?, hero_title_color=?, hero_text_color=?, hero_stats_color=?, social_links=?, booking_prices=?, working_hours_seasons=?, updated_at=NOW(), updated_by=? WHERE club_id=?`
+  const generalUpdateSql = `UPDATE club_settings SET default_language=?, timezone=?, currency=?, booking_duration=?, preparation_time_minutes=?, max_booking_advance=?, cancellation_policy=?, opening_time=?, closing_time=?, header_bg_color=?, header_text_color=?, hero_bg_color=?, hero_bg_opacity=?, hero_title_color=?, hero_text_color=?, hero_stats_color=?, social_links=?, booking_prices=?, working_hours_seasons=?, payment_enabled_channels=?, updated_at=NOW(), updated_by=? WHERE club_id=?`
   const bookingUpdateSql = `UPDATE club_settings SET lock_minutes=?, payment_deadline_minutes=?, split_manage_minutes=?, split_payment_deadline_minutes=?, refund_days=?, allow_incomplete_bookings=?, updated_at=NOW(), updated_by=? WHERE club_id=?`
 
   try {
     const { rows: existing } = await query('SELECT club_id FROM club_settings WHERE club_id = ?', [cid])
     if (!existing || existing.length === 0) {
       const insertDefaults = [10, 10, 15, 30, 3, 0]
-      const insertParams = [cid, ...generalParams.slice(0, 19), ...insertDefaults, generalParams[19]]
+      const insertParams = [cid, ...generalParams.slice(0, 20), ...insertDefaults, generalParams[20]]
       await query(
-        `INSERT INTO club_settings (club_id, default_language, timezone, currency, booking_duration, preparation_time_minutes, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, updated_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO club_settings (club_id, default_language, timezone, currency, booking_duration, preparation_time_minutes, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, payment_enabled_channels, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, updated_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         insertParams
       )
     } else {
@@ -1200,15 +1233,15 @@ export async function updateClubSettingsInDb(clubId, settings, actor = {}) {
     }
     await query(bookingUpdateSql, bookingParams)
   } catch (e) {
-    if (e?.message?.includes('Unknown column') && (e?.message?.includes('lock_minutes') || e?.message?.includes('refund_days') || e?.message?.includes('allow_incomplete') || e?.message?.includes('preparation_time_minutes') || e?.message?.includes('working_hours_seasons'))) {
+    if (e?.message?.includes('Unknown column') && (e?.message?.includes('lock_minutes') || e?.message?.includes('refund_days') || e?.message?.includes('allow_incomplete') || e?.message?.includes('preparation_time_minutes') || e?.message?.includes('working_hours_seasons') || e?.message?.includes('payment_enabled_channels'))) {
       await ensureClubSettingsBookingColumns()
       const { rows: existing2 } = await query('SELECT club_id FROM club_settings WHERE club_id = ?', [cid])
       if (!existing2 || existing2.length === 0) {
         const insertDefaults = [10, 10, 15, 30, 3, 0]
-        const insertParams = [cid, ...generalParams.slice(0, 19), ...insertDefaults, generalParams[19]]
+        const insertParams = [cid, ...generalParams.slice(0, 20), ...insertDefaults, generalParams[20]]
         await query(
-          `INSERT INTO club_settings (club_id, default_language, timezone, currency, booking_duration, preparation_time_minutes, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, updated_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO club_settings (club_id, default_language, timezone, currency, booking_duration, preparation_time_minutes, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, payment_enabled_channels, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, updated_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           insertParams
         )
       } else {

@@ -146,6 +146,7 @@ CREATE TABLE IF NOT EXISTS club_settings (
   social_links JSON,
   booking_prices JSON,
   working_hours_seasons JSON NULL,
+  payment_enabled_channels JSON NULL,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   updated_by VARCHAR(255) NULL
 );

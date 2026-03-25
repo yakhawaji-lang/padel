@@ -1576,6 +1576,119 @@
   cursor: not-allowed;
 }
 
+.club-public-booking-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0 24px 12px;
+  margin-top: -4px;
+}
+
+.club-public-booking-stepper-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #94a3b8;
+  border: 2px solid #e2e8f0;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.club-public-booking-stepper-dot.current {
+  background: #1e3a5f;
+  color: #fff;
+  border-color: #1e3a5f;
+  box-shadow: 0 2px 8px rgba(30, 58, 95, 0.35);
+}
+
+.club-public-booking-stepper-dot.complete {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #6ee7b7;
+}
+
+.club-public-booking-stepper-line {
+  width: 28px;
+  height: 3px;
+  background: #e2e8f0;
+  border-radius: 2px;
+  margin: 0 4px;
+  transition: background 0.2s;
+}
+
+.club-public-booking-stepper-line.active {
+  background: linear-gradient(90deg, #6ee7b7, #1e3a5f);
+}
+
+.club-public-booking-step-recap {
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.club-public-booking-step-recap-main {
+  display: block;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.club-public-booking-step-recap-meta {
+  font-size: 0.85rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.club-public-booking-gating-primary-btn {
+  flex: 1;
+  padding: 12px;
+  background: #1e3a5f;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.club-public-booking-gating-primary-btn:hover:not(:disabled) {
+  background: #152a47;
+  box-shadow: 0 4px 12px rgba(30, 58, 95, 0.3);
+}
+
+.club-public-booking-gating-primary-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.club-public-booking-modal-back {
+  flex: 1;
+  padding: 12px;
+  background: #fff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.club-public-booking-modal-back:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
 .club-public-lock-error {
   position: fixed;
   top: 60px;

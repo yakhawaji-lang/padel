@@ -202,6 +202,7 @@ CREATE TABLE IF NOT EXISTS club_settings (
   social_links JSON,
   booking_prices JSON,
   working_hours_seasons JSON NULL,
+  payment_enabled_channels JSON NULL,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   updated_by VARCHAR(255) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -519,6 +520,7 @@ ALTER TABLE club_settings ADD COLUMN split_payment_deadline_minutes INT DEFAULT 
 ALTER TABLE club_settings ADD COLUMN refund_days INT DEFAULT 3;
 ALTER TABLE club_settings ADD COLUMN allow_incomplete_bookings TINYINT(1) DEFAULT 0;
 ALTER TABLE club_settings ADD COLUMN working_hours_seasons JSON NULL;
+ALTER TABLE club_settings ADD COLUMN payment_enabled_channels JSON NULL;
 
 -- club_bookings: Booking V2
 ALTER TABLE club_bookings ADD COLUMN start_time VARCHAR(10) NULL;

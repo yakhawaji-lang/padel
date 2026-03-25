@@ -23,6 +23,7 @@ const ClubAdminSidebar = ({ club, language, onLanguageChange, open, onClose }) =
     { path: `members`, icon: '👥', label: { en: 'Members', ar: 'الأعضاء' }, perm: 'members' },
     { path: `bookings`, icon: '📅', label: { en: 'Court Bookings', ar: 'حجوزات الملاعب' }, perm: 'dashboard' },
     { path: `booking-prices`, icon: '💰', label: { en: 'Court Booking Prices', ar: 'أسعار حجوزات الملاعب' }, perm: 'settings' },
+    { path: `payment-settings`, icon: '💳', label: { en: 'Payment settings', ar: 'إعدادات الدفع' }, perm: 'settings' },
     { path: `offers`, icon: '🎁', label: { en: 'Offers', ar: 'العروض' }, perm: 'offers' },
     { path: `store`, icon: '🛒', label: { en: 'Sales / Store', ar: 'المبيعات / المتجر' }, perm: 'store' },
     { path: `accounting`, icon: '💰', label: { en: 'Accounting', ar: 'المحاسبة' }, perm: 'accounting' },

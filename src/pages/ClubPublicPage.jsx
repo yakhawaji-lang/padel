@@ -17,6 +17,7 @@ import BookingDetailModal from '../components/BookingDetailModal'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import { isTournamentWithoutMembers, kingTournamentReservesCourt, kingTournamentReservesCourtIds, getTournamentTeamsDetail } from '../utils/tournamentHelpers'
 import { getMergedWindowsForDate, getPublicBookingTimeSlots, coversBookingInterval } from '../utils/clubWorkingHours'
+import { getEffectivePaymentChannels, pickFirstPaymentMethod } from '../utils/paymentChannels'
 import './ClubPublicPage.css'
 import '../components/BookingPaymentShare.css'
 
@@ -260,6 +261,7 @@ const ClubPublicPage = () => {
   const [paymentStyle, setPaymentStyle] = useState('single') // 'single' | 'split' — أسلوب الدفع
   const [paymentMethod, setPaymentMethod] = useState('at_club') // 'at_club' | 'credit_card' | 'mada' — طرق الدفع
   const [paymentGateways, setPaymentGateways] = useState(null) // platform_payment_gateways
+  const [bookingFlowStep, setBookingFlowStep] = useState(1) // 1 duration → 2 style → 3 pay & confirm
   const [bookingSuccessId, setBookingSuccessId] = useState(null) // show success and link to my-bookings
   const bookingsSectionRef = React.useRef(null)
   const [activeLock, setActiveLock] = useState(null)
@@ -305,6 +307,19 @@ const ClubPublicPage = () => {
     }).catch(() => setPaymentGateways({ enabledChannels: { at_club: true, credit_card: false, mada: false, split: true } }))
   }, [])
 
+  const effectivePaymentChannels = useMemo(
+    () => getEffectivePaymentChannels(paymentGateways?.enabledChannels, club?.settings?.paymentEnabledChannels),
+    [paymentGateways?.enabledChannels, club?.settings?.paymentEnabledChannels]
+  )
+
+  useEffect(() => {
+    if (!bookingModal) return
+    setBookingFlowStep(1)
+    setPaymentStyle('single')
+    setPaymentShares([])
+    setPaymentMethod('at_club')
+  }, [bookingModal?.court, bookingModal?.dateStr, bookingModal?.startTime, bookingModal?.fromRange])
+
   useEffect(() => {
     if (trainingJoinModal) {
       setTrainingJoinPaymentStyle('single')
@@ -315,25 +330,37 @@ const ClubPublicPage = () => {
   }, [trainingJoinModal])
 
   useEffect(() => {
-    if (!paymentGateways?.enabledChannels) return
-    const ch = paymentGateways.enabledChannels
+    const ch = effectivePaymentChannels
+    if (!ch) return
     const isCurrentEnabled = trainingJoinPaymentMethod === 'at_club' ? ch.at_club !== false : !!ch[trainingJoinPaymentMethod]
     if (!isCurrentEnabled) {
-      const first = ch.at_club !== false ? 'at_club' : ch.credit_card ? 'credit_card' : ch.mada ? 'mada' : 'at_club'
-      setTrainingJoinPaymentMethod(first)
+      setTrainingJoinPaymentMethod(pickFirstPaymentMethod(ch))
     }
-  }, [paymentGateways, trainingJoinPaymentMethod])
+  }, [effectivePaymentChannels, trainingJoinPaymentMethod])
 
-  // When payment method is disabled (e.g. admin turned off at_club), switch to first available
   useEffect(() => {
-    if (!paymentGateways?.enabledChannels) return
-    const ch = paymentGateways.enabledChannels
+    const ch = effectivePaymentChannels
+    if (!ch) return
     const isCurrentEnabled = paymentMethod === 'at_club' ? ch.at_club !== false : !!ch[paymentMethod]
     if (!isCurrentEnabled) {
-      const first = ch.at_club !== false ? 'at_club' : ch.credit_card ? 'credit_card' : ch.mada ? 'mada' : 'at_club'
-      setPaymentMethod(first)
+      setPaymentMethod(pickFirstPaymentMethod(ch))
     }
-  }, [paymentGateways, paymentMethod])
+  }, [effectivePaymentChannels, paymentMethod])
+
+  useEffect(() => {
+    if (bookingFlowStep !== 3) return
+    const ch = effectivePaymentChannels
+    if (!ch) return
+    const ok = paymentMethod === 'at_club' ? ch.at_club !== false : !!ch[paymentMethod]
+    if (!ok) setPaymentMethod(pickFirstPaymentMethod(ch))
+  }, [bookingFlowStep, effectivePaymentChannels, paymentMethod])
+
+  useEffect(() => {
+    if (effectivePaymentChannels?.split === false && paymentStyle === 'split') {
+      setPaymentStyle('single')
+      setPaymentShares([])
+    }
+  }, [effectivePaymentChannels?.split, paymentStyle])
 
   useEffect(() => {
     const onSynced = () => {
@@ -816,6 +843,7 @@ const ClubPublicPage = () => {
       setActiveLock(null)
     }
     setBookingModal(null)
+    setBookingFlowStep(1)
     setPaymentShares([])
     setPaymentStyle('single')
     setPaymentMethod('at_club')
@@ -963,6 +991,8 @@ const ClubPublicPage = () => {
       legendTournament: 'Tournament',
       schedulePrevDay: 'Previous day',
       scheduleNextDay: 'Next day',
+      continueBooking: 'Continue',
+      back: 'Back',
     },
     ar: {
       backToHome: 'العودة للرئيسية',
@@ -1059,6 +1089,8 @@ const ClubPublicPage = () => {
       legendTournament: 'بطولة',
       schedulePrevDay: 'اليوم السابق',
       scheduleNextDay: 'اليوم التالي',
+      continueBooking: 'متابعة',
+      back: 'رجوع',
     }
   }
   const c = t[language] || t.en
@@ -1613,84 +1645,115 @@ const ClubPublicPage = () => {
           <div className="club-public-booking-modal-backdrop" onClick={() => { if (!bookingSubmitting) handleCloseBookingModal() }} role="presentation">
             <div className="club-public-booking-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="booking-modal-title">
               <h3 id="booking-modal-title" className="club-public-booking-modal-title">{c.courtBooking}</h3>
+              <div className="club-public-booking-stepper" aria-label={language === 'en' ? 'Booking steps' : 'خطوات الحجز'}>
+                {[1, 2, 3].map((n) => (
+                  <React.Fragment key={n}>
+                    {n > 1 && <span className={`club-public-booking-stepper-line ${bookingFlowStep >= n ? 'active' : ''}`} aria-hidden />}
+                    <span
+                      className={`club-public-booking-stepper-dot ${bookingFlowStep === n ? 'current' : ''} ${bookingFlowStep > n ? 'complete' : ''}`}
+                      aria-current={bookingFlowStep === n ? 'step' : undefined}
+                    >
+                      {n}
+                    </span>
+                  </React.Fragment>
+                ))}
+              </div>
               <div className="club-public-booking-modal-body">
-                <p className="club-public-booking-modal-row">
-                  <span>{c.court}:</span>
-                  <strong>{language === 'ar' && bookingModal.court?.nameAr ? bookingModal.court.nameAr : (bookingModal.court?.name || '')}</strong>
-                </p>
-                <p className="club-public-booking-modal-row">
-                  <span>{c.date}:</span>
-                  <strong>{formatDate(bookingModal.dateStr)}</strong>
-                </p>
-                <p className="club-public-booking-modal-row">
-                  <span>{c.time}:</span>
-                  <strong>{bookingModal.startTime}{bookingModal.fromRange && bookingModal.endTime ? ` – ${bookingModal.endTime}` : ''}</strong>
-                </p>
-                <div className="club-public-booking-modal-row club-public-booking-modal-duration">
-                  <label>{c.duration}:</label>
-                  {bookingModal.fromRange && bookingModal.preselectDuration != null ? (
-                    <div className="club-public-booking-duration-fixed">
-                      <span className="duration-value">{bookingModal.preselectDuration} {language === 'en' ? 'min' : 'دقيقة'}</span>
-                      <span className="duration-price">({parseFloat(calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingModal.preselectDuration).price ?? 0).toFixed(0)} {currency})</span>
+                {bookingFlowStep === 1 && (
+                  <>
+                    <p className="club-public-booking-modal-row">
+                      <span>{c.court}:</span>
+                      <strong>{language === 'ar' && bookingModal.court?.nameAr ? bookingModal.court.nameAr : (bookingModal.court?.name || '')}</strong>
+                    </p>
+                    <p className="club-public-booking-modal-row">
+                      <span>{c.date}:</span>
+                      <strong>{formatDate(bookingModal.dateStr)}</strong>
+                    </p>
+                    <p className="club-public-booking-modal-row">
+                      <span>{c.time}:</span>
+                      <strong>{bookingModal.startTime}{bookingModal.fromRange && bookingModal.endTime ? ` – ${bookingModal.endTime}` : ''}</strong>
+                    </p>
+                    <div className="club-public-booking-modal-row club-public-booking-modal-duration">
+                      <label>{c.duration}:</label>
+                      {bookingModal.fromRange && bookingModal.preselectDuration != null ? (
+                        <div className="club-public-booking-duration-fixed">
+                          <span className="duration-value">{bookingModal.preselectDuration} {language === 'en' ? 'min' : 'دقيقة'}</span>
+                          <span className="duration-price">({parseFloat(calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingModal.preselectDuration).price ?? 0).toFixed(0)} {currency})</span>
+                        </div>
+                      ) : (
+                        <div className="club-public-booking-duration-btns">
+                          {durationOptions.map(d => (
+                            <button
+                              key={d.durationMinutes}
+                              type="button"
+                              className={`club-public-booking-duration-btn ${bookingDuration === d.durationMinutes ? 'active' : ''}`}
+                              onClick={() => setBookingDuration(d.durationMinutes)}
+                            >
+                              <span className="duration-value">{d.durationMinutes} {language === 'en' ? 'min' : 'د'}</span>
+                              <span className="duration-price">{parseFloat(d.price != null ? d.price : 0).toFixed(0)} {currency}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="club-public-booking-duration-btns">
-                      {durationOptions.map(d => (
-                        <button
-                          key={d.durationMinutes}
-                          type="button"
-                          className={`club-public-booking-duration-btn ${bookingDuration === d.durationMinutes ? 'active' : ''}`}
-                          onClick={() => setBookingDuration(d.durationMinutes)}
-                        >
-                          <span className="duration-value">{d.durationMinutes} {language === 'en' ? 'min' : 'د'}</span>
-                          <span className="duration-price">{parseFloat(d.price != null ? d.price : 0).toFixed(0)} {currency}</span>
-                        </button>
-                      ))}
+                    <div className="club-public-booking-modal-price">
+                      <span>{c.bookingPrice}:</span>
+                      <strong className="club-public-booking-modal-price-value">
+                        {calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price} {currency}
+                      </strong>
                     </div>
-                  )}
-                </div>
-                <div className="club-public-booking-modal-price">
-                  <span>{c.bookingPrice}:</span>
-                  <strong className="club-public-booking-modal-price-value">
-                    {calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price} {currency}
-                  </strong>
-                </div>
-                <div className="club-public-booking-payment-section">
-                  <p className="club-public-booking-payment-section-title">{c.paymentStyle}</p>
-                  <p className="club-public-booking-payment-section-desc">{c.paymentStyleDesc}</p>
-                  <div className="club-public-booking-payment-style-btns">
-                    <label className={`club-public-booking-payment-style-btn ${paymentStyle === 'single' ? 'active' : ''}`}>
-                      <input type="radio" name="paymentStyle" checked={paymentStyle === 'single'} onChange={() => { setPaymentStyle('single'); setPaymentShares([]) }} />
-                      <span className="style-label">{c.iPay}</span>
-                      <span className="style-desc">{c.iPayDesc}</span>
-                    </label>
-                    {paymentGateways?.enabledChannels?.split !== false && (
-                      <label className={`club-public-booking-payment-style-btn ${paymentStyle === 'split' ? 'active' : ''}`}>
-                        <input type="radio" name="paymentStyle" checked={paymentStyle === 'split'} onChange={() => setPaymentStyle('split')} />
-                        <span className="style-label">{c.splitWithOthers}</span>
-                        <span className="style-desc">{c.splitWithOthersDesc}</span>
-                      </label>
-                    )}
+                  </>
+                )}
+                {bookingFlowStep >= 2 && (
+                  <div className="club-public-booking-step-recap">
+                    <span className="club-public-booking-step-recap-main">
+                      {language === 'ar' && bookingModal.court?.nameAr ? bookingModal.court.nameAr : (bookingModal.court?.name || '')}
+                    </span>
+                    <span className="club-public-booking-step-recap-meta">
+                      {formatDate(bookingModal.dateStr)} · {bookingModal.startTime}
+                      {' · '}{bookingDuration}{language === 'en' ? ' min' : ' د'}
+                      {' · '}{calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price} {currency}
+                    </span>
                   </div>
-                </div>
-                {paymentStyle === 'single' && (
+                )}
+                {bookingFlowStep === 2 && (
+                  <div className="club-public-booking-payment-section">
+                    <p className="club-public-booking-payment-section-title">{c.paymentStyle}</p>
+                    <p className="club-public-booking-payment-section-desc">{c.paymentStyleDesc}</p>
+                    <div className="club-public-booking-payment-style-btns">
+                      <label className={`club-public-booking-payment-style-btn ${paymentStyle === 'single' ? 'active' : ''}`}>
+                        <input type="radio" name="paymentStyle" checked={paymentStyle === 'single'} onChange={() => { setPaymentStyle('single'); setPaymentShares([]) }} />
+                        <span className="style-label">{c.iPay}</span>
+                        <span className="style-desc">{c.iPayDesc}</span>
+                      </label>
+                      {effectivePaymentChannels?.split !== false && (
+                        <label className={`club-public-booking-payment-style-btn ${paymentStyle === 'split' ? 'active' : ''}`}>
+                          <input type="radio" name="paymentStyle" checked={paymentStyle === 'split'} onChange={() => setPaymentStyle('split')} />
+                          <span className="style-label">{c.splitWithOthers}</span>
+                          <span className="style-desc">{c.splitWithOthersDesc}</span>
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {bookingFlowStep === 3 && paymentStyle === 'single' && (
                   <div className="club-public-booking-payment-method">
                     <p className="club-public-booking-payment-method-label">{c.paymentMethod}</p>
                     <p className="club-public-booking-payment-section-desc">{c.paymentMethodDesc}</p>
                     <div className="club-public-booking-payment-method-options">
-                      {paymentGateways?.enabledChannels?.at_club !== false && (
+                      {effectivePaymentChannels?.at_club !== false && (
                         <label className="club-public-booking-payment-radio">
                           <input type="radio" name="paymentMethod" checked={paymentMethod === 'at_club'} onChange={() => setPaymentMethod('at_club')} />
                           <span>{c.payAtClub}</span>
                         </label>
                       )}
-                      {paymentGateways?.enabledChannels?.credit_card && (
+                      {effectivePaymentChannels?.credit_card && (
                         <label className="club-public-booking-payment-radio">
                           <input type="radio" name="paymentMethod" checked={paymentMethod === 'credit_card'} onChange={() => setPaymentMethod('credit_card')} />
                           <span>{c.creditCard}</span>
                         </label>
                       )}
-                      {paymentGateways?.enabledChannels?.mada && (
+                      {effectivePaymentChannels?.mada && (
                         <label className="club-public-booking-payment-radio">
                           <input type="radio" name="paymentMethod" checked={paymentMethod === 'mada'} onChange={() => setPaymentMethod('mada')} />
                           <span>{c.mada}</span>
@@ -1699,66 +1762,103 @@ const ClubPublicPage = () => {
                     </div>
                   </div>
                 )}
-                {paymentStyle === 'split' && (
+                {bookingFlowStep === 3 && paymentStyle === 'split' && (
                   <>
-                  <div className="club-public-booking-payment-method">
-                    <p className="club-public-booking-payment-method-label">{language === 'en' ? 'Your payment method' : 'طريقة دفعتك'}</p>
-                    <p className="club-public-booking-payment-section-desc">{language === 'en' ? 'How will you pay your share?' : 'كيف ستدفع حصتك؟'}</p>
-                    <div className="club-public-booking-payment-method-options">
-                      {paymentGateways?.enabledChannels?.at_club !== false && (
-                        <label className="club-public-booking-payment-radio">
-                          <input type="radio" name="paymentMethod" checked={paymentMethod === 'at_club'} onChange={() => setPaymentMethod('at_club')} />
-                          <span>{c.payAtClub}</span>
-                        </label>
-                      )}
-                      {paymentGateways?.enabledChannels?.credit_card && (
-                        <label className="club-public-booking-payment-radio">
-                          <input type="radio" name="paymentMethod" checked={paymentMethod === 'credit_card'} onChange={() => setPaymentMethod('credit_card')} />
-                          <span>{c.creditCard}</span>
-                        </label>
-                      )}
-                      {paymentGateways?.enabledChannels?.mada && (
-                        <label className="club-public-booking-payment-radio">
-                          <input type="radio" name="paymentMethod" checked={paymentMethod === 'mada'} onChange={() => setPaymentMethod('mada')} />
-                          <span>{c.mada}</span>
-                        </label>
-                      )}
+                    <div className="club-public-booking-payment-method">
+                      <p className="club-public-booking-payment-method-label">{language === 'en' ? 'Your payment method' : 'طريقة دفعتك'}</p>
+                      <p className="club-public-booking-payment-section-desc">{language === 'en' ? 'How will you pay your share?' : 'كيف ستدفع حصتك؟'}</p>
+                      <div className="club-public-booking-payment-method-options">
+                        {effectivePaymentChannels?.at_club !== false && (
+                          <label className="club-public-booking-payment-radio">
+                            <input type="radio" name="paymentMethod" checked={paymentMethod === 'at_club'} onChange={() => setPaymentMethod('at_club')} />
+                            <span>{c.payAtClub}</span>
+                          </label>
+                        )}
+                        {effectivePaymentChannels?.credit_card && (
+                          <label className="club-public-booking-payment-radio">
+                            <input type="radio" name="paymentMethod" checked={paymentMethod === 'credit_card'} onChange={() => setPaymentMethod('credit_card')} />
+                            <span>{c.creditCard}</span>
+                          </label>
+                        )}
+                        {effectivePaymentChannels?.mada && (
+                          <label className="club-public-booking-payment-radio">
+                            <input type="radio" name="paymentMethod" checked={paymentMethod === 'mada'} onChange={() => setPaymentMethod('mada')} />
+                            <span>{c.mada}</span>
+                          </label>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <BookingPaymentShare
-                    totalPrice={calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price}
-                    currency={currency}
-                    clubName={language === 'ar' && club?.nameAr ? club.nameAr : club?.name}
-                    clubId={clubId}
-                    dateStr={bookingModal.dateStr}
-                    startTime={bookingModal.startTime}
-                    clubMembers={clubMembersList}
-                    allPlatformMembers={allPlatformMembersList}
-                    currentMemberId={platformUser?.id}
-                    language={language}
-                    value={paymentShares}
-                    onChange={setPaymentShares}
-                  />
+                    <BookingPaymentShare
+                      totalPrice={calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price}
+                      currency={currency}
+                      clubName={language === 'ar' && club?.nameAr ? club.nameAr : club?.name}
+                      clubId={clubId}
+                      dateStr={bookingModal.dateStr}
+                      startTime={bookingModal.startTime}
+                      clubMembers={clubMembersList}
+                      allPlatformMembers={allPlatformMembersList}
+                      currentMemberId={platformUser?.id}
+                      language={language}
+                      value={paymentShares}
+                      onChange={setPaymentShares}
+                    />
                   </>
                 )}
               </div>
               {activeLock && (
                 <p className="club-public-booking-lock-notice">
-                  {language === 'en' ? '⏱ Slot reserved. Complete payment within 10 minutes.' : '⏱ الوقت محجوز. أكمل الدفع خلال 10 دقائق.'}
+                  {language === 'en' ? '⏱ Slot reserved. Complete booking before the hold expires.' : '⏱ الوقت محجوز. أكمل الحجز قبل انتهاء الحجز المؤقت.'}
                 </p>
               )}
               <div className="club-public-booking-modal-actions">
-                <button type="button" className="club-public-booking-modal-cancel" onClick={() => { if (!bookingSubmitting) handleCloseBookingModal() }} disabled={bookingSubmitting}>
-                  {language === 'en' ? 'Cancel' : 'إلغاء'}
-                </button>
-                <button
-                  type="button"
-                  className="club-public-booking-modal-confirm"
-                  onClick={handleConfirmBooking}
-                  disabled={bookingSubmitting || (paymentStyle === 'split' && ((paymentShares || []).length === 0 || (paymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) > calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price))}
-                >
-                  {bookingSubmitting ? (language === 'en' ? 'Booking...' : 'جاري الحجز...') : c.confirmBooking}
-                </button>
+                {bookingFlowStep === 1 && (
+                  <>
+                    <button type="button" className="club-public-booking-modal-cancel" onClick={() => { if (!bookingSubmitting) handleCloseBookingModal() }} disabled={bookingSubmitting}>
+                      {language === 'en' ? 'Cancel' : 'إلغاء'}
+                    </button>
+                    <button
+                      type="button"
+                      className="club-public-booking-gating-primary-btn"
+                      onClick={() => { setBookingFlowStep(2); if (effectivePaymentChannels?.split === false) { setPaymentStyle('single'); setPaymentShares([]) } }}
+                      disabled={bookingSubmitting || durationOptions.length === 0}
+                    >
+                      {c.continueBooking}
+                    </button>
+                  </>
+                )}
+                {bookingFlowStep === 2 && (
+                  <>
+                    <button type="button" className="club-public-booking-modal-back" onClick={() => setBookingFlowStep(1)} disabled={bookingSubmitting}>
+                      {c.back}
+                    </button>
+                    <button
+                      type="button"
+                      className="club-public-booking-gating-primary-btn"
+                      onClick={() => { setBookingFlowStep(3); setPaymentMethod(pickFirstPaymentMethod(effectivePaymentChannels)) }}
+                      disabled={bookingSubmitting}
+                    >
+                      {c.continueBooking}
+                    </button>
+                  </>
+                )}
+                {bookingFlowStep === 3 && (
+                  <>
+                    <button type="button" className="club-public-booking-modal-back" onClick={() => setBookingFlowStep(2)} disabled={bookingSubmitting}>
+                      {c.back}
+                    </button>
+                    <button
+                      type="button"
+                      className="club-public-booking-modal-confirm"
+                      onClick={handleConfirmBooking}
+                      disabled={
+                        bookingSubmitting ||
+                        (paymentStyle === 'split' && ((paymentShares || []).length === 0 || (paymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) > calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price))
+                      }
+                    >
+                      {bookingSubmitting ? (language === 'en' ? 'Booking...' : 'جاري الحجز...') : c.confirmBooking}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -1802,7 +1902,7 @@ const ClubPublicPage = () => {
                       <span className="style-label">{c.iPay}</span>
                       <span className="style-desc">{c.iPayDesc}</span>
                     </label>
-                    {paymentGateways?.enabledChannels?.split !== false && (
+                    {effectivePaymentChannels?.split !== false && (
                       <label className={`club-public-booking-payment-style-btn ${trainingJoinPaymentStyle === 'split' ? 'active' : ''}`}>
                         <input type="radio" name="trainingPaymentStyle" checked={trainingJoinPaymentStyle === 'split'} onChange={() => setTrainingJoinPaymentStyle('split')} />
                         <span className="style-label">{c.splitWithOthers}</span>
@@ -1820,19 +1920,19 @@ const ClubPublicPage = () => {
                       {trainingJoinPaymentStyle === 'split' ? (language === 'en' ? 'How will you pay your share?' : 'كيف ستدفع حصتك؟') : c.paymentMethodDesc}
                     </p>
                     <div className="club-public-booking-payment-method-options">
-                      {paymentGateways?.enabledChannels?.at_club !== false && (
+                      {effectivePaymentChannels?.at_club !== false && (
                         <label className="club-public-booking-payment-radio">
                           <input type="radio" name="trainingPaymentMethod" checked={trainingJoinPaymentMethod === 'at_club'} onChange={() => setTrainingJoinPaymentMethod('at_club')} />
                           <span>{c.payAtClub}</span>
                         </label>
                       )}
-                      {paymentGateways?.enabledChannels?.credit_card && (
+                      {effectivePaymentChannels?.credit_card && (
                         <label className="club-public-booking-payment-radio">
                           <input type="radio" name="trainingPaymentMethod" checked={trainingJoinPaymentMethod === 'credit_card'} onChange={() => setTrainingJoinPaymentMethod('credit_card')} />
                           <span>{c.creditCard}</span>
                         </label>
                       )}
-                      {paymentGateways?.enabledChannels?.mada && (
+                      {effectivePaymentChannels?.mada && (
                         <label className="club-public-booking-payment-radio">
                           <input type="radio" name="trainingPaymentMethod" checked={trainingJoinPaymentMethod === 'mada'} onChange={() => setTrainingJoinPaymentMethod('mada')} />
                           <span>{c.mada}</span>
