@@ -1,7 +1,7 @@
 /**
  * Multi-date picker - select multiple dates for coach training slots
  */
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import './MultiDatePicker.css'
 
 function toYMD(d) {
@@ -40,6 +40,16 @@ export default function MultiDatePicker({ selectedDates = [], onToggleDate, minD
   })
   const min = minDate ? new Date(minDate + 'T12:00:00') : new Date()
   min.setHours(0, 0, 0, 0)
+
+  useEffect(() => {
+    if (!viewingDate || !onDateClick) return
+    const [y, mo] = viewingDate.split('-').map(Number)
+    if (!y || !mo) return
+    setViewMonth((prev) => {
+      if (prev.getFullYear() === y && prev.getMonth() === mo - 1) return prev
+      return new Date(y, mo - 1, 1)
+    })
+  }, [viewingDate, onDateClick])
 
   const cells = getDaysInMonth(viewMonth)
   const months = language === 'ar' ? MONTHS_AR : MONTHS_EN

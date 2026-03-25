@@ -16,6 +16,13 @@ import './CoachDashboardPage.css'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
+function shiftCalendarDateStr(isoDateStr, deltaDays) {
+  const [y, mo, d] = (isoDateStr || '').split('-').map(Number)
+  if (!y || !mo || !d) return null
+  const dt = new Date(y, mo - 1, d + deltaDays)
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+}
+
 const CoachDashboardPage = () => {
   const { clubId } = useParams()
   const navigate = useNavigate()
@@ -487,14 +494,47 @@ const CoachDashboardPage = () => {
             <h3 className="coach-schedule-title">{t('Courts schedule', 'جدول الملاعب', language)}</h3>
             <p className="coach-schedule-hint">{t('Scroll sideways on small screens to see all times.', 'مرّر أفقياً على الشاشات الصغيرة لرؤية كل الأوقات.', language)}</p>
           </div>
-          <div
-            className="coach-court-grid-wrap"
-            dir={language === 'ar' ? 'rtl' : 'ltr'}
-            onMouseLeave={handleRangeMouseLeave}
-            onTouchMove={hasTouch ? handleTouchMoveRange : undefined}
-            onTouchEnd={hasTouch ? handleTouchEndRange : undefined}
-            onTouchCancel={hasTouch ? handleTouchEndRange : undefined}
-          >
+          <div className="coach-schedule-booking-wrap" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+            <div className="coach-schedule-sticky-stack">
+              <div className="coach-schedule-date-nav">
+                <button
+                  type="button"
+                  className="coach-schedule-date-nav-btn"
+                  onClick={() => {
+                    const prev = shiftCalendarDateStr(gridDate, -1)
+                    if (prev && prev >= todayStr) setGridDate(prev)
+                  }}
+                  disabled={gridDate <= todayStr}
+                  aria-label={t('Previous day', 'اليوم السابق', language)}
+                  title={t('Previous day', 'اليوم السابق', language)}
+                >
+                  <span className="coach-schedule-date-nav-icon" aria-hidden>‹</span>
+                </button>
+                <div className="coach-schedule-date-nav-label" aria-live="polite">
+                  {formatDate(gridDate)}
+                </div>
+                <button
+                  type="button"
+                  className="coach-schedule-date-nav-btn"
+                  onClick={() => {
+                    const next = shiftCalendarDateStr(gridDate, 1)
+                    if (next) setGridDate(next)
+                  }}
+                  aria-label={t('Next day', 'اليوم التالي', language)}
+                  title={t('Next day', 'اليوم التالي', language)}
+                >
+                  <span className="coach-schedule-date-nav-icon" aria-hidden>›</span>
+                </button>
+              </div>
+            </div>
+            <div
+              className="coach-court-grid-scroll"
+              onMouseLeave={handleRangeMouseLeave}
+              onTouchMove={hasTouch ? handleTouchMoveRange : undefined}
+              onTouchEnd={hasTouch ? handleTouchEndRange : undefined}
+              onTouchCancel={hasTouch ? handleTouchEndRange : undefined}
+            >
+              <div className="coach-court-grid-wrap">
             {(() => {
               const courts = (club?.courts || []).filter(c => !c.maintenance)
               const timeSlots = getTimeSlotsForClub(club, gridDate)
@@ -619,6 +659,8 @@ const CoachDashboardPage = () => {
                 </div>
               )
             })()}
+              </div>
+            </div>
           </div>
         </section>
 

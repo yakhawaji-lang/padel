@@ -3,6 +3,11 @@
   border-radius: 12px;
   padding: 16px;
   border: 1px solid #e2e8f0;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .multi-date-picker-header {
@@ -25,18 +30,20 @@
 
 .multi-date-picker-weekdays {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: clamp(2px, 1vw, 4px);
   margin-bottom: 8px;
   font-size: 0.75rem;
   color: #64748b;
   text-align: center;
+  min-width: 0;
 }
 
 .multi-date-picker-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: clamp(2px, 1vw, 4px);
+  min-width: 0;
 }
 
 .multi-date-picker-cell {
