@@ -53,7 +53,7 @@ function formatCalendarTooltipDate(dateRaw, language) {
   }
 }
 
-function CalendarBookingTooltip({ booking, language, t, currentClub, paymentLabel }) {
+function CalendarBookingTooltip({ booking, language, t, currentClub, paymentLabel, calendarPaymentStatus }) {
   if (!booking) return null
   const kind = getBookingCalendarKind(booking)
   const typeLabel =
@@ -64,6 +64,23 @@ function CalendarBookingTooltip({ booking, language, t, currentClub, paymentLabe
         : kind === 'tournament_king'
           ? t.calendarKindTournamentKing
           : t.calendarKindTournamentSocial
+  const paymentStatus = calendarPaymentStatus ?? null
+  const payBadgeClass =
+    paymentStatus === 'paid'
+      ? 'booking-tooltip__pay--paid'
+      : paymentStatus === 'partially_paid'
+        ? 'booking-tooltip__pay--partial'
+        : paymentStatus
+          ? 'booking-tooltip__pay--unpaid'
+          : ''
+  const payBadgeLabel =
+    paymentStatus === 'paid'
+      ? t.paid
+      : paymentStatus === 'partially_paid'
+        ? t.partiallyPaid
+        : paymentStatus
+          ? t.notPaid
+          : null
   const shares = Array.isArray(booking.paymentShares) ? booking.paymentShares : []
   const totalAmt = parseFloat(booking.totalAmount ?? booking.total_amount ?? booking.amount ?? 0) || 0
   const paidFromShares = shares.reduce((s, sh) => s + (sh.paidAt ? (parseFloat(sh.amount) || 0) : 0), 0)
@@ -85,74 +102,96 @@ function CalendarBookingTooltip({ booking, language, t, currentClub, paymentLabe
   const statusRaw = (booking.status || '').toString()
 
   return (
-    <div className="booking-tooltip booking-tooltip--calendar" dir={language === 'ar' ? 'rtl' : 'ltr'}>
-      <div className="booking-tooltip__head">
-        <span className={`booking-tooltip__pill booking-tooltip__pill--${kind.replace(/_/g, '-')}`}>{typeLabel}</span>
-        {isPlaytomic && <span className="booking-tooltip__src">{t.calendarTooltipPlaytomic}</span>}
-      </div>
-      <div className="booking-tooltip__strong">{courtLine}</div>
-      <div className="booking-tooltip__muted">
-        {formatCalendarTooltipDate(booking.date || booking.startDate, language)} · {booking.startTime} – {booking.endTime}
-      </div>
-      {customer ? (
-        <div className="booking-tooltip__row">
-          <span className="booking-tooltip__k">{t.member}</span>
-          <span className="booking-tooltip__v">{customer}</span>
+    <div
+      className="booking-tooltip booking-tooltip--calendar"
+      dir={language === 'ar' ? 'rtl' : 'ltr'}
+      role="tooltip"
+    >
+      <div className="booking-tooltip__arrow" aria-hidden />
+      <header className="booking-tooltip__head">
+        <div className="booking-tooltip__head-main">
+          <span className={`booking-tooltip__pill booking-tooltip__pill--${kind.replace(/_/g, '-')}`}>{typeLabel}</span>
+          {payBadgeLabel ? (
+            <span className={`booking-tooltip__pay ${payBadgeClass}`}>{payBadgeLabel}</span>
+          ) : null}
         </div>
-      ) : null}
-      {statusRaw ? (
-        <div className="booking-tooltip__row">
-          <span className="booking-tooltip__k">{t.status}</span>
-          <span className="booking-tooltip__v">{statusRaw}</span>
+        {isPlaytomic ? <span className="booking-tooltip__src">{t.calendarTooltipPlaytomic}</span> : null}
+      </header>
+      <div className="booking-tooltip__title-block">
+        <div className="booking-tooltip__strong">{courtLine}</div>
+        <div className="booking-tooltip__muted">
+          {formatCalendarTooltipDate(booking.date || booking.startDate, language)} · {booking.startTime} – {booking.endTime}
         </div>
-      ) : null}
-      {!booking.isTournament ? (
-        <div className="booking-tooltip__row">
-          <span className="booking-tooltip__k">{t.calendarTooltipPayment}</span>
-          <span className="booking-tooltip__v">{paymentLabel}</span>
+      </div>
+      {(customer || statusRaw) ? (
+        <div className="booking-tooltip__section">
+          <div className="booking-tooltip__section-label">{t.calendarTooltipDetailsSection}</div>
+          {customer ? (
+            <div className="booking-tooltip__row">
+              <span className="booking-tooltip__k">{t.member}</span>
+              <span className="booking-tooltip__v">{customer}</span>
+            </div>
+          ) : null}
+          {statusRaw ? (
+            <div className="booking-tooltip__row booking-tooltip__row--last">
+              <span className="booking-tooltip__k">{t.status}</span>
+              <span className="booking-tooltip__v">{statusRaw}</span>
+            </div>
+          ) : null}
         </div>
       ) : null}
       {shares.length > 0 && totalAmt > 0 ? (
-        <div className="booking-tooltip__payment-box">
-          <div className="booking-tooltip__row">
-            <span className="booking-tooltip__k">{t.totalAmount}</span>
-            <span className="booking-tooltip__v">
-              {totalAmt} {currency}
-            </span>
-          </div>
-          <div className="booking-tooltip__row">
-            <span className="booking-tooltip__k">{t.calendarTooltipPaidOfTotal}</span>
-            <span className="booking-tooltip__v">
-              {paidFromShares.toFixed(2)} {currency}
-            </span>
-          </div>
-          <div className="booking-tooltip__row">
-            <span className="booking-tooltip__k">{t.calendarTooltipOutstanding}</span>
-            <span className="booking-tooltip__v">
-              {Math.max(0, totalAmt - paidFromShares).toFixed(2)} {currency}
-            </span>
+        <div className="booking-tooltip__section">
+          <div className="booking-tooltip__section-label">{t.calendarTooltipPayment}</div>
+          <div className="booking-tooltip__payment-box">
+            <div className="booking-tooltip__row">
+              <span className="booking-tooltip__k">{t.totalAmount}</span>
+              <span className="booking-tooltip__v">
+                {totalAmt} {currency}
+              </span>
+            </div>
+            <div className="booking-tooltip__row">
+              <span className="booking-tooltip__k">{t.calendarTooltipPaidOfTotal}</span>
+              <span className="booking-tooltip__v">
+                {paidFromShares.toFixed(2)} {currency}
+              </span>
+            </div>
+            <div className="booking-tooltip__row booking-tooltip__row--last">
+              <span className="booking-tooltip__k">{t.calendarTooltipOutstanding}</span>
+              <span className="booking-tooltip__v">
+                {Math.max(0, totalAmt - paidFromShares).toFixed(2)} {currency}
+              </span>
+            </div>
           </div>
         </div>
       ) : null}
-      {(booking.participants?.length || 0) > 0 && (
-        <div className="booking-tooltip__participants">
-          <div className="booking-tooltip__k">{t.participants}</div>
+      {(booking.participants?.length || 0) > 0 ? (
+        <div className="booking-tooltip__section booking-tooltip__participants">
+          <div className="booking-tooltip__section-label">{t.participants}</div>
           <ul className="booking-tooltip__ul">
             {(booking.participants || []).map((p, idx) => (
               <li key={idx}>{typeof p === 'object' ? p.name : p}</li>
             ))}
           </ul>
         </div>
-      )}
+      ) : null}
       {parseFloat(booking.amount) > 0 && !shares.length ? (
-        <div className="booking-tooltip__row">
-          <span className="booking-tooltip__k">{t.amount}</span>
-          <span className="booking-tooltip__v">
-            {booking.amount} ({paymentLabel})
-          </span>
+        <div className="booking-tooltip__section">
+          <div className="booking-tooltip__section-label">{t.amount}</div>
+          <div className="booking-tooltip__row booking-tooltip__row--solo">
+            <span className="booking-tooltip__v booking-tooltip__v--full">
+              {booking.amount} {currency}
+              <span className="booking-tooltip__v-sub"> · {paymentLabel}</span>
+            </span>
+          </div>
         </div>
       ) : null}
-      <div className="booking-tooltip__foot">{t.calendarClickEdit}</div>
+      <footer className="booking-tooltip__foot">
+        <span className="booking-tooltip__foot-icon" aria-hidden>
+          {language === 'ar' ? '↩' : '↪'}
+        </span>
+        <span>{t.calendarClickEdit}</span>
+      </footer>
     </div>
   )
 }
@@ -6271,7 +6310,7 @@ function App({ currentUser }) {
                           return (
                             <div
                               key={`${dayIdx}-${timeIdx}`}
-                              className={`calendar-cell calendar-cell-weekly ${isInDragSelection ? 'drag-selection' : ''}`}
+                              className={`calendar-cell calendar-cell-weekly ${isInDragSelection ? 'drag-selection' : ''}${slotBookings.some((b) => hoveredBooking === b.id) ? ' calendar-cell--booking-hover' : ''}`}
                               data-date={day.toISOString().split('T')[0]}
                               data-time={timeSlot}
                               onMouseDown={(e) => handleGridMouseDown(e, day, timeSlot)}
@@ -6311,7 +6350,8 @@ function App({ currentUser }) {
                                 let eventClass =
                                   'booking-event' +
                                   (totalBookings > 1 ? ' booking-event-multiple' : '') +
-                                  (isPlaytomicBk ? ' booking-event--playtomic' : '')
+                                  (isPlaytomicBk ? ' booking-event--playtomic' : '') +
+                                  (hoveredBooking === booking.id ? ' booking-event--tooltip-open' : '')
                                 if (isTournamentBooking) {
                                   eventClass += ` booking-event--tournament booking-event--tournament-${tournamentKind}`
                                 } else {
@@ -6450,6 +6490,7 @@ function App({ currentUser }) {
                                           t={t}
                                           currentClub={currentClub}
                                           paymentLabel={paymentLabelStr}
+                                          calendarPaymentStatus={isTournamentBooking ? null : paymentStatus}
                                         />
                                       )}
                                     </div>
@@ -6562,7 +6603,7 @@ function App({ currentUser }) {
                             return (
                               <div
                                 key={`${courtIdx}-${timeIdx}`}
-                                className={`calendar-cell calendar-cell-court ${isInDragSelection ? 'drag-selection' : ''}`}
+                                className={`calendar-cell calendar-cell-court ${isInDragSelection ? 'drag-selection' : ''}${slotBookings.some((b) => hoveredBooking === b.id) ? ' calendar-cell--booking-hover' : ''}`}
                                 data-court={court}
                                 data-date={selectedDateForCourtView}
                                 data-time={timeSlot}
@@ -6595,7 +6636,10 @@ function App({ currentUser }) {
                                   const tournamentKind = booking.tournamentType === 'social' ? 'social' : 'king'
                                   const calKind = getBookingCalendarKind(booking)
                                   const isPlaytomicBk = booking.source === 'playtomic' || booking.id?.toString().startsWith('playtomic_')
-                                  let eventClass = 'booking-event' + (isPlaytomicBk ? ' booking-event--playtomic' : '')
+                                  let eventClass =
+                                    'booking-event' +
+                                    (isPlaytomicBk ? ' booking-event--playtomic' : '') +
+                                    (hoveredBooking === booking.id ? ' booking-event--tooltip-open' : '')
                                   if (isTournamentBooking) {
                                     eventClass += ` booking-event--tournament booking-event--tournament-${tournamentKind}`
                                   } else {
@@ -6713,6 +6757,7 @@ function App({ currentUser }) {
                                           t={t}
                                           currentClub={currentClub}
                                           paymentLabel={paymentLabelStr}
+                                          calendarPaymentStatus={isTournamentBooking ? null : paymentStatus}
                                         />
                                       )}
                                     </div>
