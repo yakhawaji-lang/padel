@@ -74,6 +74,19 @@ export async function runMigration() {
       await query(`ALTER TABLE booking_payment_shares ADD COLUMN \`${col}\` ${type} NULL`)
     }
   }
+  const bpsRefundCols = [
+    ['refunded_at', 'DATETIME'],
+    ['refund_method', 'VARCHAR(64)'],
+    ['refund_reference', 'VARCHAR(255)'],
+    ['refund_notes', 'VARCHAR(500)'],
+    ['refund_acknowledged_at', 'DATETIME'],
+    ['removed_at', 'DATETIME']
+  ]
+  for (const [col, type] of bpsRefundCols) {
+    if (!(await columnExists('booking_payment_shares', col))) {
+      await query(`ALTER TABLE booking_payment_shares ADD COLUMN \`${col}\` ${type} NULL`)
+    }
+  }
   try {
     await query('CREATE INDEX idx_bps_invite_token ON booking_payment_shares (invite_token)')
   } catch (e) {

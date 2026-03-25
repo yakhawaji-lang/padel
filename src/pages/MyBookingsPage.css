@@ -461,6 +461,11 @@
   color: var(--mb-text-muted);
 }
 
+.my-bookings-status.status-refund-ack {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
 .my-bookings-shares {
   margin-top: 8px;
   font-size: 0.8125rem;
@@ -479,6 +484,92 @@
 .my-bookings-paid {
   color: var(--mb-success);
   font-weight: 600;
+}
+
+.my-bookings-refunded {
+  color: #c2410c;
+  font-weight: 600;
+}
+
+.my-bookings-ack-refund-btn {
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #ea580c;
+  background: #fff7ed;
+  color: #c2410c;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.my-bookings-ack-refund-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.my-bookings-add-split {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--mb-border);
+}
+
+.my-bookings-add-split-toggle {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--mb-radius-sm);
+  border: 1px solid var(--mb-primary);
+  background: #eff6ff;
+  color: var(--mb-primary);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.my-bookings-add-split-form {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.my-bookings-add-split-row {
+  display: flex;
+  gap: 8px;
+}
+
+.my-bookings-add-split-row input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--mb-border);
+  border-radius: var(--mb-radius-sm);
+  font-size: 0.875rem;
+}
+
+.my-bookings-add-split-more {
+  align-self: flex-start;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  border: none;
+  background: var(--mb-bg);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--mb-text-muted);
+}
+
+.my-bookings-add-split-submit {
+  padding: 10px 14px;
+  border-radius: var(--mb-radius-sm);
+  border: none;
+  background: linear-gradient(135deg, var(--mb-primary) 0%, var(--mb-primary-hover) 100%);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.my-bookings-add-split-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .my-bookings-resend {

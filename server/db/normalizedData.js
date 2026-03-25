@@ -556,12 +556,14 @@ async function assembleClub(clubRow, courts, settings, adminUsers, offers, booki
       const bpsKey = `${b.club_id}:${b.id}`
       const sharesFromTable = paymentSharesByBooking[bpsKey] || []
       let paymentShares = sharesFromTable.length > 0 ? sharesFromTable : (spread.paymentShares || [])
+      const shareActive = (s) => !s?.removedAt && !s?.removed_at
+      const activeShares = paymentShares.filter(shareActive)
       const bookerId = String(b.member_id || b.initiator_member_id || '')
-      const hasBookerShare = paymentShares.some(s => String(s.memberId || '') === bookerId)
-      const participantsSum = paymentShares.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
+      const hasBookerShare = activeShares.some(s => String(s.memberId || '') === bookerId)
+      const participantsSum = activeShares.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
       const totalAmount = parseFloat(b.total_amount) || 0
       const bookerAmount = Math.max(0, totalAmount - participantsSum)
-      if (!hasBookerShare && bookerAmount > 0 && paymentShares.length > 0) {
+      if (!hasBookerShare && bookerAmount > 0 && activeShares.length > 0) {
         const bookerName = spread.customerName || spread.customer || spread.memberName || ''
         paymentShares = [...paymentShares, {
           id: null,
@@ -699,9 +701,18 @@ export async function getClubsFromNormalized() {
     })(),
     (async () => {
       try {
-        return await query(`SELECT id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, paid_at, payment_reference, payment_method FROM booking_payment_shares WHERE club_id IN (${placeholders})`, clubIds)
+        return await query(
+          `SELECT id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, paid_at, payment_reference, payment_method,
+           refunded_at, refund_method, refund_reference, refund_notes, refund_acknowledged_at, removed_at
+           FROM booking_payment_shares WHERE club_id IN (${placeholders})`,
+          clubIds
+        )
       } catch (_) {
-        return await query(`SELECT booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link FROM booking_payment_shares WHERE club_id IN (${placeholders})`, clubIds)
+        try {
+          return await query(`SELECT id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, paid_at, payment_reference, payment_method FROM booking_payment_shares WHERE club_id IN (${placeholders})`, clubIds)
+        } catch {
+          return await query(`SELECT booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link FROM booking_payment_shares WHERE club_id IN (${placeholders})`, clubIds)
+        }
       }
     })()
   ])
@@ -799,7 +810,13 @@ export async function getClubsFromNormalized() {
       inviteToken: r.invite_token || undefined,
       paidAt: r.paid_at,
       paymentReference: r.payment_reference || undefined,
-      paymentMethod: r.payment_method || undefined
+      paymentMethod: r.payment_method || undefined,
+      refundedAt: r.refunded_at || undefined,
+      refundMethod: r.refund_method || undefined,
+      refundReference: r.refund_reference || undefined,
+      refundNotes: r.refund_notes || undefined,
+      refundAcknowledgedAt: r.refund_acknowledged_at || undefined,
+      removedAt: r.removed_at || undefined
     })
   })
 
@@ -1081,14 +1098,15 @@ export async function saveClubsToNormalized(items, actor = {}) {
         let existingShares = []
         try {
           const res = await query(
-            `SELECT id, participant_type, member_id, phone, invite_token, whatsapp_link, payment_method, paid_at, payment_reference
+            `SELECT id, participant_type, member_id, phone, invite_token, whatsapp_link, payment_method, paid_at, payment_reference,
+             refunded_at, refund_method, refund_reference, refund_notes, refund_acknowledged_at, removed_at
              FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
             [bid, cid]
           )
           existingShares = res?.rows || []
         } catch (_) {
           const res = await query(
-            'SELECT id, participant_type, member_id, phone, invite_token, whatsapp_link FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
+            'SELECT id, participant_type, member_id, phone, invite_token, whatsapp_link, payment_method, paid_at, payment_reference FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
             [bid, cid]
           )
           existingShares = res?.rows || []
@@ -1101,7 +1119,13 @@ export async function saveClubsToNormalized(items, actor = {}) {
             wa: r.whatsapp_link,
             paymentMethod: r.payment_method,
             paidAt: r.paid_at,
-            paymentReference: r.payment_reference
+            paymentReference: r.payment_reference,
+            refundedAt: r.refunded_at,
+            refundMethod: r.refund_method,
+            refundReference: r.refund_reference,
+            refundNotes: r.refund_notes,
+            refundAcknowledgedAt: r.refund_acknowledged_at,
+            removedAt: r.removed_at
           }
         }
         await query('DELETE FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?', [bid, cid])
@@ -1118,14 +1142,37 @@ export async function saveClubsToNormalized(items, actor = {}) {
           const pm = preserved.paymentMethod || s.paymentMethod || null
           const paidAt = preserved.paidAt || s.paidAt || null
           const paymentRef = preserved.paymentReference || s.paymentReference || null
+          const refundedAt = preserved.refundedAt || s.refundedAt || null
+          const refundMethod = preserved.refundMethod || s.refundMethod || null
+          const refundReference = preserved.refundReference || s.refundReference || null
+          const refundNotes = preserved.refundNotes || s.refundNotes || null
+          const refundAcknowledgedAt = preserved.refundAcknowledgedAt || s.refundAcknowledgedAt || null
+          const removedAt = preserved.removedAt || s.removedAt || null
           try {
             await query(
-              `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, payment_method, paid_at, payment_reference)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [bid, cid, ptype, mid, mname, ph, amt, wa, token, pm, paidAt, paymentRef]
+              `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, payment_method, paid_at, payment_reference,
+               refunded_at, refund_method, refund_reference, refund_notes, refund_acknowledged_at, removed_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [bid, cid, ptype, mid, mname, ph, amt, wa, token, pm, paidAt, paymentRef, refundedAt, refundMethod, refundReference, refundNotes, refundAcknowledgedAt, removedAt]
             )
           } catch (insErr) {
-            if (/Unknown column 'payment_method'|Unknown column 'paid_at'/.test(insErr?.message || '')) {
+            if (/Unknown column 'refunded_at'/.test(insErr?.message || '')) {
+              try {
+                await query(
+                  `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, payment_method, paid_at, payment_reference)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                  [bid, cid, ptype, mid, mname, ph, amt, wa, token, pm, paidAt, paymentRef]
+                )
+              } catch (insErr2) {
+                if (/Unknown column 'payment_method'|Unknown column 'paid_at'/.test(insErr2?.message || '')) {
+                  await query(
+                    `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [bid, cid, ptype, mid, mname, ph, amt, wa, token]
+                  )
+                } else throw insErr2
+              }
+            } else if (/Unknown column 'payment_method'|Unknown column 'paid_at'/.test(insErr?.message || '')) {
               await query(
                 `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,

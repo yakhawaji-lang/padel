@@ -387,18 +387,33 @@
   gap: 8px;
 }
 .booking-payment-share-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border-inline-start: 4px solid #f59e0b;
+}
+.booking-payment-share-top {
   display: grid;
   grid-template-columns: 1fr auto auto auto;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
-  background: #f8fafc;
-  border-radius: 8px;
-  border-inline-start: 3px solid #f59e0b;
+}
+@media (max-width: 720px) {
+  .booking-payment-share-top {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 .booking-payment-share-item.paid {
   border-inline-start-color: #10b981;
   background: #f0fdf4;
+}
+.booking-payment-share-item.share-removed {
+  opacity: 0.9;
+  border-inline-start-color: #94a3b8;
+  background: #f1f5f9;
 }
 .booking-payment-share-name {
   font-size: 14px;
@@ -432,6 +447,142 @@
 .status-badge.status-pending {
   background: #fef3c7;
   color: #b45309;
+}
+.status-badge.status-refunded {
+  background: #ffedd5;
+  color: #c2410c;
+}
+.status-badge.status-removed {
+  background: #e2e8f0;
+  color: #475569;
+}
+.booking-refund-meta {
+  font-size: 12px;
+  color: #64748b;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.booking-refund-ref {
+  font-family: ui-monospace, monospace;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.booking-refund-ack.ok {
+  color: #059669;
+  font-weight: 600;
+}
+.booking-refund-ack.pending {
+  color: #d97706;
+}
+.booking-refund-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+  padding-top: 10px;
+  border-top: 1px dashed #e2e8f0;
+}
+.booking-refund-controls--full {
+  border-top: none;
+  padding-top: 0;
+}
+.booking-refund-label {
+  flex: 1 0 100%;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+.booking-refund-select,
+.booking-refund-input {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  font-size: 13px;
+  min-width: 120px;
+}
+.booking-refund-hint {
+  flex: 1 0 100%;
+  margin: 0;
+  font-size: 11px;
+  color: #0369a1;
+  line-height: 1.4;
+}
+.booking-refund-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1 0 100%;
+}
+.booking-refund-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  color: #fff;
+}
+.booking-refund-btn:hover {
+  filter: brightness(1.05);
+}
+.booking-refund-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.booking-refund-btn--warn {
+  background: linear-gradient(135deg, #fb923c 0%, #ea580c 100%);
+}
+.booking-full-refund-card {
+  margin-top: 20px;
+  padding: 18px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fff7ed 0%, #ffffff 60%);
+  border: 1px solid #fed7aa;
+}
+.booking-full-refund-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #9a3412;
+}
+.booking-full-refund-desc {
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: #78716c;
+  line-height: 1.45;
+}
+.booking-full-refund-submit {
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: none;
+  background: #dc2626;
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+.booking-full-refund-submit:hover {
+  background: #b91c1c;
+}
+.booking-full-refund-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+.booking-row-awaiting-refund {
+  background: #fffbeb;
+}
+.booking-row-awaiting-refund td {
+  color: #44403c;
+}
+.booking-status-btn.booking-status-refund-pending {
+  background: #ffedd5;
+  color: #c2410c;
 }
 .booking-payment-mark-paid-btn {
   padding: 4px 10px;

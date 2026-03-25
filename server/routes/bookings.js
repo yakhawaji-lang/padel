@@ -10,6 +10,7 @@ import { getActorFromRequest } from '../db/audit.js'
 import { logAudit } from '../db/audit.js'
 import * as lock from '../db/bookingLock.js'
 import * as bookingService from '../services/bookingService.js'
+import * as paymentShareRecalc from '../services/paymentShareRecalc.js'
 import * as idempotency from '../db/idempotency.js'
 import { getBookingSettings } from '../db/bookingSettings.js'
 import { hasNormalizedTables } from '../db/normalizedData.js'
@@ -441,13 +442,12 @@ router.post('/join-training', async (req, res) => {
         [bookingId, clubId, s.type || 'registered', s.memberId || null, s.memberName || null, s.phone || null, parseFloat(s.amount) || 0, waLink || null, token]
       )
     }
-    const { rows: allShares } = await query(
-      'SELECT amount, paid_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
-      [bookingId, clubId]
-    )
-    const paidAmount = (allShares || []).reduce((s, x) => s + (x.paid_at ? parseFloat(x.amount) || 0 : 0), 0)
-    const status = paidAmount >= totalAmount - 0.01 ? 'confirmed' : (paidAmount > 0 ? 'partially_paid' : 'pending_payments')
-    await bookingService.updateBookingPayment(bookingId, clubId, paidAmount, status)
+    const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bookingId, clubId)
+    const paidAmount = rec?.paidAmount ?? 0
+    const status = rec?.status ?? 'pending_payments'
+    if (status !== 'confirmed' && !['cancelled', 'cancelled_awaiting_refund_ack', 'expired'].includes(status)) {
+      await bookingService.extendPaymentDeadlineAfterShareProgress(bookingId, clubId)
+    }
     const settings = await getBookingSettings(clubId)
     const paymentDeadlineMinutes = hasShares ? (settings?.splitPaymentDeadlineMinutes ?? 30) : null
     if (paymentDeadlineMinutes != null) {
@@ -525,19 +525,12 @@ router.post('/record-payment', async (req, res) => {
       )
       await syncShareDisplayNameFromMember()
     }
-    const { rows: shares } = await query(
-      'SELECT amount, paid_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
-      [bid, clubId]
-    )
-    const paidAmount = (shares || []).reduce((sum, s) => sum + (s.paid_at ? parseFloat(s.amount) || 0 : 0), 0)
-    const { rows: bRows } = await query('SELECT total_amount FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL', [bid, clubId])
-    const totalAmount = parseFloat(bRows[0]?.total_amount) || 0
-    const allPaid = paidAmount >= totalAmount - 0.01
-    const status = allPaid ? 'confirmed' : (paidAmount > 0 ? 'partially_paid' : 'pending_payments')
-    if (!allPaid) {
+    const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bid, clubId)
+    const paidAmount = rec?.paidAmount ?? 0
+    const status = rec?.status ?? 'pending_payments'
+    if (status !== 'confirmed' && !['cancelled', 'cancelled_awaiting_refund_ack', 'expired'].includes(status)) {
       await bookingService.extendPaymentDeadlineAfterShareProgress(bid, clubId)
     }
-    await bookingService.updateBookingPayment(bid, clubId, paidAmount, status)
     const { rows: bDate } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bid, clubId])
     const dateStr = bDate[0]?.booking_date ? String(bDate[0].booking_date).split('T')[0] : null
     if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
@@ -580,19 +573,12 @@ router.post('/mark-share-paid-at-club', async (req, res) => {
         )
       }
     }
-    const { rows: shares } = await query(
-      'SELECT amount, paid_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
-      [bid, clubId]
-    )
-    const paidAmount = (shares || []).reduce((sum, s) => sum + (s.paid_at ? parseFloat(s.amount) || 0 : 0), 0)
-    const { rows: bRows } = await query('SELECT total_amount FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL', [bid, clubId])
-    const totalAmount = parseFloat(bRows[0]?.total_amount) || 0
-    const allPaid = paidAmount >= totalAmount - 0.01
-    const status = allPaid ? 'confirmed' : (paidAmount > 0 ? 'partially_paid' : 'pending_payments')
-    if (!allPaid) {
+    const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bid, clubId)
+    const paidAmount = rec?.paidAmount ?? 0
+    const status = rec?.status ?? 'pending_payments'
+    if (status !== 'confirmed' && !['cancelled', 'cancelled_awaiting_refund_ack', 'expired'].includes(status)) {
       await bookingService.extendPaymentDeadlineAfterShareProgress(bid, clubId)
     }
-    await bookingService.updateBookingPayment(bid, clubId, paidAmount, status)
     const { rows: bDate } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bid, clubId])
     const dateStr = bDate[0]?.booking_date ? String(bDate[0].booking_date).split('T')[0] : null
     if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
@@ -721,11 +707,22 @@ router.get('/share-invite', async (req, res) => {
     if (!bookingId || !clubId || !memberId) {
       return res.status(400).json({ error: 'bookingId, clubId, memberId required' })
     }
-    let { rows } = await query(
-      `SELECT id, invite_token FROM booking_payment_shares 
-       WHERE booking_id = ? AND club_id = ? AND member_id = ? AND paid_at IS NULL`,
-      [bookingId, clubId, memberId]
-    )
+    let rows
+    try {
+      const r = await query(
+        `SELECT id, invite_token FROM booking_payment_shares 
+         WHERE booking_id = ? AND club_id = ? AND member_id = ? AND paid_at IS NULL AND removed_at IS NULL`,
+        [bookingId, clubId, memberId]
+      )
+      rows = r.rows
+    } catch (_) {
+      const r = await query(
+        `SELECT id, invite_token FROM booking_payment_shares 
+         WHERE booking_id = ? AND club_id = ? AND member_id = ? AND paid_at IS NULL`,
+        [bookingId, clubId, memberId]
+      )
+      rows = r.rows
+    }
     if (!rows?.length) {
       return res.status(404).json({ error: 'Share not found or already paid' })
     }
@@ -756,12 +753,23 @@ router.post('/claim-invite-share', async (req, res) => {
     }
     const pd = (s) => (s || '').replace(/\D/g, '')
     const tailKey = (d) => (d.length >= 9 ? d.slice(-9) : d)
-    const { rows } = await query(
-      `SELECT id, phone, member_id, booking_id FROM booking_payment_shares WHERE invite_token = ? AND club_id = ?`,
-      [inviteToken, clubId]
-    )
+    let rows
+    try {
+      const r = await query(
+        `SELECT id, phone, member_id, booking_id, removed_at FROM booking_payment_shares WHERE invite_token = ? AND club_id = ?`,
+        [inviteToken, clubId]
+      )
+      rows = r.rows
+    } catch (_) {
+      const r = await query(
+        `SELECT id, phone, member_id, booking_id FROM booking_payment_shares WHERE invite_token = ? AND club_id = ?`,
+        [inviteToken, clubId]
+      )
+      rows = r.rows
+    }
     if (!rows?.length) return res.status(404).json({ error: 'Share not found' })
     const row = rows[0]
+    if (row.removed_at) return res.status(410).json({ error: 'Invite is no longer valid' })
     if (row.member_id != null && String(row.member_id).trim() !== '' && String(row.member_id) !== String(memberId)) {
       return res.status(409).json({ error: 'Share already linked to another account' })
     }
@@ -795,21 +803,327 @@ router.post('/claim-invite-share', async (req, res) => {
   }
 })
 
+async function mergeClubBookingDataJson(bookingId, clubId, patch) {
+  const { rows } = await query('SELECT data FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL', [bookingId, clubId])
+  if (!rows?.length) return false
+  let data = {}
+  try {
+    data = typeof rows[0].data === 'object' ? rows[0].data : JSON.parse(rows[0].data || '{}')
+  } catch (_) {
+    data = {}
+  }
+  await query('UPDATE club_bookings SET data = ? WHERE id = ? AND club_id = ?', [
+    JSON.stringify({ ...data, ...patch }),
+    bookingId,
+    clubId
+  ])
+  return true
+}
+
+/** POST /api/bookings/admin-refund-share — استرداد حصة (نقد/إلكتروني يدوي) واختيارياً إزالة المشارك */
+router.post('/admin-refund-share', async (req, res) => {
+  try {
+    const {
+      shareId,
+      inviteToken,
+      clubId,
+      refundMethod,
+      refundReference,
+      refundNotes,
+      removeFromBooking
+    } = req.body || {}
+    if (!clubId) return res.status(400).json({ error: 'clubId required' })
+    const allowedMethods = new Set(['cash', 'pos', 'stripe_manual', 'electronic_reverse', 'other'])
+    const rm = allowedMethods.has((refundMethod || '').toString()) ? refundMethod : 'other'
+    let shareRows
+    async function loadShare(whereSql, params) {
+      try {
+        const r = await query(
+          `SELECT id, booking_id, paid_at, refunded_at, removed_at FROM booking_payment_shares WHERE ${whereSql}`,
+          params
+        )
+        return r.rows
+      } catch (_) {
+        const r = await query(
+          `SELECT id, booking_id, paid_at, refunded_at FROM booking_payment_shares WHERE ${whereSql}`,
+          params
+        )
+        return (r.rows || []).map((x) => ({ ...x, removed_at: null }))
+      }
+    }
+    if (shareId) {
+      shareRows = await loadShare('id = ? AND club_id = ?', [shareId, clubId])
+    } else if (inviteToken) {
+      shareRows = await loadShare('invite_token = ? AND club_id = ?', [inviteToken, clubId])
+    } else {
+      return res.status(400).json({ error: 'shareId or inviteToken required' })
+    }
+    if (!shareRows?.length) return res.status(404).json({ error: 'Share not found' })
+    const row = shareRows[0]
+    if (row.removed_at) return res.status(400).json({ error: 'Share already removed' })
+    if (row.refunded_at) return res.status(400).json({ error: 'Already refunded' })
+    if (!row.paid_at) {
+      return res.status(400).json({ error: 'Nothing to refund — share was not paid' })
+    }
+    const bid = row.booking_id
+    try {
+      await query(
+        `UPDATE booking_payment_shares SET refunded_at = NOW(), refund_method = ?, refund_reference = ?, refund_notes = ? WHERE id = ? AND club_id = ?`,
+        [rm, refundReference || null, (refundNotes || '').toString().substring(0, 500) || null, row.id, clubId]
+      )
+    } catch (e) {
+      if (!e?.message?.includes('refunded_at') && !e?.message?.includes('refund_method')) throw e
+      return res.status(503).json({ error: 'Run DB migration add-booking-refund-columns.sql' })
+    }
+    if (removeFromBooking) {
+      try {
+        await query(`UPDATE booking_payment_shares SET removed_at = NOW() WHERE id = ? AND club_id = ?`, [row.id, clubId])
+      } catch (e) {
+        if (!e?.message?.includes('removed_at')) throw e
+      }
+      await mergeClubBookingDataJson(bid, clubId, { splitInviteReopen: true })
+    }
+    const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bid, clubId)
+    if (clubId && rec?.bookingDate) slotCache.invalidateLocks(clubId, rec.bookingDate)
+    res.json({ ok: true, ...rec })
+  } catch (e) {
+    console.error('bookings admin-refund-share error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** POST /api/bookings/admin-refund-booking-full — استرداد كل من دفع + إلغاء الحجز بانتظار تأكيد المستردين */
+router.post('/admin-refund-booking-full', async (req, res) => {
+  try {
+    const { bookingId, clubId, refundMethod, refundReference, refundNotes } = req.body || {}
+    if (!bookingId || !clubId) return res.status(400).json({ error: 'bookingId and clubId required' })
+    const allowedMethods = new Set(['cash', 'pos', 'stripe_manual', 'electronic_reverse', 'other'])
+    const rm = allowedMethods.has((refundMethod || '').toString()) ? refundMethod : 'other'
+    const { rows: shares } = await query(
+      `SELECT id, paid_at, refunded_at, removed_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
+      [bookingId, clubId]
+    )
+    if (!shares?.length) {
+      return res.status(400).json({ error: 'No payment shares for this booking' })
+    }
+    const note = (refundNotes || '').toString().substring(0, 500) || null
+    const ref = refundReference || null
+    for (const s of shares) {
+      if (s.removed_at) continue
+      if (s.refunded_at) continue
+      if (s.paid_at) {
+        try {
+          await query(
+            `UPDATE booking_payment_shares SET refunded_at = NOW(), refund_method = ?, refund_reference = ?, refund_notes = ? WHERE id = ? AND club_id = ?`,
+            [rm, ref, note, s.id, clubId]
+          )
+        } catch (e) {
+          if (!e?.message?.includes('refunded_at')) throw e
+          return res.status(503).json({ error: 'Run DB migration add-booking-refund-columns.sql' })
+        }
+      } else {
+        try {
+          await query(`UPDATE booking_payment_shares SET removed_at = NOW() WHERE id = ? AND club_id = ?`, [s.id, clubId])
+        } catch (e) {
+          if (!e?.message?.includes('removed_at')) throw e
+        }
+      }
+    }
+    await mergeClubBookingDataJson(bookingId, clubId, { splitInviteReopen: true })
+    const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bookingId, clubId, {
+      forceStatus: 'cancelled_awaiting_refund_ack'
+    })
+    if (clubId && rec?.bookingDate) slotCache.invalidateLocks(clubId, rec.bookingDate)
+    res.json({ ok: true, ...rec })
+  } catch (e) {
+    console.error('bookings admin-refund-booking-full error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** POST /api/bookings/acknowledge-share-refund — المشارك يؤكد استلام الاسترداد */
+router.post('/acknowledge-share-refund', async (req, res) => {
+  try {
+    const { shareId, inviteToken, clubId, memberId, phone } = req.body || {}
+    if (!clubId || !memberId) return res.status(400).json({ error: 'clubId and memberId required' })
+    let shareRows
+    if (shareId) {
+      const r = await query(
+        'SELECT id, booking_id, member_id, phone, refunded_at, refund_acknowledged_at FROM booking_payment_shares WHERE id = ? AND club_id = ?',
+        [shareId, clubId]
+      )
+      shareRows = r.rows
+    } else if (inviteToken) {
+      const r = await query(
+        'SELECT id, booking_id, member_id, phone, refunded_at, refund_acknowledged_at FROM booking_payment_shares WHERE invite_token = ? AND club_id = ?',
+        [inviteToken, clubId]
+      )
+      shareRows = r.rows
+    } else {
+      return res.status(400).json({ error: 'shareId or inviteToken required' })
+    }
+    if (!shareRows?.length) return res.status(404).json({ error: 'Share not found' })
+    const row = shareRows[0]
+    const mid = String(memberId)
+    if (row.member_id != null && String(row.member_id) !== mid) {
+      return res.status(403).json({ error: 'Not your share' })
+    }
+    const pd = (s) => (s || '').replace(/\D/g, '')
+    const tail = (d) => (d.length >= 9 ? d.slice(-9) : d)
+    if (!row.member_id || String(row.member_id).trim() === '') {
+      const rp = pd(row.phone || '')
+      const up = pd(phone || '')
+      if (!rp || !up || tail(rp) !== tail(up)) return res.status(403).json({ error: 'Phone does not match share' })
+    }
+    if (!row.refunded_at) return res.status(400).json({ error: 'Refund not recorded yet' })
+    if (row.refund_acknowledged_at) return res.json({ ok: true, alreadyAcknowledged: true })
+    try {
+      await query(
+        `UPDATE booking_payment_shares SET refund_acknowledged_at = NOW() WHERE id = ? AND club_id = ?`,
+        [row.id, clubId]
+      )
+    } catch (e) {
+      if (!e?.message?.includes('refund_acknowledged_at')) throw e
+      return res.status(503).json({ error: 'Run DB migration add-booking-refund-columns.sql' })
+    }
+    const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(row.booking_id, clubId)
+    if (clubId && rec?.bookingDate) slotCache.invalidateLocks(clubId, rec.bookingDate)
+    res.json({ ok: true, ...rec })
+  } catch (e) {
+    console.error('bookings acknowledge-share-refund error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** POST /api/bookings/add-split-participants — الحاجز يضيف مشاركين بعد فتح إعادة الدعوة */
+router.post('/add-split-participants', async (req, res) => {
+  try {
+    const { bookingId, clubId, memberId, paymentShares } = req.body || {}
+    if (!bookingId || !clubId || !memberId) {
+      return res.status(400).json({ error: 'bookingId, clubId, memberId required' })
+    }
+    if (!Array.isArray(paymentShares) || paymentShares.length === 0) {
+      return res.status(400).json({ error: 'paymentShares array required' })
+    }
+    const { rows: bRows } = await query(
+      `SELECT id, member_id, initiator_member_id, total_amount, status, data FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
+      [bookingId, clubId]
+    )
+    if (!bRows?.length) return res.status(404).json({ error: 'Booking not found' })
+    const b = bRows[0]
+    const initiator = String(b.initiator_member_id || b.member_id || '')
+    if (String(memberId) !== initiator) return res.status(403).json({ error: 'Only booker can add participants' })
+    const st = (b.status || '').toString()
+    if (['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st)) {
+      return res.status(400).json({ error: 'Cannot modify this booking' })
+    }
+    let data = {}
+    try {
+      data = typeof b.data === 'object' ? b.data : JSON.parse(b.data || '{}')
+    } catch (_) {}
+    let removedCountRes
+    try {
+      removedCountRes = await query(
+        `SELECT COUNT(*) AS c FROM booking_payment_shares WHERE booking_id = ? AND club_id = ? AND removed_at IS NOT NULL`,
+        [bookingId, clubId]
+      )
+    } catch (_) {
+      removedCountRes = { rows: [{ c: 0 }] }
+    }
+    const hasRemoved = Number(removedCountRes?.rows?.[0]?.c || 0) > 0
+    if (!hasRemoved && !data.splitInviteReopen) {
+      return res.status(400).json({ error: 'Adding participants is not open for this booking yet' })
+    }
+    const totalAmount = parseFloat(b.total_amount) || 0
+    let activeSumRes
+    try {
+      activeSumRes = await query(
+        `SELECT COALESCE(SUM(amount), 0) AS s FROM booking_payment_shares WHERE booking_id = ? AND club_id = ? AND (removed_at IS NULL)`,
+        [bookingId, clubId]
+      )
+    } catch (_) {
+      activeSumRes = await query(
+        `SELECT COALESCE(SUM(amount), 0) AS s FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
+        [bookingId, clubId]
+      )
+    }
+    const activeSum = parseFloat(activeSumRes?.rows?.[0]?.s) || 0
+    const newSum = paymentShares.reduce((acc, s) => acc + (parseFloat(s.amount) || 0), 0)
+    if (activeSum + newSum > totalAmount + 0.02) {
+      return res.status(400).json({ error: 'Total split exceeds booking amount' })
+    }
+    const basePath = (process.env.BASE_PATH || '/app').replace(/\/$/, '')
+    const ref = req.headers.origin || req.headers.referer || ''
+    const origin = ref ? (() => { try { return new URL(ref).origin } catch (_) { return ref.replace(/\/$/, '') } })() : ''
+    const baseUrl = process.env.BASE_URL || process.env.PUBLIC_BASE_URL || (origin ? `${origin}${basePath}` : 'https://playtix.app/app')
+    const created = []
+    for (const s of paymentShares) {
+      const token = `inv_${crypto.randomBytes(16).toString('hex')}`
+      const isUnregistered = s.type === 'unregistered'
+      const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
+      const payUrl = `${baseUrl.replace(/\/$/, '')}/${payPath}/${token}`
+      const waLink = (payUrl ? `https://wa.me/?text=${encodeURIComponent(payUrl)}` : null) || s.whatsappLink
+      await query(
+        `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          bookingId,
+          clubId,
+          s.type || 'registered',
+          s.memberId || null,
+          s.memberName || null,
+          s.phone || null,
+          parseFloat(s.amount) || 0,
+          waLink || null,
+          token
+        ]
+      )
+      created.push({ ...s, inviteToken: token, payInviteUrl: payUrl })
+    }
+    const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bookingId, clubId)
+    const settings = await getBookingSettings(clubId)
+    const paymentDeadlineMinutes = settings?.splitPaymentDeadlineMinutes ?? 30
+    const paymentDeadline = new Date(Date.now() + paymentDeadlineMinutes * 60 * 1000)
+    await bookingService.updateBookingPaymentDeadline(bookingId, clubId, paymentDeadline)
+    if (clubId && rec?.bookingDate) slotCache.invalidateLocks(clubId, rec.bookingDate)
+    res.json({ ok: true, paymentShares: created, ...rec })
+  } catch (e) {
+    console.error('bookings add-split-participants error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
 /** GET /api/bookings/invite/:token - Get invite/share data by token (must be before /:id) */
 router.get('/invite/:token', async (req, res) => {
   try {
     const { token } = req.params
     if (!token) return res.status(400).json({ error: 'Token required' })
-    const { rows } = await query(
-      `SELECT bps.id, bps.booking_id, bps.club_id, bps.participant_type, bps.member_id, bps.member_name, bps.phone, bps.amount, bps.invite_token, bps.paid_at, bps.payment_method,
-              cb.court_id, cb.booking_date, cb.start_time, cb.end_time, cb.status AS booking_status, cb.total_amount
-       FROM booking_payment_shares bps
-       JOIN club_bookings cb ON cb.id = bps.booking_id AND cb.club_id = bps.club_id AND cb.deleted_at IS NULL
-       WHERE bps.invite_token = ?`,
-      [token]
-    )
+    let rows
+    try {
+      const q = await query(
+        `SELECT bps.id, bps.booking_id, bps.club_id, bps.participant_type, bps.member_id, bps.member_name, bps.phone, bps.amount, bps.invite_token, bps.paid_at, bps.payment_method,
+                bps.removed_at, bps.refunded_at,
+                cb.court_id, cb.booking_date, cb.start_time, cb.end_time, cb.status AS booking_status, cb.total_amount
+         FROM booking_payment_shares bps
+         JOIN club_bookings cb ON cb.id = bps.booking_id AND cb.club_id = bps.club_id AND cb.deleted_at IS NULL
+         WHERE bps.invite_token = ?`,
+        [token]
+      )
+      rows = q.rows
+    } catch (_) {
+      const q = await query(
+        `SELECT bps.id, bps.booking_id, bps.club_id, bps.participant_type, bps.member_id, bps.member_name, bps.phone, bps.amount, bps.invite_token, bps.paid_at, bps.payment_method,
+                cb.court_id, cb.booking_date, cb.start_time, cb.end_time, cb.status AS booking_status, cb.total_amount
+         FROM booking_payment_shares bps
+         JOIN club_bookings cb ON cb.id = bps.booking_id AND cb.club_id = bps.club_id AND cb.deleted_at IS NULL
+         WHERE bps.invite_token = ?`,
+        [token]
+      )
+      rows = q.rows
+    }
     if (!rows?.length) return res.status(404).json({ error: 'Invite not found' })
     const r = rows[0]
+    if (r.removed_at) return res.status(410).json({ error: 'Invite is no longer valid' })
     res.json({
       inviteToken: r.invite_token,
       bookingId: r.booking_id,

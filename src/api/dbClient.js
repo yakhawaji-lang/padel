@@ -521,6 +521,34 @@ export async function recordPayment({ shareId, inviteToken, clubId, paymentRefer
   })
 }
 
+export async function adminRefundShare({ shareId, inviteToken, clubId, refundMethod, refundReference, refundNotes, removeFromBooking }) {
+  return fetchJson('/api/bookings/admin-refund-share', {
+    method: 'POST',
+    body: JSON.stringify({ shareId, inviteToken, clubId, refundMethod, refundReference, refundNotes, removeFromBooking })
+  })
+}
+
+export async function adminRefundBookingFull({ bookingId, clubId, refundMethod, refundReference, refundNotes }) {
+  return fetchJson('/api/bookings/admin-refund-booking-full', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId, refundMethod, refundReference, refundNotes })
+  })
+}
+
+export async function acknowledgeShareRefund({ shareId, inviteToken, clubId, memberId, phone }) {
+  return fetchJson('/api/bookings/acknowledge-share-refund', {
+    method: 'POST',
+    body: JSON.stringify({ shareId, inviteToken, clubId, memberId, phone })
+  })
+}
+
+export async function addSplitParticipants({ bookingId, clubId, memberId, paymentShares }) {
+  return fetchJson('/api/bookings/add-split-participants', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId, memberId, paymentShares })
+  })
+}
+
 // ---- Invite ----
 export async function getInviteByToken(token) {
   return fetchJson(`/api/bookings/invite/${encodeURIComponent(token)}`)

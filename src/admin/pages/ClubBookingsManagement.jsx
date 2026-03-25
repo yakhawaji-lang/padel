@@ -14,6 +14,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   const [editBooking, setEditBooking] = useState(null)
   const [editForm, setEditForm] = useState({})
   const [expandedPaymentId, setExpandedPaymentId] = useState(null)
+  const [refundDraftByShareId, setRefundDraftByShareId] = useState({})
+  const [fullRefundDraft, setFullRefundDraft] = useState({})
 
   const refreshFromCache = () => {
     loadClubs()
@@ -156,6 +158,55 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     }
   }
 
+  const handleAdminRefundShare = async (share, bookingId, { removeFromBooking }) => {
+    const draft = refundDraftByShareId[String(share.id || share.inviteToken || '')] || {}
+    const refundMethod = draft.method || 'cash'
+    const refundReference = (draft.reference || '').trim() || undefined
+    const refundNotes = (draft.notes || '').trim() || undefined
+    if (!club?.id || !bookingId) return
+    const key = `refund-${share.id || share.inviteToken}`
+    setActionLoading(key)
+    try {
+      await bookingApi.adminRefundShare({
+        shareId: share.id || undefined,
+        inviteToken: share.inviteToken || undefined,
+        clubId: club.id,
+        refundMethod,
+        refundReference,
+        refundNotes,
+        removeFromBooking: !!removeFromBooking
+      })
+      refreshFromServer()
+    } catch (e) {
+      window.alert(language === 'en' ? (e?.message || 'Refund failed') : (e?.message || 'فشل الاسترداد'))
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleAdminRefundFull = async (bookingId) => {
+    if (!club?.id || !bookingId) return
+    const draft = fullRefundDraft[bookingId] || {}
+    if (!window.confirm(language === 'en'
+      ? 'Refund all paid participants and cancel the booking? Payers will confirm receipt in the app.'
+      : 'استرداد المدفوع لجميع المشاركين وإلغاء الحجز؟ سيؤكد الدافعون الاستلام من التطبيق.')) return
+    setActionLoading('full-refund-' + bookingId)
+    try {
+      await bookingApi.adminRefundBookingFull({
+        bookingId,
+        clubId: club.id,
+        refundMethod: draft.method || 'cash',
+        refundReference: (draft.reference || '').trim() || undefined,
+        refundNotes: (draft.notes || '').trim() || undefined
+      })
+      refreshFromServer()
+    } catch (e) {
+      window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const handleMarkSharePaidAtClub = async (share) => {
     if (!club?.id) return
     const key = `share-${share.id}`
@@ -193,8 +244,14 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   const getStatusLabel = (status) => {
     const s = (status || 'confirmed').toString()
     const labels = {
-      en: { initiated: 'In progress', locked: 'Reserved', pending_payments: 'Awaiting payments', pending_payment: 'Awaiting payment', partially_paid: 'Partial payment', confirmed: 'Confirmed', cancelled: 'Cancelled', expired: 'Expired' },
-      ar: { initiated: 'قيد الإجراء', locked: 'محجوز', pending_payments: 'بانتظار الدفعات', pending_payment: 'بانتظار الدفع', partially_paid: 'دفع جزئي', confirmed: 'مؤكد', cancelled: 'ملغي', expired: 'منتهي' }
+      en: {
+        initiated: 'In progress', locked: 'Reserved', pending_payments: 'Awaiting payments', pending_payment: 'Awaiting payment', partially_paid: 'Partial payment', confirmed: 'Confirmed',
+        cancelled: 'Cancelled', expired: 'Expired', cancelled_awaiting_refund_ack: 'Cancelled — awaiting refund confirmation'
+      },
+      ar: {
+        initiated: 'قيد الإجراء', locked: 'محجوز', pending_payments: 'بانتظار الدفعات', pending_payment: 'بانتظار الدفع', partially_paid: 'دفع جزئي', confirmed: 'مؤكد',
+        cancelled: 'ملغي', expired: 'منتهي', cancelled_awaiting_refund_ack: 'ملغي — بانتظار تأكيد الاسترداد'
+      }
     }
     return (labels[language] || labels.en)[s] || s
   }
@@ -202,8 +259,14 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   const getPaymentMethodLabel = (method) => {
     const m = (method || 'at_club').toString()
     const labels = {
-      en: { at_club: 'At club', credit_card: 'Credit card', mada: 'Mada' },
-      ar: { at_club: 'في النادي', credit_card: 'بطاقة ائتمان', mada: 'مدى' }
+      en: {
+        at_club: 'At club', credit_card: 'Credit card', mada: 'Mada', electronic: 'Electronic',
+        cash: 'Cash', pos: 'POS', stripe_manual: 'Stripe (manual)', electronic_reverse: 'Electronic reversal', other: 'Other'
+      },
+      ar: {
+        at_club: 'في النادي', credit_card: 'بطاقة ائتمان', mada: 'مدى', electronic: 'إلكتروني',
+        cash: 'نقد', pos: 'شبكة', stripe_manual: 'Stripe يدوي', electronic_reverse: 'عكس إلكتروني', other: 'أخرى'
+      }
     }
     return (labels[language] || labels.en)[m] || m
   }
@@ -246,7 +309,19 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       waitingClubConfirm: 'Waiting for club confirmation',
       booker: 'Booker',
       pending: 'Pending',
-      clickToExpand: 'Click to view payment details'
+      clickToExpand: 'Click to view payment details',
+      refundHow: 'Refund channel',
+      refundRef: 'Reference / receipt',
+      refundNotesPh: 'Internal notes',
+      recordRefund: 'Record refund',
+      refundAndRemove: 'Refund & remove from split',
+      refundAll: 'Refund all & cancel booking',
+      refunded: 'Refunded',
+      removedParticipant: 'Removed',
+      payerConfirmPending: 'Awaiting payer confirmation',
+      stripeManualHint: 'Process the reversal in Stripe dashboard, then enter the refund ID above.',
+      electronicHint: 'For card/Mada, process reversal in your gateway and note the reference.',
+      refundAckDone: 'Participant confirmed receipt'
     },
     ar: {
       bookings: 'حجوزات الملاعب',
@@ -285,7 +360,19 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       waitingClubConfirm: 'بانتظار التأكيد من النادي',
       booker: 'الحاجز',
       pending: 'قيد الانتظار',
-      clickToExpand: 'انقر لعرض تفاصيل الدفع'
+      clickToExpand: 'انقر لعرض تفاصيل الدفع',
+      refundHow: 'قناة الاسترداد',
+      refundRef: 'مرجع / إيصال',
+      refundNotesPh: 'ملاحظات داخلية',
+      recordRefund: 'تسجيل الاسترداد',
+      refundAndRemove: 'استرداد وإزالة من التقسيم',
+      refundAll: 'استرداد الجميع وإلغاء الحجز',
+      refunded: 'مسترد',
+      removedParticipant: 'مُزال',
+      payerConfirmPending: 'بانتظار تأكيد المسترد',
+      stripeManualHint: 'نفّذ الاسترداد من لوحة Stripe ثم أدخل رقم الاسترداد أعلاه.',
+      electronicHint: 'لبطاقة/مدى، نفّذ العكس من بوابة الدفع وسجّل المرجع.',
+      refundAckDone: 'أكد المشارك الاستلام'
     }
   }
   const c = t[language] || t.en
@@ -368,18 +455,35 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                     ? { price: b.price, currency: b.currency || club?.settings?.currency || 'SAR' }
                     : calculateBookingPrice(club, b.dateStr, b.startTime, dur)
                   const status = (b.status || 'confirmed').toString()
-                  const isCancelled = status === 'cancelled'
+                  const rowAwaitingRefundAck = status === 'cancelled_awaiting_refund_ack'
+                  const rowEnded = ['cancelled', 'expired'].includes(status)
+                  const blockActions = rowEnded || rowAwaitingRefundAck
                   const isLoading = actionLoading === b.id || actionLoading === 'perm-' + b.id
                   const isPendingPayment = ['pending_payments', 'partially_paid'].includes(status)
-                  const isExpanded = expandedPaymentId === b.id
                   const paymentShares = Array.isArray(b.paymentShares) ? b.paymentShares : []
                   const hasShares = paymentShares.length > 0
                   const currency = priceInfo.currency || club?.settings?.currency || 'SAR'
                   const totalAmount = b.totalAmount ?? b.total_amount ?? priceInfo.price ?? 0
-                  const statusClass = ['confirmed'].includes(status) ? 'confirmed' : ['initiated', 'locked', 'pending_payments', 'pending_payment', 'partially_paid'].includes(status) ? 'pending' : ['cancelled', 'expired'].includes(status) ? 'cancelled' : ''
+                  const showPaymentPanel = rowAwaitingRefundAck || (
+                    !rowEnded && (
+                      hasShares ||
+                      isPendingPayment ||
+                      (Number(totalAmount) > 0 && ['confirmed', 'partially_paid', 'pending_payments', 'pending_payment'].includes(status))
+                    )
+                  )
+                  const isExpanded = expandedPaymentId === b.id
+                  const statusClass = ['confirmed'].includes(status)
+                    ? 'confirmed'
+                    : ['cancelled_awaiting_refund_ack'].includes(status)
+                      ? 'refund-pending'
+                      : ['initiated', 'locked', 'pending_payments', 'pending_payment', 'partially_paid'].includes(status)
+                        ? 'pending'
+                        : ['cancelled', 'expired'].includes(status)
+                          ? 'cancelled'
+                          : ''
                   return (
                     <React.Fragment key={b.id || i}>
-                      <tr className={isCancelled ? 'booking-row-cancelled' : ''}>
+                      <tr className={rowEnded ? 'booking-row-cancelled' : rowAwaitingRefundAck ? 'booking-row-awaiting-refund' : ''}>
                         <td>{formatDate(b.dateStr)}</td>
                         <td>{(b.startTime || '') + (b.endTime ? ` – ${b.endTime}` : '')}</td>
                         <td>{b.resource || b.courtName || b.court || '—'}</td>
@@ -388,17 +492,16 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                         <td>
                           <button
                             type="button"
-                            className={`booking-status-btn booking-status-${statusClass} ${isPendingPayment ? 'booking-status-clickable' : ''}`}
+                            className={`booking-status-btn booking-status-${statusClass} ${showPaymentPanel ? 'booking-status-clickable' : ''}`}
                             onClick={() => {
-                              if (isPendingPayment) {
-                                if (!isExpanded) onRefresh?.()
-                                setExpandedPaymentId(isExpanded ? null : b.id)
-                              }
+                              if (!showPaymentPanel) return
+                              if (!isExpanded) onRefresh?.()
+                              setExpandedPaymentId(isExpanded ? null : b.id)
                             }}
-                            title={isPendingPayment ? c.clickToExpand : undefined}
+                            title={showPaymentPanel ? c.clickToExpand : undefined}
                           >
                             <span className="booking-status-label">{getStatusLabel(status)}</span>
-                            {isPendingPayment && <span className="booking-status-chevron" aria-hidden>{isExpanded ? '▲' : '▼'}</span>}
+                            {showPaymentPanel && <span className="booking-status-chevron" aria-hidden>{isExpanded ? '▲' : '▼'}</span>}
                           </button>
                         </td>
                         <td>
@@ -412,7 +515,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                           >
                             ✏️
                           </button>
-                          {!isCancelled && (b.dateStr || '') >= today && (
+                          {!blockActions && (b.dateStr || '') >= today && (
                             <button
                               type="button"
                               className="btn-warning btn-icon"
@@ -444,7 +547,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                         </div>
                       </td>
                     </tr>
-                    {isPendingPayment && isExpanded && (
+                    {showPaymentPanel && isExpanded && (
                       <tr className="booking-payment-details-row">
                         <td colSpan="7">
                           <div className="booking-payment-details-card">
@@ -484,37 +587,118 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                     const bookerAmountFromCalc = Math.max(0, totalAmount - sharesSum)
                                     const bookerPaymentMethod = b.initiatorPaymentMethod || b.paymentMethod
                                     const renderShareRow = (s, idx, isBooker) => {
-                                      const canMarkPaid = !s.paidAt && s.paymentMethod === 'at_club' && (s.id || s.inviteToken)
+                                      const shareKey = String(s.id || s.inviteToken || `i${idx}`)
+                                      const draft = refundDraftByShareId[shareKey] || { method: 'cash' }
+                                      const isRefunded = !!s.refundedAt
+                                      const isRemoved = !!s.removedAt
+                                      const canMarkPaid = !isRefunded && !isRemoved && !s.paidAt && s.paymentMethod === 'at_club' && (s.id || s.inviteToken)
+                                      const refundChannelHint = draft.method === 'stripe_manual' ? c.stripeManualHint : draft.method === 'electronic_reverse' ? c.electronicHint : ''
+                                      const canRefund = !!s.id && !!s.paidAt && !isRefunded && !isRemoved && !rowAwaitingRefundAck
                                       return (
-                                        <div key={s.id || idx} className={`booking-payment-share-item ${s.paidAt ? 'paid' : 'pending'}`}>
-                                          <span className="booking-payment-share-name">
-                                            {resolvePaymentShareDisplayName(s, members)}{isBooker ? ` (${c.booker})` : ''}
-                                          </span>
-                                          <span className="booking-payment-share-amount">{parseFloat(s.amount) || 0} {currency}</span>
-                                          <span className="booking-payment-share-status">
-                                            {s.paidAt ? (
-                                              s.paymentMethod === 'at_club' ? (
-                                                <span className="status-badge status-pay-at-club">✓ {c.payAtClub}</span>
+                                        <div key={s.id || idx} className={`booking-payment-share-item ${isRemoved ? 'share-removed' : s.paidAt ? 'paid' : 'pending'}`}>
+                                          <div className="booking-payment-share-top">
+                                            <span className="booking-payment-share-name">
+                                              {resolvePaymentShareDisplayName(s, members)}{isBooker ? ` (${c.booker})` : ''}
+                                            </span>
+                                            <span className="booking-payment-share-amount">{parseFloat(s.amount) || 0} {currency}</span>
+                                            <span className="booking-payment-share-status">
+                                              {isRemoved ? (
+                                                <span className="status-badge status-removed">{c.removedParticipant}</span>
+                                              ) : isRefunded ? (
+                                                <span className="status-badge status-refunded">{c.refunded}</span>
+                                              ) : s.paidAt ? (
+                                                s.paymentMethod === 'at_club' ? (
+                                                  <span className="status-badge status-pay-at-club">✓ {c.payAtClub}</span>
+                                                ) : (
+                                                  <span className="status-badge status-paid">✓ {c.paid}</span>
+                                                )
+                                              ) : s.paymentMethod === 'at_club' ? (
+                                                <span className="status-badge status-pay-at-club">{c.waitingClubConfirm}</span>
+                                              ) : s.paymentMethod ? (
+                                                <span className="status-badge status-booker-method">{getPaymentMethodLabel(s.paymentMethod)}</span>
                                               ) : (
-                                                <span className="status-badge status-paid">✓ {c.paid}</span>
-                                              )
-                                            ) : s.paymentMethod === 'at_club' ? (
-                                              <span className="status-badge status-pay-at-club">{c.waitingClubConfirm}</span>
-                                            ) : s.paymentMethod ? (
-                                              <span className="status-badge status-booker-method">{getPaymentMethodLabel(s.paymentMethod)}</span>
-                                            ) : (
-                                              <span className="status-badge status-pending">{c.pending}</span>
+                                                <span className="status-badge status-pending">{c.pending}</span>
+                                              )}
+                                            </span>
+                                            {canMarkPaid && (
+                                              <button
+                                                type="button"
+                                                className="booking-payment-mark-paid-btn"
+                                                onClick={() => handleMarkSharePaidAtClub(s)}
+                                                disabled={actionLoading === `share-${s.id}`}
+                                              >
+                                                {actionLoading === `share-${s.id}` ? '…' : (language === 'en' ? 'Mark paid' : 'تسجيل الدفع')}
+                                              </button>
                                             )}
-                                          </span>
-                                          {canMarkPaid && (
-                                            <button
-                                              type="button"
-                                              className="booking-payment-mark-paid-btn"
-                                              onClick={() => handleMarkSharePaidAtClub(s)}
-                                              disabled={actionLoading === `share-${s.id}`}
-                                            >
-                                              {actionLoading === `share-${s.id}` ? '…' : (language === 'en' ? 'Mark paid' : 'تسجيل الدفع')}
-                                            </button>
+                                          </div>
+                                          {isRefunded && (
+                                            <div className="booking-refund-meta">
+                                              <span>{getPaymentMethodLabel(s.paymentMethod)} → {s.refundMethod || '—'}</span>
+                                              {s.refundReference ? <span className="booking-refund-ref">{s.refundReference}</span> : null}
+                                              {s.refundAcknowledgedAt ? (
+                                                <span className="booking-refund-ack ok">✓ {c.refundAckDone}</span>
+                                              ) : (
+                                                <span className="booking-refund-ack pending">⏳ {c.payerConfirmPending}</span>
+                                              )}
+                                            </div>
+                                          )}
+                                          {canRefund && (
+                                            <div className="booking-refund-controls">
+                                              <label className="booking-refund-label">{c.refundHow}</label>
+                                              <select
+                                                className="booking-refund-select"
+                                                value={draft.method || 'cash'}
+                                                onChange={(e) => setRefundDraftByShareId((prev) => ({
+                                                  ...prev,
+                                                  [shareKey]: { ...draft, method: e.target.value }
+                                                }))}
+                                              >
+                                                <option value="cash">{language === 'en' ? 'Cash at club' : 'نقد في النادي'}</option>
+                                                <option value="pos">{language === 'en' ? 'POS / terminal' : 'شبكة / POS'}</option>
+                                                <option value="stripe_manual">Stripe ({language === 'en' ? 'manual' : 'يدوي'})</option>
+                                                <option value="electronic_reverse">{language === 'en' ? 'Electronic reversal' : 'عكس إلكتروني'}</option>
+                                                <option value="other">{language === 'en' ? 'Other' : 'أخرى'}</option>
+                                              </select>
+                                              <input
+                                                className="booking-refund-input"
+                                                type="text"
+                                                placeholder={c.refundRef}
+                                                value={draft.reference || ''}
+                                                onChange={(e) => setRefundDraftByShareId((prev) => ({
+                                                  ...prev,
+                                                  [shareKey]: { ...draft, reference: e.target.value }
+                                                }))}
+                                              />
+                                              <input
+                                                className="booking-refund-input"
+                                                type="text"
+                                                placeholder={c.refundNotesPh}
+                                                value={draft.notes || ''}
+                                                onChange={(e) => setRefundDraftByShareId((prev) => ({
+                                                  ...prev,
+                                                  [shareKey]: { ...draft, notes: e.target.value }
+                                                }))}
+                                              />
+                                              {refundChannelHint ? <p className="booking-refund-hint">{refundChannelHint}</p> : null}
+                                              <div className="booking-refund-actions">
+                                                <button
+                                                  type="button"
+                                                  className="booking-refund-btn booking-refund-br"
+                                                  disabled={actionLoading === `refund-${s.id || s.inviteToken}`}
+                                                  onClick={() => handleAdminRefundShare(s, b.id, { removeFromBooking: false })}
+                                                >
+                                                  {c.recordRefund}
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  className="booking-refund-btn booking-refund-btn--warn"
+                                                  disabled={actionLoading === `refund-${s.id || s.inviteToken}`}
+                                                  onClick={() => handleAdminRefundShare(s, b.id, { removeFromBooking: true })}
+                                                >
+                                                  {c.refundAndRemove}
+                                                </button>
+                                              </div>
+                                            </div>
                                           )}
                                         </div>
                                       )
@@ -542,6 +726,46 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                       </>
                                     )
                                   })()}
+                                </div>
+                              </div>
+                            )}
+                            {hasShares && !rowAwaitingRefundAck && !rowEnded && (
+                              <div className="booking-full-refund-card">
+                                <h5 className="booking-full-refund-title">{c.refundAll}</h5>
+                                <p className="booking-full-refund-desc">{language === 'en' ? 'Marks every paid share as refunded and removes unpaid invites. Booking becomes cancelled until each payer confirms in the app.' : 'يُسجَّل الاسترداد لكل من دفع ويُزال المدعوون غير المدفوع. يصبح الحجز ملغياً حتى يؤكد كل دافع في التطبيق.'}</p>
+                                <div className="booking-refund-controls booking-refund-controls--full">
+                                  <select
+                                    className="booking-refund-select"
+                                    value={(fullRefundDraft[b.id] || {}).method || 'cash'}
+                                    onChange={(e) => setFullRefundDraft((prev) => ({
+                                      ...prev,
+                                      [b.id]: { ...(prev[b.id] || {}), method: e.target.value }
+                                    }))}
+                                  >
+                                    <option value="cash">{language === 'en' ? 'Cash at club' : 'نقد في النادي'}</option>
+                                    <option value="pos">{language === 'en' ? 'POS / terminal' : 'شبكة / POS'}</option>
+                                    <option value="stripe_manual">Stripe ({language === 'en' ? 'manual' : 'يدوي'})</option>
+                                    <option value="electronic_reverse">{language === 'en' ? 'Electronic reversal' : 'عكس إلكتروني'}</option>
+                                    <option value="other">{language === 'en' ? 'Other' : 'أخرى'}</option>
+                                  </select>
+                                  <input
+                                    className="booking-refund-input"
+                                    type="text"
+                                    placeholder={c.refundRef}
+                                    value={(fullRefundDraft[b.id] || {}).reference || ''}
+                                    onChange={(e) => setFullRefundDraft((prev) => ({
+                                      ...prev,
+                                      [b.id]: { ...(prev[b.id] || {}), reference: e.target.value }
+                                    }))}
+                                  />
+                                  <button
+                                    type="button"
+                                    className="booking-full-refund-submit"
+                                    disabled={actionLoading === 'full-refund-' + b.id}
+                                    onClick={() => handleAdminRefundFull(b.id)}
+                                  >
+                                    {actionLoading === 'full-refund-' + b.id ? '…' : c.refundAll}
+                                  </button>
                                 </div>
                               </div>
                             )}
@@ -669,6 +893,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                   <option value="partially_paid">{getStatusLabel('partially_paid')}</option>
                   <option value="pending_payment">{getStatusLabel('pending_payment')}</option>
                   <option value="cancelled">{getStatusLabel('cancelled')}</option>
+                  <option value="cancelled_awaiting_refund_ack">{getStatusLabel('cancelled_awaiting_refund_ack')}</option>
                   <option value="expired">{getStatusLabel('expired')}</option>
                 </select>
               </div>

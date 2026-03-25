@@ -11,6 +11,7 @@ export function findPaymentShareForMember(booking, member) {
   const mPhone = phoneTailKey(member.phone || member.mobile || '')
   return (
     booking.paymentShares.find((s) => {
+      if (s.removedAt || s.removed_at) return false
       if (String(s.memberId || s.member_id || '') === mid) return true
       if (mPhone.length >= 8 && phoneTailKey(s.phone || '') === mPhone) return true
       return false

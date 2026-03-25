@@ -23,9 +23,11 @@ function getBookingDisplayProps({ booking, club }, language) {
     : '—'
   const clubLink = club ? `/clubs/${club.id}` : null
   const isTraining = !isTournament && (booking?.type === 'training' || booking?.data?.type === 'training')
-  const isPaid = ['confirmed'].includes((booking?.status || '').toString())
-  const isPendingPayment = ['pending_payment', 'pending_payments', 'partially_paid', 'initiated', 'locked'].includes((booking?.status || '').toString())
-  return { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isTournament, isPaid, isPendingPayment }
+  const st = (booking?.status || '').toString()
+  const isAwaitingRefundAck = st === 'cancelled_awaiting_refund_ack'
+  const isPaid = ['confirmed'].includes(st) && !isAwaitingRefundAck
+  const isPendingPayment = ['pending_payment', 'pending_payments', 'partially_paid', 'initiated', 'locked'].includes(st)
+  return { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isTournament, isPaid, isPendingPayment, isAwaitingRefundAck }
 }
 
 const MyBookingsPage = () => {
@@ -42,6 +44,9 @@ const MyBookingsPage = () => {
   const [markingPayAtClub, setMarkingPayAtClub] = useState(null)
   const [detailRow, setDetailRow] = useState(null)
   const [payMenuOpen, setPayMenuOpen] = useState(null)
+  const [addSplitForBookingId, setAddSplitForBookingId] = useState(null)
+  const [addSplitRows, setAddSplitRows] = useState([{ phone: '', amount: '' }])
+  const [addSplitBusy, setAddSplitBusy] = useState(false)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -194,8 +199,14 @@ const MyBookingsPage = () => {
   const getStatusLabel = (status) => {
     const s = (status || 'confirmed').toString()
     const labels = {
-      en: { initiated: 'In progress', locked: 'Reserved', pending_payments: 'Awaiting payments', pending_payment: 'Awaiting payment', partially_paid: 'Partial payment', confirmed: 'Confirmed', cancelled: 'Cancelled', expired: 'Expired' },
-      ar: { initiated: 'قيد الإجراء', locked: 'محجوز', pending_payments: 'بانتظار الدفعات', pending_payment: 'بانتظار الدفع', partially_paid: 'دفع جزئي', confirmed: 'مؤكد', cancelled: 'ملغي', expired: 'منتهي' }
+      en: {
+        initiated: 'In progress', locked: 'Reserved', pending_payments: 'Awaiting payments', pending_payment: 'Awaiting payment', partially_paid: 'Partial payment', confirmed: 'Confirmed',
+        cancelled: 'Cancelled', expired: 'Expired', cancelled_awaiting_refund_ack: 'Cancelled — confirm refund received'
+      },
+      ar: {
+        initiated: 'قيد الإجراء', locked: 'محجوز', pending_payments: 'بانتظار الدفعات', pending_payment: 'بانتظار الدفع', partially_paid: 'دفع جزئي', confirmed: 'مؤكد',
+        cancelled: 'ملغي', expired: 'منتهي', cancelled_awaiting_refund_ack: 'ملغي — أكّد استلام الاسترداد'
+      }
     }
     return (labels[language] || labels.en)[s] || s
   }
@@ -203,9 +214,86 @@ const MyBookingsPage = () => {
   const getStatusClass = (status) => {
     const s = (status || 'confirmed').toString()
     if (['confirmed'].includes(s)) return 'status-confirmed'
+    if (['cancelled_awaiting_refund_ack'].includes(s)) return 'status-refund-ack'
     if (['initiated', 'locked', 'pending_payments', 'pending_payment', 'partially_paid'].includes(s)) return 'status-pending'
     if (['cancelled', 'expired'].includes(s)) return 'status-cancelled'
     return ''
+  }
+
+  const shareNeedsRefundAck = (share, m) => {
+    if (!share?.refundedAt || share.refundAcknowledgedAt || share.removedAt) return false
+    if (!m?.id) return false
+    if (String(share.memberId || '') === String(m.id)) return true
+    const tail = (raw) => {
+      const d = String(raw || '').replace(/\D/g, '')
+      return d.length >= 9 ? d.slice(-9) : d
+    }
+    const mp = tail(m.phone || m.mobile || '')
+    const sp = tail(share.phone || '')
+    return mp.length >= 8 && sp.length >= 8 && mp === sp
+  }
+
+  const handleAckRefund = async (share, clubId) => {
+    if (!member?.id || !clubId) return
+    setMarkingPayAtClub(`ack-${share.id || share.inviteToken}`)
+    try {
+      await bookingApi.acknowledgeShareRefund({
+        shareId: share.id || undefined,
+        inviteToken: share.inviteToken || undefined,
+        clubId,
+        memberId: member.id,
+        phone: member.phone || member.mobile
+      })
+      window.dispatchEvent(new CustomEvent('clubs-synced'))
+      await refreshClubsFromApi()
+      loadClubs()
+      setBookings(getMemberBookings(member.id))
+    } catch (e) {
+      console.error(e)
+      window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
+    } finally {
+      setMarkingPayAtClub(null)
+    }
+  }
+
+  const canAddSplitParticipants = (booking, club, m) => {
+    if (!m?.id || !club?.id || booking?.isTournament) return false
+    const st = (booking.status || '').toString()
+    if (['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st)) return false
+    const initiator = String(booking.memberId || booking.initiatorMemberId || '') === String(m.id)
+    if (!initiator) return false
+    const shares = booking.paymentShares || []
+    if (!Array.isArray(shares) || shares.length === 0) return false
+    const hasRemoved = shares.some((s) => s.removedAt)
+    const data = booking.data && typeof booking.data === 'object' ? booking.data : {}
+    return hasRemoved || !!data.splitInviteReopen
+  }
+
+  const submitAddSplit = async (booking, club) => {
+    if (!club?.id || !booking?.id || !member?.id) return
+    const rows = addSplitRows.map((r) => ({
+      type: 'unregistered',
+      phone: (r.phone || '').trim(),
+      amount: parseFloat(r.amount) || 0
+    })).filter((r) => r.phone && r.amount > 0)
+    if (rows.length === 0) {
+      window.alert(language === 'en' ? 'Enter phone and amount for each invitee.' : 'أدخل الجوال والمبلغ لكل مدعو.')
+      return
+    }
+    setAddSplitBusy(true)
+    try {
+      await bookingApi.addSplitParticipants({ bookingId: booking.id, clubId: club.id, memberId: member.id, paymentShares: rows })
+      window.dispatchEvent(new CustomEvent('clubs-synced'))
+      await refreshClubsFromApi()
+      loadClubs()
+      setBookings(getMemberBookings(member.id))
+      setAddSplitForBookingId(null)
+      setAddSplitRows([{ phone: '', amount: '' }])
+    } catch (e) {
+      window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
+    } finally {
+      setAddSplitBusy(false)
+    }
   }
 
   const t = {
@@ -315,7 +403,7 @@ const MyBookingsPage = () => {
   }
 
   const renderBookingRow = ({ booking, club }, i) => {
-    let { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isTournament, isPaid, isPendingPayment } = getBookingDisplayProps({ booking, club }, language)
+    let { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isTournament, isPaid, isPendingPayment, isAwaitingRefundAck } = getBookingDisplayProps({ booking, club }, language)
     if (!booking.isTournament) {
       const isInitiator = String(booking.memberId || booking.initiatorMemberId || '') === String(member?.id || '')
       if (!isInitiator && member) {
@@ -327,8 +415,10 @@ const MyBookingsPage = () => {
     }
     const priceText = priceVal != null ? `${Number(priceVal)} ${currencyStr}` : '—'
     const isUpcoming = filter === 'upcoming'
-    const canCancel = isUpcoming && club && !['cancelled', 'expired'].includes((booking.status || '').toString())
+    const canCancel = isUpcoming && club && !['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes((booking.status || '').toString())
     const payOptions = getPayOptions(booking, club)
+    const visibleShares = (booking.paymentShares || []).filter((s) => !s.removedAt)
+    const showAddSplit = canAddSplitParticipants(booking, club, member)
 
     return {
       key: `${club?.id}-${booking.id}-${i}`,
@@ -349,7 +439,10 @@ const MyBookingsPage = () => {
       isTraining,
       isTournament,
       isPaid,
-      isPendingPayment
+      isPendingPayment,
+      isAwaitingRefundAck,
+      visibleShares,
+      showAddSplit
     }
   }
 
@@ -536,9 +629,9 @@ const MyBookingsPage = () => {
                               </div>
                             </div>
                           )}
-                          {Array.isArray(r.booking.paymentShares) && r.booking.paymentShares.length > 0 && (
+                          {Array.isArray(r.visibleShares) && r.visibleShares.length > 0 && (
                             <div className="my-bookings-shares">
-                              {r.booking.paymentShares.slice(0, 10).map((s, idx) => (
+                              {r.visibleShares.slice(0, 10).map((s, idx) => (
                                 <div key={s.id || idx} className="my-bookings-share-row">
                                   <span>
                                     {(() => {
@@ -547,19 +640,84 @@ const MyBookingsPage = () => {
                                       return s.type === 'unregistered' ? c.pending : '—'
                                     })()}
                                   </span>
-                                  <span className={s.paidAt ? 'my-bookings-paid' : ''}>
-                                    {s.paidAt ? '✓ ' + c.paid : c.pending}
+                                  <span className={s.refundedAt ? 'my-bookings-refunded' : s.paidAt ? 'my-bookings-paid' : ''}>
+                                    {s.refundedAt ? (language === 'en' ? 'Refunded' : 'مسترد') : s.paidAt ? '✓ ' + c.paid : c.pending}
                                   </span>
-                                  {s.whatsappLink && !s.paidAt && filter === 'upcoming' && (
+                                  {shareNeedsRefundAck(s, member) && r.club?.id && filter === 'upcoming' && (
+                                    <button
+                                      type="button"
+                                      className="my-bookings-ack-refund-btn"
+                                      disabled={!!markingPayAtClub}
+                                      onClick={() => handleAckRefund(s, r.club.id)}
+                                    >
+                                      {language === 'en' ? 'I received refund' : 'استلمت الاسترداد'}
+                                    </button>
+                                  )}
+                                  {s.whatsappLink && !s.paidAt && !s.refundedAt && filter === 'upcoming' && (
                                     <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="my-bookings-resend" title={c.resendInvite}>
                                       💬
                                     </a>
                                   )}
                                 </div>
                               ))}
-                              {r.booking.paymentShares.length > 10 && (
+                              {r.visibleShares.length > 10 && (
                                 <div className="my-bookings-share-row my-bookings-share-more">
-                                  +{r.booking.paymentShares.length - 10} {language === 'en' ? 'more' : 'المزيد'}
+                                  +{r.visibleShares.length - 10} {language === 'en' ? 'more' : 'المزيد'}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {r.showAddSplit && filter === 'upcoming' && r.club && (
+                            <div className="my-bookings-add-split">
+                              <button
+                                type="button"
+                                className="my-bookings-add-split-toggle"
+                                onClick={() => {
+                                  if (addSplitForBookingId === r.booking.id) {
+                                    setAddSplitForBookingId(null)
+                                  } else {
+                                    setAddSplitForBookingId(r.booking.id)
+                                    setAddSplitRows([{ phone: '', amount: '' }])
+                                  }
+                                }}
+                              >
+                                {language === 'en' ? '+ Add participants (share payment)' : '+ إضافة مشاركين (تقسيم)'}
+                              </button>
+                              {addSplitForBookingId === r.booking.id && (
+                                <div className="my-bookings-add-split-form">
+                                  {addSplitRows.map((row, ri) => (
+                                    <div key={ri} className="my-bookings-add-split-row">
+                                      <input
+                                        type="tel"
+                                        placeholder={language === 'en' ? 'Phone' : 'الجوال'}
+                                        value={row.phone}
+                                        onChange={(e) => setAddSplitRows((prev) => prev.map((x, j) => (j === ri ? { ...x, phone: e.target.value } : x)))}
+                                      />
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        placeholder={language === 'en' ? 'Amount' : 'المبلغ'}
+                                        value={row.amount}
+                                        onChange={(e) => setAddSplitRows((prev) => prev.map((x, j) => (j === ri ? { ...x, amount: e.target.value } : x)))}
+                                      />
+                                    </div>
+                                  ))}
+                                  <button
+                                    type="button"
+                                    className="my-bookings-add-split-more"
+                                    onClick={() => setAddSplitRows((prev) => [...prev, { phone: '', amount: '' }])}
+                                  >
+                                    {language === 'en' ? '+ Another' : '+ سطر'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="my-bookings-add-split-submit"
+                                    disabled={addSplitBusy}
+                                    onClick={() => submitAddSplit(r.booking, r.club)}
+                                  >
+                                    {addSplitBusy ? '…' : (language === 'en' ? 'Send invites' : 'إرسال الدعوات')}
+                                  </button>
                                 </div>
                               )}
                             </div>
@@ -626,9 +784,9 @@ const MyBookingsPage = () => {
                       {r.getStatusLabel(r.booking.status)}
                     </span>
                   </div>
-                  {Array.isArray(r.booking.paymentShares) && r.booking.paymentShares.length > 0 && (
+                  {Array.isArray(r.visibleShares) && r.visibleShares.length > 0 && (
                     <div className="my-bookings-card-shares">
-                      {r.booking.paymentShares.slice(0, 5).map((s, idx) => (
+                      {r.visibleShares.slice(0, 5).map((s, idx) => (
                         <div key={s.id || idx} className="my-bookings-share-row">
                           <span>
                             {(() => {
@@ -637,17 +795,22 @@ const MyBookingsPage = () => {
                               return s.type === 'unregistered' ? c.pending : '—'
                             })()}
                           </span>
-                          <span className={s.paidAt ? 'my-bookings-paid' : ''}>
-                            {s.paidAt ? '✓' : '○'}
+                          <span className={s.refundedAt ? 'my-bookings-refunded' : s.paidAt ? 'my-bookings-paid' : ''}>
+                            {s.refundedAt ? '↩' : s.paidAt ? '✓' : '○'}
                           </span>
-                          {s.whatsappLink && !s.paidAt && filter === 'upcoming' && (
+                          {shareNeedsRefundAck(s, member) && r.club?.id && filter === 'upcoming' && (
+                            <button type="button" className="my-bookings-ack-refund-btn" disabled={!!markingPayAtClub} onClick={(e) => { e.stopPropagation(); handleAckRefund(s, r.club.id) }}>
+                              {language === 'en' ? 'OK' : '✓'}
+                            </button>
+                          )}
+                          {s.whatsappLink && !s.paidAt && !s.refundedAt && filter === 'upcoming' && (
                             <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="my-bookings-resend" title={c.resendInvite} onClick={(e) => e.stopPropagation()}>💬</a>
                           )}
                         </div>
                       ))}
-                      {r.booking.paymentShares.length > 5 && (
+                      {r.visibleShares.length > 5 && (
                         <div className="my-bookings-share-row my-bookings-share-more">
-                          +{r.booking.paymentShares.length - 5}
+                          +{r.visibleShares.length - 5}
                         </div>
                       )}
                     </div>
