@@ -79,6 +79,15 @@ export async function recalculateBookingPaymentAfterShareChange(bookingId, clubI
 
   await bookingService.updateBookingPayment(bookingId, clubId, paidAmount, status)
 
+  // بعد استرداد جزئي قد يصبح الحجز pending/partially_paid مع payment_deadline_at قديم فيقرر job الانتهاء فوراً
+  const stillAwaitingPayment =
+    !forceStatus &&
+    status !== 'cancelled_awaiting_refund_ack' &&
+    ['initiated', 'locked', 'pending_payments', 'pending_payment', 'partially_paid'].includes(status)
+  if (stillAwaitingPayment) {
+    await bookingService.extendPaymentDeadlineAfterShareProgress(bookingId, clubId)
+  }
+
   const { rows: dateRow } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bookingId, clubId])
   const dateStr = dateRow[0]?.booking_date ? String(dateRow[0].booking_date).split('T')[0] : null
 
