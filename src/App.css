@@ -2410,6 +2410,128 @@ button:active {
   color: #3498db;
 }
 
+.member-selector-item--in-row {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.member-selector-item--in-row:hover {
+  background: transparent;
+  border: none;
+}
+
+.member-selector-fee-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.member-selector-fee-toolbar__label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  flex: 1;
+  min-width: 160px;
+}
+
+.member-selector-bulk-fee {
+  max-width: 220px;
+}
+
+.member-selector-pay-hint {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+
+.member-selector-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12px;
+  color: #475569;
+  margin-bottom: 12px;
+}
+
+.legend-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  margin-inline-end: 6px;
+  vertical-align: middle;
+}
+
+.legend-swatch--club {
+  background: rgba(37, 99, 235, 0.2);
+  color: #1d4ed8;
+}
+
+.legend-swatch--member {
+  background: rgba(202, 138, 4, 0.25);
+  color: #a16207;
+}
+
+.member-selector-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #e1e8ed;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  background: white;
+}
+
+.member-selector-row__fee {
+  width: 88px;
+  flex-shrink: 0;
+  text-align: center;
+  padding: 8px 6px !important;
+}
+
+.member-selector-wa-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #25d366;
+  color: #fff !important;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.member-selector-wa-btn:hover {
+  filter: brightness(0.95);
+  color: #fff !important;
+}
+
+.member-selector-wa-btn--disabled {
+  background: #cbd5e1;
+  color: #64748b !important;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .no-members-found {
   text-align: center;
   color: #95a5a6;
@@ -2440,13 +2562,86 @@ button:active {
 .member-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  background: #3498db;
+  gap: 4px;
+  padding: 4px 6px;
+  background: #64748b;
   color: white;
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
+  cursor: grab;
+  max-width: 100%;
+}
+
+.member-chip:active {
+  cursor: grabbing;
+}
+
+.member-chip--pending {
+  background: #64748b;
+}
+
+.member-chip--club {
+  background: #2563eb;
+}
+
+.member-chip--member {
+  background: #ca8a04;
+}
+
+.member-chip--both {
+  background: linear-gradient(135deg, #15803d 0%, #0f766e 100%);
+}
+
+.member-chip__name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-status {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.15);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.chip-status:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.chip-status--club.is-on {
+  background: rgba(96, 165, 250, 0.95);
+  color: #0f172a;
+  border-color: #93c5fd;
+}
+
+.chip-status--member.is-on {
+  background: rgba(253, 224, 71, 0.95);
+  color: #422006;
+  border-color: #fde047;
+}
+
+.team-members-drag-hint {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.team-item-with-members--drop {
+  outline: 2px dashed #3498db;
+  outline-offset: 2px;
+  background: #f0f7ff;
 }
 
 .chip-remove {
