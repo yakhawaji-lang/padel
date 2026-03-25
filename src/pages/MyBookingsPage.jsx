@@ -61,6 +61,8 @@ const MyBookingsPage = () => {
   const [addSplitBusy, setAddSplitBusy] = useState(false)
   const [addSplitFavorites, setAddSplitFavorites] = useState([])
   const [addSplitFavoritesLoading, setAddSplitFavoritesLoading] = useState(false)
+  const [trainingInvites, setTrainingInvites] = useState([])
+  const [dismissingInviteId, setDismissingInviteId] = useState(null)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -101,6 +103,29 @@ const MyBookingsPage = () => {
     window.addEventListener('clubs-synced', syncFromCache)
     return () => window.removeEventListener('clubs-synced', syncFromCache)
   }, [member?.id])
+
+  const loadTrainingInvites = React.useCallback(async () => {
+    if (!member?.id) {
+      setTrainingInvites([])
+      return
+    }
+    try {
+      const list = await bookingApi.getMyTrainingInvites(member.id)
+      setTrainingInvites(Array.isArray(list) ? list : [])
+    } catch {
+      setTrainingInvites([])
+    }
+  }, [member?.id])
+
+  useEffect(() => {
+    loadTrainingInvites()
+  }, [loadTrainingInvites])
+
+  useEffect(() => {
+    const onSync = () => loadTrainingInvites()
+    window.addEventListener('clubs-synced', onSync)
+    return () => window.removeEventListener('clubs-synced', onSync)
+  }, [loadTrainingInvites])
 
   useEffect(() => {
     if (!addSplitForBookingId || !member?.id) {
@@ -396,7 +421,11 @@ const MyBookingsPage = () => {
       splitFavoritesNoPhone: 'No phone on file',
       splitFavHint: 'Tap a name to fill the phone field.',
       splitParticipants: 'Split payment participants',
-      yourShareAmountsHint: 'Only you see each person’s share amount.'
+      yourShareAmountsHint: 'Only you see each person’s share amount.',
+      trainingInviteTitle: 'Training invitations',
+      trainingInviteIntro: 'A coach sent you a request to join a training session.',
+      trainingInviteDismiss: 'Dismiss',
+      openClubToJoin: 'Open club page to join'
     },
     ar: {
       myBookings: 'حجوزاتي',
@@ -439,7 +468,11 @@ const MyBookingsPage = () => {
       splitFavoritesNoPhone: 'لا يوجد جوال',
       splitFavHint: 'اضغط على الاسم لملء الجوال في أول سطر فارغ.',
       splitParticipants: 'المشاركون في التقسيم',
-      yourShareAmountsHint: 'أنت فقط ترى مبلغ حصة كل مشارك.'
+      yourShareAmountsHint: 'أنت فقط ترى مبلغ حصة كل مشارك.',
+      trainingInviteTitle: 'دعوات التدريب',
+      trainingInviteIntro: 'أرسل لك المدرب طلباً للانضمام إلى حصة تدريبية.',
+      trainingInviteDismiss: 'إخفاء',
+      openClubToJoin: 'فتح صفحة النادي للانضمام'
     }
   }
   const c = t[language] || t.en
@@ -556,6 +589,57 @@ const MyBookingsPage = () => {
         <div className="my-bookings-success-banner" role="alert">
           {c.paymentSuccess}
         </div>
+      )}
+
+      {trainingInvites.length > 0 && (
+        <section className="my-bookings-training-invites" aria-label={c.trainingInviteTitle}>
+          <h2 className="my-bookings-training-invites-title">{c.trainingInviteTitle}</h2>
+          <p className="my-bookings-training-invites-intro">{c.trainingInviteIntro}</p>
+          <ul className="my-bookings-training-invites-list">
+            {trainingInvites.map((inv) => {
+              const cl = getClubById(inv.clubId)
+              const clubLabel = cl ? (language === 'ar' ? (cl.nameAr || cl.name) : (cl.name || cl.nameAr)) : inv.clubId
+              const courtLabel = cl?.courts?.find((co) => String(co.id) === String(inv.courtId) || co.name === inv.courtId)
+              const courtName = courtLabel
+                ? (language === 'ar' ? (courtLabel.nameAr || courtLabel.name) : courtLabel.name)
+                : (inv.courtId || '—')
+              const timeLine = [inv.startTime, inv.endTime].filter(Boolean).join(' – ')
+              return (
+                <li key={inv.id} className="my-bookings-training-invite-card">
+                  <div className="my-bookings-training-invite-body">
+                    <strong className="my-bookings-training-invite-club">{clubLabel}</strong>
+                    <span className="my-bookings-training-invite-meta">
+                      {formatDate(inv.date)} · {timeLine} · {courtName}
+                    </span>
+                  </div>
+                  <div className="my-bookings-training-invite-actions">
+                    <Link className="my-bookings-training-invite-link" to={`/clubs/${inv.clubId}`}>
+                      {c.openClubToJoin}
+                    </Link>
+                    <button
+                      type="button"
+                      className="my-bookings-training-invite-dismiss"
+                      disabled={dismissingInviteId === inv.id}
+                      onClick={async () => {
+                        setDismissingInviteId(inv.id)
+                        try {
+                          await bookingApi.dismissTrainingInvite(inv.id, member.id)
+                          setTrainingInvites((prev) => prev.filter((x) => x.id !== inv.id))
+                        } catch (e) {
+                          window.alert(e?.message || '—')
+                        } finally {
+                          setDismissingInviteId(null)
+                        }
+                      }}
+                    >
+                      {c.trainingInviteDismiss}
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
       )}
 
       <main className="my-bookings-main">

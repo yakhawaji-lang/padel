@@ -1312,3 +1312,100 @@
   min-height: 48px;
   padding-inline: 20px;
 }
+
+/* ----- Coach training invites (WhatsApp flow) ----- */
+.my-bookings-training-invites {
+  max-width: 720px;
+  margin: 0 auto 16px;
+  padding: 0 16px;
+}
+
+.my-bookings-training-invites-title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--mb-text);
+}
+
+.my-bookings-training-invites-intro {
+  margin: 0 0 12px;
+  font-size: 0.875rem;
+  color: var(--mb-text-muted);
+  line-height: 1.45;
+}
+
+.my-bookings-training-invites-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.my-bookings-training-invite-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--mb-warning-bg);
+  border: 1px solid rgba(217, 119, 6, 0.25);
+  border-radius: var(--mb-radius);
+  box-shadow: var(--mb-shadow);
+}
+
+.my-bookings-training-invite-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.my-bookings-training-invite-club {
+  font-size: 0.9375rem;
+  color: var(--mb-text);
+}
+
+.my-bookings-training-invite-meta {
+  font-size: 0.8125rem;
+  color: var(--mb-text-muted);
+}
+
+.my-bookings-training-invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.my-bookings-training-invite-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  background: var(--mb-primary);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  text-decoration: none;
+  border-radius: var(--mb-radius-sm);
+}
+
+.my-bookings-training-invite-link:hover {
+  background: var(--mb-primary-hover);
+}
+
+.my-bookings-training-invite-dismiss {
+  padding: 8px 12px;
+  border: 1px solid var(--mb-border);
+  background: var(--mb-surface);
+  border-radius: var(--mb-radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--mb-text-muted);
+  cursor: pointer;
+}
+
+.my-bookings-training-invite-dismiss:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1123,3 +1123,329 @@
   border-color: var(--coach-accent);
   box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
 }
+
+/* ----- Duration picker (new session) ----- */
+.coach-duration-modal .coach-duration-modal-info {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  color: var(--coach-slate-600);
+}
+
+.coach-duration-modal-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--coach-slate-900);
+}
+
+.coach-duration-hours-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.coach-duration-hour-btn {
+  padding: 0.65rem 0.5rem;
+  border-radius: var(--coach-radius-sm);
+  border: var(--coach-border);
+  background: #fff;
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+  color: var(--coach-slate-700);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.coach-duration-hour-btn:hover {
+  border-color: var(--coach-accent);
+  background: #ecfdf5;
+}
+
+.coach-duration-hour-btn.active {
+  border-color: var(--coach-accent);
+  background: var(--coach-accent);
+  color: #fff;
+}
+
+/* ----- Favorites panel ----- */
+.coach-favorites-panel {
+  margin-top: var(--coach-gap-lg);
+  padding-top: var(--coach-gap-lg);
+  border-top: 1px solid var(--coach-slate-100);
+}
+
+.coach-favorites-phone-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.coach-favorites-country-select .country-code-select-trigger {
+  min-height: 40px;
+}
+
+.coach-favorites-number-input {
+  flex: 1;
+  min-width: 140px;
+  padding: 0.5rem 0.65rem;
+  border: var(--coach-border);
+  border-radius: var(--coach-radius-sm);
+  font-size: 0.875rem;
+}
+
+[dir='rtl'] .coach-favorites-number-input {
+  text-align: right;
+}
+
+.coach-slot-modal-quick-row {
+  margin-top: 0.35rem;
+}
+
+.coach-favorites-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--coach-slate-500);
+  line-height: 1.45;
+}
+
+.coach-favorites-api-error {
+  color: #dc2626;
+  font-size: 0.8125rem;
+  margin: 0 0 0.5rem;
+}
+
+.coach-favorites-search-results {
+  margin-top: 0.75rem;
+}
+
+.coach-favorites-result-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.coach-favorites-result-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  background: #f8fafc;
+  border-radius: var(--coach-radius-sm);
+  border: 1px solid #e2e8f0;
+}
+
+.coach-fav-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  min-width: 0;
+}
+
+.coach-favorites-star-btn {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  color: #94a3b8;
+}
+
+.coach-favorites-star-btn.is-favorite {
+  color: #d97706;
+}
+
+.coach-favorites-star-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.coach-favorites-empty-msg {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--coach-slate-500);
+}
+
+.coach-favorites-current {
+  margin-top: 1rem;
+}
+
+.coach-favorites-current-title {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--coach-slate-500);
+  margin-bottom: 0.5rem;
+}
+
+.coach-favorites-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.coach-favorites-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #065f46;
+}
+
+.coach-favorites-chip-remove {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #64748b;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.15rem;
+}
+
+/* ----- Merged training cell ----- */
+.coach-court-grid-wrap .club-public-court-grid-cell.training-block-merged {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  min-height: 32px;
+  padding: 2px 4px;
+}
+
+.coach-merged-training-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-align: center;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.coach-merged-training-time {
+  font-size: 0.5625rem;
+  font-weight: 800;
+  color: #1e40af;
+  white-space: nowrap;
+}
+
+.coach-merged-training-trainees {
+  font-size: 0.5rem;
+  font-weight: 600;
+  color: #047857;
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.coach-merged-training-actions-hint {
+  font-size: 0.5rem;
+  color: #1d4ed8;
+  opacity: 0.85;
+}
+
+/* ----- Slot modal: WhatsApp invites ----- */
+.coach-slot-modal-invite {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--coach-slate-100);
+}
+
+.coach-slot-modal-invite-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--coach-slate-900);
+}
+
+.coach-slot-modal-invite-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  color: var(--coach-slate-500);
+  line-height: 1.4;
+}
+
+.coach-slot-modal-fav-list {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.coach-slot-modal-fav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.coach-slot-modal-wa-btn {
+  flex-shrink: 0;
+  padding: 0.4rem 0.65rem;
+  border-radius: var(--coach-radius-sm);
+  border: none;
+  background: #25d366;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.coach-slot-modal-wa-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.coach-slot-modal-quick-invite {
+  margin-top: 0.5rem;
+}
+
+.coach-slot-modal-quick-label {
+  display: block;
+  font-size: 72.5%;
+  font-weight: 600;
+  color: var(--coach-slate-600);
+  margin-bottom: 0.35rem;
+}
+
+.coach-slot-modal-quick-match {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: #f8fafc;
+  border-radius: var(--coach-radius-sm);
+  font-size: 0.8125rem;
+}
+
+.coach-slot-modal-invite-empty {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--coach-slate-500);
+}

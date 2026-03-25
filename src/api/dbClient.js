@@ -505,6 +505,25 @@ export async function removeFavoriteMember(memberId, clubId, favoriteMemberId) {
   return fetchJson(`/api/bookings/favorites?${params}`, { method: 'DELETE' })
 }
 
+export async function recordCoachTrainingInvites({ clubId, bookingId, coachId, memberIds }) {
+  return fetchJson('/api/bookings/coach-training-invite', {
+    method: 'POST',
+    body: JSON.stringify({ clubId, bookingId, coachId, memberIds })
+  })
+}
+
+export async function getMyTrainingInvites(memberId) {
+  const params = new URLSearchParams({ memberId })
+  return fetchJson(`/api/bookings/my-training-invites?${params}`)
+}
+
+export async function dismissTrainingInvite(inviteId, memberId) {
+  return fetchJson('/api/bookings/dismiss-training-invite', {
+    method: 'POST',
+    body: JSON.stringify({ inviteId, memberId })
+  })
+}
+
 // ---- Club join ----
 export async function joinClub(clubId, memberId) {
   return fetchJson('/api/clubs/join', {

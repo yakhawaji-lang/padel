@@ -5,16 +5,33 @@
  */
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { getClubById, refreshClubsFromApi, updateBookingInClub } from '../storage/adminStorage'
+import { getClubById, refreshClubsFromApi, updateBookingInClub, getClubMembersFromStorage, getAllMembersFromStorage } from '../storage/adminStorage'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { getAppLanguage } from '../storage/languageStorage'
 import * as bookingApi from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
 import MultiDatePicker from '../components/MultiDatePicker'
 import { getTimeSlotsForClub, isTimeSlotCoveredByBooking, isSlotInPast, addMinutesToTime, timeToMinutes } from '../utils/coachGridHelpers'
+import CountryCodeSelect from '../components/CountryCodeSelect'
+import { DEFAULT_COUNTRY, normalizeSearchDigits, getMinDigitsForCountry, normalizeMemberPhone } from '../utils/countryCodes'
 import './CoachDashboardPage.css'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
+
+const SLOT_STEP_MIN = 30
+
+function waMeUrlFromDigits(digits) {
+  const d = (digits || '').replace(/\D/g, '')
+  if (!d) return null
+  return `https://wa.me/${d}`
+}
+
+function buildTrainerInviteMessage({ language, clubName, dateLabel, startTime, endTime, clubUrl }) {
+  if (language === 'ar') {
+    return `مرحباً، أدعوك للانضمام إلى حصة تدريبية في ${clubName}.\n📅 ${dateLabel}\n⏰ ${startTime}${endTime ? ` – ${endTime}` : ''}\nيمكنك فتح صفحة النادي وحجز مقعدك من هنا:\n${clubUrl}`
+  }
+  return `Hello — you're invited to join a training session at ${clubName}.\n📅 ${dateLabel}\n⏰ ${startTime}${endTime ? ` – ${endTime}` : ''}\nOpen the club page to book your spot:\n${clubUrl}`
+}
 
 function shiftCalendarDateStr(isoDateStr, deltaDays) {
   const [y, mo, d] = (isoDateStr || '').split('-').map(Number)
@@ -38,11 +55,17 @@ const CoachDashboardPage = () => {
   const [createMaxTrainees, setCreateMaxTrainees] = useState(4)
   const [submitting, setSubmitting] = useState(null)
   const [createError, setCreateError] = useState('')
-  const [hoveredRange, setHoveredRange] = useState(null) // { court, courtId, startSlot, endSlot } للنطاق
+  const [durationModal, setDurationModal] = useState(null) // { court, dateStr, timeSlot, selectedHours }
   const [coachSlotModal, setCoachSlotModal] = useState(null) // { booking, court } — عرض تعديل/حذف
   const [editSlotForm, setEditSlotForm] = useState(null) // { booking, court, pricePerHour, startTime, endTime, maxTrainees }
-  const hasTouch = typeof window !== 'undefined' && 'ontouchstart' in window
-  const touchSelectRef = React.useRef(null) // { court, courtId, dateStr, startSlot } during touch drag
+  const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY.code)
+  const [favNumberInput, setFavNumberInput] = useState('')
+  const [favoritesIds, setFavoritesIds] = useState([])
+  const [favoritesMemberMap, setFavoritesMemberMap] = useState({})
+  const [favoritesError, setFavoritesError] = useState('')
+  const [favoritesAddingId, setFavoritesAddingId] = useState(null)
+  const [inviteBusyMemberId, setInviteBusyMemberId] = useState(null)
+  const [quickInvitePhone, setQuickInvitePhone] = useState('')
 
   const platformUser = getCurrentPlatformUser()
 
@@ -68,6 +91,36 @@ const CoachDashboardPage = () => {
       navigate(`/clubs/${clubId}`, { replace: true })
     }
   }, [loading, club, platformUser?.id, isCoach, clubId, navigate])
+
+  const loadCoachFavorites = useCallback(async () => {
+    if (!platformUser?.id || !clubId || !isCoach) return
+    setFavoritesError('')
+    try {
+      const ids = await bookingApi.getFavoriteMembers(platformUser.id, clubId)
+      const idList = Array.isArray(ids) ? ids.map(String) : []
+      const fromAll = getAllMembersFromStorage() || []
+      const fromClub = getClubMembersFromStorage(clubId) || []
+      const byId = {}
+      for (const m of [...fromClub, ...fromAll]) {
+        if (m?.id != null) byId[String(m.id)] = m
+      }
+      setFavoritesIds(idList)
+      setFavoritesMemberMap(prev => ({ ...prev, ...byId }))
+    } catch (err) {
+      setFavoritesError(err?.message || '')
+      setFavoritesIds([])
+    }
+  }, [platformUser?.id, clubId, isCoach])
+
+  useEffect(() => {
+    loadCoachFavorites()
+  }, [loadCoachFavorites])
+
+  useEffect(() => {
+    const onSync = () => loadCoachFavorites()
+    window.addEventListener('clubs-synced', onSync)
+    return () => window.removeEventListener('clubs-synced', onSync)
+  }, [loadCoachFavorites])
 
   const bookings = useMemo(() => {
     const list = club?.bookings || []
@@ -233,7 +286,7 @@ const CoachDashboardPage = () => {
     }
   }, [clubId, editSlotForm, submitting, language])
 
-  const handleGridCellClick = useCallback(async (court, dateStr, timeSlot, isCoachSlot, bookingId, bookedItem) => {
+  const handleGridCellClick = useCallback((court, dateStr, timeSlot, isCoachSlot, bookedItem) => {
     if (submitting) return
     setCreateError('')
     if (isCoachSlot && bookedItem) {
@@ -241,115 +294,24 @@ const CoachDashboardPage = () => {
       return
     }
     if (!isCoachSlot) {
-      const duration = club?.settings?.bookingDuration ?? 60
-      const endTime = addMinutesToTime(timeSlot, duration)
-      setSubmitting(`${court.id}-${timeSlot}`)
-      try {
-        await bookingApi.createCoachTrainingSlots({
-          clubId,
-          courtId: court.id,
-          dates: [dateStr],
-          startTime: timeSlot,
-          endTime,
-          pricePerHour: createPrice,
-          maxTrainees: createMaxTrainees,
-          coachId: platformUser?.id
-        })
-        await refreshClubsFromApi()
-        setClub(getClubById(clubId))
-      } catch (err) {
-        setCreateError(err?.message || t('Failed to create slot', 'فشل في إنشاء الحجز', language))
-      } finally {
-        setSubmitting(null)
-      }
+      setDurationModal({ court, dateStr, timeSlot, selectedHours: 1 })
     }
-  }, [clubId, club?.settings?.bookingDuration, createPrice, createMaxTrainees, platformUser?.id, submitting])
+  }, [submitting])
 
-  const maxBookingDuration = useMemo(() => {
-    const dp = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
-    const minDur = club?.settings?.bookingDuration ?? 60
-    const valid = (dp || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
-    return valid.length > 0 ? Math.max(...valid) : (club?.settings?.bookingDuration ?? 180)
-  }, [club?.settings?.bookingPrices?.durationPrices, club?.settings?.bookingDuration])
-
-  const isSlotAdjacentToRange = useCallback((timeSlot, startSlot, endSlot) => {
-    const slotM = timeToMinutes(timeSlot)
-    const startM = timeToMinutes(startSlot)
-    const endM = timeToMinutes(endSlot)
-    return slotM === startM - 30 || slotM === endM + 30
-  }, [])
-
-  const handleRangeMouseEnter = useCallback((court, timeSlot, canAddForRange) => {
-    if (!canAddForRange) return
-    const courtId = (court?.id || court?.name || '').toString()
-    const setNewRange = () => setHoveredRange({ court, courtId, startSlot: timeSlot, endSlot: timeSlot, fromCanAdd: true })
-    if (!hoveredRange || !hoveredRange.fromCanAdd) {
-      setNewRange()
-      return
-    }
-    if (hoveredRange.courtId !== courtId) {
-      setNewRange()
-      return
-    }
-    if (isSlotAdjacentToRange(timeSlot, hoveredRange.startSlot, hoveredRange.endSlot)) {
-      const startM = timeToMinutes(hoveredRange.startSlot)
-      const endM = timeToMinutes(hoveredRange.endSlot)
-      const slotM = timeToMinutes(timeSlot)
-      const newStart = slotM < startM ? timeSlot : hoveredRange.startSlot
-      const newEnd = slotM > endM ? timeSlot : hoveredRange.endSlot
-      const newDuration = timeToMinutes(newEnd) - timeToMinutes(newStart) + 30
-      if (newDuration > maxBookingDuration) return
-      setHoveredRange(prev => ({ ...prev, startSlot: newStart, endSlot: newEnd }))
-      return
-    }
-    setNewRange()
-  }, [hoveredRange, isSlotAdjacentToRange, maxBookingDuration])
-
-  const handleRangeMouseLeave = useCallback(() => setHoveredRange(null), [])
-
-  const handleTouchMoveRange = useCallback((e) => {
-    if (!touchSelectRef.current || !e.touches?.[0]) return
-    const touch = e.touches[0]
-    const el = document.elementFromPoint(touch.clientX, touch.clientY)
-    if (!el?.getAttribute) return
-    const courtId = el.getAttribute('data-court-id')
-    const timeSlot = el.getAttribute('data-time-slot')
-    const dateStr = el.getAttribute('data-date')
-    if (!courtId || !timeSlot || !dateStr || el.getAttribute('data-can-add-range') !== '1') return
-    if (courtId !== touchSelectRef.current.courtId) return
-    setHoveredRange(prev => {
-      if (!prev || prev.courtId !== courtId) return { court: touchSelectRef.current.court, courtId, startSlot: timeSlot, endSlot: timeSlot, fromCanAdd: true }
-      const slotM = timeToMinutes(timeSlot)
-      const startM = timeToMinutes(prev.startSlot)
-      const endM = timeToMinutes(prev.endSlot)
-      if (slotM >= startM - 30 && slotM <= endM + 30) {
-        const newStart = slotM < startM ? timeSlot : prev.startSlot
-        const newEnd = slotM > endM ? timeSlot : prev.endSlot
-        const dur = timeToMinutes(newEnd) - timeToMinutes(newStart) + 30
-        if (dur <= maxBookingDuration) return { ...prev, startSlot: newStart, endSlot: newEnd }
-      }
-      return prev
-    })
-  }, [maxBookingDuration])
-
-  const handleTouchEndRange = useCallback(() => {
-    touchSelectRef.current = null
-  }, [])
-
-  const handleRangeAdd = useCallback(async (court, dateStr, startSlot, endSlot) => {
-    if (submitting) return
-    const startM = timeToMinutes(startSlot)
-    const endM = timeToMinutes(endSlot)
-    const duration = endM - startM + 30
-    const endTime = addMinutesToTime(endSlot, 30)
+  const handleDurationConfirm = useCallback(async () => {
+    if (!durationModal?.court || submitting) return
+    const { court, dateStr, timeSlot, selectedHours } = durationModal
+    const hours = Math.min(4, Math.max(1, parseInt(selectedHours, 10) || 1))
+    const endTime = addMinutesToTime(timeSlot, hours * 60)
+    setDurationModal(null)
     setCreateError('')
-    setSubmitting(`${court.id}-${startSlot}`)
+    setSubmitting(`${court.id}-${timeSlot}`)
     try {
       await bookingApi.createCoachTrainingSlots({
         clubId,
         courtId: court.id,
         dates: [dateStr],
-        startTime: startSlot,
+        startTime: timeSlot,
         endTime,
         pricePerHour: createPrice,
         maxTrainees: createMaxTrainees,
@@ -357,13 +319,12 @@ const CoachDashboardPage = () => {
       })
       await refreshClubsFromApi()
       setClub(getClubById(clubId))
-      setHoveredRange(null)
     } catch (err) {
       setCreateError(err?.message || t('Failed to create slot', 'فشل في إنشاء الحجز', language))
     } finally {
       setSubmitting(null)
     }
-  }, [clubId, createPrice, createMaxTrainees, platformUser?.id, submitting])
+  }, [durationModal, submitting, clubId, createPrice, createMaxTrainees, platformUser?.id, language])
 
   const courtName = (id) => {
     const c = club?.courts?.find(x => x.id === id || x.name === id)
@@ -379,6 +340,50 @@ const CoachDashboardPage = () => {
       year: 'numeric'
     })
   }
+
+  const clubPublicPath = (() => {
+    const basePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '')
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    return origin ? `${origin}${basePath}/clubs/${clubId}` : `${basePath}/clubs/${clubId}`
+  })()
+
+  const openWhatsAppTrainingInvite = useCallback(async (inviteeMemberId, phoneDigits) => {
+    if (!coachSlotModal?.booking?.id || !platformUser?.id) return
+    const b = coachSlotModal.booking
+    const dateStr = (b.date || b.startDate || '').toString().split('T')[0]
+    const startT = (b.startTime || b.timeSlot || '').toString()
+    const endT = (b.endTime || '').toString()
+    const clubName = language === 'ar' ? (club?.nameAr || club?.name || '') : (club?.name || club?.nameAr || '')
+    const dateLabel = formatDate(dateStr)
+    const msg = buildTrainerInviteMessage({
+      language,
+      clubName,
+      dateLabel,
+      startTime: startT,
+      endTime: endT,
+      clubUrl: clubPublicPath
+    })
+    setInviteBusyMemberId(inviteeMemberId)
+    setCreateError('')
+    try {
+      await bookingApi.recordCoachTrainingInvites({
+        clubId,
+        bookingId: b.id,
+        coachId: platformUser.id,
+        memberIds: [inviteeMemberId]
+      })
+    } catch (err) {
+      setCreateError(err?.message || t('Could not record invite', 'تعذّر تسجيل الدعوة', language))
+      setInviteBusyMemberId(null)
+      return
+    }
+    const wa = waMeUrlFromDigits(phoneDigits)
+    if (wa) {
+      const url = `${wa}?text=${encodeURIComponent(msg)}`
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+    setInviteBusyMemberId(null)
+  }, [coachSlotModal, platformUser?.id, clubId, club, language, clubPublicPath, formatDate])
 
   const currency = club?.settings?.currency || 'SAR'
   const splitPayDeadlineMins = club?.settings?.splitPaymentDeadlineMinutes ?? 30
@@ -422,7 +427,7 @@ const CoachDashboardPage = () => {
           <header className="coach-panel-header">
             <div className="coach-panel-title-block">
               <h2 className="coach-panel-title">{t('Set your availability', 'حدد أوقات تواجدك', language)}</h2>
-              <p className="coach-panel-subtitle">{t('Select date, click empty slots to add. Click your slots to edit or delete.', 'اختر التاريخ واضغط على الفراغ للإضافة، أو على حجزك للتعديل/الحذف.', language)}</p>
+              <p className="coach-panel-subtitle">{t('Pick a date, tap an empty cell, choose duration (1–4 hours), then confirm. Tap your session block to edit, delete, or invite trainees via WhatsApp.', 'اختر التاريخ واضغط خلية فارغة، ثم اختر المدة من 1 إلى 4 ساعات. اضغط على الحصة للتعديل أو الحذف أو دعوة المتدربين عبر واتساب.', language)}</p>
             </div>
           </header>
 
@@ -487,6 +492,115 @@ const CoachDashboardPage = () => {
             </div>
           </div>
 
+          <div className="coach-favorites-panel">
+            <h3 className="coach-controls-heading">{t('Favorite members (invites)', 'أعضاء مفضلون (للدعوات)', language)}</h3>
+            <p className="coach-favorites-hint">{t('Search by full mobile number to find club members and add them to your favorites.', 'ابحث برقم الجوال كاملاً للعثور على أعضاء النادي وإضافتهم للمفضلة.', language)}</p>
+            {favoritesError && <p className="coach-favorites-api-error" role="alert">{favoritesError}</p>}
+            <div className="coach-favorites-phone-row">
+              <CountryCodeSelect value={countryCode} onChange={setCountryCode} language={language} className="coach-favorites-country-select" />
+              <input
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                className="coach-favorites-number-input"
+                placeholder={language === 'en' ? 'Mobile number' : 'رقم الجوال'}
+                value={favNumberInput}
+                onChange={e => setFavNumberInput(e.target.value)}
+              />
+            </div>
+            {(() => {
+              const otherMembers = (getClubMembersFromStorage(clubId) || []).filter(m => String(m?.id) !== String(platformUser?.id))
+              const allPlat = getAllMembersFromStorage() || []
+              const byId = new Map()
+              for (const m of [...otherMembers, ...allPlat]) {
+                if (m?.id) byId.set(String(m.id), m)
+              }
+              const searchDigits = normalizeSearchDigits(countryCode, favNumberInput)
+              const minDigits = countryCode.length + getMinDigitsForCountry(countryCode)
+              const hasFullPhone = searchDigits.length >= minDigits
+              const filtered = hasFullPhone
+                ? otherMembers.filter(m => {
+                    const mPhone = normalizeMemberPhone(m?.mobile || m?.phone || '')
+                    return mPhone && (mPhone.includes(searchDigits) || searchDigits.includes(mPhone))
+                  })
+                : []
+              const favoriteIdSet = new Set(favoritesIds.map(String))
+              const toggleFav = async (memberId, isFav) => {
+                if (!platformUser?.id || !memberId) return
+                setFavoritesError('')
+                setFavoritesAddingId(memberId)
+                try {
+                  if (isFav) {
+                    await bookingApi.removeFavoriteMember(platformUser.id, clubId, memberId)
+                    setFavoritesIds(prev => prev.filter(id => String(id) !== String(memberId)))
+                  } else {
+                    await bookingApi.addFavoriteMember(platformUser.id, clubId, memberId)
+                    setFavoritesIds(prev => [...prev, String(memberId)])
+                  }
+                } catch (err) {
+                  setFavoritesError(err?.message || t('Action failed', 'فشل الإجراء', language))
+                } finally {
+                  setFavoritesAddingId(null)
+                }
+              }
+              return (
+                <>
+                  {hasFullPhone && (
+                    <div className="coach-favorites-search-results">
+                      {filtered.length === 0 ? (
+                        <p className="coach-favorites-empty-msg">{t('No members found for this phone number', 'لا توجد نتائج لهذا الرقم', language)}</p>
+                      ) : (
+                        <ul className="coach-favorites-result-list">
+                          {filtered.map(m => {
+                            const isFav = favoriteIdSet.has(String(m.id))
+                            return (
+                              <li key={m.id} className="coach-favorites-result-row">
+                                <span className="coach-fav-name">{m.name || m.email || m.id}</span>
+                                <button
+                                  type="button"
+                                  className={`coach-favorites-star-btn ${isFav ? 'is-favorite' : ''}`}
+                                  disabled={!!favoritesAddingId}
+                                  onClick={() => toggleFav(m.id, isFav)}
+                                  title={isFav ? t('Remove from favorites', 'إزالة من المفضلة', language) : t('Add to favorites', 'إضافة للمفضلة', language)}
+                                >
+                                  {isFav ? '★' : '☆'}
+                                </button>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                  <div className="coach-favorites-current">
+                    <span className="coach-favorites-current-title">{t('Current favorites', 'المفضلة الحالية', language)}</span>
+                    {favoritesIds.length === 0 ? (
+                      <p className="coach-favorites-empty-msg">{t('None yet. Search above.', 'لا يوجد بعد. ابحث أعلاه.', language)}</p>
+                    ) : (
+                      <ul className="coach-favorites-chips">
+                        {favoritesIds.map(fid => {
+                          const m = favoritesMemberMap[fid] || byId.get(fid)
+                          return (
+                            <li key={fid} className="coach-favorites-chip">
+                              <span>{m ? (m.name || m.email || fid) : fid}</span>
+                              <button
+                                type="button"
+                                className="coach-favorites-chip-remove"
+                                disabled={!!favoritesAddingId}
+                                onClick={() => toggleFav(fid, true)}
+                                aria-label={t('Remove', 'إزالة', language)}
+                              >×</button>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </>
+              )
+            })()}
+          </div>
+
           {createError && <p className="coach-create-error">{createError}</p>}
 
           <div className="coach-schedule-heading">
@@ -526,13 +640,7 @@ const CoachDashboardPage = () => {
                 </button>
               </div>
             </div>
-            <div
-              className="coach-court-grid-scroll"
-              onMouseLeave={handleRangeMouseLeave}
-              onTouchMove={hasTouch ? handleTouchMoveRange : undefined}
-              onTouchEnd={hasTouch ? handleTouchEndRange : undefined}
-              onTouchCancel={hasTouch ? handleTouchEndRange : undefined}
-            >
+            <div className="coach-court-grid-scroll">
               <div className="coach-court-grid-wrap">
             {(() => {
               const courts = (club?.courts || []).filter(c => !c.maintenance)
@@ -548,8 +656,8 @@ const CoachDashboardPage = () => {
                   }}
                 >
                   <div className="club-public-court-grid-corner" />
-                  {timeSlots.map(t => (
-                    <div key={t} className="club-public-court-grid-time-header">{t}</div>
+                  {timeSlots.map(ts => (
+                    <div key={ts} className="club-public-court-grid-time-header">{ts}</div>
                   ))}
                   {courts.map(court => (
                     <React.Fragment key={court.id}>
@@ -579,7 +687,11 @@ const CoachDashboardPage = () => {
                           const coachId = bookedItem.coachId || d.coachId || bookedItem.memberId
                           return type === 'training' && String(coachId || '') === String(platformUser?.id || '')
                         })()
-                        const traineeCount = isCoachSlot && bookedItem ? (bookedItem.paymentShares || []).filter(s => String(s.memberId || '') !== String(platformUser?.id || '')).length : 0
+                        const coachIdSelf = String(platformUser?.id || '')
+                        const traineeRows = isCoachSlot && bookedItem
+                          ? (bookedItem.paymentShares || []).filter(s => String(s.memberId || s.member_id || '') !== coachIdSelf)
+                          : []
+                        const traineeCount = traineeRows.length
                         const isCoachSlotWithTrainees = isCoachSlot && traineeCount > 0
                         const isOtherBooked = bookedItem && !isCoachSlot
                         const isPast = isSlotInPast(dateStr, timeSlot)
@@ -588,68 +700,50 @@ const CoachDashboardPage = () => {
                         const canAdd = !bookedItem && !isPast
                         const canRemove = isCoachSlot
                         const canClick = (canAdd || canRemove) && !isSubmittingThis
-                        const cellStatus = isCoachSlot ? (isCoachSlotWithTrainees ? 'coach-slot coach-slot-with-trainees' : 'coach-slot coach-slot-empty') : isOtherBooked ? 'booked' : isPast ? 'past' : 'available'
-                        const slotTitle = isCoachSlot ? (language === 'en' ? 'Click to edit or delete' : 'اضغط للتعديل أو الحذف') : isOtherBooked ? t('Booked', 'محجوز', language) : isPast ? t('Past', 'منتهي', language) : canAdd ? (language === 'en' ? 'Click to add availability' : 'اضغط لإضافة التوفر') : ''
-                        const canAddForRange = canAdd
-                        const isInRange = hoveredRange && hoveredRange.courtId === courtIdForMatch && (() => {
-                          const slotM = timeToMinutes(timeSlot)
-                          const startM = timeToMinutes(hoveredRange.startSlot)
-                          const endM = timeToMinutes(hoveredRange.endSlot)
-                          return slotM >= startM && slotM <= endM
-                        })()
-                        let slotPrice = null
-                        if (canClick) {
-                          if (isInRange && hoveredRange && canAdd) {
-                            const startM = timeToMinutes(hoveredRange.startSlot)
-                            const endM = timeToMinutes(hoveredRange.endSlot)
-                            const dur = endM - startM + 30
-                            slotPrice = Math.round(createPrice * (dur / 60) * 100) / 100
-                          } else if (canAdd && !isInRange) {
-                            const dur = club?.settings?.bookingDuration ?? 60
-                            slotPrice = Math.round(createPrice * (dur / 60) * 100) / 100
-                          } else if (isCoachSlot && bookedItem?.totalAmount != null) {
-                            slotPrice = parseFloat(bookedItem.totalAmount) || 0
-                          }
+                        const cellStatus = isCoachSlot ? (isCoachSlotWithTrainees ? 'coach-slot coach-slot-with-trainees booked training' : 'coach-slot coach-slot-empty booked training') : isOtherBooked ? 'booked' : isPast ? 'past' : 'available'
+                        const slotTitle = isCoachSlot ? (language === 'en' ? 'Edit, delete, or invite trainees' : 'تعديل أو حذف أو دعوة متدربين') : isOtherBooked ? t('Booked', 'محجوز', language) : isPast ? t('Past', 'منتهي', language) : canAdd ? (language === 'en' ? 'Add session (choose duration next)' : 'إضافة حصة (اختر المدة بعدها)') : ''
+
+                        const trainingStart = isCoachSlot && bookedItem ? (bookedItem.startTime || bookedItem.timeSlot || '').toString().trim() : ''
+                        const inferDur = isCoachSlot && bookedItem ? (parseInt(bookedItem.durationMinutes, 10) || 60) : 60
+                        const trainingEnd = isCoachSlot && bookedItem
+                          ? ((bookedItem.endTime || '').toString().trim() || (trainingStart ? addMinutesToTime(trainingStart, inferDur) : ''))
+                          : ''
+                        const isTrainingBlockStart = isCoachSlot && trainingStart && timeToMinutes(timeSlot) === timeToMinutes(trainingStart)
+                        const isTrainingBlockContinuation = isCoachSlot && !isTrainingBlockStart
+                        if (isTrainingBlockContinuation) {
+                          return null
                         }
+                        const trainingSpan = isTrainingBlockStart && trainingEnd
+                          ? Math.max(1, Math.round((timeToMinutes(trainingEnd) - timeToMinutes(trainingStart)) / SLOT_STEP_MIN))
+                          : 0
+                        const traineeLabel = traineeRows.length > 0
+                          ? traineeRows.map(s => (s.memberName || s.member_name || s.phone || t('Member', 'عضو', language))).join(language === 'ar' ? '، ' : ', ')
+                          : ''
+
                         const handleCellClick = () => {
-                          if (isCoachSlot) {
-                            handleGridCellClick(court, dateStr, timeSlot, isCoachSlot, bookedItem?.id, bookedItem)
-                            return
-                          }
-                          if (hasTouch && canAddForRange && !isInRange) {
-                            handleRangeMouseEnter(court, timeSlot, canAddForRange)
-                            return
-                          }
-                          if (isInRange && hoveredRange && hoveredRange.startSlot !== hoveredRange.endSlot) {
-                            handleRangeAdd(court, dateStr, hoveredRange.startSlot, hoveredRange.endSlot)
-                            return
-                          }
-                          handleGridCellClick(court, dateStr, timeSlot, isCoachSlot, bookedItem?.id, bookedItem)
+                          handleGridCellClick(court, dateStr, timeSlot, isCoachSlot, bookedItem)
                         }
-                        const isCoachSlotHovered = isCoachSlot && hoveredRange?.courtId === courtIdForMatch && hoveredRange?.startSlot === timeSlot
                         return (
                           <div
                             key={timeSlot}
                             role={canClick ? 'button' : undefined}
                             tabIndex={canClick ? 0 : undefined}
-                            className={`club-public-court-grid-cell coach-grid-cell ${cellStatus} ${canClick ? 'clickable' : ''} ${isInRange ? 'in-range hovered' : ''} ${isCoachSlotHovered ? 'hovered' : ''}`}
+                            className={`club-public-court-grid-cell coach-grid-cell ${cellStatus} ${canClick ? 'clickable' : ''} ${isTrainingBlockStart ? 'training-block-merged' : ''}`.trim()}
+                            style={trainingSpan > 0 ? { gridColumn: `span ${trainingSpan}` } : undefined}
                             title={slotTitle}
-                            {...(canAddForRange && { 'data-court-id': courtIdForMatch, 'data-date': dateStr, 'data-time-slot': timeSlot, 'data-can-add-range': '1' })}
-                            onMouseEnter={canAddForRange ? () => handleRangeMouseEnter(court, timeSlot, canAddForRange) : (canClick ? () => setHoveredRange({ court, courtId: courtIdForMatch, startSlot: timeSlot, endSlot: timeSlot, fromCanAdd: false }) : undefined)}
-                            onTouchStart={hasTouch && canAddForRange ? () => { touchSelectRef.current = { court, courtId: courtIdForMatch, dateStr, startSlot: timeSlot } } : undefined}
                             onClick={canClick ? handleCellClick : undefined}
                             onKeyDown={canClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCellClick() } } : undefined}
                           >
-                            {(isInRange || isCoachSlotHovered) && slotPrice != null ? (
-                              <span className="coach-cell-price">{slotPrice} {currency}</span>
-                            ) : isCoachSlot ? (
-                              <span className="coach-slot-cell-content" title={slotTitle}>
-                                <span className="coach-slot-icon">🏸</span>
-                                <span className="coach-slot-hint">✏️🗑️</span>
+                            {isCoachSlot && isTrainingBlockStart ? (
+                              <span className="coach-merged-training-block">
+                                <span className="coach-merged-training-time">{trainingStart}{trainingEnd ? `–${trainingEnd}` : ''}</span>
+                                {traineeLabel ? (
+                                  <span className="coach-merged-training-trainees">{traineeLabel}</span>
+                                ) : (
+                                  <span className="coach-merged-training-actions-hint">{language === 'en' ? 'Edit · Delete' : 'تعديل · حذف'}</span>
+                                )}
                               </span>
-                            ) : (
-                              ''
-                            )}
+                            ) : null}
                           </div>
                         )
                       })}
@@ -662,6 +756,38 @@ const CoachDashboardPage = () => {
             </div>
           </div>
         </section>
+
+        {durationModal && (
+          <div className="coach-slot-modal-backdrop" onClick={() => !submitting && setDurationModal(null)}>
+            <div className="coach-slot-modal coach-duration-modal" onClick={e => e.stopPropagation()}>
+              <h3>{t('Session length', 'مدة الحصة', language)}</h3>
+              <p className="coach-duration-modal-info">
+                {language === 'ar' && durationModal.court?.nameAr ? durationModal.court.nameAr : durationModal.court?.name} — {formatDate(durationModal.dateStr)} {durationModal.timeSlot}
+              </p>
+              <p className="coach-duration-modal-hint">{t('How many hours? (1–4)', 'كم عدد الساعات؟ (1–4)', language)}</p>
+              <div className="coach-duration-hours-grid" role="group" aria-label={t('Hours', 'الساعات', language)}>
+                {[1, 2, 3, 4].map(h => (
+                  <button
+                    key={h}
+                    type="button"
+                    className={`coach-duration-hour-btn ${durationModal.selectedHours === h ? 'active' : ''}`}
+                    onClick={() => setDurationModal(d => (d ? { ...d, selectedHours: h } : null))}
+                  >
+                    {h} {language === 'en' ? 'h' : 'س'}
+                  </button>
+                ))}
+              </div>
+              <div className="coach-slot-modal-actions">
+                <button type="button" className="coach-slot-modal-btn coach-slot-modal-save" onClick={handleDurationConfirm} disabled={!!submitting}>
+                  {submitting ? '…' : t('Create', 'إنشاء', language)}
+                </button>
+                <button type="button" className="coach-slot-modal-btn coach-slot-modal-cancel" onClick={() => setDurationModal(null)} disabled={!!submitting}>
+                  {t('Cancel', 'إلغاء', language)}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Coach slot edit/delete modal */}
         {coachSlotModal && (() => {
@@ -699,6 +825,73 @@ const CoachDashboardPage = () => {
                     </ul>
                   </div>
                 )}
+              </div>
+              <div className="coach-slot-modal-invite">
+                <h4 className="coach-slot-modal-invite-title">{t('Invite via WhatsApp', 'دعوة عبر واتساب', language)}</h4>
+                <p className="coach-slot-modal-invite-hint">{t('Sends a club link and records the invite on the member’s account.', 'يُرسل رابط النادي ويُسجَّل الطلب في حساب العضو.', language)}</p>
+                {favoritesIds.length > 0 && (
+                  <ul className="coach-slot-modal-fav-list">
+                    {favoritesIds.map(fid => {
+                      const m = favoritesMemberMap[fid] || (getClubMembersFromStorage(clubId) || []).find(x => String(x.id) === String(fid)) || (getAllMembersFromStorage() || []).find(x => String(x.id) === String(fid))
+                      const rawPhone = normalizeMemberPhone(m?.mobile || m?.phone || '')
+                      const label = m ? (m.name || m.email || fid) : fid
+                      return (
+                        <li key={fid} className="coach-slot-modal-fav-row">
+                          <span>{label}</span>
+                          <button
+                            type="button"
+                            className="coach-slot-modal-wa-btn"
+                            disabled={!rawPhone || inviteBusyMemberId === fid}
+                            onClick={() => openWhatsAppTrainingInvite(fid, rawPhone)}
+                          >
+                            {language === 'en' ? 'WhatsApp' : 'واتساب'}
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+                <div className="coach-slot-modal-quick-invite">
+                  <label className="coach-slot-modal-quick-label">{t('Or find member by mobile', 'أو ابحث برقم الجوال', language)}</label>
+                  <div className="coach-favorites-phone-row coach-slot-modal-quick-row">
+                    <CountryCodeSelect value={countryCode} onChange={setCountryCode} language={language} className="coach-favorites-country-select" />
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      className="coach-favorites-number-input"
+                      placeholder={language === 'en' ? 'Mobile' : 'جوال'}
+                      value={quickInvitePhone}
+                      onChange={e => setQuickInvitePhone(e.target.value)}
+                    />
+                  </div>
+                  {(() => {
+                    const otherMembers = (getClubMembersFromStorage(clubId) || []).filter(x => String(x?.id) !== String(platformUser?.id))
+                    const qDigits = normalizeSearchDigits(countryCode, quickInvitePhone)
+                    const minD = countryCode.length + getMinDigitsForCountry(countryCode)
+                    if (qDigits.length < minD) return null
+                    const match = otherMembers.find(m => {
+                      const mp = normalizeMemberPhone(m?.mobile || m?.phone || '')
+                      return mp && (mp.includes(qDigits) || qDigits.includes(mp))
+                    })
+                    if (!match) {
+                      return <p className="coach-slot-modal-invite-empty">{t('No club member with this number.', 'لا يوجد عضو بهذا الرقم في النادي.', language)}</p>
+                    }
+                    const p = normalizeMemberPhone(match.mobile || match.phone || '')
+                    return (
+                      <div className="coach-slot-modal-quick-match">
+                        <span>{match.name || match.email || match.id}</span>
+                        <button
+                          type="button"
+                          className="coach-slot-modal-wa-btn"
+                          disabled={!p || inviteBusyMemberId === match.id}
+                          onClick={() => openWhatsAppTrainingInvite(match.id, p)}
+                        >
+                          {language === 'en' ? 'WhatsApp' : 'واتساب'}
+                        </button>
+                      </div>
+                    )
+                  })()}
+                </div>
               </div>
               <div className="coach-slot-modal-actions">
                 <button type="button" className="coach-slot-modal-btn coach-slot-modal-edit" onClick={() => {

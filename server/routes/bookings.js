@@ -700,6 +700,146 @@ router.delete('/favorites', async (req, res) => {
   }
 })
 
+/** POST /api/bookings/coach-training-invite — Coach records invites + optional WhatsApp prep (member sees in My bookings) */
+router.post('/coach-training-invite', async (req, res) => {
+  try {
+    const normalized = await hasNormalizedTables()
+    if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
+
+    const { clubId, bookingId, coachId, memberIds } = req.body || {}
+    if (!clubId || !bookingId || !coachId || !Array.isArray(memberIds) || memberIds.length === 0) {
+      return res.status(400).json({ error: 'clubId, bookingId, coachId, memberIds required' })
+    }
+
+    let mcRows = []
+    try {
+      const r = await query(
+        'SELECT 1 FROM member_clubs WHERE member_id = ? AND club_id = ? AND is_coach = 1',
+        [coachId, clubId]
+      )
+      mcRows = r.rows || []
+    } catch (mcErr) {
+      if (mcErr?.message?.includes('is_coach')) {
+        return res.status(400).json({ error: 'Coach feature not migrated.' })
+      }
+      throw mcErr
+    }
+    if (!mcRows?.length) {
+      return res.status(403).json({ error: 'Not a coach for this club' })
+    }
+
+    const { rows: bRows } = await query(
+      'SELECT id, member_id, data FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL',
+      [bookingId, clubId]
+    )
+    if (!bRows?.length) return res.status(404).json({ error: 'Booking not found' })
+    let data = {}
+    try {
+      data = typeof bRows[0].data === 'object' ? bRows[0].data : JSON.parse(bRows[0].data || '{}')
+    } catch (_) {}
+    if (data.type !== 'training') return res.status(400).json({ error: 'Not a training booking' })
+    const dataCoach = (data.coachId || bRows[0].member_id || '').toString()
+    if (String(dataCoach) !== String(coachId)) {
+      return res.status(403).json({ error: 'Not your training slot' })
+    }
+
+    const uniqueInvitees = [...new Set(memberIds.map((id) => String(id).trim()).filter(Boolean))]
+      .filter((id) => id !== String(coachId))
+    if (uniqueInvitees.length === 0) {
+      return res.status(400).json({ error: 'No valid invitees' })
+    }
+
+    let tableMissing = false
+    for (const inviteeId of uniqueInvitees) {
+      try {
+        await query(
+          `INSERT IGNORE INTO coach_training_invites (club_id, booking_id, coach_member_id, invitee_member_id)
+           VALUES (?, ?, ?, ?)`,
+          [clubId, bookingId, coachId, inviteeId]
+        )
+      } catch (insErr) {
+        if (insErr?.message?.includes("doesn't exist") || insErr?.code === 'ER_NO_SUCH_TABLE') {
+          tableMissing = true
+          break
+        }
+        throw insErr
+      }
+    }
+    if (tableMissing) {
+      return res.status(503).json({ error: 'coach_training_invites table missing. Run DB migration.' })
+    }
+
+    res.json({ ok: true, recorded: uniqueInvitees.length })
+  } catch (e) {
+    console.error('bookings coach-training-invite error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** GET /api/bookings/my-training-invites — Pending training session invites for a member */
+router.get('/my-training-invites', async (req, res) => {
+  try {
+    const { memberId } = req.query
+    if (!memberId) return res.status(400).json({ error: 'memberId required' })
+    try {
+      const { rows } = await query(
+        `SELECT i.id, i.booking_id, i.club_id, i.coach_member_id, i.created_at,
+                b.booking_date AS booking_date, b.start_time, b.end_time, b.court_id
+         FROM coach_training_invites i
+         INNER JOIN club_bookings b ON b.id = i.booking_id AND b.club_id = i.club_id AND b.deleted_at IS NULL
+         WHERE i.invitee_member_id = ? AND i.dismissed_at IS NULL
+         ORDER BY i.created_at DESC`,
+        [memberId]
+      )
+      const out = (rows || []).map((r) => ({
+        id: r.id,
+        bookingId: r.booking_id,
+        clubId: r.club_id,
+        coachMemberId: r.coach_member_id,
+        createdAt: r.created_at,
+        date: r.booking_date ? String(r.booking_date).split('T')[0] : null,
+        startTime: r.start_time || null,
+        endTime: r.end_time || null,
+        courtId: r.court_id || null
+      }))
+      res.json(out)
+    } catch (e) {
+      if (e?.message?.includes("doesn't exist") || e?.code === 'ER_NO_SUCH_TABLE') {
+        return res.json([])
+      }
+      throw e
+    }
+  } catch (e) {
+    console.error('bookings my-training-invites error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** POST /api/bookings/dismiss-training-invite */
+router.post('/dismiss-training-invite', async (req, res) => {
+  try {
+    const { inviteId, memberId } = req.body || {}
+    if (!inviteId || !memberId) {
+      return res.status(400).json({ error: 'inviteId, memberId required' })
+    }
+    try {
+      await query(
+        'UPDATE coach_training_invites SET dismissed_at = NOW() WHERE id = ? AND invitee_member_id = ?',
+        [inviteId, memberId]
+      )
+    } catch (e) {
+      if (e?.message?.includes("doesn't exist") || e?.code === 'ER_NO_SUCH_TABLE') {
+        return res.json({ ok: true })
+      }
+      throw e
+    }
+    res.json({ ok: true })
+  } catch (e) {
+    console.error('bookings dismiss-training-invite error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
 /** GET /api/bookings/share-invite - Get invite token for member's pending share (for participant payment flow) */
 router.get('/share-invite', async (req, res) => {
   try {
