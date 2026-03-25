@@ -1577,6 +1577,45 @@
   font-size: 1.25rem;
   color: #1e3a5f;
 }
+
+/* Join training — stepped modal */
+.club-public-training-join-modal .club-public-training-join-summary-row strong {
+  color: #1e293b;
+  font-weight: 700;
+}
+.club-public-training-join-total {
+  margin-top: 10px;
+  padding: 18px 16px;
+  background: linear-gradient(145deg, #e8eef6 0%, #f1f5f9 100%);
+  border: 1px solid #c3d2e3;
+  border-radius: 12px;
+}
+.club-public-training-join-total .club-public-booking-modal-price-value {
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
+}
+.club-public-training-join-split-unavailable {
+  margin: 10px 0 0;
+  font-size: 0.8125rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+.club-public-training-join-final-pay {
+  border-top: 1px solid #e2e8f0;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+.club-public-training-join-modal .booking-payment-share {
+  margin-top: 12px;
+  padding-top: 16px;
+}
+.club-public-booking-payment-style-btn {
+  position: relative;
+}
+.club-public-training-join-modal .club-public-booking-step-recap-meta {
+  display: block;
+  margin-top: 6px;
+}
 .club-public-booking-modal-actions {
   display: flex;
   gap: 12px;

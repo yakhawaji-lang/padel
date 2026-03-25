@@ -87,9 +87,15 @@ export default function BookingPaymentShare({
   language = 'en',
   value = [],
   onChange,
+  /** Max number of other payers (excludes booker). Null = no limit. */
+  maxShareCount = null,
+  /** Hide outer "Share payment" checkbox; panel always open (e.g. training join step). */
+  hideHeaderToggle = false,
+  /** Optional hint when cap reached */
+  maxShareHint = '',
 }) {
   const shares = value || []
-  const [isExpanded, setIsExpanded] = useState(shares.length > 0)
+  const [isExpanded, setIsExpanded] = useState(hideHeaderToggle || shares.length > 0)
   const [splitMode, setSplitMode] = useState('equal')
   const [addType, setAddType] = useState('registered')
   const [manualPhone, setManualPhone] = useState('')
@@ -155,8 +161,14 @@ export default function BookingPaymentShare({
   const equalAmount = shares.length > 0 ? Math.round((totalPrice / (shares.length + 1)) * 100) / 100 : 0
 
   useEffect(() => {
+    if (hideHeaderToggle) setIsExpanded(true)
+  }, [hideHeaderToggle])
+
+  useEffect(() => {
     if (shares.length > 0 && !isExpanded) setIsExpanded(true)
-  }, [shares.length])
+  }, [shares.length, isExpanded])
+
+  const atShareCap = maxShareCount != null && shares.length >= maxShareCount
 
   useEffect(() => {
     if (splitMode === 'equal' && shares.length > 0) {
@@ -183,6 +195,7 @@ export default function BookingPaymentShare({
 
   const addRegistered = (member) => {
     if (!member?.id) return
+    if (maxShareCount != null && shares.length >= maxShareCount) return
     const amt = splitMode === 'equal' ? (shares.length === 0 ? totalPrice / 2 : equalAmount) : remaining / 2
     const amount = Math.round(amt * 100) / 100
     const phone = member?.mobile || member?.phone || ''
@@ -198,6 +211,7 @@ export default function BookingPaymentShare({
   }
 
   const addUnregistered = (phoneVal) => {
+    if (maxShareCount != null && shares.length >= maxShareCount) return
     const p = normalizePhone(phoneVal || manualPhone)
     if (!p || p.length < 8) {
       setContactError(t('Enter a valid phone number', 'أدخل رقم جوال صحيح'))
@@ -220,7 +234,11 @@ export default function BookingPaymentShare({
     try {
       const contacts = await navigator.contacts.select(['tel', 'name'], { multiple: true })
       if (contacts?.length > 0) {
-        const validPhones = contacts.map(c => (c.tel && c.tel[0]) || '').map(tel => normalizePhone(tel)).filter(p => p && p.length >= 8)
+        let validPhones = contacts.map(c => (c.tel && c.tel[0]) || '').map(tel => normalizePhone(tel)).filter(p => p && p.length >= 8)
+        if (maxShareCount != null) {
+          const room = Math.max(0, maxShareCount - shares.length)
+          validPhones = validPhones.slice(0, room)
+        }
         if (validPhones.length > 0) {
           const totalParticipants = shares.length + validPhones.length + 1
           const amt = splitMode === 'equal'
@@ -252,17 +270,19 @@ export default function BookingPaymentShare({
 
   return (
     <div className="booking-payment-share">
-      <div className="booking-payment-share-header">
-        <label className="booking-payment-share-toggle">
-          <input
-            type="checkbox"
-            checked={isExpanded}
-            onChange={e => handleToggle(e.target.checked)}
-            aria-expanded={isExpanded}
-          />
-          <span className="booking-payment-share-toggle-text">{t('Share payment with others', 'مشاركة الدفع مع آخرين')}</span>
-        </label>
-      </div>
+      {!hideHeaderToggle && (
+        <div className="booking-payment-share-header">
+          <label className="booking-payment-share-toggle">
+            <input
+              type="checkbox"
+              checked={isExpanded}
+              onChange={e => handleToggle(e.target.checked)}
+              aria-expanded={isExpanded}
+            />
+            <span className="booking-payment-share-toggle-text">{t('Share payment with others', 'مشاركة الدفع مع آخرين')}</span>
+          </label>
+        </div>
+      )}
 
       {isExpanded && (
         <div className="booking-payment-share-panel">
@@ -342,6 +362,13 @@ export default function BookingPaymentShare({
             </>
           ) : null}
 
+          {atShareCap ? (
+            <p className="booking-payment-share-cap-notice" role="status">
+              {maxShareHint || t('Maximum number of participants for this split has been reached.', 'تم الوصول للحد الأقصى من المشاركين في التقسيم لهذه الحصة.')}
+            </p>
+          ) : null}
+
+          {!atShareCap ? (
           <div className="booking-payment-share-add">
             <p className="booking-payment-share-add-title">{t('Add participant', 'إضافة مشارك')}</p>
             <div className="booking-payment-share-add-type">
@@ -371,7 +398,7 @@ export default function BookingPaymentShare({
                             type="button"
                             className={`booking-payment-share-favorite-card ${isAdded ? 'is-added' : ''}`}
                             onClick={() => addRegistered(m)}
-                            disabled={isAdded}
+                            disabled={isAdded || atShareCap}
                           >
                             <span className="booking-payment-share-favorite-avatar">
                               {m.avatar ? (
@@ -419,7 +446,7 @@ export default function BookingPaymentShare({
                           type="button"
                           className={`booking-payment-share-member-btn ${isFavorite ? 'is-favorite' : ''}`}
                           onClick={() => addRegistered(m)}
-                          disabled={isAdded}
+                          disabled={isAdded || atShareCap}
                         >
                           {m.name || m.email || m.id}
                         </button>
@@ -451,7 +478,7 @@ export default function BookingPaymentShare({
               <div className="booking-payment-share-phone">
                 <p className="booking-payment-share-phone-hint">{t('Enter phone number to send WhatsApp link for registration, club join, and payment share', 'أدخل رقم الجوال لإرسال رابط واتساب للتسجيل في النادي والمنصة والمشاركة بالدفع')}</p>
                 {CONTACT_PICKER_SUPPORTED && (
-                  <button type="button" className="booking-payment-share-contact-btn" onClick={pickFromContacts}>
+                  <button type="button" className="booking-payment-share-contact-btn" onClick={pickFromContacts} disabled={atShareCap}>
                     {t('Select from contacts', 'اختر من جهات الاتصال')}
                   </button>
                 )}
@@ -464,7 +491,7 @@ export default function BookingPaymentShare({
                     onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addUnregistered())}
                     inputMode="tel"
                   />
-                  <button type="button" className="booking-payment-share-add-phone" onClick={() => addUnregistered()}>
+                  <button type="button" className="booking-payment-share-add-phone" onClick={() => addUnregistered()} disabled={atShareCap}>
                     {t('Add', 'إضافة')}
                   </button>
                 </div>
@@ -472,6 +499,7 @@ export default function BookingPaymentShare({
               </div>
             )}
           </div>
+          ) : null}
         </div>
       )}
     </div>

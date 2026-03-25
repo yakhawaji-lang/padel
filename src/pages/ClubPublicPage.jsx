@@ -277,6 +277,7 @@ const ClubPublicPage = () => {
   const [trainingJoinPaymentStyle, setTrainingJoinPaymentStyle] = useState('single') // 'single' | 'split' — مطابق حجز الملاعب
   const [trainingJoinPaymentMethod, setTrainingJoinPaymentMethod] = useState('at_club')
   const [trainingJoinPaymentShares, setTrainingJoinPaymentShares] = useState([])
+  const [trainingJoinStep, setTrainingJoinStep] = useState(1)
   const [hoveredRange, setHoveredRange] = useState(null) // { court, courtId, startSlot, endSlot } - نطاق التمرير للحجز
   const hasTouch = typeof window !== 'undefined' && 'ontouchstart' in window
   const touchSelectRef = React.useRef(null) // { court, courtId, dateStr, startSlot } during touch drag
@@ -327,6 +328,7 @@ const ClubPublicPage = () => {
 
   useEffect(() => {
     if (trainingJoinModal) {
+      setTrainingJoinStep(1)
       setTrainingJoinPaymentStyle('single')
       setTrainingJoinPaymentMethod('at_club')
       setTrainingJoinPaymentShares([])
@@ -1014,6 +1016,9 @@ const ClubPublicPage = () => {
       scheduleNextDay: 'Next day',
       continueBooking: 'Continue',
       back: 'Back',
+      trainingJoinCompletePayment: 'Complete payment',
+      trainingJoinPaymentMethodStep: 'How would you like to pay?',
+      trainingJoinMaxSplitHint: 'You can invite up to {n} people to share payment (coach limit for this session).',
     },
     ar: {
       backToHome: 'العودة للرئيسية',
@@ -1114,6 +1119,9 @@ const ClubPublicPage = () => {
       scheduleNextDay: 'اليوم التالي',
       continueBooking: 'متابعة',
       back: 'رجوع',
+      trainingJoinCompletePayment: 'استكمال الدفع',
+      trainingJoinPaymentMethodStep: 'كيف تودُّ الدفع؟',
+      trainingJoinMaxSplitHint: 'يمكنك إضافة حتى {n} مشاركاً للتقسيم (الحد الذي حدّده المدرب لهذه الحصة).',
     }
   }
   const c = t[language] || t.en
@@ -1950,10 +1958,35 @@ const ClubPublicPage = () => {
           </div>
         )}
 
-        {trainingJoinModal && (
+        {trainingJoinModal && (() => {
+          const bTrain = trainingJoinModal.booking
+          const dTrain = bTrain?.data && typeof bTrain.data === 'object' ? bTrain.data : {}
+          const maxTraineesCap = Math.min(4, Math.max(1, parseInt(dTrain.maxTrainees, 10) || 4))
+          const maxSplitOthers = Math.max(0, maxTraineesCap - 1)
+          const splitAllowed = effectivePaymentChannels?.split !== false && maxSplitOthers > 0
+          const maxSplitHintStr = c.trainingJoinMaxSplitHint.replace(/\{n\}/g, String(maxSplitOthers))
+          const dateStrTrain = (bTrain?.date || bTrain?.startDate || '').toString().split('T')[0]
+          const courtLabelTrain = language === 'ar' && trainingJoinModal.court?.nameAr ? trainingJoinModal.court.nameAr : (trainingJoinModal.court?.name || '')
+          const recapTrain = `${courtLabelTrain} · ${formatDate(dateStrTrain)} · ${bTrain?.startTime || bTrain?.timeSlot || ''} – ${bTrain?.endTime || ''} · ${(parseFloat(bTrain?.totalAmount) || 0).toFixed(2)} ${currency}`
+          const joinPrice = parseFloat(bTrain?.totalAmount) || 0
+          const splitSumInvalid = trainingJoinPaymentStyle === 'split' && (trainingJoinPaymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) > joinPrice
+          return (
           <div className="club-public-booking-modal-backdrop" onClick={() => { if (!trainingJoinSubmitting) { setTrainingJoinModal(null); setLockError(null) } }} role="presentation">
-            <div className="club-public-booking-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="join-training-modal-title">
+            <div className="club-public-booking-modal club-public-training-join-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="join-training-modal-title">
               <h3 id="join-training-modal-title" className="club-public-booking-modal-title">{c.joinTraining}</h3>
+              <div className="club-public-booking-stepper" aria-label={language === 'en' ? 'Join training steps' : 'خطوات الانضمام للتدريب'}>
+                {[1, 2, 3].map((n) => (
+                  <React.Fragment key={n}>
+                    {n > 1 && <span className={`club-public-booking-stepper-line ${trainingJoinStep >= n ? 'active' : ''}`} aria-hidden />}
+                    <span
+                      className={`club-public-booking-stepper-dot ${trainingJoinStep === n ? 'current' : ''} ${trainingJoinStep > n ? 'complete' : ''}`}
+                      aria-current={trainingJoinStep === n ? 'step' : undefined}
+                    >
+                      {n}
+                    </span>
+                  </React.Fragment>
+                ))}
+              </div>
               {lockError && (
                 <div className="club-public-booking-modal-error" role="alert">
                   {lockError}
@@ -1961,108 +1994,158 @@ const ClubPublicPage = () => {
                 </div>
               )}
               <div className="club-public-booking-modal-body">
-                <p className="club-public-booking-modal-row">
-                  <span>{c.court}:</span>
-                  <strong>{language === 'ar' && trainingJoinModal.court?.nameAr ? trainingJoinModal.court.nameAr : (trainingJoinModal.court?.name || '')}</strong>
-                </p>
-                <p className="club-public-booking-modal-row">
-                  <span>{c.date}:</span>
-                  <strong>{formatDate((trainingJoinModal.booking?.date || trainingJoinModal.booking?.startDate || '').toString().split('T')[0])}</strong>
-                </p>
-                <p className="club-public-booking-modal-row">
-                  <span>{c.time}:</span>
-                  <strong>{trainingJoinModal.booking?.startTime || trainingJoinModal.booking?.timeSlot || ''} – {trainingJoinModal.booking?.endTime || ''}</strong>
-                </p>
-                <div className="club-public-booking-modal-price">
-                  <span>{c.totalPrice}:</span>
-                  <strong className="club-public-booking-modal-price-value">
-                    {(parseFloat(trainingJoinModal.booking?.totalAmount) || 0).toFixed(2)} {currency}
-                  </strong>
-                </div>
-                <div className="club-public-booking-payment-section">
-                  <p className="club-public-booking-payment-section-title">{c.paymentStyle}</p>
-                  <p className="club-public-booking-payment-section-desc">{c.paymentStyleDesc}</p>
-                  <div className="club-public-booking-payment-style-btns">
-                    <label className={`club-public-booking-payment-style-btn ${trainingJoinPaymentStyle === 'single' ? 'active' : ''}`}>
-                      <input type="radio" name="trainingPaymentStyle" checked={trainingJoinPaymentStyle === 'single'} onChange={() => setTrainingJoinPaymentStyle('single')} />
-                      <span className="style-label">{c.iPay}</span>
-                      <span className="style-desc">{c.iPayDesc}</span>
-                    </label>
-                    {effectivePaymentChannels?.split !== false && (
-                      <label className={`club-public-booking-payment-style-btn ${trainingJoinPaymentStyle === 'split' ? 'active' : ''}`}>
-                        <input type="radio" name="trainingPaymentStyle" checked={trainingJoinPaymentStyle === 'split'} onChange={() => setTrainingJoinPaymentStyle('split')} />
-                        <span className="style-label">{c.splitWithOthers}</span>
-                        <span className="style-desc">{c.splitWithOthersDesc}</span>
-                      </label>
-                    )}
-                  </div>
-                </div>
-                {(trainingJoinPaymentStyle === 'single' || trainingJoinPaymentStyle === 'split') && (
-                  <div className="club-public-booking-payment-method">
-                    <p className="club-public-booking-payment-method-label">
-                      {trainingJoinPaymentStyle === 'split' ? (language === 'en' ? 'Your payment method' : 'طريقة دفعتك') : c.paymentMethod}
+                {trainingJoinStep === 1 && (
+                  <>
+                    <p className="club-public-booking-modal-row club-public-training-join-summary-row">
+                      <span>{c.court}:</span>
+                      <strong>{courtLabelTrain}</strong>
                     </p>
-                    <p className="club-public-booking-payment-section-desc">
-                      {trainingJoinPaymentStyle === 'split' ? (language === 'en' ? 'How will you pay your share?' : 'كيف ستدفع حصتك؟') : c.paymentMethodDesc}
+                    <p className="club-public-booking-modal-row club-public-training-join-summary-row">
+                      <span>{c.date}:</span>
+                      <strong>{formatDate(dateStrTrain)}</strong>
                     </p>
-                    <div className="club-public-booking-payment-method-options">
-                      {effectivePaymentChannels?.at_club !== false && (
-                        <label className="club-public-booking-payment-radio">
-                          <input type="radio" name="trainingPaymentMethod" checked={trainingJoinPaymentMethod === 'at_club'} onChange={() => setTrainingJoinPaymentMethod('at_club')} />
-                          <span>{c.payAtClub}</span>
+                    <p className="club-public-booking-modal-row club-public-training-join-summary-row">
+                      <span>{c.time}:</span>
+                      <strong>{bTrain?.startTime || bTrain?.timeSlot || ''} – {bTrain?.endTime || ''}</strong>
+                    </p>
+                    <div className="club-public-booking-modal-price club-public-training-join-total">
+                      <span>{c.totalPrice}:</span>
+                      <strong className="club-public-booking-modal-price-value">
+                        {joinPrice.toFixed(2)} {currency}
+                      </strong>
+                    </div>
+                  </>
+                )}
+                {trainingJoinStep === 2 && (
+                  <>
+                    <div className="club-public-booking-step-recap">
+                      <span className="club-public-booking-step-recap-main">{recapTrain}</span>
+                    </div>
+                    <div className="club-public-booking-payment-section">
+                      <p className="club-public-booking-payment-section-title">{c.paymentStyle}</p>
+                      <p className="club-public-booking-payment-section-desc">{c.paymentStyleDesc}</p>
+                      <div className="club-public-booking-payment-style-btns">
+                        <label className={`club-public-booking-payment-style-btn ${trainingJoinPaymentStyle === 'single' ? 'active' : ''}`}>
+                          <input type="radio" name="trainingPaymentStyle" checked={trainingJoinPaymentStyle === 'single'} onChange={() => { setTrainingJoinPaymentStyle('single'); setTrainingJoinPaymentShares([]) }} />
+                          <span className="style-label">{c.iPay}</span>
+                          <span className="style-desc">{c.iPayDesc}</span>
                         </label>
-                      )}
-                      {effectivePaymentChannels?.credit_card && (
-                        <label className="club-public-booking-payment-radio">
-                          <input type="radio" name="trainingPaymentMethod" checked={trainingJoinPaymentMethod === 'credit_card'} onChange={() => setTrainingJoinPaymentMethod('credit_card')} />
-                          <span>{c.creditCard}</span>
-                        </label>
-                      )}
-                      {effectivePaymentChannels?.mada && (
-                        <label className="club-public-booking-payment-radio">
-                          <input type="radio" name="trainingPaymentMethod" checked={trainingJoinPaymentMethod === 'mada'} onChange={() => setTrainingJoinPaymentMethod('mada')} />
-                          <span>{c.mada}</span>
-                        </label>
+                        {splitAllowed && (
+                          <label className={`club-public-booking-payment-style-btn ${trainingJoinPaymentStyle === 'split' ? 'active' : ''}`}>
+                            <input type="radio" name="trainingPaymentStyle" checked={trainingJoinPaymentStyle === 'split'} onChange={() => setTrainingJoinPaymentStyle('split')} />
+                            <span className="style-label">{c.splitWithOthers}</span>
+                            <span className="style-desc">{c.splitWithOthersDesc}</span>
+                          </label>
+                        )}
+                      </div>
+                      {!splitAllowed && (
+                        <p className="club-public-training-join-split-unavailable">
+                          {language === 'en' ? 'Sharing payment is not available for this session (coach capacity is 1 or club settings).' : 'مشاركة الدفع غير متاحة لهذه الحصة (سعة المدرب 1 أو إعدادات النادي).'}
+                        </p>
                       )}
                     </div>
-                  </div>
+                  </>
                 )}
-                {trainingJoinPaymentStyle === 'split' && (
-                  <BookingPaymentShare
-                    totalPrice={parseFloat(trainingJoinModal?.booking?.totalAmount) || 0}
-                    currency={currency}
-                    clubName={language === 'ar' && club?.nameAr ? club.nameAr : club?.name}
-                    clubId={clubId}
-                    dateStr={(trainingJoinModal?.booking?.date || trainingJoinModal?.booking?.startDate || '').toString().split('T')[0]}
-                    startTime={trainingJoinModal?.booking?.startTime || trainingJoinModal?.booking?.timeSlot || ''}
-                    clubMembers={clubMembersList}
-                    allPlatformMembers={allPlatformMembersList}
-                    currentMemberId={platformUser?.id}
-                    language={language}
-                    value={trainingJoinPaymentShares}
-                    onChange={setTrainingJoinPaymentShares}
-                  />
+                {trainingJoinStep === 3 && (
+                  <>
+                    <div className="club-public-booking-step-recap">
+                      <span className="club-public-booking-step-recap-main">{recapTrain}</span>
+                      <span className="club-public-booking-step-recap-meta">
+                        {trainingJoinPaymentStyle === 'split' ? c.splitWithOthers : c.iPay}
+                      </span>
+                    </div>
+                    {trainingJoinPaymentStyle === 'split' && (
+                      <BookingPaymentShare
+                        totalPrice={joinPrice}
+                        currency={currency}
+                        clubName={language === 'ar' && club?.nameAr ? club.nameAr : club?.name}
+                        clubId={clubId}
+                        dateStr={dateStrTrain}
+                        startTime={bTrain?.startTime || bTrain?.timeSlot || ''}
+                        clubMembers={clubMembersList}
+                        allPlatformMembers={allPlatformMembersList}
+                        currentMemberId={platformUser?.id}
+                        language={language}
+                        value={trainingJoinPaymentShares}
+                        onChange={setTrainingJoinPaymentShares}
+                        hideHeaderToggle
+                        maxShareCount={maxSplitOthers}
+                        maxShareHint={maxSplitHintStr}
+                      />
+                    )}
+                    <div className="club-public-booking-payment-method club-public-training-join-final-pay">
+                      <p className="club-public-booking-payment-method-label">{c.trainingJoinCompletePayment}</p>
+                      <p className="club-public-booking-payment-section-desc">{c.trainingJoinPaymentMethodStep}</p>
+                      <div className="club-public-booking-payment-method-options">
+                        {effectivePaymentChannels?.at_club !== false && (
+                          <label className="club-public-booking-payment-radio">
+                            <input type="radio" name="trainingPaymentMethod" checked={trainingJoinPaymentMethod === 'at_club'} onChange={() => setTrainingJoinPaymentMethod('at_club')} />
+                            <span>{c.payAtClub}</span>
+                          </label>
+                        )}
+                        {effectivePaymentChannels?.credit_card && (
+                          <label className="club-public-booking-payment-radio">
+                            <input type="radio" name="trainingPaymentMethod" checked={trainingJoinPaymentMethod === 'credit_card'} onChange={() => setTrainingJoinPaymentMethod('credit_card')} />
+                            <span>{c.creditCard}</span>
+                          </label>
+                        )}
+                        {effectivePaymentChannels?.mada && (
+                          <label className="club-public-booking-payment-radio">
+                            <input type="radio" name="trainingPaymentMethod" checked={trainingJoinPaymentMethod === 'mada'} onChange={() => setTrainingJoinPaymentMethod('mada')} />
+                            <span>{c.mada}</span>
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
               <div className="club-public-booking-modal-actions">
-                <button type="button" className="club-public-booking-modal-cancel" onClick={() => { if (!trainingJoinSubmitting) { setTrainingJoinModal(null); setLockError(null) } }} disabled={trainingJoinSubmitting}>
-                  {language === 'en' ? 'Cancel' : 'إلغاء'}
-                </button>
-                <button
-                  type="button"
-                  className="club-public-booking-modal-confirm"
-                  onClick={handleJoinTraining}
-                  disabled={
-                    trainingJoinSubmitting ||
-                    (trainingJoinPaymentStyle === 'split' && (trainingJoinPaymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) > (parseFloat(trainingJoinModal?.booking?.totalAmount) || 0))
-                  }
-                >
-                  {trainingJoinSubmitting ? (language === 'en' ? 'Joining...' : 'جاري الانضمام...') : c.confirmJoinTraining}
-                </button>
+                {trainingJoinStep === 1 && (
+                  <>
+                    <button type="button" className="club-public-booking-modal-cancel" onClick={() => { if (!trainingJoinSubmitting) { setTrainingJoinModal(null); setLockError(null) } }} disabled={trainingJoinSubmitting}>
+                      {language === 'en' ? 'Cancel' : 'إلغاء'}
+                    </button>
+                    <button type="button" className="club-public-booking-modal-confirm" onClick={() => setTrainingJoinStep(2)} disabled={trainingJoinSubmitting}>
+                      {c.continueBooking}
+                    </button>
+                  </>
+                )}
+                {trainingJoinStep === 2 && (
+                  <>
+                    <button type="button" className="club-public-booking-modal-cancel" onClick={() => setTrainingJoinStep(1)} disabled={trainingJoinSubmitting}>
+                      {c.back}
+                    </button>
+                    <button
+                      type="button"
+                      className="club-public-booking-modal-confirm"
+                      onClick={() => setTrainingJoinStep(3)}
+                      disabled={trainingJoinSubmitting || (trainingJoinPaymentStyle === 'split' && !splitAllowed)}
+                    >
+                      {c.continueBooking}
+                    </button>
+                  </>
+                )}
+                {trainingJoinStep === 3 && (
+                  <>
+                    <button type="button" className="club-public-booking-modal-cancel" onClick={() => setTrainingJoinStep(2)} disabled={trainingJoinSubmitting}>
+                      {c.back}
+                    </button>
+                    <button
+                      type="button"
+                      className="club-public-booking-modal-confirm"
+                      onClick={handleJoinTraining}
+                      disabled={trainingJoinSubmitting || splitSumInvalid}
+                    >
+                      {trainingJoinSubmitting ? (language === 'en' ? 'Joining...' : 'جاري الانضمام...') : c.confirmJoinTraining}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
-        )}
+          )
+        })()}
 
         <section ref={bookingsSectionRef} className="club-public-section club-public-upcoming-block">
           <div className="club-public-section-inner">

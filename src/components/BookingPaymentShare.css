@@ -576,6 +576,17 @@
   }
 }
 
+.booking-payment-share-cap-notice {
+  margin: 12px 0 16px;
+  padding: 12px 14px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  color: #92400e;
+  line-height: 1.45;
+}
+
 /* RTL support */
 [dir="rtl"] .booking-payment-share-item-amount {
   direction: ltr;
