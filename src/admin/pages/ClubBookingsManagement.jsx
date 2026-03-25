@@ -7,9 +7,21 @@ import { calculateBookingPrice } from '../../utils/bookingPricing'
 import './club-pages-common.css'
 import './BookingsManagement.css'
 
+/** Admin list: court rental vs coach training vs tournament (king / social). */
+function classifyAdminBooking(b) {
+  const d = b?.data && typeof b.data === 'object' ? b.data : {}
+  if (b.isTournament) {
+    const tt = (b.tournamentType || d.tournamentType || 'king').toString().toLowerCase()
+    return tt === 'social' ? 'tournament_social' : 'tournament_king'
+  }
+  if ((b.type || d.type || '').toString().toLowerCase() === 'training') return 'training'
+  return 'court'
+}
+
 const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   const [bookings, setBookings] = useState([])
   const [filter, setFilter] = useState('upcoming')
+  const [typeFilter, setTypeFilter] = useState('all')
   const [actionLoading, setActionLoading] = useState(null)
   const [editBooking, setEditBooking] = useState(null)
   const [editForm, setEditForm] = useState({})
@@ -20,8 +32,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   const refreshFromCache = () => {
     loadClubs()
     const c = getClubById(club?.id)
-    const list = (c?.bookings || []).filter(b => !b.isTournament)
-    setBookings(list)
+    setBookings(Array.isArray(c?.bookings) ? c.bookings : [])
   }
 
   useEffect(() => {
@@ -38,13 +49,33 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   }
 
   const today = new Date().toISOString().split('T')[0]
-  const withDate = bookings.map(b => ({
-    ...b,
-    dateStr: (b.date || b.startDate || '').toString().split('T')[0]
-  }))
-  const upcoming = withDate.filter(b => (b.dateStr || '') >= today)
-  const past = withDate.filter(b => (b.dateStr || '') < today)
-  const displayed = filter === 'upcoming' ? upcoming : past
+  const { upcoming, past, displayed, typeCounts } = useMemo(() => {
+    const withDate = bookings.map(b => ({
+      ...b,
+      dateStr: (b.date || b.startDate || '').toString().split('T')[0]
+    }))
+    const upcomingL = withDate.filter(b => (b.dateStr || '') >= today)
+    const pastL = withDate.filter(b => (b.dateStr || '') < today)
+    const timeList = filter === 'upcoming' ? upcomingL : pastL
+    const counts = { all: timeList.length, court: 0, training: 0, tournament: 0 }
+    for (const b of timeList) {
+      const k = classifyAdminBooking(b)
+      if (k === 'court') counts.court += 1
+      else if (k === 'training') counts.training += 1
+      else counts.tournament += 1
+    }
+    let disp = timeList
+    if (typeFilter !== 'all') {
+      disp = timeList.filter((b) => {
+        const k = classifyAdminBooking(b)
+        if (typeFilter === 'court') return k === 'court'
+        if (typeFilter === 'training') return k === 'training'
+        if (typeFilter === 'tournament') return k === 'tournament_king' || k === 'tournament_social'
+        return true
+      })
+    }
+    return { upcoming: upcomingL, past: pastL, displayed: disp, typeCounts: counts }
+  }, [bookings, filter, typeFilter, today])
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '—'
@@ -281,12 +312,23 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
 
   const t = {
     en: {
-      bookings: 'Court Bookings',
+      bookings: 'Bookings',
+      pageSubtitle: 'Court rentals, training sessions, and tournaments in one place.',
       upcoming: 'Upcoming',
       past: 'Past',
+      filterByType: 'Booking type',
+      filterAll: 'All',
+      filterCourts: 'Courts',
+      filterTraining: 'Training',
+      filterTournaments: 'Tournaments',
+      kindCourt: 'Court',
+      kindTraining: 'Training',
+      kindTournamentKing: 'King of court',
+      kindTournamentSocial: 'Social tournament',
       date: 'Date',
       time: 'Time',
-      court: 'Court',
+      typeCol: 'Type',
+      court: 'Court / details',
       customer: 'Customer',
       price: 'Price',
       status: 'Status',
@@ -329,15 +371,27 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       payerConfirmPending: 'Awaiting payer confirmation',
       stripeManualHint: 'Process the reversal in Stripe dashboard, then enter the refund ID above.',
       electronicHint: 'For card/Mada, process reversal in your gateway and note the reference.',
-      refundAckDone: 'Participant confirmed receipt'
+      refundAckDone: 'Participant confirmed receipt',
+      editDisabledTournament: 'Edit tournament blocks from the tournament section of the club app.'
     },
     ar: {
-      bookings: 'حجوزات الملاعب',
+      bookings: 'الحجوزات',
+      pageSubtitle: 'حجوزات الملاعب والحصص التدريبية والبطولات في مكان واحد.',
       upcoming: 'القادمة',
       past: 'السابقة',
+      filterByType: 'نوع الحجز',
+      filterAll: 'الكل',
+      filterCourts: 'ملاعب',
+      filterTraining: 'تدريب',
+      filterTournaments: 'بطولات',
+      kindCourt: 'حجز ملعب',
+      kindTraining: 'حصة تدريب',
+      kindTournamentKing: 'ملك الملعب',
+      kindTournamentSocial: 'بطولة سوشيال',
       date: 'التاريخ',
       time: 'الوقت',
-      court: 'الملعب',
+      typeCol: 'النوع',
+      court: 'الملعب / التفاصيل',
       customer: 'العميل',
       price: 'السعر',
       status: 'الحالة',
@@ -380,10 +434,33 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       payerConfirmPending: 'بانتظار تأكيد المسترد',
       stripeManualHint: 'نفّذ الاسترداد من لوحة Stripe ثم أدخل رقم الاسترداد أعلاه.',
       electronicHint: 'لبطاقة/مدى، نفّذ العكس من بوابة الدفع وسجّل المرجع.',
-      refundAckDone: 'أكد المشارك الاستلام'
+      refundAckDone: 'أكد المشارك الاستلام',
+      editDisabledTournament: 'عدّل مواعيد البطولة من قسم البطولات في تطبيق النادي.'
     }
   }
   const c = t[language] || t.en
+
+  const kindLabel = (kind) => ({
+    court: c.kindCourt,
+    training: c.kindTraining,
+    tournament_king: c.kindTournamentKing,
+    tournament_social: c.kindTournamentSocial
+  }[kind] || kind)
+
+  const formatBookingResource = (b) => {
+    if (b.isTournament && Array.isArray(b.tournamentCourtIds) && b.tournamentCourtIds.length > 0) {
+      const courtList = club?.courts || []
+      const labels = b.tournamentCourtIds.map((id) => {
+        const co = courtList.find(x => String(x.id) === String(id) || String(x.name) === String(id) || String(x.nameAr) === String(id))
+        return co ? (language === 'ar' ? (co.nameAr || co.name) : co.name) : String(id)
+      })
+      const sep = language === 'ar' ? '، ' : ', '
+      const courtsStr = labels.length <= 2 ? labels.join(sep) : `${labels[0]} · +${labels.length - 1}`
+      const title = b.resource || b.courtName || b.court || (language === 'en' ? 'Tournament' : 'بطولة')
+      return `${title} · ${courtsStr}`
+    }
+    return b.resource || b.courtName || b.court || '—'
+  }
 
   const courts = club?.courts || []
   const members = useMemo(() => {
@@ -407,9 +484,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
             {club.logo && <img src={club.logo} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'contain' }} />}
             {c.bookings} — {language === 'ar' ? (club.nameAr || club.name) : club.name}
           </h1>
-          <p className="cxp-subtitle">
-            {language === 'en' ? 'View and manage court bookings' : 'عرض وإدارة حجوزات الملاعب'}
-          </p>
+          <p className="cxp-subtitle">{c.pageSubtitle}</p>
         </div>
         <div className="cxp-header-actions">
           <button type="button" className="cxp-btn cxp-btn--secondary" onClick={refreshFromServer}>
@@ -419,29 +494,51 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       </header>
 
       <div className="bookings-management">
-        <div className="bookings-tabs">
-          <button
-            type="button"
-            className={`bookings-tab ${filter === 'upcoming' ? 'active' : ''}`}
-            onClick={() => setFilter('upcoming')}
-          >
-            {c.upcoming} ({upcoming.length})
-          </button>
-          <button
-            type="button"
-            className={`bookings-tab ${filter === 'past' ? 'active' : ''}`}
-            onClick={() => setFilter('past')}
-          >
-            {c.past} ({past.length})
-          </button>
+        <div className="bookings-toolbar">
+          <div className="bookings-tabs bookings-tabs--time">
+            <button
+              type="button"
+              className={`bookings-tab ${filter === 'upcoming' ? 'active' : ''}`}
+              onClick={() => setFilter('upcoming')}
+            >
+              {c.upcoming} ({upcoming.length})
+            </button>
+            <button
+              type="button"
+              className={`bookings-tab ${filter === 'past' ? 'active' : ''}`}
+              onClick={() => setFilter('past')}
+            >
+              {c.past} ({past.length})
+            </button>
+          </div>
+          <div className="bookings-type-strip" role="group" aria-label={c.filterByType}>
+            <span className="bookings-type-strip-label">{c.filterByType}</span>
+            {[
+              { id: 'all', label: c.filterAll, count: typeCounts.all },
+              { id: 'court', label: c.filterCourts, count: typeCounts.court },
+              { id: 'training', label: c.filterTraining, count: typeCounts.training },
+              { id: 'tournament', label: c.filterTournaments, count: typeCounts.tournament }
+            ].map(chip => (
+              <button
+                key={chip.id}
+                type="button"
+                className={`bookings-type-chip ${typeFilter === chip.id ? 'active' : ''}`}
+                onClick={() => setTypeFilter(chip.id)}
+              >
+                <span className="bookings-type-chip-label">{chip.label}</span>
+                <span className="bookings-type-chip-count">{chip.count}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="bookings-table cxp-card" style={{ overflow: 'hidden', padding: 0 }}>
+        <div className="bookings-table cxp-card bookings-table--redesign" style={{ overflow: 'hidden', padding: 0 }}>
           <table>
             <thead>
               <tr>
                 <th>{c.date}</th>
                 <th>{c.time}</th>
+                <th>{c.typeCol}</th>
                 <th>{c.court}</th>
                 <th>{c.customer}</th>
                 <th>{c.price}</th>
@@ -452,12 +549,15 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
             <tbody>
               {displayed.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '24px' }}>
+                  <td colSpan="8" className="bookings-empty-cell">
                     {c.noBookings}
                   </td>
                 </tr>
               ) : (
                 displayed.map((b, i) => {
+                  const bookingKind = classifyAdminBooking(b)
+                  const kindBadgeClass = bookingKind.replace(/_/g, '-')
+                  const isTournamentRow = b.isTournament
                   const dur = b.durationMinutes || 60
                   const priceInfo = b.price != null
                     ? { price: b.price, currency: b.currency || club?.settings?.currency || 'SAR' }
@@ -491,12 +591,23 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                           : ''
                   return (
                     <React.Fragment key={b.id || i}>
-                      <tr className={rowEnded ? 'booking-row-cancelled' : rowAwaitingRefundAck ? 'booking-row-awaiting-refund' : ''}>
+                      <tr className={[rowEnded ? 'booking-row-cancelled' : rowAwaitingRefundAck ? 'booking-row-awaiting-refund' : '', `booking-row--kind-${kindBadgeClass}`].filter(Boolean).join(' ')}>
                         <td>{formatDate(b.dateStr)}</td>
-                        <td>{(b.startTime || '') + (b.endTime ? ` – ${b.endTime}` : '')}</td>
-                        <td>{b.resource || b.courtName || b.court || '—'}</td>
+                        <td className="bookings-cell-time">{(b.startTime || '') + (b.endTime ? ` – ${b.endTime}` : '')}</td>
+                        <td>
+                          <span className={`booking-kind-badge booking-kind-badge--${kindBadgeClass}`}>
+                            {kindLabel(bookingKind)}
+                          </span>
+                        </td>
+                        <td className="bookings-cell-resource">{formatBookingResource(b)}</td>
                         <td>{b.memberName || b.customerName || b.customer || '—'}</td>
-                        <td>{priceInfo.price} {priceInfo.currency}</td>
+                        <td className="bookings-cell-price">
+                          {(() => {
+                            const p = b.price != null ? b.price : (isTournamentRow && b.amount !== '' && b.amount != null ? b.amount : priceInfo.price)
+                            if (p === '' || p == null || (typeof p === 'number' && Number.isNaN(p))) return '—'
+                            return <>{p} {priceInfo.currency}</>
+                          })()}
+                        </td>
                         <td>
                           <button
                             type="button"
@@ -518,8 +629,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                             type="button"
                             className="btn-secondary btn-icon"
                             onClick={() => openEditModal(b)}
-                            disabled={isLoading}
-                            title={c.edit}
+                            disabled={isLoading || isTournamentRow}
+                            title={isTournamentRow ? c.editDisabledTournament : c.edit}
                           >
                             ✏️
                           </button>
@@ -557,7 +668,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                     </tr>
                     {showPaymentPanel && isExpanded && (
                       <tr className="booking-payment-details-row">
-                        <td colSpan="7">
+                        <td colSpan="8">
                           <div className="booking-payment-details-card">
                             <h4 className="booking-payment-details-title">{c.paymentDetails}</h4>
                             <div className="booking-payment-details-grid">

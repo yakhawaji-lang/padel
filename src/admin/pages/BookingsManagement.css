@@ -850,3 +850,208 @@
     font-size: 12px;
   }
 }
+
+/* ---- Admin bookings: type chips, kind badges, clearer hierarchy ---- */
+.bookings-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.bookings-tabs--time {
+  margin-bottom: 0;
+}
+
+.bookings-type-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.bookings-type-strip-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .bookings-type-strip-label {
+    width: auto;
+    margin-inline-end: 6px;
+  }
+}
+
+.bookings-type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.bookings-type-chip:hover {
+  border-color: #cbd5e1;
+  background: #fafafa;
+}
+
+.bookings-type-chip.active {
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: #1d4ed8;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
+}
+
+.bookings-type-chip-count {
+  font-size: 11px;
+  font-weight: 800;
+  opacity: 0.88;
+  min-width: 1.1rem;
+  text-align: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.bookings-type-chip.active .bookings-type-chip-count {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.bookings-table--redesign {
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+}
+
+.bookings-table--redesign table {
+  min-width: 720px;
+}
+
+.bookings-table--redesign thead {
+  background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%);
+}
+
+.bookings-table--redesign th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
+  color: #475569;
+  border-bottom: 2px solid #cbd5e1;
+  padding: 14px 11px;
+}
+
+.bookings-table--redesign td {
+  padding: 13px 11px;
+  vertical-align: middle;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.bookings-table--redesign tbody tr:hover {
+  background: #f8fafc;
+}
+
+.bookings-empty-cell {
+  text-align: center;
+  padding: 40px 20px !important;
+  color: #64748b;
+  font-size: 15px;
+}
+
+.booking-kind-badge {
+  display: inline-block;
+  max-width: 11.5rem;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.booking-kind-badge--court {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+}
+
+.booking-kind-badge--training {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #6ee7b7;
+}
+
+.booking-kind-badge--tournament-king {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
+
+.booking-kind-badge--tournament-social {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid #c4b5fd;
+}
+
+.bookings-cell-time {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #334155;
+  font-weight: 600;
+}
+
+.bookings-cell-resource {
+  color: #0f172a;
+  font-size: 13px;
+  line-height: 1.4;
+  max-width: 240px;
+}
+
+.bookings-cell-price {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.booking-row--kind-court {
+  box-shadow: inset 3px 0 0 0 #0ea5e9;
+}
+
+.booking-row--kind-training {
+  box-shadow: inset 3px 0 0 0 #10b981;
+}
+
+.booking-row--kind-tournament-king {
+  box-shadow: inset 3px 0 0 0 #f59e0b;
+}
+
+.booking-row--kind-tournament-social {
+  box-shadow: inset 3px 0 0 0 #8b5cf6;
+}
+
+.booking-row-cancelled,
+.booking-row-awaiting-refund {
+  box-shadow: none !important;
+}
