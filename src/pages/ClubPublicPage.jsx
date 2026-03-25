@@ -134,19 +134,49 @@ const getAvailableDurations = (minDur, startTime, closingTime, blockedRanges, ma
   return out
 }
 
-/** أقل مدة للحجز من الإعدادات — تُستخدم كخطوة الشقوق */
-const getMinSlotStep = (club) => {
-  const dp = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
-  const minDur = club?.settings?.bookingDuration ?? 60
-  const valid = (dp || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
-  return valid.length > 0 ? Math.min(...valid) : minDur
+/** خطوة عرض الشبكة على صفحة الحجز العامة — دائماً 30 دقيقة (كل نصف ساعة عمود مستقل) */
+const PUBLIC_SLOT_STEP_MINUTES = 30
+/** المدد المعروضة بعد اختيار الشق: 60 / 90 / 120 فقط إن وُجدت في Price per duration */
+const PUBLIC_PRICE_DURATION_ORDER = [60, 90, 120]
+
+const getDurationPricesFromClub = (club) => {
+  const raw = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
+  return raw
+    .map(d => ({ durationMinutes: Number(d.durationMinutes) || 0, price: parseFloat(d.price) }))
+    .filter(d => d.durationMinutes > 0 && !Number.isNaN(d.price))
 }
 
-/** جميع الأوقات للعرض — الخطوة = Minimum booking duration (أقل مدة للحجز) */
+const getPublicPricedDurationOptions = (club) => {
+  const list = getDurationPricesFromClub(club)
+  const byDur = new Map(list.map(d => [d.durationMinutes, d]))
+  return PUBLIC_PRICE_DURATION_ORDER.filter(m => byDur.has(m)).map(m => ({ durationMinutes: m, price: byDur.get(m).price }))
+}
+
+const getMinPricedDurationMinutes = (club) => {
+  const opts = getPublicPricedDurationOptions(club)
+  if (opts.length > 0) return Math.min(...opts.map(o => o.durationMinutes))
+  return 60
+}
+
+const getMaxPricedDurationMinutes = (club) => {
+  const opts = getPublicPricedDurationOptions(club)
+  if (opts.length > 0) return Math.max(...opts.map(o => o.durationMinutes))
+  return 120
+}
+
+/** لون مميّز لكل بطولة (HSL) من المعرف */
+const tournamentAccentHue = (tournamentId) => {
+  const s = String(tournamentId ?? 't')
+  let h = 7
+  for (let i = 0; i < s.length; i++) h = ((h * 31) + s.charCodeAt(i)) >>> 0
+  return h % 360
+}
+
+/** جميع أوقات الشبكة بين الافتتاح والإغلاق — خطوة 30 دقيقة */
 const getTimeSlotsForClub = (club) => {
   const open = club?.settings?.openingTime
   const close = club?.settings?.closingTime
-  const step = getMinSlotStep(club)
+  const step = PUBLIC_SLOT_STEP_MINUTES
   const slots = []
   if (!open || !close) {
     for (let hour = 0; hour < 24; hour++) {
@@ -166,16 +196,14 @@ const getTimeSlotsForClub = (club) => {
   return slots
 }
 
-/** هل الوقت بداية صالحة للحجز؟ (مضاعف Minimum booking duration) */
 const isSlotAValidBookableStart = (club, timeSlot) => {
   const open = club?.settings?.openingTime
   if (!open) return true
-  const step = getMinSlotStep(club)
   const openMinutes = timeToMinutes(open)
   const slotM = timeToMinutes(timeSlot)
   const diff = slotM - openMinutes
   if (diff < 0) return false
-  return diff % step === 0
+  return diff % PUBLIC_SLOT_STEP_MINUTES === 0
 }
 
 const getClubTournamentStats = (club) => {
@@ -476,22 +504,19 @@ const ClubPublicPage = () => {
   const [bookingSubmitting, setBookingSubmitting] = useState(false)
   const [bookingDuration, setBookingDuration] = useState(60)
   const durationOptions = useMemo(() => {
-    const min = club?.settings?.bookingDuration ?? 60
-    const durationPrices = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
-    const fromSettings = durationPrices
-      .filter(d => (d.durationMinutes || 0) >= min)
-      .map(d => ({ durationMinutes: d.durationMinutes || 60, price: parseFloat(d.price) || 0 }))
-      .sort((a, b) => a.durationMinutes - b.durationMinutes)
+    const fromSettings = getPublicPricedDurationOptions(club)
+    const fallback = fromSettings.length > 0 ? fromSettings : [{ durationMinutes: 60, price: 0 }]
     if (!bookingModal?.court || !bookingModal?.dateStr || !bookingModal?.startTime) {
-      return fromSettings.length > 0 ? fromSettings : [{ durationMinutes: min, price: 0 }]
+      return fallback
     }
     const court = bookingModal.court
     const blocked = getBlockedRangesForCourtAndDate(court, bookingModal.dateStr, bookings, activeLocks, activeLock?.lockId || null, 0)
     const closing = club?.settings?.closingTime || '23:00'
-    const availableSet = new Set(getAvailableDurations(min, bookingModal.startTime, closing, blocked))
+    const minForAvail = getMinPricedDurationMinutes(club)
+    const availableSet = new Set(getAvailableDurations(minForAvail, bookingModal.startTime, closing, blocked))
     const filtered = fromSettings.filter(d => availableSet.has(d.durationMinutes))
-    return filtered.length > 0 ? filtered : (fromSettings.length > 0 ? fromSettings : [{ durationMinutes: min, price: 0 }])
-  }, [club?.settings?.bookingDuration, club?.settings?.closingTime, club?.settings?.bookingPrices, bookingModal, bookings, activeLocks, activeLock?.lockId])
+    return filtered.length > 0 ? filtered : fallback
+  }, [club, club?.settings?.closingTime, club?.settings?.bookingPrices?.durationPrices, bookingModal, bookings, activeLocks, activeLock?.lockId])
 
   useEffect(() => {
     if (bookingModal?.fromRange && bookingModal?.preselectDuration != null) {
@@ -516,17 +541,16 @@ const ClubPublicPage = () => {
   /** هل الشريحة قابلة للحجز فعلياً؟ (وقت بداية صالح + مدة كافية + لا تعارض) */
   const isSlotActuallyBookable = useCallback((court, dateStr, startTime) => {
     if (!isSlotAValidBookableStart(club, startTime)) return false
-    const minDur = club?.settings?.bookingDuration ?? 60
-    const durationPrices = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
-    let configured = (durationPrices || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
-    if (configured.length === 0) configured = [minDur]
+    const priced = getPublicPricedDurationOptions(club)
+    const configured = priced.length > 0 ? priced.map(d => d.durationMinutes) : [60]
+    const minForAvail = getMinPricedDurationMinutes(club)
     const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, 0)
     const closing = club?.settings?.closingTime || '23:00'
-    const available = getAvailableDurations(minDur, startTime, closing, blocked)
+    const available = getAvailableDurations(minForAvail, startTime, closing, blocked)
     const availableSet = new Set(available)
     const allowed = configured.filter(d => availableSet.has(d))
     return allowed.length > 0
-  }, [club?.settings?.bookingDuration, club?.settings?.bookingPrices?.durationPrices, club?.settings?.closingTime, bookings, activeLocks])
+  }, [club, club?.settings?.bookingPrices?.durationPrices, club?.settings?.closingTime, bookings, activeLocks])
 
   const handleSlotClick = useCallback(async (court, dateStr, startTime, existingLock = null) => {
     if (!platformUser || !isMember) return
@@ -539,16 +563,15 @@ const ClubPublicPage = () => {
       const lockDur = timeToMinutes(existingLock.end_time || '') - timeToMinutes(existingLock.start_time || '')
       setActiveLock({ lockId: existingLock.id, expiresAt: existingLock.expires_at })
       setBookingModal({ court, dateStr, startTime: existingLock.start_time || startTime })
-      setBookingDuration(lockDur > 0 ? lockDur : (club?.settings?.bookingDuration ?? 60))
+      setBookingDuration(lockDur > 0 ? lockDur : getMinPricedDurationMinutes(club))
       return
     }
-    const minDur = club?.settings?.bookingDuration ?? 60
-    const durationPrices = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
-    let configured = (durationPrices || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
-    if (configured.length === 0) configured = [minDur]
+    const priced = getPublicPricedDurationOptions(club)
+    let configured = priced.length > 0 ? priced.map(d => d.durationMinutes) : [60]
     const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, 0)
     const closing = club?.settings?.closingTime || '23:00'
-    const available = getAvailableDurations(minDur, startTime, closing, blocked)
+    const minForAvail = getMinPricedDurationMinutes(club)
+    const available = getAvailableDurations(minForAvail, startTime, closing, blocked)
     const availableSet = new Set(available)
     const allowed = configured.filter(d => availableSet.has(d))
     if (allowed.length === 0) {
@@ -585,45 +608,34 @@ const ClubPublicPage = () => {
         setLockError(isNetwork ? networkMsg : (msg || fallback))
       }
     }
-  }, [clubId, platformUser, isMember, club?.settings?.bookingDuration, club?.settings?.bookingPrices?.durationPrices, club?.settings?.closingTime, club?.settings?.lockMinutes, language, refreshClub, bookings, activeLocks])
+  }, [clubId, platformUser, isMember, club?.settings?.bookingPrices?.durationPrices, club?.settings?.closingTime, club?.settings?.lockMinutes, language, refreshClub, bookings, activeLocks, club])
 
-  const maxBookingDuration = useMemo(() => {
-    const dp = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
-    const minDur = club?.settings?.bookingDuration ?? 60
-    const valid = (dp || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
-    return valid.length > 0 ? Math.max(...valid) : (club?.settings?.bookingDuration ?? 180)
-  }, [club?.settings?.bookingPrices?.durationPrices, club?.settings?.bookingDuration])
+  const maxBookingDuration = useMemo(() => getMaxPricedDurationMinutes(club), [club?.settings?.bookingPrices?.durationPrices])
 
-  /** أقل مدة من Price per duration — تُستخدم لدمج الخلايا عند التمرير وكمقدار الخطوة بين الأوقات */
-  const minBookingDurationForHover = useMemo(() => {
-    const dp = Array.isArray(club?.settings?.bookingPrices?.durationPrices) ? club.settings.bookingPrices.durationPrices : []
-    const minDur = club?.settings?.bookingDuration ?? 60
-    const valid = (dp || []).filter(d => (d.durationMinutes || 0) >= minDur).map(d => d.durationMinutes || 0)
-    return valid.length > 0 ? Math.min(...valid) : minDur
-  }, [club?.settings?.bookingPrices?.durationPrices, club?.settings?.bookingDuration])
-
-  const slotStepMinutes = minBookingDurationForHover
+  /** خطوة الشبكة والتظليل — نصف ساعة (لا تعتمد على Minimum booking duration) */
+  const slotStepMinutes = PUBLIC_SLOT_STEP_MINUTES
+  const minBookingDurationForHover = PUBLIC_SLOT_STEP_MINUTES
 
   const handleRangeClick = useCallback(async (court, dateStr, startSlot, endSlot, existingLock = null) => {
     if (existingLock) {
       handleSlotClick(court, dateStr, startSlot, existingLock)
       return
     }
+    const courtIdStr = (court?.id || court?.name || '').toString()
     const startM = timeToMinutes(startSlot)
     const endM = timeToMinutes(endSlot)
     const duration = endM - startM + slotStepMinutes
-    if (duration < (club?.settings?.bookingDuration ?? 60)) {
+    const minPriced = getMinPricedDurationMinutes(club)
+    if (duration < minPriced) {
       handleSlotClick(court, dateStr, startSlot, null)
       return
     }
     const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, 0)
     const closing = club?.settings?.closingTime || '23:00'
     const maxCap = maxBookingDuration
-    const available = getAvailableDurations(club?.settings?.bookingDuration ?? 60, startSlot, closing, blocked, maxCap)
-    const configuredDurations = (club?.settings?.bookingPrices?.durationPrices || [])
-      .map(d => d.durationMinutes || 0)
-      .filter(d => d >= (club?.settings?.bookingDuration ?? 60))
-    const allowed = configuredDurations.length > 0 ? configuredDurations : [club?.settings?.bookingDuration ?? 60]
+    const available = getAvailableDurations(minPriced, startSlot, closing, blocked, maxCap)
+    const priced = getPublicPricedDurationOptions(club)
+    const allowed = priced.length > 0 ? priced.map(d => d.durationMinutes) : [60]
     if (!available.includes(duration) || !allowed.includes(duration)) {
       setLockError(language === 'en' ? 'Selected range has conflicts. Try a shorter range.' : 'النطاق المحدد يتعارض مع حجز آخر. حدد نطاقاً أقصر.')
       setHoveredRange(null)
@@ -634,7 +646,7 @@ const ClubPublicPage = () => {
     try {
       const result = await bookingApi.acquireBookingLock({
         clubId,
-        courtId,
+        courtId: courtIdStr,
         date: dateStr,
         startTime: startSlot,
         endTime,
@@ -656,7 +668,7 @@ const ClubPublicPage = () => {
       }
       setHoveredRange(null)
     }
-  }, [clubId, platformUser, club?.settings?.bookingDuration, club?.settings?.closingTime, club?.settings?.lockMinutes, club?.settings?.bookingPrices?.durationPrices, bookings, activeLocks, language, refreshClub, handleSlotClick, maxBookingDuration, slotStepMinutes])
+  }, [clubId, platformUser, club, club?.settings?.closingTime, club?.settings?.lockMinutes, club?.settings?.bookingPrices?.durationPrices, bookings, activeLocks, language, refreshClub, handleSlotClick, maxBookingDuration, slotStepMinutes])
 
   const handleJoinTraining = useCallback(async () => {
     if (!trainingJoinModal?.booking || !platformUser || !isMember) return
@@ -719,24 +731,6 @@ const ClubPublicPage = () => {
     }
   }, [trainingJoinModal, platformUser, isMember, clubId, language, refreshClub, trainingJoinPaymentStyle, trainingJoinPaymentMethod, trainingJoinPaymentShares, navigate])
 
-  /** هل الوقت مجاور للنطاق؟ (قبل البداية أو بعد النهاية بمقدار slotStep) */
-  const isSlotAdjacentToRange = useCallback((timeSlot, startSlot, endSlot) => {
-    const slotM = timeToMinutes(timeSlot)
-    const startM = timeToMinutes(startSlot)
-    const endM = timeToMinutes(endSlot)
-    return slotM === startM - slotStepMinutes || slotM === endM + slotStepMinutes
-  }, [slotStepMinutes])
-
-  /** هل الوقت قريب من النطاق ضمن نطاقين؟ (لتوسيع ذكي عند التمرير السريع) */
-  const isSlotNearRange = useCallback((timeSlot, startSlot, endSlot) => {
-    const slotM = timeToMinutes(timeSlot)
-    const startM = timeToMinutes(startSlot)
-    const endM = timeToMinutes(endSlot)
-    const step = slotStepMinutes
-    return (slotM >= startM - 2 * step && slotM <= startM - step) ||
-      (slotM >= endM + step && slotM <= endM + 2 * step)
-  }, [slotStepMinutes])
-
   const cancelRangeLeaveTimeout = useCallback(() => {
     if (rangeLeaveTimeoutRef.current) {
       clearTimeout(rangeLeaveTimeoutRef.current)
@@ -744,52 +738,13 @@ const ClubPublicPage = () => {
     }
   }, [])
 
+  /** تظليل شقّ واحد فقط (نصف ساعة); اختيار المدة يتم من النافذة بعد النقر */
   const handleRangeMouseEnter = useCallback((court, dateStr, timeSlot, canBookForRange) => {
     cancelRangeLeaveTimeout()
     if (!canBookForRange) return
     const courtId = (court?.id || court?.name || '').toString()
-    const setNewRange = () => {
-      const spanMin = minBookingDurationForHover
-      const numCells = Math.max(1, Math.ceil(spanMin / slotStepMinutes))
-      let endSlot = addMinutesToTime(timeSlot, (numCells - 1) * slotStepMinutes)
-      const closingM = timeToMinutes(club?.settings?.closingTime || '23:00')
-      if (timeToMinutes(endSlot) + slotStepMinutes > closingM) {
-        endSlot = addMinutesToTime('00:00', closingM - slotStepMinutes)
-      }
-      setHoveredRange({ court, courtId, startSlot: timeSlot, endSlot, fromCanBook: true })
-    }
-    if (!hoveredRange || !hoveredRange.fromCanBook) {
-      setNewRange()
-      return
-    }
-    if (hoveredRange.courtId !== courtId) {
-      setNewRange()
-      return
-    }
-    if (isSlotAdjacentToRange(timeSlot, hoveredRange.startSlot, hoveredRange.endSlot)) {
-      const startM = timeToMinutes(hoveredRange.startSlot)
-      const endM = timeToMinutes(hoveredRange.endSlot)
-      const slotM = timeToMinutes(timeSlot)
-      const newStart = slotM < startM ? timeSlot : hoveredRange.startSlot
-      const newEnd = slotM > endM ? timeSlot : hoveredRange.endSlot
-      const newDuration = timeToMinutes(newEnd) - timeToMinutes(newStart) + slotStepMinutes
-      if (newDuration > maxBookingDuration) return
-      setHoveredRange(prev => ({ ...prev, startSlot: newStart, endSlot: newEnd }))
-      return
-    }
-    if (isSlotNearRange(timeSlot, hoveredRange.startSlot, hoveredRange.endSlot)) {
-      const startM = timeToMinutes(hoveredRange.startSlot)
-      const endM = timeToMinutes(hoveredRange.endSlot)
-      const slotM = timeToMinutes(timeSlot)
-      const newStart = slotM < startM ? timeSlot : hoveredRange.startSlot
-      const newEnd = slotM > endM ? timeSlot : hoveredRange.endSlot
-      const newDuration = timeToMinutes(newEnd) - timeToMinutes(newStart) + slotStepMinutes
-      if (newDuration > maxBookingDuration) return
-      setHoveredRange(prev => ({ ...prev, startSlot: newStart, endSlot: newEnd }))
-      return
-    }
-    setNewRange()
-  }, [cancelRangeLeaveTimeout, hoveredRange, isSlotAdjacentToRange, isSlotNearRange, maxBookingDuration, minBookingDurationForHover, slotStepMinutes, club?.settings?.closingTime])
+    setHoveredRange({ court, courtId, startSlot: timeSlot, endSlot: timeSlot, fromCanBook: true })
+  }, [cancelRangeLeaveTimeout])
 
   const handleRangeMouseLeave = useCallback(() => {
     if (rangeLeaveTimeoutRef.current) clearTimeout(rangeLeaveTimeoutRef.current)
@@ -806,27 +761,14 @@ const ClubPublicPage = () => {
     const dateStr = el.getAttribute('data-date')
     if (!courtId || !timeSlot || !dateStr || el.getAttribute('data-can-book-range') !== '1') return
     if (courtId !== touchSelectRef.current.courtId) return
-    const spanMin = minBookingDurationForHover
-    const numCells = Math.max(1, Math.ceil(spanMin / slotStepMinutes))
-    let endSlot = addMinutesToTime(timeSlot, (numCells - 1) * slotStepMinutes)
-    const closingM = timeToMinutes(club?.settings?.closingTime || '23:00')
-    if (timeToMinutes(endSlot) + slotStepMinutes > closingM) endSlot = addMinutesToTime('00:00', closingM - slotStepMinutes)
-    setHoveredRange(prev => {
-      if (!prev || prev.courtId !== courtId) return { court: touchSelectRef.current.court, courtId, startSlot: timeSlot, endSlot, fromCanBook: true }
-      const slotM = timeToMinutes(timeSlot)
-      const startM = timeToMinutes(prev.startSlot)
-      const endM = timeToMinutes(prev.endSlot)
-      const nearStart = slotM >= startM - 2 * slotStepMinutes && slotM < startM
-      const nearEnd = slotM > endM && slotM <= endM + 2 * slotStepMinutes
-      if (nearStart || nearEnd) {
-        const newStart = slotM < startM ? timeSlot : prev.startSlot
-        const newEnd = slotM > endM ? timeSlot : prev.endSlot
-        const dur = timeToMinutes(newEnd) - timeToMinutes(newStart) + slotStepMinutes
-        if (dur <= maxBookingDuration) return { ...prev, startSlot: newStart, endSlot: newEnd }
-      }
-      return { court: touchSelectRef.current.court, courtId, startSlot: timeSlot, endSlot, fromCanBook: true }
+    setHoveredRange({
+      court: touchSelectRef.current.court,
+      courtId,
+      startSlot: timeSlot,
+      endSlot: timeSlot,
+      fromCanBook: true
     })
-  }, [maxBookingDuration, minBookingDurationForHover, slotStepMinutes, club?.settings?.closingTime])
+  }, [])
 
   const handleTouchEndRange = useCallback(() => {
     touchSelectRef.current = null
@@ -980,6 +922,10 @@ const ClubPublicPage = () => {
       trainingPaySplit: 'Share with others',
       trainingPayFull: 'Pay full amount',
       confirmJoinTraining: 'Confirm join',
+      scheduleSlotHint: 'Each column is 30 minutes. Tap a time slot to choose 60, 90, or 120 minutes and see the price from club settings.',
+      legendCourt: 'Court booking',
+      legendCoach: 'Coach session',
+      legendTournament: 'Tournament',
     },
     ar: {
       backToHome: 'العودة للرئيسية',
@@ -1071,6 +1017,10 @@ const ClubPublicPage = () => {
       trainingPaySplit: 'المشاركة مع أعضاء آخرين',
       trainingPayFull: 'الدفع كامل المبلغ',
       confirmJoinTraining: 'تأكيد الانضمام',
+      scheduleSlotHint: 'كل عمود يمثل نصف ساعة. اضغط على الشق لاختيار 60 أو 90 أو 120 دقيقة مع السعر من إعدادات النادي.',
+      legendCourt: 'حجز ملعب',
+      legendCoach: 'حصة مدرب',
+      legendTournament: 'بطولة',
     }
   }
   const c = t[language] || t.en
@@ -1380,7 +1330,7 @@ const ClubPublicPage = () => {
               const timeSlots = getTimeSlotsForClub(club)
               return (
                 <div
-                  className="club-public-court-booking-wrap"
+                  className="club-public-court-booking-wrap club-public-court-booking-wrap--schedule"
                   dir={language === 'ar' ? 'rtl' : 'ltr'}
                   onMouseEnter={cancelRangeLeaveTimeout}
                   onMouseLeave={handleRangeMouseLeave}
@@ -1388,12 +1338,28 @@ const ClubPublicPage = () => {
                   onTouchEnd={hasTouch ? handleTouchEndRange : undefined}
                   onTouchCancel={hasTouch ? handleTouchEndRange : undefined}
                 >
+                  {isMember && (
+                    <div className="club-public-court-booking-schedule-hint" role="note">
+                      {c.scheduleSlotHint}
+                    </div>
+                  )}
+                  <div className="club-public-court-booking-schedule-legend" aria-hidden="true">
+                    <span className="club-public-court-booking-legend-item">
+                      <span className="club-public-legend-swatch club-public-legend-swatch--court" /> {c.legendCourt}
+                    </span>
+                    <span className="club-public-court-booking-legend-item">
+                      <span className="club-public-legend-swatch club-public-legend-swatch--coach" /> {c.legendCoach}
+                    </span>
+                    <span className="club-public-court-booking-legend-item">
+                      <span className="club-public-legend-swatch club-public-legend-swatch--tournament" /> {c.legendTournament}
+                    </span>
+                  </div>
                   <div
                     className="club-public-court-grid club-public-court-grid-times-horizontal"
                     style={{
-                      gridTemplateColumns: `80px repeat(${timeSlots.length}, minmax(70px, 1fr))`,
-                      gridTemplateRows: `44px repeat(${courts.length}, 36px)`,
-                      minWidth: `${80 + timeSlots.length * 70}px`
+                      gridTemplateColumns: `var(--court-grid-sticky-w, 88px) repeat(${timeSlots.length}, minmax(var(--court-slot-min, 52px), 1fr))`,
+                      gridTemplateRows: `auto repeat(${courts.length}, minmax(40px, auto))`,
+                      minWidth: `calc(var(--court-grid-sticky-w, 88px) + ${timeSlots.length} * var(--court-slot-min, 52px))`
                     }}
                   >
                     <div className="club-public-court-grid-corner" />
@@ -1425,15 +1391,14 @@ const ClubPublicPage = () => {
                             const start = (b.startTime || b.timeSlot || '').toString().trim()
                             let end = (b.endTime || '').toString().trim()
                             if (!end && start) {
-                              const [h, m] = start.split(':').map(Number)
-                              const endM = (h || 0) * 60 + (m || 0) + (club?.settings?.bookingDuration || 60)
-                              end = `${String(Math.floor(endM / 60)).padStart(2, '0')}:${String(endM % 60).padStart(2, '0')}`
+                              const durMin = parseInt(b.durationMinutes, 10) || getMinPricedDurationMinutes(club)
+                              end = addMinutesToTime(start, durMin)
                             }
                             return isTimeSlotCoveredByBooking(timeSlot, start, end || start)
                           })
                           const isBooked = !!bookedItem
-                          const isTournamentBlock = isBooked && bookedItem?.isTournament && bookedItem?.tournamentType === 'king'
-                          const isTraining = isBooked && !isTournamentBlock && (bookedItem?.type === 'training' || bookedItem?.data?.type === 'training')
+                          const isTournamentBlock = isBooked && !!bookedItem?.isTournament
+                          const isTraining = isBooked && !bookedItem?.isTournament && (bookedItem?.type === 'training' || bookedItem?.data?.type === 'training')
                           const isLocked = activeLocks.some(l => {
                             const lCourt = (l.court_id || '').toString()
                             if (lCourt !== courtName && lCourt !== courtIdForMatch) return false
@@ -1466,7 +1431,8 @@ const ClubPublicPage = () => {
                           const slotM = timeToMinutes(timeSlot)
                           const isInPreparation = !isBooked && !isLocked && overlapsAny(slotM, slotM + slotStepMinutes, blockedForCourt)
                           const canBook = !isBooked && !isInPreparation && !isPast && (hasDuration || isMyLock) && isMember && platformUser && (!isLocked || isMyLock)
-                          const cellStatus = isLocked ? 'in-progress' : isBooked ? (isTournamentBlock ? 'booked tournament' : isTraining ? (canJoinTraining ? 'booked training joinable' : 'booked training') : 'booked') : isInPreparation ? 'preparation' : isPast ? 'past' : 'available'
+                          const tournamentKindClass = isTournamentBlock ? (bookedItem?.tournamentType === 'social' ? 'tournament-social' : 'tournament-king') : ''
+                          const cellStatus = isLocked ? 'in-progress' : isBooked ? (isTournamentBlock ? `booked tournament ${tournamentKindClass}` : isTraining ? (canJoinTraining ? 'booked training joinable' : 'booked training') : 'booked court-booking') : isInPreparation ? 'preparation' : isPast ? 'past' : 'available'
                           const slotTitle = isMyLock ? (language === 'en' ? 'Complete your booking' : 'أكمل حجزك') : isLocked ? (language === 'en' ? 'In progress' : 'قيد الإجراء') : canJoinTraining ? (language === 'en' ? 'Join training' : 'انضم للتدريب') : isTournamentBlock ? (bookedItem?.tournamentType === 'social' ? (c.tournamentBookedSocial || c.socialTournament) : (c.tournamentBooked || 'Tournament')) : isBooked ? (c.booked || 'Booked') : isInPreparation ? (language === 'en' ? 'Preparation time' : 'وقت الاستعداد') : isPast ? (language === 'en' ? 'Past' : 'منتهي') : canBook ? (c.bookNow || 'Book now') : (c.available || 'Available')
                           const isCellClickable = canBook || canJoinTraining
                           const canBookForRange = canBook && !isMyLock && !canJoinTraining
@@ -1482,30 +1448,39 @@ const ClubPublicPage = () => {
                             ? Math.max(1, Math.round((timeToMinutes(hoveredRange.endSlot) - timeToMinutes(hoveredRange.startSlot)) / slotStepMinutes) + 1)
                             : 0
                           const trainingStart = bookedItem && (bookedItem.startTime || bookedItem.timeSlot || '').toString().trim()
-                          const trainingEnd = (bookedItem?.endTime || '').toString().trim() || (trainingStart ? addMinutesToTime(trainingStart, club?.settings?.bookingDuration || 60) : '')
+                          const inferDur = parseInt(bookedItem?.durationMinutes, 10) || getMinPricedDurationMinutes(club)
+                          const trainingEnd = (bookedItem?.endTime || '').toString().trim() || (trainingStart ? addMinutesToTime(trainingStart, inferDur) : '')
                           const isTrainingBlockStart = isTraining && timeToMinutes(timeSlot) === timeToMinutes(trainingStart)
                           const isTrainingBlockContinuation = isTraining && !isTrainingBlockStart
                           const trainingSpan = isTrainingBlockStart
                             ? Math.max(1, Math.round((timeToMinutes(trainingEnd) - timeToMinutes(trainingStart)) / slotStepMinutes))
                             : 0
+                          const tournamentStart = isTournamentBlock ? (bookedItem.startTime || bookedItem.timeSlot || '').toString().trim() : ''
+                          const tournamentEnd = isTournamentBlock
+                            ? ((bookedItem.endTime || '').toString().trim() || (tournamentStart ? addMinutesToTime(tournamentStart, inferDur) : ''))
+                            : ''
+                          const isTournamentBlockStart = isTournamentBlock && tournamentStart && timeToMinutes(timeSlot) === timeToMinutes(tournamentStart)
+                          const isTournamentBlockContinuation = isTournamentBlock && !isTournamentBlockStart
+                          const tournamentSpan = isTournamentBlockStart && tournamentEnd
+                            ? Math.max(1, Math.round((timeToMinutes(tournamentEnd) - timeToMinutes(tournamentStart)) / slotStepMinutes))
+                            : 0
+                          const previewPriced = getPublicPricedDurationOptions(club)
+                          const previewDurationMinutes = previewPriced.length > 0 ? previewPriced[0].durationMinutes : 60
                           let slotPrice = null
                           if (isCellClickable) {
                             if (canJoinTraining) {
                               slotPrice = parseFloat(bookedItem?.totalAmount) || 0
                             } else if (isInRange && hoveredRange) {
-                              const startM = timeToMinutes(hoveredRange.startSlot)
-                              const endM = timeToMinutes(hoveredRange.endSlot)
-                              const duration = endM - startM + slotStepMinutes
-                              slotPrice = calculateBookingPrice(club, dateStr, hoveredRange.startSlot, duration).price
-                            } else if (canBook && !isInRange) {
-                              let dur = club?.settings?.bookingDuration ?? 60
+                              slotPrice = calculateBookingPrice(club, dateStr, hoveredRange.startSlot, previewDurationMinutes).price
+                            } else if (canBook) {
+                              let dur = previewDurationMinutes
                               if (isMyLock && myLock?.start_time && myLock?.end_time) {
                                 dur = Math.max(30, timeToMinutes(myLock.end_time) - timeToMinutes(myLock.start_time))
                               }
                               slotPrice = calculateBookingPrice(club, dateStr, timeSlot, dur).price
                             }
                           }
-                          if (isTrainingBlockContinuation) {
+                          if (isTrainingBlockContinuation || isTournamentBlockContinuation) {
                             return null
                           }
                           if (isRangeBlockContinuation) {
@@ -1520,28 +1495,22 @@ const ClubPublicPage = () => {
                               handleSlotClick(court, dateStr, timeSlot, myLock)
                               return
                             }
-                            if (hasTouch && canBookForRange && !isInRange) {
-                              handleRangeMouseEnter(court, dateStr, timeSlot, canBookForRange)
-                              return
-                            }
-                            if (isInRange && hoveredRange && hoveredRange.startSlot !== hoveredRange.endSlot) {
-                              handleRangeClick(court, dateStr, hoveredRange.startSlot, hoveredRange.endSlot, null)
-                              return
-                            }
-                            if (isInRange && hoveredRange && hoveredRange.startSlot === hoveredRange.endSlot) {
+                            if (canBook) {
                               handleSlotClick(court, dateStr, timeSlot, null)
-                              return
                             }
-                            handleSlotClick(court, dateStr, timeSlot, null)
                           }
-                          const gridSpan = trainingSpan > 0 ? trainingSpan : (rangeSpan > 0 ? rangeSpan : undefined)
+                          const gridSpan = trainingSpan > 0 ? trainingSpan : (tournamentSpan > 0 ? tournamentSpan : (rangeSpan > 0 ? rangeSpan : undefined))
+                          const tournamentHue = isTournamentBlockStart ? tournamentAccentHue(bookedItem.tournamentId || bookedItem.id) : null
                           return (
                             <div
                               key={timeSlot}
                               role={isCellClickable ? 'button' : undefined}
                               tabIndex={isCellClickable ? 0 : undefined}
-                              className={`club-public-court-grid-cell ${cellStatus} ${isCellClickable ? 'clickable' : ''} ${isInRange ? 'in-range hovered' : ''} ${isTrainingBlockStart ? 'training-block-merged' : ''} ${isRangeBlockStart ? 'range-block-merged' : ''}`}
-                              style={gridSpan ? { gridColumn: `span ${gridSpan}` } : undefined}
+                              className={`club-public-court-grid-cell ${cellStatus} ${isCellClickable ? 'clickable' : ''} ${isInRange ? 'in-range hovered' : ''} ${isTrainingBlockStart ? 'training-block-merged' : ''} ${isTournamentBlockStart ? 'tournament-block-merged' : ''} ${isRangeBlockStart ? 'range-block-merged' : ''}`}
+                              style={{
+                                ...(gridSpan ? { gridColumn: `span ${gridSpan}` } : {}),
+                                ...(tournamentHue != null ? { '--tournament-hue': String(tournamentHue) } : {})
+                              }}
                               title={slotTitle}
                               {...(canBookForRange && { 'data-court-id': courtIdForMatch, 'data-date': dateStr, 'data-time-slot': timeSlot, 'data-can-book-range': '1' })}
                               onMouseEnter={canBookForRange ? () => handleRangeMouseEnter(court, dateStr, timeSlot, canBookForRange) : (isCellClickable ? () => setHoveredRange({ court, courtId: (court.id || court.name || '').toString(), startSlot: timeSlot, endSlot: timeSlot, fromCanBook: false }) : undefined)}
@@ -1554,6 +1523,13 @@ const ClubPublicPage = () => {
                                   <span className="club-public-cell-training-label">{c.trainingSessionsLabel}</span>
                                   <span className="club-public-cell-time-range">{trainingStart}{trainingEnd ? ` – ${trainingEnd}` : ''}</span>
                                   {slotPrice != null ? <span className="club-public-cell-price">{slotPrice} {currency}</span> : null}
+                                </span>
+                              ) : isTournamentBlockStart ? (
+                                <span className="club-public-cell-tournament-block">
+                                  <span className="club-public-cell-tournament-label">
+                                    {bookedItem?.tournamentType === 'social' ? (c.socialTournament || 'Social') : (c.kingOfCourt || 'King')}
+                                  </span>
+                                  <span className="club-public-cell-time-range">{tournamentStart}{tournamentEnd ? ` – ${tournamentEnd}` : ''}</span>
                                 </span>
                               ) : isRangeBlockStart && slotPrice != null ? (
                                 <span className="club-public-cell-range-block">

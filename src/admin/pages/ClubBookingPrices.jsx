@@ -26,19 +26,18 @@ const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
   }, [club?.id])
 
   const handleSave = async () => {
-    const minDur = club?.settings?.bookingDuration ?? 60
-    const clampedPrices = {
+    const sanitizedPrices = {
       ...prices,
       durationPrices: (prices.durationPrices || []).map(d => ({
         ...d,
-        durationMinutes: Math.max(minDur, d.durationMinutes || 60)
+        durationMinutes: Math.max(30, d.durationMinutes || 60)
       }))
     }
     try {
       await onUpdateClub({
         settings: {
           ...club?.settings,
-          bookingPrices: clampedPrices
+          bookingPrices: sanitizedPrices
         }
       })
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
@@ -49,12 +48,11 @@ const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
     }
   }
 
-  const minBookingDuration = club?.settings?.bookingDuration ?? 60
   const addDuration = () => {
-    const max = Math.max(minBookingDuration - 30, ...(prices.durationPrices || []).map(d => d.durationMinutes || 0))
+    const max = Math.max(0, ...(prices.durationPrices || []).map(d => d.durationMinutes || 0))
     setPrices(prev => ({
       ...prev,
-      durationPrices: [...(prev.durationPrices || []), { durationMinutes: Math.max(minBookingDuration, max + 30), price: 100 }]
+      durationPrices: [...(prev.durationPrices || []), { durationMinutes: Math.max(30, max + 30), price: 100 }]
     }))
   }
   const removeDuration = (i) => {
@@ -69,7 +67,7 @@ const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
       durationPrices: (prev.durationPrices || []).map((d, idx) => {
         if (idx !== i) return d
         const nextVal = field === 'price' ? parseFloat(val) || 0 : parseInt(val, 10) || 0
-        if (field === 'durationMinutes' && nextVal < minBookingDuration) return { ...d, [field]: minBookingDuration }
+        if (field === 'durationMinutes' && nextVal < 30) return { ...d, [field]: 30 }
         return { ...d, [field]: nextVal }
       })
     }))
@@ -209,12 +207,12 @@ const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
                         <td>
                           <input
                             type="number"
-                            min={minBookingDuration}
+                            min={30}
                             step={15}
                             value={d.durationMinutes || 60}
                             onChange={(e) => updateDuration(i, 'durationMinutes', e.target.value)}
                             className="cbp-input cbp-input-num"
-                            title={t('Cannot be less than minimum booking duration in Booking Settings.', 'لا يمكن أن تكون أقل من أقل مدة حجز في إعدادات الحجز.')}
+                            title={t('Minimum 30 minutes per row.', 'الحد الأدنى 30 دقيقة لكل صف.', lang)}
                           />
                         </td>
                         <td>
