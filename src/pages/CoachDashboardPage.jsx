@@ -374,6 +374,7 @@ const CoachDashboardPage = () => {
   }
 
   const currency = club?.settings?.currency || 'SAR'
+  const splitPayDeadlineMins = club?.settings?.splitPaymentDeadlineMinutes ?? 30
 
   if (loading || !club) {
     return (
@@ -411,19 +412,35 @@ const CoachDashboardPage = () => {
 
       <main className="coach-dashboard-main">
         <section className="coach-dashboard-create">
-          <div className="coach-create-head">
-            <h2>{t('Set your availability', 'حدد أوقات تواجدك', language)}</h2>
-            <div className="coach-stats-row">
-              <span><strong>{stats.availableCount}</strong> {t('Available', 'متاحة', language)}</span>
-              <span><strong>{stats.upcomingCount}</strong> {t('Booked', 'محجوزة', language)}</span>
-              <span><strong>{stats.pastCount}</strong> {t('Past', 'سابقة', language)}</span>
-              <span className="coach-stat-rev"><strong>{stats.totalRevenue}</strong> {currency}</span>
+          <header className="coach-panel-header">
+            <div className="coach-panel-title-block">
+              <h2 className="coach-panel-title">{t('Set your availability', 'حدد أوقات تواجدك', language)}</h2>
+              <p className="coach-panel-subtitle">{t('Select date, click empty slots to add. Click your slots to edit or delete.', 'اختر التاريخ واضغط على الفراغ للإضافة، أو على حجزك للتعديل/الحذف.', language)}</p>
+            </div>
+          </header>
+
+          <div className="coach-stats-grid" role="list">
+            <div className="coach-stat-card" role="listitem">
+              <span className="coach-stat-card-value">{stats.availableCount}</span>
+              <span className="coach-stat-card-label">{t('Available', 'متاحة', language)}</span>
+            </div>
+            <div className="coach-stat-card coach-stat-card--booked" role="listitem">
+              <span className="coach-stat-card-value">{stats.upcomingCount}</span>
+              <span className="coach-stat-card-label">{t('Booked', 'محجوزة', language)}</span>
+            </div>
+            <div className="coach-stat-card coach-stat-card--past" role="listitem">
+              <span className="coach-stat-card-value">{stats.pastCount}</span>
+              <span className="coach-stat-card-label">{t('Past', 'سابقة', language)}</span>
+            </div>
+            <div className="coach-stat-card coach-stat-card--rev" role="listitem">
+              <span className="coach-stat-card-value">{stats.totalRevenue} <span className="coach-stat-card-currency">{currency}</span></span>
+              <span className="coach-stat-card-label">{t('Recorded revenue', 'إيراد مسجل', language)}</span>
             </div>
           </div>
-          <p className="coach-create-hint">{t('Select date, click empty slots to add. Click your slots to edit or delete.', 'اختر التاريخ واضغط على الفراغ للإضافة، أو على حجزك للتعديل/الحذف.', language)}</p>
-          <div className="coach-create-toolbar">
-            <div className="coach-toolbar-date">
-              <label>{t('Date', 'التاريخ', language)}</label>
+
+          <div className="coach-controls-panel">
+            <div className="coach-controls-section coach-controls-section--calendar">
+              <h3 className="coach-controls-heading">{t('Date', 'التاريخ', language)}</h3>
               <MultiDatePicker
                 viewingDate={gridDate}
                 onDateClick={setGridDate}
@@ -432,22 +449,44 @@ const CoachDashboardPage = () => {
                 language={language}
               />
             </div>
-            <div className="coach-toolbar-config">
-              <div className="coach-create-row coach-create-row-inline">
-                <label>{t('Price/hr', 'السعر/ساعة', language)} ({currency})</label>
-                <input type="number" min={1} value={createPrice} onChange={e => setCreatePrice(Number(e.target.value) || 0)} />
-              </div>
-              <div className="coach-create-row coach-create-row-inline">
-                <label>{t('Max', 'الحد الأقصى', language)}</label>
-                <select value={createMaxTrainees} onChange={e => setCreateMaxTrainees(Number(e.target.value))}>
-                  {[1, 2, 3, 4].map(n => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
+            <div className="coach-controls-section coach-controls-section--session">
+              <h3 className="coach-controls-heading">{t('New session defaults', 'إعدادات الجلسة الجديدة', language)}</h3>
+              <div className="coach-field-grid">
+                <div className="coach-field">
+                  <label htmlFor="coach-price-hr">{t('Price per hour', 'السعر للساعة', language)}</label>
+                  <div className="coach-field-input-wrap">
+                    <input id="coach-price-hr" type="number" min={1} value={createPrice} onChange={e => setCreatePrice(Number(e.target.value) || 0)} />
+                    <span className="coach-field-suffix">{currency}</span>
+                  </div>
+                </div>
+                <div className="coach-field">
+                  <label htmlFor="coach-max-trainees">{t('Max trainees', 'الحد الأقصى للمتدربين', language)}</label>
+                  <select id="coach-max-trainees" value={createMaxTrainees} onChange={e => setCreateMaxTrainees(Number(e.target.value))}>
+                    {[1, 2, 3, 4].map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
+            <aside className="coach-controls-section coach-controls-section--policy" aria-label={t('Club booking policy', 'سياسة حجز النادي', language)}>
+              <h3 className="coach-controls-heading">{t('Club booking policy', 'سياسة حجز النادي', language)}</h3>
+              <p className="coach-policy-hint">{t('These values are set by the club admin.', 'هذه القيم يضبطها مدير النادي.', language)}</p>
+              <dl className="coach-policy-list">
+                <div className="coach-policy-row">
+                  <dt>{t('Split payment deadline', 'مهلة دفع التقسيم', language)}</dt>
+                  <dd>{splitPayDeadlineMins} {t('min', 'دقيقة', language)}</dd>
+                </div>
+              </dl>
+            </aside>
           </div>
+
           {createError && <p className="coach-create-error">{createError}</p>}
+
+          <div className="coach-schedule-heading">
+            <h3 className="coach-schedule-title">{t('Courts schedule', 'جدول الملاعب', language)}</h3>
+            <p className="coach-schedule-hint">{t('Scroll sideways on small screens to see all times.', 'مرّر أفقياً على الشاشات الصغيرة لرؤية كل الأوقات.', language)}</p>
+          </div>
           <div
             className="coach-court-grid-wrap"
             dir={language === 'ar' ? 'rtl' : 'ltr'}
@@ -718,6 +757,10 @@ const CoachDashboardPage = () => {
 
         {/* Tabs: Available / Booked / Past */}
         <section className="coach-dashboard-bookings">
+          <header className="coach-bookings-panel-head">
+            <h2 className="coach-bookings-panel-title">{t('Your sessions', 'جلساتك', language)}</h2>
+            <p className="coach-bookings-panel-desc">{t('Manage upcoming availability and bookings.', 'إدارة التوفر والحجوزات القادمة.', language)}</p>
+          </header>
           <div className="coach-tabs">
             <button
               type="button"
