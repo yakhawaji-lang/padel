@@ -1,8 +1,10 @@
 -- ============================================================================
 -- PlayTix — إنشاء كل الجداول والحقول والفهارس (padel_db / u502561206_padel_db)
 -- ============================================================================
--- الاستخدام: نفّذ بعد DROP_ALL_TABLES.sql أو على قاعدة فارغة.
--- في phpMyAdmin: اختر القاعدة → تبويب SQL → الصق هذا الملف → تنفيذ.
+-- الاستخدام: على قاعدة فارغة أو موجودة — CREATE IF NOT EXISTS لا يحذف بيانات.
+-- بعد هذا الملف على قواعد قديمة، نفّذ أيضاً:
+--   server/db/migrations/phpmyadmin-u502561206-padel_db-SYNC-legacy-columns.sql
+-- رابط GitHub: https://github.com/yakhawaji-lang/padel/blob/main/server/db/CREATE_ALL_TABLES.sql
 -- ============================================================================
 
 SET NAMES utf8mb4;
@@ -302,6 +304,7 @@ CREATE TABLE IF NOT EXISTS booking_payment_shares (
   invite_token VARCHAR(64) NULL,
   paid_at DATETIME NULL,
   payment_reference VARCHAR(255) NULL,
+  payment_method VARCHAR(50) NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_bps_booking (booking_id, club_id),
   INDEX idx_bps_club (club_id),
@@ -512,6 +515,26 @@ CREATE TABLE IF NOT EXISTS payment_idempotency (
   INDEX idx_pi_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ============ 4b) بوابات الدفع على مستوى المنصة (لوحة إعدادات الدفع) ============
+CREATE TABLE IF NOT EXISTS platform_payment_gateways (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  gateway_key VARCHAR(50) NOT NULL UNIQUE,
+  enabled TINYINT(1) DEFAULT 1,
+  config_json TEXT,
+  display_name VARCHAR(100),
+  display_name_ar VARCHAR(100),
+  sort_order INT DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO platform_payment_gateways (gateway_key, enabled, config_json, display_name, display_name_ar, sort_order) VALUES
+('at_club', 1, '{"description":"Pay at club with cash or card"}', 'At club', 'الدفع في النادي', 1),
+('credit_card', 0, '{"provider":"stripe","publishableKey":"","secretKey":"","webhookSecret":"","description":"Online payment via Visa, Mastercard"}', 'Credit card', 'البطاقة الائتمانية', 2),
+('mada', 0, '{"merchantId":"","apiKey":"","gatewayId":"","description":"متاب - بطاقة الدفع السعودية"}', 'Mada', 'متاب', 3),
+('split', 1, '{"deadlineMinutes":30,"description":"Split payment with other participants"}', 'Split payment', 'تقسيم المبلغ', 4)
+ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;
+
 -- ============ 5) بيانات افتراضية ============
 INSERT IGNORE INTO app_store (`key`, value) VALUES ('admin_clubs', '[]');
 INSERT IGNORE INTO app_store (`key`, value) VALUES ('all_members', '[]');
@@ -536,4 +559,5 @@ SET FOREIGN_KEY_CHECKS = 1;
 --   club_courts, club_settings, club_admin_users, club_offers, club_bookings,
 --   club_accounting, club_tournament_types, club_store: club_id → clubs.id
 --   booking_payment_shares: booking_id+club_id → club_bookings
+--   platform_payment_gateways: إعدادات Stripe/Mada/النادي/المشاركة (لوحة المدير الرئيسي)
 --   audit_log: سجل تدقيق عام

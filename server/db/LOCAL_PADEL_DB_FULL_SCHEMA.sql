@@ -278,9 +278,14 @@ CREATE TABLE IF NOT EXISTS booking_payment_shares (
   phone VARCHAR(50) NULL,
   amount DECIMAL(10,2) NOT NULL DEFAULT 0,
   whatsapp_link TEXT NULL,
+  invite_token VARCHAR(64) NULL,
+  paid_at DATETIME NULL,
+  payment_reference VARCHAR(255) NULL,
+  payment_method VARCHAR(50) NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_bps_booking (booking_id, club_id),
-  INDEX idx_bps_club (club_id)
+  INDEX idx_bps_club (club_id),
+  INDEX idx_bps_invite_token (invite_token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS club_accounting (
@@ -487,6 +492,25 @@ CREATE TABLE IF NOT EXISTS payment_idempotency (
   INDEX idx_pi_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS platform_payment_gateways (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  gateway_key VARCHAR(50) NOT NULL UNIQUE,
+  enabled TINYINT(1) DEFAULT 1,
+  config_json TEXT,
+  display_name VARCHAR(100),
+  display_name_ar VARCHAR(100),
+  sort_order INT DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO platform_payment_gateways (gateway_key, enabled, config_json, display_name, display_name_ar, sort_order) VALUES
+('at_club', 1, '{"description":"Pay at club with cash or card"}', 'At club', 'الدفع في النادي', 1),
+('credit_card', 0, '{"provider":"stripe","publishableKey":"","secretKey":"","webhookSecret":"","description":"Online payment via Visa, Mastercard"}', 'Credit card', 'البطاقة الائتمانية', 2),
+('mada', 0, '{"merchantId":"","apiKey":"","gatewayId":"","description":"متاب - بطاقة الدفع السعودية"}', 'Mada', 'متاب', 3),
+('split', 1, '{"deadlineMinutes":30,"description":"Split payment with other participants"}', 'Split payment', 'تقسيم المبلغ', 4)
+ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;
+
 -- ============ 6) بيانات افتراضية ============
 INSERT IGNORE INTO app_store (`key`, value) VALUES ('admin_clubs', '[]');
 INSERT IGNORE INTO app_store (`key`, value) VALUES ('all_members', '[]');
@@ -519,6 +543,7 @@ ALTER TABLE club_settings ADD COLUMN split_manage_minutes INT DEFAULT 15;
 ALTER TABLE club_settings ADD COLUMN split_payment_deadline_minutes INT DEFAULT 30;
 ALTER TABLE club_settings ADD COLUMN refund_days INT DEFAULT 3;
 ALTER TABLE club_settings ADD COLUMN allow_incomplete_bookings TINYINT(1) DEFAULT 0;
+ALTER TABLE club_settings ADD COLUMN preparation_time_minutes INT DEFAULT 0;
 ALTER TABLE club_settings ADD COLUMN working_hours_seasons JSON NULL;
 ALTER TABLE club_settings ADD COLUMN payment_enabled_channels JSON NULL;
 
@@ -535,6 +560,7 @@ ALTER TABLE club_bookings ADD COLUMN initiator_member_id VARCHAR(255) NULL;
 ALTER TABLE booking_payment_shares ADD COLUMN invite_token VARCHAR(64) NULL;
 ALTER TABLE booking_payment_shares ADD COLUMN paid_at DATETIME NULL;
 ALTER TABLE booking_payment_shares ADD COLUMN payment_reference VARCHAR(255) NULL;
+ALTER TABLE booking_payment_shares ADD COLUMN payment_method VARCHAR(50) NULL;
 
 -- فهرس مشاركة الدفع (تجاهل "Duplicate key" إن ظهر)
 CREATE INDEX idx_bps_invite_token ON booking_payment_shares (invite_token);
