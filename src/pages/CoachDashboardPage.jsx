@@ -68,6 +68,29 @@ const CoachDashboardPage = () => {
   const [quickInvitePhone, setQuickInvitePhone] = useState('')
   const [favoritesSectionOpen, setFavoritesSectionOpen] = useState(true)
 
+  const favoritesStorageKey = `padel_coach_favorites_open_${clubId}`
+
+  useEffect(() => {
+    try {
+      const v = typeof window !== 'undefined' ? window.localStorage.getItem(favoritesStorageKey) : null
+      setFavoritesSectionOpen(v !== '0')
+    } catch (_) {
+      setFavoritesSectionOpen(true)
+    }
+  }, [favoritesStorageKey])
+
+  const toggleFavoritesSection = useCallback(() => {
+    setFavoritesSectionOpen((prev) => {
+      const next = !prev
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(favoritesStorageKey, next ? '1' : '0')
+        }
+      } catch (_) {}
+      return next
+    })
+  }, [favoritesStorageKey])
+
   const platformUser = getCurrentPlatformUser()
 
   useEffect(() => {
@@ -500,51 +523,63 @@ const CoachDashboardPage = () => {
           </div>
 
           <section
-            className={`coach-favorites-panel ${favoritesSectionOpen ? 'is-open' : 'is-collapsed'}`}
+            className={`coach-favorites-card coach-favorites-panel ${favoritesSectionOpen ? 'is-open' : 'is-collapsed'}`}
             aria-label={t('Favorite members (invites)', 'أعضاء مفضلون (للدعوات)', language)}
           >
-            <button
-              type="button"
-              className="coach-favorites-panel-toggle"
-              onClick={() => setFavoritesSectionOpen(o => !o)}
-              aria-expanded={favoritesSectionOpen}
-              aria-controls="coach-favorites-panel-content"
-            >
-              <span className="coach-favorites-panel-toggle-main">
-                <span className="coach-favorites-panel-toggle-icon" aria-hidden>★</span>
-                <span className="coach-favorites-panel-toggle-label">
-                  {t('Favorite members (invites)', 'أعضاء مفضلون (للدعوات)', language)}
-                </span>
+            <header className="coach-favorites-card-header">
+              <div className="coach-favorites-card-heading">
+                <span className="coach-favorites-card-icon" aria-hidden>★</span>
+                <div className="coach-favorites-card-titles">
+                  <h3 className="coach-favorites-card-title">
+                    {t('Favorite members (invites)', 'أعضاء مفضلون (للدعوات)', language)}
+                  </h3>
+                  <p className="coach-favorites-card-subtitle">
+                    {t('For quick WhatsApp invites from your sessions.', 'للدعوة السريعة عبر واتساب من جلساتك.', language)}
+                  </p>
+                </div>
                 {favoritesIds.length > 0 && (
-                  <span className="coach-favorites-panel-count">{favoritesIds.length}</span>
+                  <span className="coach-favorites-card-badge">{favoritesIds.length}</span>
                 )}
-              </span>
-              <span className="coach-favorites-panel-toggle-hint">
-                {favoritesSectionOpen
-                  ? t('Hide', 'إخفاء', language)
-                  : t('Show', 'عرض', language)}
-              </span>
-              <span className="coach-favorites-panel-chevron" aria-hidden />
-            </button>
+              </div>
+              <button
+                type="button"
+                className={`coach-favorites-visibility-btn ${favoritesSectionOpen ? 'is-expanded' : ''}`}
+                onClick={toggleFavoritesSection}
+                aria-expanded={favoritesSectionOpen}
+                aria-controls="coach-favorites-panel-content"
+              >
+                <span className="coach-favorites-visibility-label">
+                  {favoritesSectionOpen
+                    ? t('Hide favorites', 'إخفاء المفضلة', language)
+                    : t('Show favorites', 'إظهار المفضلة', language)}
+                </span>
+                <span className="coach-favorites-switch" aria-hidden>
+                  <span className="coach-favorites-switch-thumb" />
+                </span>
+              </button>
+            </header>
             <div
               id="coach-favorites-panel-content"
               className="coach-favorites-panel-body"
               aria-hidden={!favoritesSectionOpen}
             >
               <div className="coach-favorites-panel-body-inner">
+            <div className="coach-favorites-inner-card">
             <p className="coach-favorites-hint">{t('Search by full mobile number to find club members and add them to your favorites.', 'ابحث برقم الجوال كاملاً للعثور على أعضاء النادي وإضافتهم للمفضلة.', language)}</p>
             {favoritesError && <p className="coach-favorites-api-error" role="alert">{favoritesError}</p>}
             <div className="coach-favorites-phone-row">
               <CountryCodeSelect value={countryCode} onChange={setCountryCode} language={language} className="coach-favorites-country-select" />
-              <input
-                type="tel"
-                inputMode="numeric"
-                autoComplete="tel-national"
-                className="coach-favorites-number-input"
-                placeholder={language === 'en' ? 'Mobile number' : 'رقم الجوال'}
-                value={favNumberInput}
-                onChange={e => setFavNumberInput(e.target.value)}
-              />
+              <div className="coach-favorites-phone-field">
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  className="coach-favorites-number-input"
+                  placeholder={language === 'en' ? 'Mobile number' : 'رقم الجوال'}
+                  value={favNumberInput}
+                  onChange={e => setFavNumberInput(e.target.value)}
+                />
+              </div>
             </div>
             {(() => {
               const otherMembers = (getClubMembersFromStorage(clubId) || []).filter(m => String(m?.id) !== String(platformUser?.id))
@@ -593,6 +628,7 @@ const CoachDashboardPage = () => {
                             const isFav = favoriteIdSet.has(String(m.id))
                             return (
                               <li key={m.id} className="coach-favorites-result-row">
+                                <span className="coach-fav-avatar" aria-hidden>{(m.name || m.email || '?').toString().trim().charAt(0).toUpperCase()}</span>
                                 <span className="coach-fav-name">{m.name || m.email || m.id}</span>
                                 <button
                                   type="button"
@@ -611,7 +647,7 @@ const CoachDashboardPage = () => {
                     </div>
                   )}
                   <div className="coach-favorites-current">
-                    <span className="coach-favorites-current-title">{t('Current favorites', 'المفضلة الحالية', language)}</span>
+                    <span className="coach-favorites-current-title">{t('Saved favorites', 'المفضلة المحفوظة', language)}</span>
                     {favoritesIds.length === 0 ? (
                       <p className="coach-favorites-empty-msg">{t('None yet. Search above.', 'لا يوجد بعد. ابحث أعلاه.', language)}</p>
                     ) : (
@@ -620,7 +656,8 @@ const CoachDashboardPage = () => {
                           const m = favoritesMemberMap[fid] || byId.get(fid)
                           return (
                             <li key={fid} className="coach-favorites-chip">
-                              <span>{m ? (m.name || m.email || fid) : fid}</span>
+                              <span className="coach-favorites-chip-avatar" aria-hidden>{(m ? (m.name || m.email || '?') : '?').toString().trim().charAt(0).toUpperCase()}</span>
+                              <span className="coach-favorites-chip-label">{m ? (m.name || m.email || fid) : fid}</span>
                               <button
                                 type="button"
                                 className="coach-favorites-chip-remove"
@@ -637,6 +674,7 @@ const CoachDashboardPage = () => {
                 </>
               )
             })()}
+            </div>
               </div>
             </div>
           </section>
