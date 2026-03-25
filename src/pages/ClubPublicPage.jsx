@@ -1534,22 +1534,6 @@ const ClubPublicPage = () => {
                           const tournamentSpan = isTournamentBlockStart && tournamentEnd
                             ? Math.max(1, Math.round((timeToMinutes(tournamentEnd) - timeToMinutes(tournamentStart)) / slotStepMinutes))
                             : 0
-                          const previewPriced = getPublicPricedDurationOptions(club)
-                          const previewDurationMinutes = previewPriced.length > 0 ? previewPriced[0].durationMinutes : 60
-                          let slotPrice = null
-                          if (isCellClickable) {
-                            if (canJoinTraining) {
-                              slotPrice = parseFloat(bookedItem?.totalAmount) || 0
-                            } else if (isInRange && hoveredRange) {
-                              slotPrice = calculateBookingPrice(club, dateStr, hoveredRange.startSlot, previewDurationMinutes).price
-                            } else if (canBook) {
-                              let dur = previewDurationMinutes
-                              if (isMyLock && myLock?.start_time && myLock?.end_time) {
-                                dur = Math.max(30, timeToMinutes(myLock.end_time) - timeToMinutes(myLock.start_time))
-                              }
-                              slotPrice = calculateBookingPrice(club, dateStr, timeSlot, dur).price
-                            }
-                          }
                           if (isTrainingBlockContinuation || isTournamentBlockContinuation) {
                             return null
                           }
@@ -1592,7 +1576,6 @@ const ClubPublicPage = () => {
                                 <span className="club-public-cell-training-block">
                                   <span className="club-public-cell-training-label">{c.trainingSessionsLabel}</span>
                                   <span className="club-public-cell-time-range">{trainingStart}{trainingEnd ? ` – ${trainingEnd}` : ''}</span>
-                                  {slotPrice != null ? <span className="club-public-cell-price">{slotPrice} {currency}</span> : null}
                                 </span>
                               ) : isTournamentBlockStart ? (
                                 <span className="club-public-cell-tournament-block">
@@ -1601,10 +1584,8 @@ const ClubPublicPage = () => {
                                   </span>
                                   <span className="club-public-cell-time-range">{tournamentStart}{tournamentEnd ? ` – ${tournamentEnd}` : ''}</span>
                                 </span>
-                              ) : isRangeBlockStart && slotPrice != null ? (
-                                <span className="club-public-cell-range-block">
-                                  <span className="club-public-cell-price">{slotPrice} {currency}</span>
-                                </span>
+                              ) : isRangeBlockStart ? (
+                                <span className="club-public-cell-range-block" aria-hidden="true" />
                               ) : (
                                 ''
                               )}
