@@ -66,6 +66,7 @@ const CoachDashboardPage = () => {
   const [favoritesAddingId, setFavoritesAddingId] = useState(null)
   const [inviteBusyMemberId, setInviteBusyMemberId] = useState(null)
   const [quickInvitePhone, setQuickInvitePhone] = useState('')
+  const [favoritesSectionOpen, setFavoritesSectionOpen] = useState(true)
 
   const platformUser = getCurrentPlatformUser()
 
@@ -492,8 +493,39 @@ const CoachDashboardPage = () => {
             </div>
           </div>
 
-          <div className="coach-favorites-panel">
-            <h3 className="coach-controls-heading">{t('Favorite members (invites)', 'أعضاء مفضلون (للدعوات)', language)}</h3>
+          <section
+            className={`coach-favorites-panel ${favoritesSectionOpen ? 'is-open' : 'is-collapsed'}`}
+            aria-label={t('Favorite members (invites)', 'أعضاء مفضلون (للدعوات)', language)}
+          >
+            <button
+              type="button"
+              className="coach-favorites-panel-toggle"
+              onClick={() => setFavoritesSectionOpen(o => !o)}
+              aria-expanded={favoritesSectionOpen}
+              aria-controls="coach-favorites-panel-content"
+            >
+              <span className="coach-favorites-panel-toggle-main">
+                <span className="coach-favorites-panel-toggle-icon" aria-hidden>★</span>
+                <span className="coach-favorites-panel-toggle-label">
+                  {t('Favorite members (invites)', 'أعضاء مفضلون (للدعوات)', language)}
+                </span>
+                {favoritesIds.length > 0 && (
+                  <span className="coach-favorites-panel-count">{favoritesIds.length}</span>
+                )}
+              </span>
+              <span className="coach-favorites-panel-toggle-hint">
+                {favoritesSectionOpen
+                  ? t('Hide', 'إخفاء', language)
+                  : t('Show', 'عرض', language)}
+              </span>
+              <span className="coach-favorites-panel-chevron" aria-hidden />
+            </button>
+            <div
+              id="coach-favorites-panel-content"
+              className="coach-favorites-panel-body"
+              aria-hidden={!favoritesSectionOpen}
+            >
+              <div className="coach-favorites-panel-body-inner">
             <p className="coach-favorites-hint">{t('Search by full mobile number to find club members and add them to your favorites.', 'ابحث برقم الجوال كاملاً للعثور على أعضاء النادي وإضافتهم للمفضلة.', language)}</p>
             {favoritesError && <p className="coach-favorites-api-error" role="alert">{favoritesError}</p>}
             <div className="coach-favorites-phone-row">
@@ -599,7 +631,9 @@ const CoachDashboardPage = () => {
                 </>
               )
             })()}
-          </div>
+              </div>
+            </div>
+          </section>
 
           {createError && <p className="coach-create-error">{createError}</p>}
 
