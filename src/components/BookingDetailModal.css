@@ -324,3 +324,35 @@
 .booking-detail-share-pay-btn:hover {
   background: #dbeafe;
 }
+
+.booking-detail-tournament-pay {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+  border: 1px solid #e2e8f0;
+}
+
+.booking-detail-tournament-pay-title {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.booking-detail-tournament-pay-hint {
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.booking-detail-action-danger {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #be123c;
+}
+
+.booking-detail-action-danger:hover:not(:disabled) {
+  background: #ffe4e6;
+}

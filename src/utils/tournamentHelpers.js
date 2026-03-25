@@ -49,6 +49,37 @@ export function getTournamentTeamsDetail(club, booking) {
   return { teamCount: teams.length, totalMembers, teams }
 }
 
+/** صف دفع العضو في فريق البطولة (من tournamentData) */
+export function normalizeTournamentMemberPayment(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return { fee: '', clubReceived: false, memberAck: false, paymentMethod: null }
+  }
+  const pm = raw.paymentMethod
+  return {
+    fee: raw.fee != null && raw.fee !== '' ? String(raw.fee) : '',
+    clubReceived: !!raw.clubReceived,
+    memberAck: !!raw.memberAck,
+    paymentMethod: pm === 'at_club' || pm === 'electronic' ? pm : null,
+  }
+}
+
+/**
+ * بيانات دفع العضو للبطولة إن وُجد في أحد الفرق (يتزامن مع memberTournamentPayments في لوحة النادي).
+ */
+export function getTournamentMemberPaymentEntry(club, booking, memberId) {
+  if (!memberId || !booking?.id) return null
+  const state = getTournamentStateForBooking(club, booking)
+  if (!state?.teams) return null
+  const mid = String(memberId)
+  for (const t of state.teams) {
+    const ids = t.memberIds || []
+    if (!ids.some((id) => String(id) === mid)) continue
+    const raw = (t.memberTournamentPayments || {})[mid]
+    return normalizeTournamentMemberPayment(raw)
+  }
+  return null
+}
+
 /** هل العضو مشارك في البطولة (ضمن فريق أو participants) */
 export function isMemberInTournamentBooking(club, booking, memberId) {
   if (!memberId || !booking?.isTournament) return false

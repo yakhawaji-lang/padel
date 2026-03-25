@@ -787,6 +787,147 @@ export function getMemberBookings(memberId) {
   })
 }
 
+/**
+ * تحديث حقل دفع عضو ضمن فريق بطولة (ملك / سوشيال) في club.tournamentData
+ */
+export async function updateTournamentMemberPaymentEntry(clubId, bookingId, memberId, patch) {
+  const clubs = loadClubs()
+  const idx = clubs.findIndex(c => String(c.id) === String(clubId))
+  if (idx < 0) return null
+  const club = clubs[idx]
+  const bid = String(bookingId)
+  const mid = String(memberId)
+  const td = { ...(club.tournamentData || {}) }
+  const kingMap = { ...(td.kingStateByTournamentId || {}) }
+  const socialMap = { ...(td.socialStateByTournamentId || {}) }
+
+  const mutateState = (state) => {
+    if (!state?.teams) return null
+    let hit = false
+    const teams = state.teams.map((team) => {
+      const ids = team.memberIds || []
+      if (!ids.some((id) => String(id) === mid)) return team
+      hit = true
+      const mp = { ...(team.memberTournamentPayments || {}) }
+      const prev = mp[mid] && typeof mp[mid] === 'object' ? { ...mp[mid] } : {}
+      mp[mid] = { ...prev, ...patch }
+      return { ...team, memberTournamentPayments: mp }
+    })
+    if (!hit) return null
+    return { ...state, teams }
+  }
+
+  let newKing = { ...kingMap }
+  let newSocial = { ...socialMap }
+  let updated = false
+  if (kingMap[bid]) {
+    const next = mutateState(kingMap[bid])
+    if (next) {
+      newKing[bid] = next
+      updated = true
+    }
+  }
+  if (!updated && socialMap[bid]) {
+    const next = mutateState(socialMap[bid])
+    if (next) {
+      newSocial[bid] = next
+      updated = true
+    }
+  }
+  if (!updated) return null
+
+  const updatedClub = {
+    ...club,
+    tournamentData: {
+      ...td,
+      kingStateByTournamentId: newKing,
+      socialStateByTournamentId: newSocial,
+    },
+    updatedAt: new Date().toISOString(),
+  }
+  const newClubs = clubs.map((c, i) => (i === idx ? updatedClub : c))
+  await saveClubs(newClubs)
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+  return true
+}
+
+/**
+ * إزالة العضو من فرق البطولة (ملك/سوشيال) وتنظيف participant من الحجز إن وُجد
+ */
+export async function withdrawMemberFromTournament(clubId, bookingId, memberId) {
+  const clubs = loadClubs()
+  const idx = clubs.findIndex((c) => String(c.id) === String(clubId))
+  if (idx < 0) return { ok: false }
+  const club = clubs[idx]
+  const bid = String(bookingId)
+  const mid = String(memberId)
+  const td = { ...(club.tournamentData || {}) }
+  const kingMap = { ...(td.kingStateByTournamentId || {}) }
+  const socialMap = { ...(td.socialStateByTournamentId || {}) }
+
+  const stripFromState = (state) => {
+    if (!state?.teams) return null
+    let changed = false
+    const teams = state.teams.map((team) => {
+      const ids = team.memberIds || []
+      if (!ids.some((id) => String(id) === mid)) return team
+      changed = true
+      const newIds = ids.filter((id) => String(id) !== mid)
+      const mp = { ...(team.memberTournamentPayments || {}) }
+      delete mp[mid]
+      return { ...team, memberIds: newIds, memberTournamentPayments: mp }
+    })
+    if (!changed) return null
+    return { ...state, teams }
+  }
+
+  let newKing = { ...kingMap }
+  let newSocial = { ...socialMap }
+  let updated = false
+  if (kingMap[bid]) {
+    const next = stripFromState(kingMap[bid])
+    if (next) {
+      newKing[bid] = next
+      updated = true
+    }
+  }
+  if (!updated && socialMap[bid]) {
+    const next = stripFromState(socialMap[bid])
+    if (next) {
+      newSocial[bid] = next
+      updated = true
+    }
+  }
+  if (!updated) return { ok: false }
+
+  const bookings = [...(club.bookings || [])]
+  const bIdx = bookings.findIndex((b) => String(b.id) === bid)
+  if (bIdx >= 0) {
+    const b = bookings[bIdx]
+    if (Array.isArray(b.participants)) {
+      const filtered = b.participants.filter((p) => String(p?.memberId ?? p?.id ?? p) !== mid)
+      if (filtered.length !== b.participants.length) {
+        bookings[bIdx] = { ...b, participants: filtered }
+      }
+    }
+  }
+
+  const updatedClub = {
+    ...club,
+    bookings,
+    tournamentData: {
+      ...td,
+      kingStateByTournamentId: newKing,
+      socialStateByTournamentId: newSocial,
+    },
+    updatedAt: new Date().toISOString(),
+  }
+  const newClubs = clubs.map((c, i) => (i === idx ? updatedClub : c))
+  await saveClubs(newClubs)
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+  return { ok: true }
+}
+
 /** Update a court booking in a club. Returns the updated booking or null. */
 export async function updateBookingInClub(clubId, bookingId, updates) {
   const clubs = loadClubs()

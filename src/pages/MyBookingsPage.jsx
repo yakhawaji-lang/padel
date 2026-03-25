@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
-import { getMemberBookings, deleteBookingFromClub, getClubById, loadClubs, refreshClubsFromApi, getClubMembersFromStorage, getAllMembersFromStorage } from '../storage/adminStorage'
+import { getMemberBookings, deleteBookingFromClub, getClubById, loadClubs, refreshClubsFromApi, getClubMembersFromStorage, getAllMembersFromStorage, updateTournamentMemberPaymentEntry, withdrawMemberFromTournament } from '../storage/adminStorage'
 import * as bookingApi from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
 import BookingDetailModal from '../components/BookingDetailModal'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './MyBookingsPage.css'
 import { findPaymentShareForMember, resolvePaymentShareDisplayName, shareNeedsRefundAcknowledgment } from '../utils/paymentShareMemberMatch.js'
+import { getTournamentMemberPaymentEntry } from '../utils/tournamentHelpers.js'
 
 /** كل الحصص النشطة مدفوعة والمجموع يغطي إجمالي الحجز — لا نعرض إضافة مشاركين */
 function isSplitFullyPaidByAllParticipants(booking) {
@@ -21,7 +22,7 @@ function isSplitFullyPaidByAllParticipants(booking) {
   return allPaid && sum >= total - 0.02
 }
 
-function getBookingDisplayProps({ booking, club }, language) {
+function getBookingDisplayProps({ booking, club, memberId }, language) {
   const dateStr = booking.dateStr || booking.date || (booking.startDate && (typeof booking.startDate === 'string' ? booking.startDate : booking.startDate.toISOString?.()?.split('T')[0])) || ''
   const timeStr = (booking.startTime || booking.timeSlot || '') + (booking.endTime ? ` – ${booking.endTime}` : '')
   const isTournament = booking?.isTournament === true
@@ -37,9 +38,33 @@ function getBookingDisplayProps({ booking, club }, language) {
   const isTraining = !isTournament && (booking?.type === 'training' || booking?.data?.type === 'training')
   const st = (booking?.status || '').toString()
   const isAwaitingRefundAck = st === 'cancelled_awaiting_refund_ack'
-  const isPaid = ['confirmed'].includes(st) && !isAwaitingRefundAck
-  const isPendingPayment = ['pending_payment', 'pending_payments', 'partially_paid', 'initiated', 'locked'].includes(st)
-  return { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isTournament, isPaid, isPendingPayment, isAwaitingRefundAck }
+  let isPaid = ['confirmed'].includes(st) && !isAwaitingRefundAck
+  let isPendingPayment = ['pending_payment', 'pending_payments', 'partially_paid', 'initiated', 'locked'].includes(st)
+  let tournamentEntry = null
+  let tournamentAwaitingClub = false
+  if (isTournament && memberId) {
+    tournamentEntry = getTournamentMemberPaymentEntry(club, booking, memberId)
+    const memberPaymentDone = !!(tournamentEntry && (tournamentEntry.clubReceived || tournamentEntry.memberAck))
+    isPaid = memberPaymentDone
+    isPendingPayment = !memberPaymentDone && !['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st)
+    tournamentAwaitingClub = !!(tournamentEntry && tournamentEntry.paymentMethod === 'at_club' && !tournamentEntry.clubReceived && !tournamentEntry.memberAck)
+  }
+  return {
+    dateStr,
+    timeStr,
+    courtName,
+    priceVal,
+    currencyStr,
+    clubName,
+    clubLink,
+    isTraining,
+    isTournament,
+    isPaid,
+    isPendingPayment,
+    isAwaitingRefundAck,
+    tournamentEntry,
+    tournamentAwaitingClub,
+  }
 }
 
 const MyBookingsPage = () => {
@@ -263,7 +288,48 @@ const MyBookingsPage = () => {
     }
   }
 
+  const handleTournamentPayAtClubChoice = async (clubId, bookingId, memberId) => {
+    if (!clubId || !bookingId || !memberId) return
+    setMarkingPayAtClub(`t-${bookingId}`)
+    try {
+      await updateTournamentMemberPaymentEntry(clubId, bookingId, memberId, { paymentMethod: 'at_club' })
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      await refreshClubsFromApi()
+      loadClubs()
+      setBookings(getMemberBookings(member.id))
+      setPayMenuOpen(null)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setMarkingPayAtClub(null)
+    }
+  }
+
+  const handleTournamentExit = async (clubId, bookingId, memberId, hadCompletedPayment) => {
+    const msg = hadCompletedPayment
+      ? (language === 'en'
+        ? 'Leave this tournament? Your payment was recorded. Contact the club to arrange a refund if applicable.'
+        : 'مغادرة البطولة؟ تم تسجيل دفعك سابقاً. تواصل مع النادي لترتيب الاسترداد إن كان من حقك.')
+      : (language === 'en'
+        ? 'Leave this tournament? You have not completed payment — you will be removed from the team list.'
+        : 'مغادرة البطولة؟ لم يكتمل دفعك — سيتم إزالتك من قائمة الفريق.')
+    if (!window.confirm(msg)) return
+    setCancelling(bookingId)
+    try {
+      const r = await withdrawMemberFromTournament(clubId, bookingId, memberId)
+      if (r?.ok && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      if (r?.ok) {
+        await refreshClubsFromApi()
+        loadClubs()
+        setBookings(getMemberBookings(member.id))
+      }
+    } finally {
+      setCancelling(null)
+    }
+  }
+
   const handleCancel = async (clubId, bookingId, booking, club) => {
+    if (booking?.isTournament) return
     const refundDays = club?.settings?.refundDays ?? 3
     const msg = language === 'en'
       ? `Cancel this booking? Refund will be processed within ${refundDays} business days.`
@@ -425,7 +491,9 @@ const MyBookingsPage = () => {
       trainingInviteTitle: 'Training join requests',
       trainingInviteIntro: 'A coach sent you a request to join a training session. It stays here until you open the club page to book or tap dismiss.',
       trainingInviteDismiss: 'Dismiss',
-      openClubToJoin: 'Open club page to join'
+      openClubToJoin: 'Open club page to join',
+      tournamentAwaitingClub: 'Pay at club — awaiting club confirmation',
+      leaveTournament: 'Leave tournament',
     },
     ar: {
       myBookings: 'حجوزاتي',
@@ -472,7 +540,9 @@ const MyBookingsPage = () => {
       trainingInviteTitle: 'طلبات انضمام — حصص تدريب',
       trainingInviteIntro: 'تم إرسال طلب انضمام إلى حصة تدريبية إليك من المدرب. يبقى ظاهراً هنا حتى تفتح صفحة النادي للحجز أو تضغط إخفاء.',
       trainingInviteDismiss: 'إخفاء',
-      openClubToJoin: 'فتح صفحة النادي للانضمام'
+      openClubToJoin: 'فتح صفحة النادي للانضمام',
+      tournamentAwaitingClub: 'الدفع في النادي — بانتظار تأكيد الاستقبال',
+      leaveTournament: 'مغادرة البطولة',
     }
   }
   const c = t[language] || t.en
@@ -506,7 +576,7 @@ const MyBookingsPage = () => {
   }
 
   const renderBookingRow = ({ booking, club }, i) => {
-    let { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isTournament, isPaid, isPendingPayment, isAwaitingRefundAck } = getBookingDisplayProps({ booking, club }, language)
+    let { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isTournament, isPaid, isPendingPayment, isAwaitingRefundAck, tournamentEntry, tournamentAwaitingClub } = getBookingDisplayProps({ booking, club, memberId: member?.id }, language)
     if (!booking.isTournament) {
       const isInitiator = String(booking.memberId || booking.initiatorMemberId || '') === String(member?.id || '')
       if (!isInitiator && member) {
@@ -515,10 +585,13 @@ const MyBookingsPage = () => {
           priceVal = share.amount
         }
       }
+    } else if (tournamentEntry?.fee) {
+      const fv = parseFloat(String(tournamentEntry.fee).replace(',', '.'))
+      if (Number.isFinite(fv) && fv > 0) priceVal = fv
     }
     const priceText = priceVal != null ? `${Number(priceVal)} ${currencyStr}` : '—'
     const isUpcoming = filter === 'upcoming'
-    const canCancel = isUpcoming && club && !['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes((booking.status || '').toString())
+    const canCancel = isUpcoming && club && !booking.isTournament && !['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes((booking.status || '').toString())
     const payOptions = getPayOptions(booking, club)
     const visibleShares = (booking.paymentShares || []).filter((s) => {
       if (!s.removedAt && !s.removed_at) return true
@@ -526,6 +599,8 @@ const MyBookingsPage = () => {
     })
     const showAddSplit = canAddSplitParticipants(booking, club, member)
     const isBooker = String(booking.memberId || booking.initiatorMemberId || '') === String(member?.id || '')
+    const canLeaveTournament =
+      isTournament && isUpcoming && club && tournamentEntry && !['cancelled', 'expired'].includes((booking.status || '').toString())
 
     return {
       key: `${club?.id}-${booking.id}-${i}`,
@@ -551,7 +626,10 @@ const MyBookingsPage = () => {
       isAwaitingRefundAck,
       visibleShares,
       showAddSplit,
-      isBooker
+      isBooker,
+      tournamentEntry,
+      tournamentAwaitingClub,
+      canLeaveTournament,
     }
   }
 
@@ -690,7 +768,7 @@ const MyBookingsPage = () => {
                         {r.isTournament ? c.typeTournament : r.isTraining ? c.typeTraining : c.typeCourt}
                       </span>
                       <span className={`my-bookings-payment-badge ${r.isPaid ? 'my-bookings-payment-badge--paid' : 'my-bookings-payment-badge--pending'}`}>
-                        {r.isPaid ? c.paidLabel : c.awaitingPayment}
+                        {r.isPaid ? c.paidLabel : r.tournamentAwaitingClub ? c.tournamentAwaitingClub : c.awaitingPayment}
                       </span>
                       <span className={`my-bookings-status ${r.getStatusClass(r.booking.status)}`}>
                         {r.getStatusLabel(r.booking.status)}
@@ -789,7 +867,9 @@ const MyBookingsPage = () => {
                       </Link>
                     </div>
                   )}
-                  {['pending_payments', 'partially_paid'].includes((r.booking.status || '').toString()) && filter === 'upcoming' && r.payOptions && (
+                  {filter === 'upcoming' && r.club && r.payOptions &&
+                    (['pending_payments', 'partially_paid'].includes((r.booking.status || '').toString()) ||
+                      r.payOptions.type === 'tournament') && (
                     <div className="my-bookings-card-pay-wrap" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
@@ -803,7 +883,29 @@ const MyBookingsPage = () => {
                       </button>
                       {payMenuOpen === r.key && (
                         <div className="my-bookings-card-pay-menu">
-                          {r.payOptions.type === 'share' ? (
+                          {r.payOptions.type === 'tournament' ? (
+                            <>
+                              <button
+                                type="button"
+                                className={`my-bookings-pay-menu-item ${r.payOptions.chosePayAtClub ? 'my-bookings-pay-menu-item-chosen' : ''}`}
+                                onClick={() => { handleTournamentPayAtClubChoice(r.payOptions.clubId, r.payOptions.bookingId, r.payOptions.memberId); setPayMenuOpen(null) }}
+                                disabled={!!markingPayAtClub || r.payOptions.chosePayAtClub}
+                                aria-pressed={r.payOptions.chosePayAtClub}
+                              >
+                                <span className="my-bookings-pay-menu-icon">🏢</span>
+                                {r.payOptions.chosePayAtClub ? <span className="my-bookings-pay-menu-check" aria-hidden>✓ </span> : null}
+                                {r.payOptions.chosePayAtClub ? (language === 'ar' ? 'اخترت الدفع في النادي — بانتظار التأكيد' : 'Pay at club chosen — awaiting confirmation') : c.payAtClub}
+                              </button>
+                              <Link
+                                to={`/pay/tournament-member/${r.payOptions.clubId}/${r.booking.id}?memberId=${encodeURIComponent(String(r.payOptions.memberId))}`}
+                                className="my-bookings-pay-menu-item my-bookings-pay-menu-link"
+                                onClick={() => setPayMenuOpen(null)}
+                              >
+                                <span className="my-bookings-pay-menu-icon">💳</span>
+                                {r.payOptions.chosePayAtClub ? (language === 'ar' ? 'التبديل إلى الدفع الإلكتروني' : 'Switch to electronic payment') : c.payElectronic}
+                              </Link>
+                            </>
+                          ) : r.payOptions.type === 'share' ? (
                             <>
                               <button
                                 type="button"
@@ -930,6 +1032,16 @@ const MyBookingsPage = () => {
                   {r.isUpcoming && r.club && (
                     <div className="my-bookings-card-actions" onClick={(e) => e.stopPropagation()}>
                       <Link to={r.clubLink} className="my-bookings-card-link-btn">{c.goToClub}</Link>
+                      {r.canLeaveTournament && (
+                        <button
+                          type="button"
+                          className="my-bookings-cancel-btn"
+                          onClick={() => handleTournamentExit(r.club.id, r.booking.id, member.id, r.isPaid)}
+                          disabled={cancelling === r.booking.id}
+                        >
+                          {cancelling === r.booking.id ? '…' : c.leaveTournament}
+                        </button>
+                      )}
                       {r.canCancel && (
                         <button
                           type="button"

@@ -5,6 +5,8 @@ import React, { useState, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import * as bookingApi from '../api/dbClient'
 import { resolvePaymentShareDisplayName, shareNeedsRefundAcknowledgment } from '../utils/paymentShareMemberMatch'
+import { getTournamentMemberPaymentEntry } from '../utils/tournamentHelpers'
+import { updateTournamentMemberPaymentEntry, withdrawMemberFromTournament } from '../storage/adminStorage'
 import './BookingDetailModal.css'
 
 function getMapUrl(club) {
@@ -32,6 +34,7 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
   const [copied, setCopied] = useState(false)
   const [payMenuOpen, setPayMenuOpen] = useState(false)
   const [ackRefundBusy, setAckRefundBusy] = useState(false)
+  const [tournamentExitBusy, setTournamentExitBusy] = useState(false)
 
   const dateStr = booking?.dateStr || booking?.date || (booking?.startDate || '').toString().split('T')[0]
   const startTime = booking?.startTime || booking?.timeSlot || ''
@@ -71,6 +74,17 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
   const paidCount = paymentShares.filter(s => s.paidAt).length
   const pendingCount = paymentShares.length - paidCount
   const needsPayment = ['pending_payments', 'partially_paid'].includes(status)
+  const isTournamentBooking = booking?.isTournament === true
+  const tournamentEntry =
+    isTournamentBooking && platformUser?.id && club
+      ? getTournamentMemberPaymentEntry(club, booking, platformUser.id)
+      : null
+  const tournamentPaid = !!(tournamentEntry && (tournamentEntry.clubReceived || tournamentEntry.memberAck))
+  const tournamentPayPending =
+    !!tournamentEntry && !tournamentPaid && !['cancelled', 'expired'].includes(status)
+  const tournamentChosePayAtClub =
+    !!(tournamentEntry && tournamentEntry.paymentMethod === 'at_club' && !tournamentEntry.clubReceived && !tournamentEntry.memberAck)
+  const tournamentFee = parseFloat(String(tournamentEntry?.fee || '').replace(',', '.')) || 0
   const mapUrl = getMapUrl(club)
   const clubName = language === 'ar' && club?.nameAr ? club.nameAr : club?.name
   const currency = club?.settings?.currency || 'SAR'
@@ -153,6 +167,45 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
     window.open(waUrl, '_blank')
   }, [mapUrl, clubName, language])
 
+  const handleTournamentPayAtClub = useCallback(async () => {
+    if (!club?.id || !booking?.id || !platformUser?.id) return
+    setMarkingPayAtClub(true)
+    try {
+      await updateTournamentMemberPaymentEntry(club.id, booking.id, platformUser.id, { paymentMethod: 'at_club' })
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      await onUpdated?.()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setMarkingPayAtClub(false)
+    }
+  }, [club?.id, booking?.id, platformUser?.id, onUpdated])
+
+  const handleTournamentLeave = useCallback(async () => {
+    if (!club?.id || !booking?.id || !platformUser?.id) return
+    const entryNow = getTournamentMemberPaymentEntry(club, booking, platformUser.id)
+    const hadPaid = !!(entryNow && (entryNow.clubReceived || entryNow.memberAck))
+    const msg = hadPaid
+      ? (language === 'ar'
+        ? 'مغادرة البطولة؟ تم تسجيل دفعك. تواصل مع النادي لترتيب الاسترداد إن كان من حقك.'
+        : 'Leave this tournament? Your payment was recorded. Contact the club to arrange a refund if applicable.')
+      : (language === 'ar'
+        ? 'مغادرة البطولة؟ لم يكتمل دفعك — سيتم إزالتك من الفريق.'
+        : 'Leave this tournament? You have not completed payment — you will be removed from the team.')
+    if (typeof window !== 'undefined' && !window.confirm(msg)) return
+    setTournamentExitBusy(true)
+    try {
+      const r = await withdrawMemberFromTournament(club.id, booking.id, platformUser.id)
+      if (r?.ok && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      if (r?.ok) await onUpdated?.()
+      onClose?.()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setTournamentExitBusy(false)
+    }
+  }, [club, booking, platformUser?.id, language, onUpdated, onClose])
+
   const t = {
     en: {
       title: 'Booking details',
@@ -179,7 +232,11 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       copied: 'Copied!',
       refundAckTitle: 'Refund pending your confirmation',
       refundAckHint: 'The club recorded a refund for your share. Confirm when you have received the money.',
-      confirmRefundReceived: 'I received the refund'
+      confirmRefundReceived: 'I received the refund',
+      tournamentYourShare: 'Your share',
+      tournamentLeave: 'Leave tournament',
+      tournamentPayTitle: 'Complete your tournament payment',
+      tournamentPayHint: 'Choose pay at the club (staff will confirm) or pay electronically.',
     },
     ar: {
       title: 'تفاصيل الحجز',
@@ -206,7 +263,11 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       copied: 'تم النسخ!',
       refundAckTitle: 'الاسترداد بانتظار تأكيدك',
       refundAckHint: 'سجّل النادي استرداد حصتك. أكّد هنا عند استلام المبلغ.',
-      confirmRefundReceived: 'استلمت الاسترداد'
+      confirmRefundReceived: 'استلمت الاسترداد',
+      tournamentYourShare: 'حصتك',
+      tournamentLeave: 'مغادرة البطولة',
+      tournamentPayTitle: 'إتمام دفع البطولة',
+      tournamentPayHint: 'اختر الدفع في النادي (يؤكد الاستقبال) أو الدفع الإلكتروني.',
     }
   }
   const c = t[language] || t.en
@@ -223,7 +284,10 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
             <p><strong>{courtName}</strong></p>
             <p>{dateStr} · {startTime}{endTime ? ` – ${endTime}` : ''}</p>
             <p className="booking-detail-customer">{memberName}</p>
-            {totalAmount > 0 && <p>{totalAmount} {currency}</p>}
+            {isTournamentBooking && tournamentEntry && tournamentFee > 0 && (
+              <p className="booking-detail-customer">{c.tournamentYourShare}: {tournamentFee} {currency}</p>
+            )}
+            {!isTournamentBooking && totalAmount > 0 && <p>{totalAmount} {currency}</p>}
           </div>
 
             {needsRefundAck && club?.id && (
@@ -242,14 +306,68 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
             )}
 
           <div className="booking-detail-actions">
-            {club?.id && (
+            {club?.id && !isTournamentBooking && (
               <Link to={`/clubs/${club.id}#court-booking`} className="booking-detail-action" onClick={onClose}>
                 <span className="booking-detail-action-icon">✏️</span>
                 <span>{c.edit}</span>
               </Link>
             )}
 
-            {(isInitiator || isParticipantWithShare) && needsPayment && !userShare?.paidAt && (
+            {tournamentPayPending && club?.id && platformUser?.id && (
+              <div className="booking-detail-tournament-pay">
+                <p className="booking-detail-tournament-pay-title">{c.tournamentPayTitle}</p>
+                <p className="booking-detail-tournament-pay-hint">{c.tournamentPayHint}</p>
+                <div className="booking-detail-pay-now-wrap">
+                  <button
+                    type="button"
+                    className={`booking-detail-pay-now-btn ${payMenuOpen ? 'booking-detail-pay-now-btn-open' : ''}`}
+                    onClick={() => setPayMenuOpen(!payMenuOpen)}
+                    disabled={markingPayAtClub}
+                  >
+                    <span className="booking-detail-pay-now-icon">💳</span>
+                    <span>{markingPayAtClub ? '…' : c.payNow}</span>
+                    <span className="booking-detail-pay-now-chevron" aria-hidden>▼</span>
+                  </button>
+                  {payMenuOpen && (
+                    <div className="booking-detail-pay-options">
+                      <button
+                        type="button"
+                        className={`booking-detail-pay-opt ${tournamentChosePayAtClub ? 'booking-detail-pay-opt-chosen' : ''}`}
+                        onClick={handleTournamentPayAtClub}
+                        disabled={markingPayAtClub || tournamentChosePayAtClub}
+                        aria-pressed={tournamentChosePayAtClub}
+                      >
+                        <span className="booking-detail-pay-opt-icon">🏢</span>
+                        {tournamentChosePayAtClub ? <span className="booking-detail-pay-opt-check" aria-hidden>✓ </span> : null}
+                        {tournamentChosePayAtClub ? c.payAtClubChosen : c.payAtClub}
+                      </button>
+                      <Link
+                        to={`/pay/tournament-member/${club.id}/${booking.id}?memberId=${encodeURIComponent(String(platformUser.id))}`}
+                        className="booking-detail-pay-opt booking-detail-pay-opt-link"
+                        onClick={onClose}
+                      >
+                        <span className="booking-detail-pay-opt-icon">💳</span>
+                        {tournamentChosePayAtClub ? c.switchToElectronic : c.payElectronic}
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {isTournamentBooking && tournamentEntry && platformUser?.id && !['cancelled', 'expired'].includes(status) && (
+              <button
+                type="button"
+                className="booking-detail-action booking-detail-action-danger"
+                disabled={tournamentExitBusy}
+                onClick={handleTournamentLeave}
+              >
+                <span className="booking-detail-action-icon">🚪</span>
+                <span>{tournamentExitBusy ? '…' : c.tournamentLeave}</span>
+              </button>
+            )}
+
+            {(isInitiator || isParticipantWithShare) && needsPayment && !userShare?.paidAt && !isTournamentBooking && (
               <div className="booking-detail-pay-now-wrap">
                 <button
                   type="button"
