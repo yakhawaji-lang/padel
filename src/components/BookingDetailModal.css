@@ -289,6 +289,17 @@
   font-size: 0.9rem;
 }
 
+.booking-detail-share-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.booking-detail-share-amount {
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.88em;
+}
+
 .booking-detail-share-row .paid {
   color: #22c55e;
 }

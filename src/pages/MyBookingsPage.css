@@ -303,14 +303,16 @@
   background: var(--mb-primary-hover);
 }
 
-/* ----- Desktop table (hidden on mobile) ----- */
-.my-bookings-desktop-table {
-  display: none;
+/* ----- Booking list (cards all viewports) ----- */
+.my-bookings-booking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 @media (min-width: 768px) {
-  .my-bookings-desktop-table {
-    display: block;
+  .my-bookings-booking-list {
+    gap: 24px;
   }
 }
 
@@ -479,6 +481,184 @@
   align-items: center;
   gap: 8px;
   margin-top: 4px;
+}
+
+/* ----- Card summary grid ----- */
+.my-bookings-card-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: var(--mb-radius-sm);
+  border: 1px solid var(--mb-border);
+}
+
+@media (min-width: 640px) {
+  .my-bookings-card-summary {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .my-bookings-card-summary {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.my-bookings-card-field--wide {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 640px) {
+  .my-bookings-card-field--wide {
+    grid-column: span 2;
+  }
+}
+
+@media (min-width: 900px) {
+  .my-bookings-card-field--wide {
+    grid-column: span 2;
+  }
+}
+
+.my-bookings-card-label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mb-text-muted);
+  margin-bottom: 4px;
+}
+
+.my-bookings-card-value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--mb-text);
+  line-height: 1.35;
+}
+
+.my-bookings-card-value--price {
+  font-variant-numeric: tabular-nums;
+  color: #0f172a;
+}
+
+.my-bookings-card-field .my-bookings-card-club {
+  font-weight: 600;
+  color: var(--mb-primary);
+  text-decoration: none;
+}
+
+.my-bookings-card-field .my-bookings-card-club:hover {
+  text-decoration: underline;
+}
+
+/* ----- Split participants panel ----- */
+.my-bookings-participants {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--mb-surface);
+  border: 1px solid var(--mb-border);
+  border-radius: var(--mb-radius-sm);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.my-bookings-participants-head {
+  margin-bottom: 12px;
+}
+
+.my-bookings-participants-title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mb-text-muted);
+}
+
+.my-bookings-participants-hint {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.my-bookings-participants-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.my-bookings-share-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.my-bookings-share-item-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.my-bookings-share-item-name {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--mb-text);
+}
+
+.my-bookings-share-item-amount {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--mb-primary);
+  font-variant-numeric: tabular-nums;
+  padding: 3px 8px;
+  background: #eff6ff;
+  border-radius: 6px;
+}
+
+.my-bookings-share-item-tail {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.my-bookings-share-item-status {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.my-bookings-share-item-status.is-paid {
+  color: var(--mb-success);
+}
+
+.my-bookings-share-item-status.is-pending {
+  color: var(--mb-warning);
+}
+
+.my-bookings-share-item-status.is-refunded {
+  color: #c2410c;
+}
+
+.my-bookings-participants-more {
+  margin: 10px 0 0;
+  font-size: 0.8125rem;
+  color: var(--mb-text-muted);
 }
 
 .my-bookings-paid {
@@ -906,19 +1086,6 @@
   cursor: not-allowed;
 }
 
-/* ----- Mobile cards (hidden on desktop) ----- */
-.my-bookings-mobile-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-@media (min-width: 768px) {
-  .my-bookings-mobile-cards {
-    display: none;
-  }
-}
-
 .my-bookings-card {
   position: relative;
   background: var(--mb-surface);
@@ -997,6 +1164,7 @@
 }
 
 .my-bookings-card-main {
+  margin-bottom: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;

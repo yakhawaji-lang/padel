@@ -333,9 +333,15 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
                 <div className="booking-detail-shares">
                   {paymentShares.slice(0, 5).map((s, idx) => {
                     const isMyShare = userShare && (s.id === userShare.id || (s.memberId === userShare.memberId && s.memberName === userShare.memberName))
+                    const shareAmt = parseFloat(s.amount)
                     return (
                       <div key={s.id || idx} className="booking-detail-share-row">
-                        <span>{resolvePaymentShareDisplayName(s, memberDirectory)}</span>
+                        <span className="booking-detail-share-name">
+                          {resolvePaymentShareDisplayName(s, memberDirectory)}
+                          {isInitiator && Number.isFinite(shareAmt) ? (
+                            <span className="booking-detail-share-amount"> — {shareAmt} {currency}</span>
+                          ) : null}
+                        </span>
                         <span className={`booking-detail-share-status ${s.paidAt ? 'paid' : ''}`}>
                           {s.refundedAt && !s.refundAcknowledgedAt
                             ? '⏳ ' + (language === 'ar' ? 'بانتظار تأكيد الاسترداد' : 'Awaiting refund confirmation')

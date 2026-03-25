@@ -9,6 +9,18 @@ import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './MyBookingsPage.css'
 import { findPaymentShareForMember, resolvePaymentShareDisplayName, shareNeedsRefundAcknowledgment } from '../utils/paymentShareMemberMatch.js'
 
+/** كل الحصص النشطة مدفوعة والمجموع يغطي إجمالي الحجز — لا نعرض إضافة مشاركين */
+function isSplitFullyPaidByAllParticipants(booking) {
+  const shares = booking?.paymentShares || []
+  if (!Array.isArray(shares) || shares.length === 0) return false
+  const active = shares.filter((s) => !s.removedAt && !s.removed_at)
+  if (active.length === 0) return false
+  const total = parseFloat(booking.totalAmount ?? booking.price ?? booking.amount) || 0
+  const sum = active.reduce((acc, s) => acc + (parseFloat(s.amount) || 0), 0)
+  const allPaid = active.every((s) => (s.paidAt || s.paid_at) && !(s.refundedAt || s.refunded_at))
+  return allPaid && sum >= total - 0.02
+}
+
 function getBookingDisplayProps({ booking, club }, language) {
   const dateStr = booking.dateStr || booking.date || (booking.startDate && (typeof booking.startDate === 'string' ? booking.startDate : booking.startDate.toISOString?.()?.split('T')[0])) || ''
   const timeStr = (booking.startTime || booking.timeSlot || '') + (booking.endTime ? ` – ${booking.endTime}` : '')
@@ -309,7 +321,8 @@ const MyBookingsPage = () => {
     if (!initiator) return false
     const shares = booking.paymentShares || []
     if (!Array.isArray(shares) || shares.length === 0) return false
-    const hasRemoved = shares.some((s) => s.removedAt)
+    if (isSplitFullyPaidByAllParticipants(booking)) return false
+    const hasRemoved = shares.some((s) => s.removedAt || s.removed_at)
     const data = booking.data && typeof booking.data === 'object' ? booking.data : {}
     return hasRemoved || !!data.splitInviteReopen
   }
@@ -381,7 +394,9 @@ const MyBookingsPage = () => {
       splitFavorites: 'Favorites',
       splitFavoritesEmpty: 'No favorites in this club yet. Add them from My favorites.',
       splitFavoritesNoPhone: 'No phone on file',
-      splitFavHint: 'Tap a name to fill the phone field.'
+      splitFavHint: 'Tap a name to fill the phone field.',
+      splitParticipants: 'Split payment participants',
+      yourShareAmountsHint: 'Only you see each person’s share amount.'
     },
     ar: {
       myBookings: 'حجوزاتي',
@@ -422,7 +437,9 @@ const MyBookingsPage = () => {
       splitFavorites: 'المفضلة',
       splitFavoritesEmpty: 'لا يوجد مفضلون في هذا النادي بعد. أضفهم من صفحة المفضلة.',
       splitFavoritesNoPhone: 'لا يوجد جوال',
-      splitFavHint: 'اضغط على الاسم لملء الجوال في أول سطر فارغ.'
+      splitFavHint: 'اضغط على الاسم لملء الجوال في أول سطر فارغ.',
+      splitParticipants: 'المشاركون في التقسيم',
+      yourShareAmountsHint: 'أنت فقط ترى مبلغ حصة كل مشارك.'
     }
   }
   const c = t[language] || t.en
@@ -475,6 +492,7 @@ const MyBookingsPage = () => {
       return member && shareNeedsRefundAcknowledgment(s, member)
     })
     const showAddSplit = canAddSplitParticipants(booking, club, member)
+    const isBooker = String(booking.memberId || booking.initiatorMemberId || '') === String(member?.id || '')
 
     return {
       key: `${club?.id}-${booking.id}-${i}`,
@@ -486,6 +504,7 @@ const MyBookingsPage = () => {
       club,
       booking,
       priceText,
+      currencyStr,
       getStatusLabel,
       getStatusClass,
       canCancel,
@@ -498,7 +517,8 @@ const MyBookingsPage = () => {
       isPendingPayment,
       isAwaitingRefundAck,
       visibleShares,
-      showAddSplit
+      showAddSplit,
+      isBooker
     }
   }
 
@@ -570,266 +590,7 @@ const MyBookingsPage = () => {
           </section>
         ) : (
           <>
-            {/* Desktop: table */}
-            <div className="my-bookings-desktop-table">
-              <div className="my-bookings-table-wrap">
-                <table className="my-bookings-table">
-                  <thead>
-                    <tr>
-                      <th>{c.date}</th>
-                      <th>{c.time}</th>
-                      <th>{c.court}</th>
-                      <th>{c.club}</th>
-                      <th>{c.price}</th>
-                      <th>{c.status}</th>
-                      {filter === 'upcoming' && <th>{c.actions}</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r) => (
-                      <tr key={r.key} className={`my-bookings-table-row ${r.isTournament ? 'my-bookings-table-row--tournament' : r.isTraining ? 'my-bookings-table-row--training' : 'my-bookings-table-row--court'} ${r.isPaid ? 'my-bookings-table-row--paid' : 'my-bookings-table-row--pending'}`}>
-                        <td>{r.formatDate(r.dateStr)}</td>
-                        <td>{r.timeStr || '—'}</td>
-                        <td>
-                          <span className={`my-bookings-type-badge ${r.isTournament ? 'my-bookings-type-badge--tournament' : r.isTraining ? 'my-bookings-type-badge--training' : 'my-bookings-type-badge--court'}`}>
-                            {r.isTournament ? c.typeTournament : r.isTraining ? c.typeTraining : c.typeCourt}
-                          </span>
-                          {r.courtName}
-                        </td>
-                        <td>
-                          {r.clubLink ? (
-                            <Link to={r.clubLink} className="my-bookings-club-link">
-                              {r.clubName}
-                            </Link>
-                          ) : r.clubName}
-                        </td>
-                        <td>{r.priceText}</td>
-                        <td>
-                          <span className={`my-bookings-payment-badge ${r.isPaid ? 'my-bookings-payment-badge--paid' : 'my-bookings-payment-badge--pending'}`}>
-                            {r.isPaid ? c.paidLabel : c.awaitingPayment}
-                          </span>
-                          <span className={`my-bookings-status ${r.getStatusClass(r.booking.status)}`}>
-                            {r.getStatusLabel(r.booking.status)}
-                          </span>
-                          {['pending_payment'].includes((r.booking.status || '').toString()) && filter === 'upcoming' && r.club && (
-                            <div className="my-bookings-pay-now-wrap">
-                              <Link to={`/pay/${r.booking.id}?method=${r.booking.paymentMethod || 'credit_card'}`} className="my-bookings-pay-now-link">
-                                {c.payNow}
-                              </Link>
-                            </div>
-                          )}
-                          {['pending_payments', 'partially_paid'].includes((r.booking.status || '').toString()) && filter === 'upcoming' && r.payOptions && (
-                            <div className="my-bookings-pay-wrap">
-                              <div className="my-bookings-pay-dropdown">
-                                <button
-                                  type="button"
-                                  className={`my-bookings-pay-btn ${payMenuOpen === r.key ? 'my-bookings-pay-btn-open' : ''}`}
-                                  onClick={() => setPayMenuOpen(payMenuOpen === r.key ? null : r.key)}
-                                  disabled={!!markingPayAtClub}
-                                  aria-expanded={payMenuOpen === r.key}
-                                  aria-haspopup="true"
-                                >
-                                  <span className="my-bookings-pay-btn-icon">💳</span>
-                                  {c.pay}
-                                  <span className="my-bookings-pay-btn-chevron" aria-hidden>▼</span>
-                                </button>
-                                {payMenuOpen === r.key && (
-                                  <div className="my-bookings-pay-menu">
-                                    {r.payOptions.type === 'share' ? (
-                                      <>
-                                        <button
-                                          type="button"
-                                          className={`my-bookings-pay-menu-item ${r.payOptions.chosePayAtClub ? 'my-bookings-pay-menu-item-chosen' : ''}`}
-                                          onClick={() => { handleRecordPayment(r.payOptions.clubId, r.payOptions.inviteToken, r.payOptions.bookingId); setPayMenuOpen(null) }}
-                                          disabled={markingPayAtClub || r.payOptions.chosePayAtClub}
-                                          aria-pressed={r.payOptions.chosePayAtClub}
-                                        >
-                                          <span className="my-bookings-pay-menu-icon">🏢</span>
-                                          {r.payOptions.chosePayAtClub ? <span className="my-bookings-pay-menu-check" aria-hidden>✓ </span> : null}
-                                          <span>{r.payOptions.chosePayAtClub ? (language === 'ar' ? 'اخترتها — سأدفع في النادي' : 'Chosen — pay at club') : c.payAtClub}</span>
-                                        </button>
-                                        <Link
-                                          to={r.payOptions.inviteToken ? `/pay-share/${r.payOptions.inviteToken}` : `/pay-share/booking/${r.booking.id}?clubId=${r.payOptions.clubId}`}
-                                          className="my-bookings-pay-menu-item my-bookings-pay-menu-link"
-                                          onClick={() => setPayMenuOpen(null)}
-                                        >
-                                          <span className="my-bookings-pay-menu-icon">💳</span>
-                                          <span>{r.payOptions.chosePayAtClub ? (language === 'ar' ? 'التبديل إلى الدفع الإلكتروني' : 'Switch to electronic payment') : c.payElectronic}</span>
-                                        </Link>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <button
-                                          type="button"
-                                          className={`my-bookings-pay-menu-item ${r.payOptions.chosePayAtClub ? 'my-bookings-pay-menu-item-chosen' : ''}`}
-                                          onClick={() => { handleMarkPayAtClub(r.payOptions.clubId, r.payOptions.bookingId); setPayMenuOpen(null) }}
-                                          disabled={markingPayAtClub === r.booking.id || r.payOptions.chosePayAtClub}
-                                          aria-pressed={r.payOptions.chosePayAtClub}
-                                        >
-                                          <span className="my-bookings-pay-menu-icon">🏢</span>
-                                          {r.payOptions.chosePayAtClub ? <span className="my-bookings-pay-menu-check" aria-hidden>✓ </span> : null}
-                                          <span>{r.payOptions.chosePayAtClub ? (language === 'ar' ? 'اخترتها — سأدفع في النادي' : 'Chosen — pay at club') : (markingPayAtClub === r.booking.id ? '…' : c.payAtClub)}</span>
-                                        </button>
-                                        <Link
-                                          to={`/pay/${r.booking.id}?method=credit_card`}
-                                          className="my-bookings-pay-menu-item my-bookings-pay-menu-link"
-                                          onClick={() => setPayMenuOpen(null)}
-                                        >
-                                          <span className="my-bookings-pay-menu-icon">💳</span>
-                                          <span>{c.payElectronic}</span>
-                                        </Link>
-                                      </>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          {Array.isArray(r.visibleShares) && r.visibleShares.length > 0 && (
-                            <div className="my-bookings-shares">
-                              {r.visibleShares.slice(0, 10).map((s, idx) => (
-                                <div key={s.id || idx} className="my-bookings-share-row">
-                                  <span>
-                                    {(() => {
-                                      const lbl = resolvePaymentShareDisplayName(s, shareMemberDirectory)
-                                      if (lbl !== '—') return lbl
-                                      return s.type === 'unregistered' ? c.pending : '—'
-                                    })()}
-                                  </span>
-                                  <span className={s.refundedAt ? 'my-bookings-refunded' : s.paidAt ? 'my-bookings-paid' : ''}>
-                                    {s.refundedAt ? (language === 'en' ? 'Refunded' : 'مسترد') : s.paidAt ? '✓ ' + c.paid : c.pending}
-                                  </span>
-                                  {shareNeedsRefundAcknowledgment(s, member) && r.club?.id && filter === 'upcoming' && (
-                                    <button
-                                      type="button"
-                                      className="my-bookings-ack-refund-btn"
-                                      disabled={!!markingPayAtClub}
-                                      onClick={() => handleAckRefund(s, r.club.id)}
-                                    >
-                                      {language === 'en' ? 'I received refund' : 'استلمت الاسترداد'}
-                                    </button>
-                                  )}
-                                  {s.whatsappLink && !s.paidAt && !s.refundedAt && filter === 'upcoming' && (
-                                    <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="my-bookings-resend" title={c.resendInvite}>
-                                      💬
-                                    </a>
-                                  )}
-                                </div>
-                              ))}
-                              {r.visibleShares.length > 10 && (
-                                <div className="my-bookings-share-row my-bookings-share-more">
-                                  +{r.visibleShares.length - 10} {language === 'en' ? 'more' : 'المزيد'}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {r.showAddSplit && filter === 'upcoming' && r.club && (
-                            <div className="my-bookings-add-split">
-                              <button
-                                type="button"
-                                className="my-bookings-add-split-toggle"
-                                onClick={() => {
-                                  if (addSplitForBookingId === r.booking.id) {
-                                    setAddSplitForBookingId(null)
-                                  } else {
-                                    setAddSplitForBookingId(r.booking.id)
-                                    setAddSplitRows([{ phone: '', amount: '' }])
-                                  }
-                                }}
-                              >
-                                {language === 'en' ? '+ Add participants (share payment)' : '+ إضافة مشاركين (تقسيم)'}
-                              </button>
-                              {addSplitForBookingId === r.booking.id && (
-                                <div className="my-bookings-add-split-form">
-                                  <div className="my-bookings-add-split-favorites">
-                                    <p className="my-bookings-add-split-favorites-title">★ {c.splitFavorites}</p>
-                                    <p className="my-bookings-add-split-fav-hint">{c.splitFavHint}</p>
-                                    {addSplitFavoritesLoading ? (
-                                      <div className="my-bookings-add-split-fav-loading">{c.loading}</div>
-                                    ) : addSplitFavorites.length === 0 ? (
-                                      <p className="my-bookings-add-split-fav-empty">{c.splitFavoritesEmpty}</p>
-                                    ) : (
-                                      <div className="my-bookings-add-split-fav-chips" role="list">
-                                        {addSplitFavorites.map((f) => (
-                                          <button
-                                            key={f.id}
-                                            type="button"
-                                            className={`my-bookings-add-split-fav-chip ${f.phone ? '' : 'my-bookings-add-split-fav-chip--muted'}`}
-                                            disabled={!f.phone}
-                                            onClick={() => applyFavoritePhoneToSplitRows(f.phone)}
-                                          >
-                                            <span className="my-bookings-add-split-fav-chip-name">{f.name}</span>
-                                            {f.phone ? (
-                                              <span className="my-bookings-add-split-fav-chip-phone">{f.phone}</span>
-                                            ) : (
-                                              <span className="my-bookings-add-split-fav-chip-na">{c.splitFavoritesNoPhone}</span>
-                                            )}
-                                          </button>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                  {addSplitRows.map((row, ri) => (
-                                    <div key={ri} className="my-bookings-add-split-row">
-                                      <input
-                                        type="tel"
-                                        placeholder={language === 'en' ? 'Phone' : 'الجوال'}
-                                        value={row.phone}
-                                        onChange={(e) => setAddSplitRows((prev) => prev.map((x, j) => (j === ri ? { ...x, phone: e.target.value } : x)))}
-                                      />
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        placeholder={language === 'en' ? 'Amount' : 'المبلغ'}
-                                        value={row.amount}
-                                        onChange={(e) => setAddSplitRows((prev) => prev.map((x, j) => (j === ri ? { ...x, amount: e.target.value } : x)))}
-                                      />
-                                    </div>
-                                  ))}
-                                  <button
-                                    type="button"
-                                    className="my-bookings-add-split-more"
-                                    onClick={() => setAddSplitRows((prev) => [...prev, { phone: '', amount: '' }])}
-                                  >
-                                    {language === 'en' ? '+ Another' : '+ سطر'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="my-bookings-add-split-submit"
-                                    disabled={addSplitBusy}
-                                    onClick={() => submitAddSplit(r.booking, r.club)}
-                                  >
-                                    {addSplitBusy ? '…' : (language === 'en' ? 'Send invites' : 'إرسال الدعوات')}
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </td>
-                        {filter === 'upcoming' && (
-                          <td>
-                            {r.club && (
-                              <button
-                                type="button"
-                                className="my-bookings-cancel-btn"
-                                onClick={() => handleCancel(r.club.id, r.booking.id, r.booking, r.club)}
-                                disabled={cancelling === r.booking.id || !r.canCancel}
-                              >
-                                {cancelling === r.booking.id ? '…' : c.cancel}
-                              </button>
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Mobile: cards */}
-            <div className="my-bookings-mobile-cards">
+            <div className="my-bookings-booking-list">
               {rows.map((r) => (
                 <article
                   key={r.key}
@@ -847,55 +608,93 @@ const MyBookingsPage = () => {
                       <span className={`my-bookings-payment-badge ${r.isPaid ? 'my-bookings-payment-badge--paid' : 'my-bookings-payment-badge--pending'}`}>
                         {r.isPaid ? c.paidLabel : c.awaitingPayment}
                       </span>
+                      <span className={`my-bookings-status ${r.getStatusClass(r.booking.status)}`}>
+                        {r.getStatusLabel(r.booking.status)}
+                      </span>
                     </div>
-                    <div className="my-bookings-card-date">
-                      {r.formatDate(r.dateStr)}
+                    <div className="my-bookings-card-summary">
+                      <div className="my-bookings-card-field">
+                        <span className="my-bookings-card-label">{c.date}</span>
+                        <span className="my-bookings-card-value">{r.formatDate(r.dateStr)}</span>
+                      </div>
+                      <div className="my-bookings-card-field">
+                        <span className="my-bookings-card-label">{c.time}</span>
+                        <span className="my-bookings-card-value">{r.timeStr || '—'}</span>
+                      </div>
+                      <div className="my-bookings-card-field my-bookings-card-field--wide">
+                        <span className="my-bookings-card-label">{c.court}</span>
+                        <span className="my-bookings-card-value">
+                          <span className="my-bookings-card-icon" aria-hidden>{r.isTraining ? '\u{1F468}\u200D\u{1F3EB}' : '🏸'}</span>
+                          {r.courtName}
+                        </span>
+                      </div>
+                      <div className="my-bookings-card-field">
+                        <span className="my-bookings-card-label">{c.club}</span>
+                        {r.clubLink ? (
+                          <Link to={r.clubLink} className="my-bookings-card-club my-bookings-card-value" onClick={(e) => e.stopPropagation()}>
+                            {r.clubName}
+                          </Link>
+                        ) : (
+                          <span className="my-bookings-card-value">{r.clubName}</span>
+                        )}
+                      </div>
+                      <div className="my-bookings-card-field">
+                        <span className="my-bookings-card-label">{c.price}</span>
+                        <span className="my-bookings-card-value my-bookings-card-value--price">{r.priceText}</span>
+                      </div>
                     </div>
-                    <div className="my-bookings-card-meta">
-                      <span className="my-bookings-card-icon" aria-hidden>{r.isTraining ? '\u{1F468}\u200D\u{1F3EB}' : '🏸'}</span>
-                      <span className="my-bookings-card-time">{r.timeStr || '—'}</span>
-                      <span className="my-bookings-card-court">{r.courtName}</span>
-                    </div>
-                    {r.clubLink ? (
-                      <Link to={r.clubLink} className="my-bookings-card-club" onClick={(e) => e.stopPropagation()}>
-                        {r.clubName}
-                      </Link>
-                    ) : (
-                      <span className="my-bookings-card-club my-bookings-card-club-plain">{r.clubName}</span>
-                    )}
-                    <div className="my-bookings-card-price">{r.priceText}</div>
-                    <span className={`my-bookings-status ${r.getStatusClass(r.booking.status)}`}>
-                      {r.getStatusLabel(r.booking.status)}
-                    </span>
                   </div>
                   {Array.isArray(r.visibleShares) && r.visibleShares.length > 0 && (
-                    <div className="my-bookings-card-shares">
-                      {r.visibleShares.slice(0, 5).map((s, idx) => (
-                        <div key={s.id || idx} className="my-bookings-share-row">
-                          <span>
-                            {(() => {
-                              const lbl = resolvePaymentShareDisplayName(s, shareMemberDirectory)
-                              if (lbl !== '—') return lbl
-                              return s.type === 'unregistered' ? c.pending : '—'
-                            })()}
-                          </span>
-                          <span className={s.refundedAt ? 'my-bookings-refunded' : s.paidAt ? 'my-bookings-paid' : ''}>
-                            {s.refundedAt ? '↩' : s.paidAt ? '✓' : '○'}
-                          </span>
-                          {shareNeedsRefundAcknowledgment(s, member) && r.club?.id && filter === 'upcoming' && (
-                            <button type="button" className="my-bookings-ack-refund-btn" disabled={!!markingPayAtClub} onClick={(e) => { e.stopPropagation(); handleAckRefund(s, r.club.id) }}>
-                              {language === 'en' ? 'OK' : '✓'}
-                            </button>
-                          )}
-                          {s.whatsappLink && !s.paidAt && !s.refundedAt && filter === 'upcoming' && (
-                            <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="my-bookings-resend" title={c.resendInvite} onClick={(e) => e.stopPropagation()}>💬</a>
-                          )}
-                        </div>
-                      ))}
-                      {r.visibleShares.length > 5 && (
-                        <div className="my-bookings-share-row my-bookings-share-more">
-                          +{r.visibleShares.length - 5}
-                        </div>
+                    <div className="my-bookings-participants" onClick={(e) => e.stopPropagation()}>
+                      <div className="my-bookings-participants-head">
+                        <h3 className="my-bookings-participants-title">{c.splitParticipants}</h3>
+                        {r.isBooker ? <p className="my-bookings-participants-hint">{c.yourShareAmountsHint}</p> : null}
+                      </div>
+                      <ul className="my-bookings-participants-list">
+                        {r.visibleShares.slice(0, 12).map((s, idx) => {
+                          const name = (() => {
+                            const lbl = resolvePaymentShareDisplayName(s, shareMemberDirectory)
+                            if (lbl !== '—') return lbl
+                            return s.type === 'unregistered' ? c.pending : '—'
+                          })()
+                          const rf = s.refundedAt || s.refunded_at
+                          const pd = s.paidAt || s.paid_at
+                          const shareAmt = parseFloat(s.amount)
+                          const amtText = Number.isFinite(shareAmt) ? `${shareAmt} ${r.currencyStr}` : '—'
+                          return (
+                            <li key={s.id || idx} className="my-bookings-share-item">
+                              <div className="my-bookings-share-item-main">
+                                <span className="my-bookings-share-item-name">{name}</span>
+                                {r.isBooker ? (
+                                  <span className="my-bookings-share-item-amount">{amtText}</span>
+                                ) : null}
+                              </div>
+                              <div className="my-bookings-share-item-tail">
+                                <span className={`my-bookings-share-item-status ${rf ? 'is-refunded' : pd ? 'is-paid' : 'is-pending'}`}>
+                                  {rf ? (language === 'en' ? 'Refunded' : 'مسترد') : pd ? `✓ ${c.paid}` : c.pending}
+                                </span>
+                                {shareNeedsRefundAcknowledgment(s, member) && r.club?.id && filter === 'upcoming' && (
+                                  <button
+                                    type="button"
+                                    className="my-bookings-ack-refund-btn"
+                                    disabled={!!markingPayAtClub}
+                                    onClick={(e) => { e.stopPropagation(); handleAckRefund(s, r.club.id) }}
+                                  >
+                                    {language === 'en' ? 'I received refund' : 'استلمت الاسترداد'}
+                                  </button>
+                                )}
+                                {s.whatsappLink && !pd && !rf && filter === 'upcoming' && (
+                                  <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="my-bookings-resend" title={c.resendInvite} onClick={(e) => e.stopPropagation()}>💬</a>
+                                )}
+                              </div>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                      {r.visibleShares.length > 12 && (
+                        <p className="my-bookings-participants-more">
+                          +{r.visibleShares.length - 12} {language === 'en' ? 'more' : 'المزيد'}
+                        </p>
                       )}
                     </div>
                   )}
