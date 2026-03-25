@@ -32,28 +32,42 @@ export function shareDisplayLooksLikePhone(str) {
 
 /**
  * @param {object} share — payment share من الحجز
- * @param {Array<{id:string,name?:string,nameAr?:string}>} memberDirectory — أعضاء النادي و/أو المنصة
+ * @param {Array<{id:string,name?:string,nameAr?:string,mobile?:string,phone?:string}>} memberDirectory — أعضاء النادي و/أو المنصة
  */
 export function resolvePaymentShareDisplayName(share, memberDirectory) {
   const list = Array.isArray(memberDirectory) ? memberDirectory : []
   const mid = share?.memberId ?? share?.member_id
-  if (mid) {
+  const ph = (share?.phone || '').trim()
+  const mn = (share?.memberName || '').trim()
+
+  const nameFromMemberId = () => {
+    if (!mid) return ''
     const m = list.find((x) => String(x?.id) === String(mid))
     const n = m?.name || m?.nameAr
-    if (n && String(n).trim()) return String(n).trim()
+    return n && String(n).trim() ? String(n).trim() : ''
   }
-  const mn = (share?.memberName || '').trim()
-  if (mn && !shareDisplayLooksLikePhone(mn)) return mn
-  const ph = (share?.phone || '').trim()
-  if (mn && shareDisplayLooksLikePhone(mn) && ph) {
-    const mByPhone = list.find((x) => {
-      const xp = String(x?.mobile || x?.phone || '').replace(/\D/g, '')
-      const sp = ph.replace(/\D/g, '')
-      if (!xp || !sp) return false
-      return xp.slice(-9) === sp.slice(-9)
+
+  /** مطابقة آخر 9 أرقام — تغطي الحصة برقم دولي والعضو بصيغة 05... */
+  const nameFromPhoneTail = () => {
+    if (!ph) return ''
+    const tail = phoneTailKey(ph)
+    if (tail.length < 8) return ''
+    const m = list.find((x) => {
+      const xt = phoneTailKey(x?.mobile || x?.phone || '')
+      return xt.length >= 8 && xt === tail
     })
-    if (mByPhone?.name || mByPhone?.nameAr) return String(mByPhone.name || mByPhone.nameAr).trim()
+    const n = m?.name || m?.nameAr
+    return n && String(n).trim() ? String(n).trim() : ''
   }
+
+  const byId = nameFromMemberId()
+  if (byId) return byId
+
+  if (mn && !shareDisplayLooksLikePhone(mn)) return mn
+
+  const byPhone = nameFromPhoneTail()
+  if (byPhone) return byPhone
+
   if (mn) return mn
   return ph || '—'
 }

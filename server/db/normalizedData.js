@@ -56,6 +56,11 @@ function shareStoredNameLooksLikePhone(str) {
   return false
 }
 
+function phoneTailNorm(s) {
+  const d = String(s || '').replace(/\D/g, '')
+  return d.length >= 9 ? d.slice(-9) : d
+}
+
 /** Ensure club_settings has booking-related columns so all settings persist in padel_db */
 async function ensureClubSettingsBookingColumns() {
   const cols = [
@@ -728,16 +733,32 @@ export async function getClubsFromNormalized() {
 
   const bpsRows = bpsRes?.rows || bpsRes || []
   const memberIdsForShareLabels = [...new Set(bpsRows.map(r => r.member_id).filter(Boolean).map(id => String(id)))]
+  const allClubMemberIdSet = new Set()
+  Object.values(membersByClub).forEach((ids) => {
+    (ids || []).forEach((id) => {
+      if (id != null && id !== '') allClubMemberIdSet.add(String(id))
+    })
+  })
+  memberIdsForShareLabels.forEach((id) => allClubMemberIdSet.add(String(id)))
+  const allIdsForMemberLookup = [...allClubMemberIdSet]
+
   const shareMemberNameById = new Map()
-  if (memberIdsForShareLabels.length > 0) {
+  const phoneTailToName = new Map()
+  if (allIdsForMemberLookup.length > 0) {
     try {
-      const ph = memberIdsForShareLabels.map(() => '?').join(',')
+      const ph = allIdsForMemberLookup.map(() => '?').join(',')
       const { rows: nmRows } = await query(
-        `SELECT id, name FROM members WHERE deleted_at IS NULL AND id IN (${ph})`,
-        memberIdsForShareLabels
+        `SELECT id, name, mobile, phone FROM members WHERE deleted_at IS NULL AND id IN (${ph})`,
+        allIdsForMemberLookup
       )
-      ;(nmRows || []).forEach(row => {
-        if (row.name && String(row.name).trim()) shareMemberNameById.set(String(row.id), String(row.name).trim())
+      ;(nmRows || []).forEach((row) => {
+        const nm = row.name && String(row.name).trim()
+        if (!nm) return
+        shareMemberNameById.set(String(row.id), nm)
+        for (const raw of [row.mobile, row.phone]) {
+          const tail = phoneTailNorm(raw)
+          if (tail.length >= 8) phoneTailToName.set(tail, nm)
+        }
       })
     } catch (_) {
       /* ignore */
@@ -756,6 +777,16 @@ export async function getClubsFromNormalized() {
       else resolvedMemberName = storedName
     } else {
       resolvedMemberName = storedName || undefined
+    }
+    if (
+      (!resolvedMemberName || shareStoredNameLooksLikePhone(resolvedMemberName)) &&
+      r.phone
+    ) {
+      const tail = phoneTailNorm(r.phone)
+      if (tail.length >= 8) {
+        const viaPhone = phoneTailToName.get(tail)
+        if (viaPhone) resolvedMemberName = viaPhone
+      }
     }
     paymentSharesByBooking[key].push({
       id: r.id,

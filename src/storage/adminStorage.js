@@ -960,6 +960,7 @@ export const getClubMembersFromStorage = (clubId) => {
       email: m.email,
       avatar: m.avatar,
       mobile: m.mobile || m.phone,
+      phone: m.phone || m.mobile || '',
       totalGames: m.totalGames || 0,
       totalWins: m.totalWins || 0,
       totalPoints: m.totalPoints || 0,
@@ -981,6 +982,7 @@ export const getAllMembersFromStorage = () => {
       email: m.email,
       avatar: m.avatar,
       mobile: m.mobile || m.phone,
+      phone: m.phone || m.mobile || '',
       clubIds: m.clubIds || (m.clubId ? [m.clubId] : [])
     }))
   } catch (e) {
