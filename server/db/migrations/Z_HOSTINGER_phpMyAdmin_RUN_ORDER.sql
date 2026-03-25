@@ -7,8 +7,9 @@
 -- الخطوة 1 — نسخ كامل المحتوى من الملف أدناه إلى تبويب SQL (أو استيراد Import):
 --   https://github.com/yakhawaji-lang/padel/blob/main/server/db/CREATE_ALL_TABLES.sql
 --
--- الخطوة 2 — بعد الخطوة 1، نفّذ ملف المزامنة (تجاهل أخطاء Duplicate column/key):
---   https://github.com/yakhawaji-lang/padel/blob/main/server/db/migrations/phpmyadmin-u502561206-padel_db-SYNC-legacy-columns.sql
+-- الخطوة 2 — جداول/أعمدة ناقصة (ملف واحد موحّد — أو استبدله بـ SYNC أدناه):
+--   https://github.com/yakhawaji-lang/padel/blob/main/server/db/migrations/phpmyadmin-create-missing-tables-and-columns.sql
+--   (بديل بنفس الغرض): phpmyadmin-u502561206-padel_db-SYNC-legacy-columns.sql
 --
 -- اختياري — إن لم تُنفَّذ من قبل — عمود إعدادات الدفع لكل نادي:
 --   https://github.com/yakhawaji-lang/padel/blob/main/server/db/migrations/add-club-payment-enabled-channels.sql
