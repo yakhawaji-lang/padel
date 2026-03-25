@@ -922,7 +922,6 @@ const ClubPublicPage = () => {
       trainingPaySplit: 'Share with others',
       trainingPayFull: 'Pay full amount',
       confirmJoinTraining: 'Confirm join',
-      scheduleSlotHint: 'Each column is 30 minutes. Tap a time slot to choose 60, 90, or 120 minutes and see the price from club settings.',
       legendCourt: 'Court booking',
       legendCoach: 'Coach session',
       legendTournament: 'Tournament',
@@ -1019,7 +1018,6 @@ const ClubPublicPage = () => {
       trainingPaySplit: 'المشاركة مع أعضاء آخرين',
       trainingPayFull: 'الدفع كامل المبلغ',
       confirmJoinTraining: 'تأكيد الانضمام',
-      scheduleSlotHint: 'كل عمود يمثل نصف ساعة. اضغط على الشق لاختيار 60 أو 90 أو 120 دقيقة مع السعر من إعدادات النادي.',
       legendCourt: 'حجز ملعب',
       legendCoach: 'حصة مدرب',
       legendTournament: 'بطولة',
@@ -1379,11 +1377,6 @@ const ClubPublicPage = () => {
                         <span className="club-public-court-booking-date-nav-icon" aria-hidden="true">›</span>
                       </button>
                     </div>
-                    {isMember && (
-                      <div className="club-public-court-booking-schedule-hint" role="note">
-                        {c.scheduleSlotHint}
-                      </div>
-                    )}
                     <div className="club-public-court-booking-schedule-legend" aria-hidden="true">
                       <span className="club-public-court-booking-legend-item">
                         <span className="club-public-legend-swatch club-public-legend-swatch--court" /> {c.legendCourt}
