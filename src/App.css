@@ -2989,7 +2989,8 @@ button:active {
 }
 
 .booking-event-multiple {
-  border: 1px solid rgba(0,0,0,0.1);
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
 }
 
 /* تمييز بطولات ملك الملعب / سوشيال عن حجوزات الملاعب العادية */
@@ -3197,6 +3198,23 @@ button:active {
   line-height: 1.5;
   z-index: 200;
   isolation: isolate;
+}
+
+.booking-tooltip.booking-tooltip--calendar.booking-tooltip--portal {
+  position: relative;
+  top: auto;
+  left: auto;
+  margin-top: 0;
+  margin-bottom: 0;
+  z-index: auto;
+  max-width: min(360px, calc(100vw - 24px));
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+    0 28px 64px rgba(15, 23, 42, 0.55);
+}
+
+.booking-tooltip-portal-layer {
+  pointer-events: none;
 }
 
 .booking-tooltip--calendar .booking-tooltip__head,

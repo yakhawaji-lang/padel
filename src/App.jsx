@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import './App.css'
@@ -53,7 +53,15 @@ function formatCalendarTooltipDate(dateRaw, language) {
   }
 }
 
-function CalendarBookingTooltip({ booking, language, t, currentClub, paymentLabel, calendarPaymentStatus }) {
+function CalendarBookingTooltip({
+  booking,
+  language,
+  t,
+  currentClub,
+  paymentLabel,
+  calendarPaymentStatus,
+  portal,
+}) {
   if (!booking) return null
   const kind = getBookingCalendarKind(booking)
   const typeLabel =
@@ -103,11 +111,11 @@ function CalendarBookingTooltip({ booking, language, t, currentClub, paymentLabe
 
   return (
     <div
-      className="booking-tooltip booking-tooltip--calendar"
+      className={`booking-tooltip booking-tooltip--calendar${portal ? ' booking-tooltip--portal' : ''}`}
       dir={language === 'ar' ? 'rtl' : 'ltr'}
       role="tooltip"
     >
-      <div className="booking-tooltip__arrow" aria-hidden />
+      {!portal ? <div className="booking-tooltip__arrow" aria-hidden /> : null}
       <header className="booking-tooltip__head">
         <div className="booking-tooltip__head-main">
           <span className={`booking-tooltip__pill booking-tooltip__pill--${kind.replace(/_/g, '-')}`}>{typeLabel}</span>
@@ -266,6 +274,8 @@ function App({ currentUser }) {
   const [bookingFormData, setBookingFormData] = useState(null) // Form data for creating/editing booking
   const [dragSelection, setDragSelection] = useState(null) // Drag selection state {startCell, endCell, startTime, endTime}
   const [hoveredBooking, setHoveredBooking] = useState(null) // Booking ID being hovered for tooltip
+  const [bookingTooltipRect, setBookingTooltipRect] = useState(null)
+  const bookingTooltipAnchorRef = useRef(null)
   const [currentWeek, setCurrentWeek] = useState(new Date()) // Current week being displayed
   const [bookingView, setBookingView] = useState('weekly') // 'weekly' or 'courts' for booking calendar view
   const [selectedDateForCourtView, setSelectedDateForCourtView] = useState(new Date().toISOString().split('T')[0]) // Selected date for court view
@@ -324,6 +334,43 @@ function App({ currentUser }) {
   
   const t = translations[language]
   const isRTL = language === 'ar'
+
+  useLayoutEffect(() => {
+    if (hoveredBooking == null) return undefined
+    const sync = () => {
+      const el = bookingTooltipAnchorRef.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      setBookingTooltipRect({
+        top: r.top,
+        left: r.left,
+        bottom: r.bottom,
+        width: r.width,
+        height: r.height,
+      })
+    }
+    sync()
+    window.addEventListener('scroll', sync, true)
+    window.addEventListener('resize', sync)
+    return () => {
+      window.removeEventListener('scroll', sync, true)
+      window.removeEventListener('resize', sync)
+    }
+  }, [hoveredBooking])
+
+  useEffect(() => {
+    if (activeTab !== 'bookings') {
+      bookingTooltipAnchorRef.current = null
+      setHoveredBooking(null)
+      setBookingTooltipRect(null)
+    }
+  }, [activeTab])
+
+  useEffect(() => {
+    bookingTooltipAnchorRef.current = null
+    setHoveredBooking(null)
+    setBookingTooltipRect(null)
+  }, [bookingView])
 
   // Initialize IndexedDB and load saved data on mount
   useEffect(() => {
@@ -4262,6 +4309,102 @@ function App({ currentUser }) {
     return Math.max(baseHeight, minContentHeight)
   }
 
+  const calendarTimeToMinutes = (timeStr) => {
+    if (!timeStr || typeof timeStr !== 'string') return 0
+    const [h, m] = timeStr.split(':').map((x) => parseInt(x, 10))
+    return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0)
+  }
+
+  const bookingIntervalsOverlap = (a, b) => {
+    const a0 = calendarTimeToMinutes(a.startTime)
+    const a1 = calendarTimeToMinutes(a.endTime)
+    const b0 = calendarTimeToMinutes(b.startTime)
+    const b1 = calendarTimeToMinutes(b.endTime)
+    if (a1 <= a0 || b1 <= b0) return false
+    return a0 < b1 && b0 < a1
+  }
+
+  const sameCalendarDayAsBooking = (booking, day) => {
+    const bookingDate = new Date(booking.date)
+    return bookingDate.toDateString() === day.toDateString()
+  }
+
+  const normalizeWeeklyLaneKey = (booking) => {
+    if (booking.isTournament && ['king', 'social'].includes(booking.tournamentType)) {
+      const ids = booking.tournamentCourtIds
+      if (Array.isArray(ids) && ids.length > 0) {
+        return `tournament:${ids.map((x) => String(x)).sort().join('|')}#${String(booking.id)}`
+      }
+      return `tournament:_#${String(booking.id)}`
+    }
+    const raw = String(booking.resource ?? booking.courtName ?? booking.court ?? '').trim()
+    if (!raw) return `_n#${String(booking.id)}`
+    return raw.toLowerCase().replace(/\s+/g, '-')
+  }
+
+  const getWeeklyBookingLaneLayout = (booking, day) => {
+    const overlapCluster = bookings.filter(
+      (b) => sameCalendarDayAsBooking(b, day) && bookingIntervalsOverlap(b, booking)
+    )
+    const baseLaneKeys = overlapCluster.map(normalizeWeeklyLaneKey)
+    const laneKeyCounts = {}
+    for (const k of baseLaneKeys) {
+      laneKeyCounts[k] = (laneKeyCounts[k] || 0) + 1
+    }
+    const disambiguatedLaneKey = (b) => {
+      const k = normalizeWeeklyLaneKey(b)
+      return laneKeyCounts[k] > 1 ? `${k}#${String(b.id)}` : k
+    }
+    const keys = [...new Set(overlapCluster.map(disambiguatedLaneKey))]
+    const courtOrderNorm = getCourts().map((c) =>
+      String(c ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+    )
+    keys.sort((a, b) => {
+      const ta = a.startsWith('tournament:')
+      const tb = b.startsWith('tournament:')
+      if (ta && tb) return a.localeCompare(b)
+      if (ta) return 1
+      if (tb) return -1
+      const baseA = a.replace(/#.+$/, '')
+      const baseB = b.replace(/#.+$/, '')
+      const ia = courtOrderNorm.indexOf(baseA)
+      const ib = courtOrderNorm.indexOf(baseB)
+      if (ia !== -1 && ib !== -1) {
+        if (ia !== ib) return ia - ib
+        return a.localeCompare(b)
+      }
+      if (ia !== -1) return -1
+      if (ib !== -1) return 1
+      return a.localeCompare(b)
+    })
+    const myKey = disambiguatedLaneKey(booking)
+    const laneIndex = Math.max(0, keys.indexOf(myKey))
+    const laneCount = Math.max(1, keys.length)
+    return { laneIndex, laneCount }
+  }
+
+  const handleCalendarBookingMouseEnter = (booking, e) => {
+    bookingTooltipAnchorRef.current = e.currentTarget
+    setHoveredBooking(booking.id)
+    const r = e.currentTarget.getBoundingClientRect()
+    setBookingTooltipRect({
+      top: r.top,
+      left: r.left,
+      bottom: r.bottom,
+      width: r.width,
+      height: r.height,
+    })
+  }
+
+  const handleCalendarBookingMouseLeave = () => {
+    bookingTooltipAnchorRef.current = null
+    setHoveredBooking(null)
+    setBookingTooltipRect(null)
+  }
+
   const navigateCourtViewDate = (direction) => {
     // direction: 'prev' or 'next'
     const currentDate = new Date(selectedDateForCourtView)
@@ -6333,15 +6476,15 @@ function App({ currentUser }) {
                               }}
                               style={{ position: 'relative', touchAction: 'manipulation' }}
                             >
-                              {slotBookings.map((booking, bookingIdx) => {
+                              {slotBookings.map((booking) => {
                                 const rowSpan = getBookingRowSpan(booking)
                                 const baseHeight = rowSpan * 30 - 2
                                 const bookingHeight = getBookingMinHeight(booking, baseHeight)
                                 const paymentStatus = getPaymentStatus(booking)
-                                const totalBookings = slotBookings.length
-                                const gap = totalBookings > 1 ? 2 : 0
-                                const widthPercent = totalBookings > 1 ? (100 / totalBookings) : 100
-                                const leftPercent = totalBookings > 1 ? bookingIdx * widthPercent : 0
+                                const { laneIndex, laneCount } = getWeeklyBookingLaneLayout(booking, day)
+                                const gap = laneCount > 1 ? 2 : 0
+                                const widthPercent = laneCount > 1 ? (100 / laneCount) : 100
+                                const leftPercent = laneCount > 1 ? laneIndex * widthPercent : 0
 
                                 const isTournamentBooking = !!booking.isTournament
                                 const tournamentKind = booking.tournamentType === 'social' ? 'social' : 'king'
@@ -6349,7 +6492,7 @@ function App({ currentUser }) {
                                 const isPlaytomicBk = booking.source === 'playtomic' || booking.id?.toString().startsWith('playtomic_')
                                 let eventClass =
                                   'booking-event' +
-                                  (totalBookings > 1 ? ' booking-event-multiple' : '') +
+                                  (laneCount > 1 ? ' booking-event-multiple' : '') +
                                   (isPlaytomicBk ? ' booking-event--playtomic' : '') +
                                   (hoveredBooking === booking.id ? ' booking-event--tooltip-open' : '')
                                 if (isTournamentBooking) {
@@ -6374,8 +6517,8 @@ function App({ currentUser }) {
                                   <div
                                     key={booking.id}
                                     className={eventClass}
-                                    onMouseEnter={() => setHoveredBooking(booking.id)}
-                                    onMouseLeave={() => setHoveredBooking(null)}
+                                    onMouseEnter={(e) => handleCalendarBookingMouseEnter(booking, e)}
+                                    onMouseLeave={handleCalendarBookingMouseLeave}
                                     onClick={(e) => {
                                       e.stopPropagation()
                                       if (booking.isTournament) {
@@ -6418,15 +6561,15 @@ function App({ currentUser }) {
                                     style={{
                                       position: 'absolute',
                                       top: 0,
-                                      left: totalBookings > 1 ? `calc(${leftPercent}% + ${bookingIdx > 0 ? gap : 0}px)` : '2px',
-                                      width: totalBookings > 1 ? `calc(${widthPercent}% - ${bookingIdx === 0 || bookingIdx === totalBookings - 1 ? gap : gap * 2}px)` : 'calc(100% - 4px)',
+                                      left: laneCount > 1 ? `calc(${leftPercent}% + ${laneIndex > 0 ? gap : 0}px)` : '2px',
+                                      width: laneCount > 1 ? `calc(${widthPercent}% - ${laneIndex === 0 || laneIndex === laneCount - 1 ? gap : gap * 2}px)` : 'calc(100% - 4px)',
                                       height: `${bookingHeight}px`,
                                       minHeight: '28px',
-                                      zIndex: 3 + bookingIdx,
+                                      zIndex: 3 + laneIndex,
                                       cursor: 'pointer',
-                                      borderRight: totalBookings > 1 && bookingIdx < totalBookings - 1 ? '1px solid rgba(0,0,0,0.06)' : 'none',
-                                      borderRadius: totalBookings > 1
-                                        ? (bookingIdx === 0 ? '8px 0 0 8px' : bookingIdx === totalBookings - 1 ? '0 8px 8px 0' : '0')
+                                      borderRight: laneCount > 1 && laneIndex < laneCount - 1 ? '1px solid rgba(0,0,0,0.06)' : 'none',
+                                      borderRadius: laneCount > 1
+                                        ? (laneIndex === 0 ? '8px 0 0 8px' : laneIndex === laneCount - 1 ? '0 8px 8px 0' : '0')
                                         : '8px'
                                     }}
                                   >
@@ -6445,13 +6588,13 @@ function App({ currentUser }) {
                                       )}
                                       <div style={{ overflow: 'hidden', width: '100%' }}>
                                         <div className="booking-title" style={{ 
-                                          fontSize: `${getFontSizeForDays(totalBookings > 1 ? 10 : 11, selectedDays.length)}px`, 
+                                          fontSize: `${getFontSizeForDays(laneCount > 1 ? 10 : 11, selectedDays.length)}px`, 
                                           fontWeight: '600' 
                                         }}>
                                           {booking.participants && booking.participants.length > 0 ? (
                                             <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
                                               <div style={{ 
-                                                fontSize: `${getFontSizeForDays(totalBookings > 1 ? 9 : 10, selectedDays.length)}px`, 
+                                                fontSize: `${getFontSizeForDays(laneCount > 1 ? 9 : 10, selectedDays.length)}px`, 
                                                 fontWeight: '600', 
                                                 marginBottom: '3px',
                                                 whiteSpace: 'nowrap',
@@ -6483,16 +6626,6 @@ function App({ currentUser }) {
                                           )}
                                         </div>
                                       </div>
-                                      {hoveredBooking === booking.id && (
-                                        <CalendarBookingTooltip
-                                          booking={booking}
-                                          language={language}
-                                          t={t}
-                                          currentClub={currentClub}
-                                          paymentLabel={paymentLabelStr}
-                                          calendarPaymentStatus={isTournamentBooking ? null : paymentStatus}
-                                        />
-                                      )}
                                     </div>
                                   )
                                 })}
@@ -6662,8 +6795,8 @@ function App({ currentUser }) {
                                     <div
                                       key={booking.id}
                                       className={eventClass}
-                                      onMouseEnter={() => setHoveredBooking(booking.id)}
-                                      onMouseLeave={() => setHoveredBooking(null)}
+                                      onMouseEnter={(e) => handleCalendarBookingMouseEnter(booking, e)}
+                                      onMouseLeave={handleCalendarBookingMouseLeave}
                                       onClick={(e) => {
                                         e.stopPropagation()
                                         if (booking.isTournament) {
@@ -6750,16 +6883,6 @@ function App({ currentUser }) {
                                           new Date(booking.date).toLocaleDateString(language === 'en' ? 'en-US' : 'ar-SA', { month: 'short', day: 'numeric' })
                                         )}
                                       </div>
-                                      {hoveredBooking === booking.id && (
-                                        <CalendarBookingTooltip
-                                          booking={booking}
-                                          language={language}
-                                          t={t}
-                                          currentClub={currentClub}
-                                          paymentLabel={paymentLabelStr}
-                                          calendarPaymentStatus={isTournamentBooking ? null : paymentStatus}
-                                        />
-                                      )}
                                     </div>
                                   )
                                 })}
@@ -6772,6 +6895,52 @@ function App({ currentUser }) {
                   </div>
                 </div>
               )}
+
+              {activeTab === 'bookings' &&
+                hoveredBooking != null &&
+                bookingTooltipRect &&
+                (() => {
+                  const hb = bookings.find((b) => b.id === hoveredBooking)
+                  if (!hb) return null
+                  const isTH = !!hb.isTournament
+                  const pStat = getPaymentStatus(hb)
+                  const pLabel =
+                    isTH ? '—' : pStat === 'paid' ? t.paid : pStat === 'partially_paid' ? t.partiallyPaid : t.notPaid
+                  const vw = typeof window !== 'undefined' ? window.innerWidth : 1024
+                  const vh = typeof window !== 'undefined' ? window.innerHeight : 768
+                  const margin = 12
+                  const anchorLeft = bookingTooltipRect.left + bookingTooltipRect.width / 2
+                  const maxHalf = 170
+                  const left = Math.min(Math.max(anchorLeft, margin + maxHalf), vw - margin - maxHalf)
+                  const spaceBelow = vh - bookingTooltipRect.bottom
+                  const placeBelow = spaceBelow > 220 || spaceBelow > bookingTooltipRect.top
+                  const top = placeBelow ? bookingTooltipRect.bottom + margin : bookingTooltipRect.top - margin
+                  const fixTransform = placeBelow ? 'translateX(-50%)' : 'translate(-50%, -100%)'
+                  return createPortal(
+                    <div
+                      className="booking-tooltip-portal-layer"
+                      style={{
+                        position: 'fixed',
+                        top,
+                        left,
+                        zIndex: 2147483646,
+                        transform: fixTransform,
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      <CalendarBookingTooltip
+                        portal
+                        booking={hb}
+                        language={language}
+                        t={t}
+                        currentClub={currentClub}
+                        paymentLabel={pLabel}
+                        calendarPaymentStatus={isTH ? null : pStat}
+                      />
+                    </div>,
+                    document.body
+                  )
+                })()}
               
               {/* Booking Form Modal */}
               {showBookingModal && (
