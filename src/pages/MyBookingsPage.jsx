@@ -422,8 +422,8 @@ const MyBookingsPage = () => {
       splitFavHint: 'Tap a name to fill the phone field.',
       splitParticipants: 'Split payment participants',
       yourShareAmountsHint: 'Only you see each person’s share amount.',
-      trainingInviteTitle: 'Training invitations',
-      trainingInviteIntro: 'A coach sent you a request to join a training session.',
+      trainingInviteTitle: 'Training join requests',
+      trainingInviteIntro: 'A coach sent you a request to join a training session. It stays here until you open the club page to book or tap dismiss.',
       trainingInviteDismiss: 'Dismiss',
       openClubToJoin: 'Open club page to join'
     },
@@ -469,8 +469,8 @@ const MyBookingsPage = () => {
       splitFavHint: 'اضغط على الاسم لملء الجوال في أول سطر فارغ.',
       splitParticipants: 'المشاركون في التقسيم',
       yourShareAmountsHint: 'أنت فقط ترى مبلغ حصة كل مشارك.',
-      trainingInviteTitle: 'دعوات التدريب',
-      trainingInviteIntro: 'أرسل لك المدرب طلباً للانضمام إلى حصة تدريبية.',
+      trainingInviteTitle: 'طلبات انضمام — حصص تدريب',
+      trainingInviteIntro: 'تم إرسال طلب انضمام إلى حصة تدريبية إليك من المدرب. يبقى ظاهراً هنا حتى تفتح صفحة النادي للحجز أو تضغط إخفاء.',
       trainingInviteDismiss: 'إخفاء',
       openClubToJoin: 'فتح صفحة النادي للانضمام'
     }

@@ -348,9 +348,10 @@ const CoachDashboardPage = () => {
     return origin ? `${origin}${basePath}/clubs/${clubId}` : `${basePath}/clubs/${clubId}`
   })()
 
-  const openWhatsAppTrainingInvite = useCallback(async (inviteeMemberId, phoneDigits) => {
-    if (!coachSlotModal?.booking?.id || !platformUser?.id) return
-    const b = coachSlotModal.booking
+  /** Register invite in DB (member sees in My bookings) then open WhatsApp — works for any coach training booking */
+  const sendTrainingInviteWhatsApp = useCallback(async (booking, inviteeMemberId, phoneDigits) => {
+    if (!booking?.id || !platformUser?.id) return
+    const b = booking
     const dateStr = (b.date || b.startDate || '').toString().split('T')[0]
     const startT = (b.startTime || b.timeSlot || '').toString()
     const endT = (b.endTime || '').toString()
@@ -384,7 +385,12 @@ const CoachDashboardPage = () => {
       window.open(url, '_blank', 'noopener,noreferrer')
     }
     setInviteBusyMemberId(null)
-  }, [coachSlotModal, platformUser?.id, clubId, club, language, clubPublicPath, formatDate])
+  }, [platformUser?.id, clubId, club, language, clubPublicPath, formatDate])
+
+  const openTrainingInviteModal = useCallback((booking, courtResolved) => {
+    setQuickInvitePhone('')
+    setCoachSlotModal({ booking, court: courtResolved })
+  }, [])
 
   const currency = club?.settings?.currency || 'SAR'
   const splitPayDeadlineMins = club?.settings?.splitPaymentDeadlineMinutes ?? 30
@@ -876,7 +882,7 @@ const CoachDashboardPage = () => {
                             type="button"
                             className="coach-slot-modal-wa-btn"
                             disabled={!rawPhone || inviteBusyMemberId === fid}
-                            onClick={() => openWhatsAppTrainingInvite(fid, rawPhone)}
+                            onClick={() => sendTrainingInviteWhatsApp(b, fid, rawPhone)}
                           >
                             {language === 'en' ? 'WhatsApp' : 'واتساب'}
                           </button>
@@ -918,7 +924,7 @@ const CoachDashboardPage = () => {
                           type="button"
                           className="coach-slot-modal-wa-btn"
                           disabled={!p || inviteBusyMemberId === match.id}
-                          onClick={() => openWhatsAppTrainingInvite(match.id, p)}
+                          onClick={() => sendTrainingInviteWhatsApp(b, match.id, p)}
                         >
                           {language === 'en' ? 'WhatsApp' : 'واتساب'}
                         </button>
@@ -1094,6 +1100,15 @@ const CoachDashboardPage = () => {
                     >
                       {isSubmittingThis ? '…' : '🗑️'} {t('Delete', 'حذف', language)}
                     </button>
+                    <button
+                      type="button"
+                      className="coach-booking-btn coach-booking-btn-invite"
+                      onClick={() => openTrainingInviteModal(b, court || { id: b.courtId || b.resource, name: courtName(b.courtId || b.resource) })}
+                      disabled={!!submitting}
+                      title={t('Invite members via WhatsApp; request appears in their account.', 'دعوة عبر واتساب؛ يظهر الطلب في حساب العضو.', language)}
+                    >
+                      {language === 'en' ? 'Invite (WhatsApp)' : 'دعوة (واتساب)'}
+                    </button>
                   </div>
                 </div>
               )
@@ -1102,7 +1117,9 @@ const CoachDashboardPage = () => {
               const d = b.data && typeof b.data === 'object' ? b.data : {}
               const maxT = d.maxTrainees ?? 4
               const shares = b.paymentShares || []
-              const traineeCount = shares.filter(s => String(s.memberId || '') !== String(platformUser?.id)).length
+              const traineeCount = shares.filter(s => String(s.memberId || s.member_id || '') !== String(platformUser?.id)).length
+              const court = (club?.courts || []).find(c => (c.id || c.name) === (b.courtId || b.resource))
+              const canInviteMore = traineeCount < maxT
               return (
                 <div key={b.id} className="coach-booking-card">
                   <div className="coach-booking-main">
@@ -1115,6 +1132,19 @@ const CoachDashboardPage = () => {
                     <span className="coach-booking-trainees">{traineeCount}/{maxT} {t('trainees', 'متدربين', language)}</span>
                     <span className={`coach-booking-status coach-booking-status-${(b.status || '').toLowerCase()}`}>{b.status}</span>
                   </div>
+                  {canInviteMore && (
+                    <div className="coach-booking-actions coach-booking-actions--secondary">
+                      <button
+                        type="button"
+                        className="coach-booking-btn coach-booking-btn-invite"
+                        onClick={() => openTrainingInviteModal(b, court || { id: b.courtId || b.resource, name: courtName(b.courtId || b.resource) })}
+                        disabled={!!submitting}
+                        title={t('Invite more via WhatsApp', 'دعوة المزيد عبر واتساب', language)}
+                      >
+                        {language === 'en' ? 'Invite (WhatsApp)' : 'دعوة (واتساب)'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )
             })}
