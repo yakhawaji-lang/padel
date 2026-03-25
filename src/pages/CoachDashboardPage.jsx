@@ -475,17 +475,16 @@ const CoachDashboardPage = () => {
                   </select>
                 </div>
               </div>
+              <div className="coach-session-policy" aria-label={t('Split payment deadline (club)', 'مهلة دفع التقسيم (النادي)', language)}>
+                <p className="coach-session-policy-hint">{t('This deadline is set by the club.', 'هذه المهلة يحددها النادي.', language)}</p>
+                <dl className="coach-session-policy-list">
+                  <div className="coach-session-policy-row">
+                    <dt>{t('Split payment deadline', 'مهلة دفع التقسيم', language)}</dt>
+                    <dd>{splitPayDeadlineMins} {t('min', 'دقيقة', language)}</dd>
+                  </div>
+                </dl>
+              </div>
             </div>
-            <aside className="coach-controls-section coach-controls-section--policy" aria-label={t('Club booking policy', 'سياسة حجز النادي', language)}>
-              <h3 className="coach-controls-heading">{t('Club booking policy', 'سياسة حجز النادي', language)}</h3>
-              <p className="coach-policy-hint">{t('These values are set by the club admin.', 'هذه القيم يضبطها مدير النادي.', language)}</p>
-              <dl className="coach-policy-list">
-                <div className="coach-policy-row">
-                  <dt>{t('Split payment deadline', 'مهلة دفع التقسيم', language)}</dt>
-                  <dd>{splitPayDeadlineMins} {t('min', 'دقيقة', language)}</dd>
-                </div>
-              </dl>
-            </aside>
           </div>
 
           {createError && <p className="coach-create-error">{createError}</p>}

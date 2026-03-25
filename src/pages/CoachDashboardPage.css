@@ -273,7 +273,7 @@
   color: var(--coach-slate-500);
 }
 
-/* Controls: calendar + session + policy */
+/* Controls: calendar + session (ومهلة التقسيم داخل قسم الجلسة) */
 .coach-controls-panel {
   display: grid;
   gap: var(--coach-gap-lg);
@@ -285,11 +285,6 @@
   .coach-controls-panel {
     grid-template-columns: minmax(220px, 1fr) minmax(240px, 1.35fr);
     align-items: start;
-  }
-
-  /* صف مستقل — لا نضع السياسة بجانب الحقول لتفادي التراص والتداخل */
-  .coach-controls-section--policy {
-    grid-column: 1 / -1;
   }
 }
 
@@ -317,45 +312,42 @@
   color: var(--coach-slate-500);
 }
 
-.coach-controls-section--policy {
+/* مهلة التقسيم — تحت حقول الجلسة (قراءة فقط من إعدادات النادي) */
+.coach-session-policy {
+  margin-top: 1rem;
+  padding: 0.875rem 1rem;
   background: linear-gradient(180deg, #fffbeb 0%, #fff 100%);
-  border-color: #fde68a;
+  border: 1px solid #fde68a;
+  border-radius: var(--coach-radius-sm);
 }
 
-.coach-policy-hint {
-  margin: 0 0 0.75rem;
+.coach-session-policy-hint {
+  margin: 0 0 0.625rem;
   font-size: 0.75rem;
   color: #b45309;
   line-height: 1.4;
 }
 
-.coach-policy-list {
+.coach-session-policy-list {
   margin: 0;
 }
 
-.coach-policy-row {
+.coach-session-policy-row {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.5rem 0;
-  border-top: 1px solid #fde68a;
 }
 
-.coach-policy-row:first-of-type {
-  border-top: none;
-  padding-top: 0;
-}
-
-.coach-policy-row dt {
+.coach-session-policy-row dt {
   margin: 0;
   font-size: 0.8125rem;
   color: #92400e;
   font-weight: 600;
 }
 
-.coach-policy-row dd {
+.coach-session-policy-row dd {
   margin: 0;
   font-size: 0.9375rem;
   font-weight: 800;
