@@ -12,13 +12,13 @@ import { getImageUrl } from '../api/dbClient'
 const CONTACT_PICKER_SUPPORTED = typeof navigator !== 'undefined' && 'contacts' in navigator && typeof navigator.contacts?.select === 'function'
 
 /** Normalize phone to E.164-like for WhatsApp */
-function normalizePhone(s) {
+export function normalizePhone(s) {
   if (!s || typeof s !== 'string') return ''
   return s.replace(/\s/g, '').replace(/^00/, '+').replace(/^0/, '+966')
 }
 
 /** Base path of the app (e.g. /app) — same as Vite base / Router basename, no trailing slash */
-function getAppBasePath() {
+export function getAppBasePath() {
   if (typeof window === 'undefined') return ''
   const base = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) || ''
   const path = base.replace(/\/$/, '') || ''
@@ -26,7 +26,7 @@ function getAppBasePath() {
 }
 
 /** Build registration URL with club join and optional phone for pre-fill — works locally and on deployed domain */
-function getRegisterUrl(clubId, phone) {
+export function getRegisterUrl(clubId, phone) {
   if (!clubId) return ''
   if (typeof window === 'undefined') return ''
   const basePath = getAppBasePath()
@@ -39,7 +39,7 @@ function getRegisterUrl(clubId, phone) {
 }
 
 /** Build WhatsApp share link with registration URL (includes phone for pre-fill) — for unregistered */
-function buildWhatsAppLink(phone, clubName, dateStr, timeStr, amount, currency, clubId) {
+export function buildWhatsAppLink(phone, clubName, dateStr, timeStr, amount, currency, clubId) {
   const p = normalizePhone(phone)
   const num = p.replace(/\D/g, '')
   const base = num.startsWith('966') ? `966${num.slice(3)}` : num
@@ -54,7 +54,7 @@ function buildWhatsAppLink(phone, clubName, dateStr, timeStr, amount, currency, 
 }
 
 /** Build WhatsApp link for registered members — payment share + my-bookings follow-up */
-function buildWhatsAppLinkForRegistered(phone, clubName, dateStr, timeStr, amount, currency, language) {
+export function buildWhatsAppLinkForRegistered(phone, clubName, dateStr, timeStr, amount, currency, language) {
   if (!phone || String(phone).replace(/\D/g, '').length < 8) return null
   const p = normalizePhone(phone)
   const num = p.replace(/\D/g, '')
