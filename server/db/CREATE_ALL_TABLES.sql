@@ -207,6 +207,7 @@ CREATE TABLE IF NOT EXISTS club_settings (
   hero_stats_color VARCHAR(20) NULL,
   social_links JSON NULL,
   booking_prices JSON NULL,
+  working_hours_seasons JSON NULL,
   lock_minutes INT DEFAULT 10,
   payment_deadline_minutes INT DEFAULT 10,
   split_manage_minutes INT DEFAULT 15,
