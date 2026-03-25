@@ -31,6 +31,13 @@ function dbError(e) {
   return e?.message || 'Database error'
 }
 
+function addDaysBooking(isoDateStr, deltaDays) {
+  const [y, mo, d] = (isoDateStr || '').toString().split('-').map(Number)
+  if (!y || !mo || !d) return null
+  const dt = new Date(y, mo - 1, d + deltaDays)
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+}
+
 /** GET /api/bookings/locks - Active locks for a club/date (cached 30s) */
 router.get('/locks', async (req, res) => {
   try {
@@ -83,6 +90,8 @@ router.post('/lock', async (req, res) => {
       return res.status(409).json({ error: result.error || 'SLOT_TAKEN', conflict: result.conflict })
     }
     slotCache.invalidateLocks(clubId, date)
+    const nextInv = addDaysBooking(date, 1)
+    if (nextInv) slotCache.invalidateLocks(clubId, nextInv)
     res.json({ lockId: result.lockId, expiresAt: result.expiresAt })
   } catch (e) {
     console.error('bookings lock error:', e)
@@ -152,7 +161,10 @@ router.post('/confirm', async (req, res) => {
       durationMinutes: ((s, e) => {
         const [sh, sm] = (s || '0:0').split(':').map(Number)
         const [eh, em] = (e || '0:0').split(':').map(Number)
-        return (eh * 60 + em) - (sh * 60 + sm)
+        const startMin = (sh || 0) * 60 + (sm || 0)
+        const endMin = (eh || 0) * 60 + (em || 0)
+        if (endMin > startMin) return endMin - startMin
+        return endMin + 1440 - startMin
       })(startTime, endTime),
       paymentShares: paymentShares || [],
       ...(isOnlinePayment && { paymentMethod }),
@@ -180,6 +192,8 @@ router.post('/confirm', async (req, res) => {
     await lock.convertLockToBooking(lockId, bid)
     await lock.releaseLock(lockId)
     slotCache.invalidateLocks(clubId, date)
+    const confirmNext = addDaysBooking(date, 1)
+    if (confirmNext) slotCache.invalidateLocks(clubId, confirmNext)
 
     const basePath = (process.env.BASE_PATH || '/app').replace(/\/$/, '')
     const ref = req.headers.origin || req.headers.referer || ''

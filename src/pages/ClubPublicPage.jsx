@@ -43,12 +43,19 @@ const isTimeSlotCoveredByBooking = (timeSlot, startTime, endTime) => {
   return slotM >= startM && slotM < endM
 }
 
-/** إضافة دقائق إلى وقت "HH:mm" وإرجاع "HH:mm" */
+/** إضافة دقائق إلى وقت "HH:mm" وإرجاع "HH:mm" (بعد منتصف الليل يسجَّل كوقت اليوم التالي، مثل 01:00) */
 const addMinutesToTime = (timeStr, minutes) => {
   const m = timeToMinutes(timeStr) + (minutes || 0)
   const h = Math.floor(m / 60) % 24
   const min = m % 60
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
+}
+
+const shiftCalendarDateStr = (isoDateStr, deltaDays) => {
+  const [y, mo, d] = (isoDateStr || '').split('-').map(Number)
+  if (!y || !mo || !d) return null
+  const dt = new Date(y, mo - 1, d + deltaDays)
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
 }
 
 /** هل الشريحة (التاريخ + وقت البداية) في الماضي أو الآن؟ لا نسمح بالحجز في الماضي */
@@ -82,54 +89,86 @@ const getBlockedRangesForCourtAndDate = (courtNameOrId, dateStr, bookings, activ
   const matchCourt = (res) => courtIds.some(c => c && res === c)
   const prep = Math.max(0, Number(preparationTimeMinutes) || 0)
   const ranges = []
-  const push = (startTime, endTime, addPrep = false) => {
-    const startM = timeToMinutes(startTime)
-    let endM = timeToMinutes(endTime)
-    if (endM <= startM && startTime) endM = startM + 60
-    if (addPrep && prep > 0) endM += prep
-    if (endM > startM) ranges.push({ startM, endM })
+  const appendRange = (startM, endM) => {
+    let eM = endM
+    if (eM > startM) ranges.push({ startM, endM: eM })
+  }
+  const addOvernightPairToDate = (segmentDate, start, end, addPrepSegment) => {
+    const startM = timeToMinutes(start)
+    let endM = timeToMinutes(end)
+    if (addPrepSegment && prep > 0) endM += prep
+    if (endM > startM) {
+      if (segmentDate === dateStr) appendRange(startM, endM)
+      return
+    }
+    if (endM < startM) {
+      if (segmentDate === dateStr) appendRange(startM, 1440)
+      const nextD = shiftCalendarDateStr(segmentDate, 1)
+      if (nextD === dateStr) appendRange(0, endM)
+    }
   }
   ;(bookings || []).forEach(b => {
     if (b.isTournament) {
       if (!['king', 'social'].includes(b.tournamentType) || !kingTournamentReservesCourtIds(courtIds, b)) return
       if (['cancelled', 'expired'].includes((b.status || '').toString())) return
       const bDate = (b.date || b.startDate || '').toString().split('T')[0]
-      if (bDate !== dateStr) return
+      if (bDate !== dateStr) {
+        const prev = shiftCalendarDateStr(dateStr, -1)
+        if (bDate !== prev) return
+      }
       const start = (b.startTime || b.timeSlot || '').toString().trim()
       let end = (b.endTime || '').toString().trim()
       if (!end && start) end = addMinutesToTime(start, 60)
-      push(start, end, true)
+      const bDateNorm = (b.date || b.startDate || '').toString().split('T')[0]
+      addOvernightPairToDate(bDateNorm, start, end, true)
       return
     }
     if (['cancelled', 'expired'].includes((b.status || '').toString())) return
     const bDate = (b.date || b.startDate || '').toString().split('T')[0]
-    if (bDate !== dateStr) return
+    if (bDate !== dateStr) {
+      const prev = shiftCalendarDateStr(dateStr, -1)
+      if (bDate !== prev) return
+    }
     const res = (b.resource || b.court || b.courtId || '').toString().trim()
     if (!matchCourt(res)) return
     const start = (b.startTime || b.timeSlot || '').toString().trim()
     let end = (b.endTime || '').toString().trim()
     if (!end && start) end = addMinutesToTime(start, 60)
-    push(start, end, true)
+    const bDateNorm = (b.date || b.startDate || '').toString().split('T')[0]
+    addOvernightPairToDate(bDateNorm, start, end, true)
   })
   ;(activeLocks || []).forEach(l => {
     if (excludeLockId && (l.id === excludeLockId || (l.lock_id || l.lockId) === excludeLockId)) return
     const lCourt = (l.court_id || '').toString().trim()
     if (!matchCourt(lCourt)) return
     const lDate = (l.booking_date || '').toString().split('T')[0]
-    if (lDate !== dateStr) return
-    push(l.start_time || '', l.end_time || '')
+    if (lDate !== dateStr) {
+      const prev = shiftCalendarDateStr(dateStr, -1)
+      if (lDate !== prev) return
+    }
+    addOvernightPairToDate(lDate, l.start_time || '', l.end_time || '', false)
   })
   return ranges
 }
 
-/** مدد متاحة (مضاعفات 30) من minDur حتى نهاية العمل، ولا تتداخل مع نطاقات محجوزة/مقفلة */
-const getAvailableDurations = (minDur, startTime, closingTime, blockedRanges, maxDurationCap = 180) => {
+/** مدد متاحة: نفس اليوم حتى الإغلاق، أو عبر منتصف الليل إذا كان الذيل ضمن أوقات اليوم التالي ولا يتعارض مع الحجوزات */
+const getAvailableDurations = (minDur, startTime, closingTime, blockedToday, blockedNext, maxDurationCap = 180) => {
   const startM = timeToMinutes(startTime)
   const closingM = timeToMinutes(closingTime || '23:00')
-  const maxDur = Math.min(maxDurationCap, Math.max(0, closingM - startM))
+  const nextBlocked = blockedNext || []
   const out = []
-  for (let d = minDur; d <= maxDur; d += 30) {
-    if (!overlapsAny(startM, startM + d, blockedRanges)) out.push(d)
+  for (let d = minDur; d <= maxDurationCap; d += 30) {
+    const endAbs = startM + d
+    if (endAbs <= 1440) {
+      if (endAbs > closingM) continue
+      if (!overlapsAny(startM, endAbs, blockedToday)) out.push(d)
+    } else {
+      const part2End = endAbs - 1440
+      if (part2End > closingM) continue
+      if (overlapsAny(startM, 1440, blockedToday)) continue
+      if (overlapsAny(0, part2End, nextBlocked)) continue
+      out.push(d)
+    }
   }
   return out
 }
@@ -342,7 +381,18 @@ const ClubPublicPage = () => {
 
   useEffect(() => {
     if (!clubId || !courtGridDate) return
-    bookingApi.getBookingLocks(clubId, courtGridDate).then(setActiveLocks).catch(() => setActiveLocks([]))
+    const prevDate = shiftCalendarDateStr(courtGridDate, -1)
+    Promise.all([
+      bookingApi.getBookingLocks(clubId, courtGridDate),
+      prevDate ? bookingApi.getBookingLocks(clubId, prevDate) : Promise.resolve([])
+    ])
+      .then(([today, yesterday]) => {
+        const byId = new Map()
+        ;(Array.isArray(yesterday) ? yesterday : []).forEach(l => { if (l?.id) byId.set(l.id, l) })
+        ;(Array.isArray(today) ? today : []).forEach(l => { if (l?.id) byId.set(l.id, l) })
+        setActiveLocks(Array.from(byId.values()))
+      })
+      .catch(() => setActiveLocks([]))
   }, [clubId, courtGridDate, club?.bookings])
 
   useEffect(() => {
@@ -511,9 +561,11 @@ const ClubPublicPage = () => {
     }
     const court = bookingModal.court
     const blocked = getBlockedRangesForCourtAndDate(court, bookingModal.dateStr, bookings, activeLocks, activeLock?.lockId || null, 0)
+    const nextD = shiftCalendarDateStr(bookingModal.dateStr, 1)
+    const blockedNext = nextD ? getBlockedRangesForCourtAndDate(court, nextD, bookings, activeLocks, activeLock?.lockId || null, 0) : []
     const closing = club?.settings?.closingTime || '23:00'
     const minForAvail = getMinPricedDurationMinutes(club)
-    const availableSet = new Set(getAvailableDurations(minForAvail, bookingModal.startTime, closing, blocked))
+    const availableSet = new Set(getAvailableDurations(minForAvail, bookingModal.startTime, closing, blocked, blockedNext))
     const filtered = fromSettings.filter(d => availableSet.has(d.durationMinutes))
     return filtered.length > 0 ? filtered : fallback
   }, [club, club?.settings?.closingTime, club?.settings?.bookingPrices?.durationPrices, bookingModal, bookings, activeLocks, activeLock?.lockId])
@@ -545,8 +597,10 @@ const ClubPublicPage = () => {
     const configured = priced.length > 0 ? priced.map(d => d.durationMinutes) : [60]
     const minForAvail = getMinPricedDurationMinutes(club)
     const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, 0)
+    const nextD = shiftCalendarDateStr(dateStr, 1)
+    const blockedNext = nextD ? getBlockedRangesForCourtAndDate(court, nextD, bookings, activeLocks, null, 0) : []
     const closing = club?.settings?.closingTime || '23:00'
-    const available = getAvailableDurations(minForAvail, startTime, closing, blocked)
+    const available = getAvailableDurations(minForAvail, startTime, closing, blocked, blockedNext)
     const availableSet = new Set(available)
     const allowed = configured.filter(d => availableSet.has(d))
     return allowed.length > 0
@@ -560,7 +614,8 @@ const ClubPublicPage = () => {
     }
     setLockError(null)
     if (existingLock) {
-      const lockDur = timeToMinutes(existingLock.end_time || '') - timeToMinutes(existingLock.start_time || '')
+      let lockDur = timeToMinutes(existingLock.end_time || '') - timeToMinutes(existingLock.start_time || '')
+      if (lockDur <= 0) lockDur += 1440
       setActiveLock({ lockId: existingLock.id, expiresAt: existingLock.expires_at })
       setBookingModal({ court, dateStr, startTime: existingLock.start_time || startTime })
       setBookingDuration(lockDur > 0 ? lockDur : getMinPricedDurationMinutes(club))
@@ -569,9 +624,11 @@ const ClubPublicPage = () => {
     const priced = getPublicPricedDurationOptions(club)
     let configured = priced.length > 0 ? priced.map(d => d.durationMinutes) : [60]
     const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, 0)
+    const nextD = shiftCalendarDateStr(dateStr, 1)
+    const blockedNext = nextD ? getBlockedRangesForCourtAndDate(court, nextD, bookings, activeLocks, null, 0) : []
     const closing = club?.settings?.closingTime || '23:00'
     const minForAvail = getMinPricedDurationMinutes(club)
-    const available = getAvailableDurations(minForAvail, startTime, closing, blocked)
+    const available = getAvailableDurations(minForAvail, startTime, closing, blocked, blockedNext)
     const availableSet = new Set(available)
     const allowed = configured.filter(d => availableSet.has(d))
     if (allowed.length === 0) {
@@ -631,9 +688,11 @@ const ClubPublicPage = () => {
       return
     }
     const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, 0)
+    const nextD = shiftCalendarDateStr(dateStr, 1)
+    const blockedNext = nextD ? getBlockedRangesForCourtAndDate(court, nextD, bookings, activeLocks, null, 0) : []
     const closing = club?.settings?.closingTime || '23:00'
     const maxCap = maxBookingDuration
-    const available = getAvailableDurations(minPriced, startSlot, closing, blocked, maxCap)
+    const available = getAvailableDurations(minPriced, startSlot, closing, blocked, blockedNext, maxCap)
     const priced = getPublicPricedDurationOptions(club)
     const allowed = priced.length > 0 ? priced.map(d => d.durationMinutes) : [60]
     if (!available.includes(duration) || !allowed.includes(duration)) {
@@ -1039,20 +1098,13 @@ const ClubPublicPage = () => {
     }
   }
 
-  const shiftIsoDateByDays = (isoDateStr, deltaDays) => {
-    const [y, mo, d] = (isoDateStr || '').split('-').map(Number)
-    if (!y || !mo || !d) return null
-    const dt = new Date(y, mo - 1, d + deltaDays)
-    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
-  }
-
   const goSchedulePrevDay = () => {
-    const prev = shiftIsoDateByDays(courtGridDate, -1)
+    const prev = shiftCalendarDateStr(courtGridDate, -1)
     if (prev && prev >= today) setCourtGridDate(prev)
   }
 
   const goScheduleNextDay = () => {
-    const next = shiftIsoDateByDays(courtGridDate, 1)
+    const next = shiftCalendarDateStr(courtGridDate, 1)
     if (next) setCourtGridDate(next)
   }
 
@@ -1107,9 +1159,7 @@ const ClubPublicPage = () => {
     const sharedSum = (paymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
     if (paymentShares?.length > 0 && sharedSum > totalPrice) return
     const dur = bookingDuration || 60
-    const [h, m] = (bookingModal.startTime || '00:00').split(':').map(Number)
-    const endM = (h || 0) * 60 + (m || 0) + dur
-    const endTime = `${String(Math.floor(endM / 60)).padStart(2, '0')}:${String(endM % 60).padStart(2, '0')}`
+    const endTime = addMinutesToTime(bookingModal.startTime || '00:00', dur)
     const courtId = (bookingModal.court?.name || bookingModal.court?.id || '').toString()
     const courtName = (bookingModal.court?.name || '').toString().trim()
     const memberName = platformUser.name || platformUser.email || platformUser.displayName || ''
