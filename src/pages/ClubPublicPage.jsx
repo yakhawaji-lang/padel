@@ -19,6 +19,7 @@ import { isTournamentWithoutMembers, kingTournamentReservesCourt, kingTournament
 import { getMergedWindowsForDate, getPublicBookingTimeSlots, coversBookingInterval } from '../utils/clubWorkingHours'
 import { getEffectivePaymentChannels, pickFirstPaymentMethod } from '../utils/paymentChannels'
 import './ClubPublicPage.css'
+import { memberRelatesToCourtBooking } from '../utils/paymentShareMemberMatch.js'
 import '../components/BookingPaymentShare.css'
 
 const getClubBookings = (clubId) => {
@@ -456,21 +457,15 @@ const ClubPublicPage = () => {
 
   const courtBookings = useMemo(() => {
     if (!platformUser?.id) return []
-    const memberIdStr = String(platformUser.id)
-    const isRelevant = (b) => {
-      const isInitiator = String(b.memberId || b.initiatorMemberId || b.member_id || '') === memberIdStr
-      const isParticipant = Array.isArray(b.paymentShares) && b.paymentShares.some(s => String(s.memberId || '') === memberIdStr)
-      return isInitiator || isParticipant
-    }
     return bookings
       .filter(b => !b.isTournament && (b.date || b.startDate))
       .filter(b => !['cancelled', 'expired'].includes((b.status || '').toString()))
-      .filter(isRelevant)
+      .filter((b) => memberRelatesToCourtBooking(b, platformUser))
       .map(b => ({ ...b, dateStr: (b.date || b.startDate || '').toString().split('T')[0] }))
       .filter(b => b.dateStr >= today)
       .sort((a, b) => a.dateStr.localeCompare(b.dateStr) || (a.startTime || '').localeCompare(b.startTime || ''))
       .slice(0, 30)
-  }, [bookings, today, platformUser?.id])
+  }, [bookings, today, platformUser])
 
   const tournamentBookings = useMemo(() =>
     bookings.filter(b => b.isTournament && (b.date || b.startDate))

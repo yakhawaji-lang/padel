@@ -481,16 +481,28 @@ router.post('/record-payment', async (req, res) => {
     if (!clubId) return res.status(400).json({ error: 'clubId required' })
     let shareRows
     if (shareId) {
-      const r = await query('SELECT id, booking_id, amount FROM booking_payment_shares WHERE id = ? AND club_id = ?', [shareId, clubId])
+      const r = await query('SELECT id, booking_id, amount, member_id FROM booking_payment_shares WHERE id = ? AND club_id = ?', [shareId, clubId])
       shareRows = r.rows
     } else if (inviteToken) {
-      const r = await query('SELECT id, booking_id, amount FROM booking_payment_shares WHERE invite_token = ? AND club_id = ?', [inviteToken, clubId])
+      const r = await query('SELECT id, booking_id, amount, member_id FROM booking_payment_shares WHERE invite_token = ? AND club_id = ?', [inviteToken, clubId])
       shareRows = r.rows
     } else {
       return res.status(400).json({ error: 'shareId or inviteToken required' })
     }
     if (!shareRows?.length) return res.status(404).json({ error: 'Share not found' })
     const share = shareRows[0]
+    async function syncShareDisplayNameFromMember() {
+      const mid = share.member_id
+      if (!mid) return
+      const mr = await query('SELECT name FROM members WHERE id = ? AND deleted_at IS NULL', [String(mid)])
+      const n = mr?.rows?.[0]?.name
+      if (n && String(n).trim()) {
+        await query(
+          'UPDATE booking_payment_shares SET member_name = ? WHERE id = ? AND club_id = ?',
+          [String(n).trim().substring(0, 255), share.id, clubId]
+        )
+      }
+    }
     const bid = share.booking_id
     const isAtClub = paymentMethod === 'at_club'
     const isElectronic = !!paymentReference
@@ -499,16 +511,19 @@ router.post('/record-payment', async (req, res) => {
         'UPDATE booking_payment_shares SET paid_at = NULL, payment_reference = NULL, payment_method = ? WHERE id = ? AND club_id = ?',
         ['at_club', share.id, clubId]
       )
+      await syncShareDisplayNameFromMember()
     } else if (isElectronic) {
       await query(
         'UPDATE booking_payment_shares SET paid_at = NOW(), payment_reference = ?, payment_method = ? WHERE id = ? AND club_id = ?',
         [paymentReference || null, 'electronic', share.id, clubId]
       )
+      await syncShareDisplayNameFromMember()
     } else {
       await query(
         'UPDATE booking_payment_shares SET paid_at = NOW(), payment_reference = ?, payment_method = ? WHERE id = ? AND club_id = ?',
         [paymentReference || null, null, share.id, clubId]
       )
+      await syncShareDisplayNameFromMember()
     }
     const { rows: shares } = await query(
       'SELECT amount, paid_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
@@ -537,10 +552,10 @@ router.post('/mark-share-paid-at-club', async (req, res) => {
     if (!clubId) return res.status(400).json({ error: 'clubId required' })
     let shareRows
     if (shareId) {
-      const r = await query('SELECT id, booking_id, amount FROM booking_payment_shares WHERE id = ? AND club_id = ?', [shareId, clubId])
+      const r = await query('SELECT id, booking_id, amount, member_id FROM booking_payment_shares WHERE id = ? AND club_id = ?', [shareId, clubId])
       shareRows = r.rows
     } else if (inviteToken) {
-      const r = await query('SELECT id, booking_id, amount FROM booking_payment_shares WHERE invite_token = ? AND club_id = ?', [inviteToken, clubId])
+      const r = await query('SELECT id, booking_id, amount, member_id FROM booking_payment_shares WHERE invite_token = ? AND club_id = ?', [inviteToken, clubId])
       shareRows = r.rows
     } else {
       return res.status(400).json({ error: 'shareId or inviteToken required' })
@@ -552,6 +567,16 @@ router.post('/mark-share-paid-at-club', async (req, res) => {
       'UPDATE booking_payment_shares SET paid_at = NOW(), payment_method = ? WHERE id = ? AND club_id = ?',
       ['at_club', share.id, clubId]
     )
+    if (share.member_id) {
+      const mr = await query('SELECT name FROM members WHERE id = ? AND deleted_at IS NULL', [String(share.member_id)])
+      const n = mr?.rows?.[0]?.name
+      if (n && String(n).trim()) {
+        await query(
+          'UPDATE booking_payment_shares SET member_name = ? WHERE id = ? AND club_id = ?',
+          [String(n).trim().substring(0, 255), share.id, clubId]
+        )
+      }
+    }
     const { rows: shares } = await query(
       'SELECT amount, paid_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
       [bid, clubId]
@@ -739,11 +764,17 @@ router.post('/claim-invite-share', async (req, res) => {
     if (rowPhone && userPhone && tailKey(rowPhone) !== tailKey(userPhone)) {
       return res.status(403).json({ error: 'Phone does not match invite' })
     }
-    const nameEsc = (memberName && String(memberName).trim()) ? String(memberName).trim().substring(0, 255) : null
-    if (nameEsc) {
+    let displayName =
+      (memberName && String(memberName).trim()) ? String(memberName).trim().substring(0, 255) : null
+    if (!displayName) {
+      const mr = await query('SELECT name FROM members WHERE id = ? AND deleted_at IS NULL', [String(memberId)])
+      const n = mr?.rows?.[0]?.name
+      if (n && String(n).trim()) displayName = String(n).trim().substring(0, 255)
+    }
+    if (displayName) {
       await query(
         `UPDATE booking_payment_shares SET member_id = ?, participant_type = 'registered', member_name = ? WHERE id = ? AND club_id = ?`,
-        [String(memberId), nameEsc, row.id, clubId]
+        [String(memberId), displayName, row.id, clubId]
       )
     } else {
       await query(
