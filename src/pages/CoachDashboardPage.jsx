@@ -458,7 +458,7 @@ const CoachDashboardPage = () => {
           >
             {(() => {
               const courts = (club?.courts || []).filter(c => !c.maintenance)
-              const timeSlots = getTimeSlotsForClub(club)
+              const timeSlots = getTimeSlotsForClub(club, gridDate)
               if (courts.length === 0) return <p className="coach-no-courts">{t('No courts', 'لا توجد ملاعب', language)}</p>
               return (
                 <div
@@ -652,7 +652,9 @@ const CoachDashboardPage = () => {
 
         {/* Edit slot form modal */}
         {editSlotForm && (() => {
-          const editTimeSlots = getTimeSlotsForClub(club)
+          const b = editSlotForm.booking
+          const editDate = (b?.date || b?.startDate || '').toString().split('T')[0] || gridDate
+          const editTimeSlots = getTimeSlotsForClub(club, editDate)
           const startM = timeToMinutes(editSlotForm.startTime)
           const endTimeOptions = editTimeSlots.filter(s => timeToMinutes(s) > startM)
           return (

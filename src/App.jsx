@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import './App.css'
@@ -20,6 +20,12 @@ import { getClubAdminSession } from './storage/clubAuth'
 import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import LanguageIcon from './components/LanguageIcon'
 import playtomicApi from './services/playtomicApi'
+import {
+  getPublicBookingTimeSlots,
+  getUnionTimeSlotsForDates,
+  getLegacyOpenCloseBounds,
+  isSameDayIntervalWithinClubHours
+} from './utils/clubWorkingHours'
 
 function App({ currentUser }) {
   const { clubId } = useParams()
@@ -28,6 +34,10 @@ function App({ currentUser }) {
   const [language, setLanguage] = useState(() => getAppLanguage())
   const [currentClub, setCurrentClub] = useState(null) // Current club data loaded from URL
   const [isLoadingClub, setIsLoadingClub] = useState(true) // Loading state for club data
+  const clubLegacyHours = useMemo(
+    () => getLegacyOpenCloseBounds(currentClub?.settings || {}),
+    [currentClub?.settings]
+  )
   
   // Members state (persistent across tournaments)
   const [members, setMembers] = useState([])
@@ -3667,22 +3677,15 @@ function App({ currentUser }) {
       alert(language === 'en' ? 'Please fill all fields' : 'يرجى ملء جميع الحقول')
       return
     }
-    const open = currentClub?.settings?.openingTime
-    const close = currentClub?.settings?.closingTime
-    if (open && close) {
-      const toMin = (t) => { const [h, m] = (t || '00:00').split(':').map(Number); return h * 60 + m }
-      const startM = toMin(tournamentBookingData.startTime)
-      const endM = toMin(tournamentBookingData.endTime)
-      const openM = toMin(open)
-      const closeM = toMin(close)
-      if (startM < openM || endM > closeM) {
-        alert(
-          language === 'en'
-            ? `Tournament must be within club hours (${open} – ${close}). Please choose a time within this range.`
-            : `يجب أن تكون البطولة ضمن أوقات النادي (${open} – ${close}). يرجى اختيار وقت ضمن هذا النطاق.`
-        )
-        return
-      }
+    const dateStr = tournamentBookingData.date
+    if (dateStr && !isSameDayIntervalWithinClubHours(currentClub?.settings, dateStr, tournamentBookingData.startTime, tournamentBookingData.endTime)) {
+      const { openingTime: o, closingTime: c } = clubLegacyHours
+      alert(
+        language === 'en'
+          ? `Tournament must fall within club working hours for that date (overall range about ${o} – ${c}; gaps may apply by season). Adjust times or the date.`
+          : `يجب أن تقع البطولة ضمن أوقات عمل ذلك اليوم (تقريباً ${o} – ${c}؛ قد توجد فجوات حسب الموسم). عدّل الأوقات أو التاريخ.`
+      )
+      return
     }
     const tournamentType = tournamentBookingData.tournamentType || 'king'
     const needsCourtReservation = tournamentType === 'king' || tournamentType === 'social'
@@ -3749,8 +3752,8 @@ function App({ currentUser }) {
     const today = new Date().toISOString().split('T')[0]
     setTournamentBookingData({
       date: today,
-      startTime: currentClub?.settings?.openingTime || '09:00',
-      endTime: currentClub?.settings?.closingTime || '18:00',
+      startTime: clubLegacyHours.openingTime || '09:00',
+      endTime: clubLegacyHours.closingTime || '18:00',
       tournamentType: activeTab === 'social' ? 'social' : 'king',
       tournamentCourtIds: (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean),
       editingBookingId: null
@@ -3974,26 +3977,13 @@ function App({ currentUser }) {
 
   // Booking helper functions - respect club hours
   const getTimeSlots = () => {
-    const open = currentClub?.settings?.openingTime
-    const close = currentClub?.settings?.closingTime
-    const slots = []
-    if (!open || !close) {
-      for (let hour = 0; hour < 24; hour++) {
-        slots.push(`${hour.toString().padStart(2, '0')}:00`)
-        slots.push(`${hour.toString().padStart(2, '0')}:30`)
-      }
-      return slots
+    const settings = currentClub?.settings
+    if (bookingView === 'courts') {
+      return getPublicBookingTimeSlots(settings, selectedDateForCourtView, 30)
     }
-    const [openH, openM] = open.split(':').map(Number)
-    const [closeH, closeM] = close.split(':').map(Number)
-    const openMinutes = openH * 60 + openM
-    const closeMinutes = closeH * 60 + closeM
-    for (let m = openMinutes; m < closeMinutes; m += 30) {
-      const h = Math.floor(m / 60) % 24
-      const min = m % 60
-      slots.push(`${h.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`)
-    }
-    return slots
+    const days = getDaysOfWeek()
+    const dates = days.map(({ date }) => date.toISOString().split('T')[0])
+    return getUnionTimeSlotsForDates(settings, dates, 30)
   }
 
   const getDaysOfWeek = () => {
@@ -4116,6 +4106,9 @@ function App({ currentUser }) {
 
   const handleGridMouseDown = (e, day, timeSlot) => {
     if (e.target.closest('.booking-event')) return // Don't start drag on existing booking
+    const dayStr = day.toISOString().split('T')[0]
+    const allowed = new Set(getPublicBookingTimeSlots(currentClub?.settings, dayStr, 30))
+    if (allowed.size > 0 && !allowed.has(timeSlot)) return
     const startCell = { day, timeSlot }
     // endCell: startCell so single tap/click opens modal (mobile + desktop)
     setDragSelection({ startCell, endCell: startCell, startTime: timeSlot, endTime: timeSlot })
@@ -4158,6 +4151,8 @@ function App({ currentUser }) {
   // Court view handlers
   const handleCourtGridMouseDown = (e, court, timeSlot, date) => {
     if (e.target.closest('.booking-event')) return
+    const allowed = new Set(getPublicBookingTimeSlots(currentClub?.settings, date, 30))
+    if (allowed.size > 0 && !allowed.has(timeSlot)) return
     const startCell = { court, timeSlot, date }
     // endCell: startCell so single tap/click opens modal (mobile + desktop)
     setDragSelection({ startCell, endCell: startCell, startTime: timeSlot, endTime: timeSlot })
@@ -4243,23 +4238,15 @@ function App({ currentUser }) {
       return
     }
 
-    // Validate booking is within club hours
-    const open = currentClub?.settings?.openingTime
-    const close = currentClub?.settings?.closingTime
-    if (open && close) {
-      const toMin = (t) => { const [h, m] = (t || '00:00').split(':').map(Number); return h * 60 + m }
-      const startM = toMin(bookingData.startTime)
-      const endM = toMin(bookingData.endTime)
-      const openM = toMin(open)
-      const closeM = toMin(close)
-      if (startM < openM || endM > closeM) {
-        alert(
-          language === 'en'
-            ? `Booking must be within club hours (${open} – ${close}). Please choose a time within this range.`
-            : `يجب أن يكون الحجز ضمن أوقات النادي (${open} – ${close}). يرجى اختيار وقت ضمن هذا النطاق.`
-        )
-        return
-      }
+    const bDate = (bookingData.date || '').toString().split('T')[0]
+    if (bDate && !isSameDayIntervalWithinClubHours(currentClub?.settings, bDate, bookingData.startTime, bookingData.endTime)) {
+      const { openingTime: o, closingTime: c } = clubLegacyHours
+      alert(
+        language === 'en'
+          ? `Booking must fall within club working hours for that date (overall range about ${o} – ${c}).`
+          : `يجب أن يقع الحجز ضمن أوقات عمل ذلك اليوم (تقريباً ${o} – ${c}).`
+      )
+      return
     }
 
     // Check for conflicts (excluding the current booking if editing)
@@ -4862,8 +4849,8 @@ function App({ currentUser }) {
                 <input
                   type="time"
                   value={tournamentBookingData.startTime}
-                  min={currentClub?.settings?.openingTime}
-                  max={currentClub?.settings?.closingTime}
+                  min={clubLegacyHours.openingTime}
+                  max={clubLegacyHours.closingTime}
                   onChange={(e) => setTournamentBookingData({ ...tournamentBookingData, startTime: e.target.value })}
                   required
                   style={{ width: '100%', padding: '10px', border: '2px solid #ddd', borderRadius: '6px', fontSize: '16px' }}
@@ -4874,8 +4861,8 @@ function App({ currentUser }) {
                 <input
                   type="time"
                   value={tournamentBookingData.endTime}
-                  min={currentClub?.settings?.openingTime}
-                  max={currentClub?.settings?.closingTime}
+                  min={clubLegacyHours.openingTime}
+                  max={clubLegacyHours.closingTime}
                   onChange={(e) => setTournamentBookingData({ ...tournamentBookingData, endTime: e.target.value })}
                   required
                   style={{ width: '100%', padding: '10px', border: '2px solid #ddd', borderRadius: '6px', fontSize: '16px' }}
@@ -6667,8 +6654,8 @@ function App({ currentUser }) {
                   bookingData={bookingFormData || {}}
                   members={members}
                   courts={getCourts()}
-                  clubOpeningTime={currentClub?.settings?.openingTime}
-                  clubClosingTime={currentClub?.settings?.closingTime}
+                  clubOpeningTime={clubLegacyHours.openingTime}
+                  clubClosingTime={clubLegacyHours.closingTime}
                   onSave={saveBooking}
                   onDelete={(bookingId) => {
                     if (!bookingId || bookingId === null || bookingId === undefined) {
@@ -6865,8 +6852,8 @@ function App({ currentUser }) {
                   bookingData={bookingFormData}
                   members={members}
                   courts={getCourts()}
-                  clubOpeningTime={currentClub?.settings?.openingTime}
-                  clubClosingTime={currentClub?.settings?.closingTime}
+                  clubOpeningTime={clubLegacyHours.openingTime}
+                  clubClosingTime={clubLegacyHours.closingTime}
                   onSave={(bookingData) => {
                     saveBooking(bookingData)
                     setShowBookingModal(false)
@@ -6904,8 +6891,8 @@ function App({ currentUser }) {
                     const today = new Date().toISOString().split('T')[0]
                     setTournamentBookingData({
                       date: today,
-                      startTime: currentClub?.settings?.openingTime || '09:00',
-                      endTime: currentClub?.settings?.closingTime || '18:00',
+                      startTime: clubLegacyHours.openingTime || '09:00',
+                      endTime: clubLegacyHours.closingTime || '18:00',
                       tournamentType: 'king',
                       tournamentCourtIds: (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean),
                       editingBookingId: null
@@ -7005,8 +6992,8 @@ function App({ currentUser }) {
                     const today = new Date().toISOString().split('T')[0]
                     setTournamentBookingData({
                       date: today,
-                      startTime: currentClub?.settings?.openingTime || '09:00',
-                      endTime: currentClub?.settings?.closingTime || '18:00',
+                      startTime: clubLegacyHours.openingTime || '09:00',
+                      endTime: clubLegacyHours.closingTime || '18:00',
                       tournamentType: 'social',
                       tournamentCourtIds: (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean),
                       editingBookingId: null

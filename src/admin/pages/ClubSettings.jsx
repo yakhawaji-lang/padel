@@ -4,8 +4,51 @@ import './ClubSettings.css'
 import '../pages/common.css'
 import SocialIcon, { PLATFORMS } from '../../components/SocialIcon'
 import { getImageUrl } from '../../api/dbClient'
+import { getLegacyOpenCloseBounds, timeToMinutes as whToMinutes } from '../../utils/clubWorkingHours'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
+
+const normalizeMMDD = (s) => {
+  const raw = (s || '').toString().trim()
+  const m = raw.match(/^(\d{1,2})-(\d{1,2})$/)
+  if (!m) return '01-01'
+  const mm = String(Math.min(12, Math.max(1, parseInt(m[1], 10)))).padStart(2, '0')
+  const dd = String(Math.min(31, Math.max(1, parseInt(m[2], 10)))).padStart(2, '0')
+  return `${mm}-${dd}`
+}
+
+const defaultWorkingHoursSeasons = () => ([{
+  id: 'default',
+  label: '',
+  startDate: '01-01',
+  endDate: '12-31',
+  periods: [{ open: '06:00', close: '23:00' }]
+}])
+
+const seasonsFromClubSettings = (club) => {
+  const wh = club?.settings?.workingHoursSeasons
+  if (Array.isArray(wh) && wh.length > 0) {
+    return wh.map((s, i) => ({
+      id: (s.id || `season-${i}`).toString(),
+      label: (s.label || '').toString(),
+      startDate: normalizeMMDD(s.startDate || '01-01'),
+      endDate: normalizeMMDD(s.endDate || '12-31'),
+      periods: Array.isArray(s.periods) && s.periods.length > 0
+        ? s.periods.map(p => ({
+            open: (p.open || club?.settings?.openingTime || '06:00').toString().slice(0, 5),
+            close: (p.close || club?.settings?.closingTime || '23:00').toString().slice(0, 5)
+          }))
+        : [{ open: club?.settings?.openingTime || '06:00', close: club?.settings?.closingTime || '23:00' }]
+    }))
+  }
+  return defaultWorkingHoursSeasons().map((row) => ({
+    ...row,
+    periods: [{
+      open: club?.settings?.openingTime || '06:00',
+      close: club?.settings?.closingTime || '23:00'
+    }]
+  }))
+}
 
 // الحقول الخمسة لإعدادات الحجز — تُحفظ في padel_db (club_settings) وتُسترجع منها
 const BOOKING_NUMBER_FIELDS = [
@@ -65,8 +108,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
     cancellationPolicy: 24,
     ...BOOKING_NUMBER_FIELDS.reduce((acc, { key, default: d }) => ({ ...acc, [key]: d }), {}),
     [BOOKING_CHECKBOX_FIELD]: false,
-    openingTime: '06:00',
-    closingTime: '23:00'
+    workingHoursSeasons: defaultWorkingHoursSeasons()
   })
   const [activeTab, setActiveTab] = useState('basic')
   const [socialLinks, setSocialLinks] = useState([])
@@ -112,8 +154,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
         cancellationPolicy: club?.settings?.cancellationPolicy || 24,
         ...BOOKING_NUMBER_FIELDS.reduce((acc, { key, default: d }) => ({ ...acc, [key]: numDisplay(club?.settings?.[key], d) }), {}),
         [BOOKING_CHECKBOX_FIELD]: !!club?.settings?.[BOOKING_CHECKBOX_FIELD],
-        openingTime: club?.settings?.openingTime || '06:00',
-        closingTime: club?.settings?.closingTime || '23:00'
+        workingHoursSeasons: seasonsFromClubSettings(club)
       })
       setCourts(club?.courts || [])
       setSocialLinks(club?.settings?.socialLinks || [])
@@ -136,6 +177,25 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
 
   const buildUpdates = (data) => {
     const fd = data ?? formDataRef.current ?? formData
+    const rawSeasons = Array.isArray(fd.workingHoursSeasons) ? fd.workingHoursSeasons : defaultWorkingHoursSeasons()
+    const workingHoursSeasons = rawSeasons.map((s, i) => ({
+      id: (s.id || `season-${i}`).toString(),
+      label: (s.label || '').toString().trim(),
+      startDate: normalizeMMDD(s.startDate),
+      endDate: normalizeMMDD(s.endDate),
+      periods: (Array.isArray(s.periods) ? s.periods : [])
+        .map(p => ({
+          open: (p.open || '06:00').toString().slice(0, 5),
+          close: (p.close || '23:00').toString().slice(0, 5)
+        }))
+        .filter(p => whToMinutes(p.open) < whToMinutes(p.close))
+    })).filter(s => s.periods.length > 0)
+    const legacyBounds = getLegacyOpenCloseBounds({
+      ...club?.settings,
+      workingHoursSeasons: workingHoursSeasons.length > 0 ? workingHoursSeasons : undefined,
+      openingTime: club?.settings?.openingTime,
+      closingTime: club?.settings?.closingTime
+    })
     return {
       name: fd.name,
       nameAr: fd.nameAr,
@@ -162,8 +222,9 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
         cancellationPolicy: Math.max(0, Number(fd.cancellationPolicy) || 24),
         ...BOOKING_NUMBER_FIELDS.reduce((acc, { key, default: d }) => ({ ...acc, [key]: toNum(fd[key], d) }), {}),
         [BOOKING_CHECKBOX_FIELD]: !!fd[BOOKING_CHECKBOX_FIELD],
-        openingTime: fd.openingTime,
-        closingTime: fd.closingTime,
+        workingHoursSeasons,
+        openingTime: legacyBounds.openingTime,
+        closingTime: legacyBounds.closingTime,
         headerBgColor: fd.headerBgColor || '#ffffff',
         headerTextColor: fd.headerTextColor || '#0f172a',
         heroBgColor: fd.heroBgColor || '#ffffff',
@@ -178,9 +239,25 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
 
   const handleSaveClick = () => {
     const fd = formDataRef.current ?? formData
-    if (fd.openingTime && fd.closingTime && fd.openingTime >= fd.closingTime) {
-      alert(t('Closing time must be after opening time.', 'وقت الإغلاق يجب أن يكون بعد وقت الفتح.', lang))
+    const seasons = Array.isArray(fd.workingHoursSeasons) ? fd.workingHoursSeasons : []
+    if (seasons.length === 0) {
+      alert(t('Add at least one season with working periods.', 'أضف موسماً واحداً على الأقل مع فترات العمل.', lang))
       return
+    }
+    for (let si = 0; si < seasons.length; si++) {
+      const s = seasons[si]
+      const periods = Array.isArray(s.periods) ? s.periods : []
+      if (periods.length === 0) {
+        alert(t(`Season ${si + 1}: add at least one open/close period.`, `الموسم ${si + 1}: أضف فترة فتح وإغلاق واحدة على الأقل.`, lang))
+        return
+      }
+      for (let pi = 0; pi < periods.length; pi++) {
+        const p = periods[pi]
+        if (whToMinutes(p.open) >= whToMinutes(p.close)) {
+          alert(t(`Period ${pi + 1}: closing time must be after opening time.`, `الفترة ${pi + 1}: وقت الإغلاق يجب أن يكون بعد وقت الفتح.`, lang))
+          return
+        }
+      }
     }
     setPendingUpdates(buildUpdates(fd))
     setShowSaveConfirm(true)
@@ -867,21 +944,149 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
               <span className="section-icon">🕐</span>
               {t('Club Hours', 'أوقات العمل', lang)}
             </h3>
-            <p className="field-hint field-hint-block">{t('Working hours. All bookings and tournaments are restricted to these times.', 'وقت عمل النادي. جميع الحجوزات والبطولات ضمن هذه الأوقات فقط.')}</p>
-            <div className="settings-field-group hours-group">
-              <div className="form-row form-row-2">
-                <div className="form-group settings-field">
-                  <label className="field-label">{t('Opening Time', 'من الساعة', lang)}</label>
-                  <input type="time" className="settings-input settings-time-input" value={formData.openingTime} onChange={(e) => setFormData(prev => ({ ...prev, openingTime: e.target.value }))} />
-                </div>
-                <div className="form-group settings-field">
-                  <label className="field-label">{t('Closing Time', 'إلى الساعة', lang)}</label>
-                  <input type="time" className="settings-input settings-time-input" value={formData.closingTime} onChange={(e) => setFormData(prev => ({ ...prev, closingTime: e.target.value }))} />
-                </div>
-              </div>
-              {formData.openingTime && formData.closingTime && formData.openingTime >= formData.closingTime && (
-                <p className="field-error">{t('Closing time must be after opening time.', 'وقت الإغلاق يجب أن يكون بعد وقت الفتح.')}</p>
+            <p className="field-hint field-hint-block">
+              {t(
+                'Seasons (by month–day) and multiple periods per day (e.g. morning and evening). List default dates first, then overrides — the last matching season wins. Bookings use these windows; legacy fields store the overall earliest open and latest close.',
+                'مواسم (من شهر–يوم) وفترات متعددة يومياً (مثل صباح ومساء). ضع الموسم الافتراضي أولاً ثم التعديلات — آخر موسم مطابق يُطبَّق. الحجوزات تتبع هذه النوافذ؛ الحقلان القديمان يخزنان أبكر افتتاح وآخر إغلاق للتوافق.',
+                lang
               )}
+            </p>
+            <div className="working-hours-seasons">
+              {(formData.workingHoursSeasons || []).map((season, si) => (
+                <div key={season.id || si} className="working-hours-season">
+                  <div className="working-hours-season-header">
+                    <div className="form-group settings-field">
+                      <label className="field-label">{t('Label (optional)', 'اسم الموسم (اختياري)', lang)}</label>
+                      <input
+                        type="text"
+                        className="settings-input"
+                        value={season.label || ''}
+                        placeholder={t('e.g. Summer', 'مثال: الصيف', lang)}
+                        onChange={(e) => {
+                          const next = [...(formData.workingHoursSeasons || [])]
+                          next[si] = { ...next[si], label: e.target.value }
+                          setFormData(prev => ({ ...prev, workingHoursSeasons: next }))
+                        }}
+                      />
+                    </div>
+                    <div className="form-group settings-field">
+                      <label className="field-label">{t('From (MM-DD)', 'من (شهر-يوم)', lang)}</label>
+                      <input
+                        type="text"
+                        className="settings-input"
+                        value={season.startDate || '01-01'}
+                        pattern="\d{2}-\d{2}"
+                        onChange={(e) => {
+                          const next = [...(formData.workingHoursSeasons || [])]
+                          next[si] = { ...next[si], startDate: e.target.value }
+                          setFormData(prev => ({ ...prev, workingHoursSeasons: next }))
+                        }}
+                      />
+                    </div>
+                    <div className="form-group settings-field">
+                      <label className="field-label">{t('To (MM-DD)', 'إلى (شهر-يوم)', lang)}</label>
+                      <input
+                        type="text"
+                        className="settings-input"
+                        value={season.endDate || '12-31'}
+                        onChange={(e) => {
+                          const next = [...(formData.workingHoursSeasons || [])]
+                          next[si] = { ...next[si], endDate: e.target.value }
+                          setFormData(prev => ({ ...prev, workingHoursSeasons: next }))
+                        }}
+                      />
+                    </div>
+                    {(formData.workingHoursSeasons || []).length > 1 && (
+                      <button
+                        type="button"
+                        className="btn-secondary working-hours-remove-season"
+                        onClick={() => {
+                          const next = (formData.workingHoursSeasons || []).filter((_, j) => j !== si)
+                          setFormData(prev => ({ ...prev, workingHoursSeasons: next.length ? next : defaultWorkingHoursSeasons() }))
+                        }}
+                      >
+                        {t('Remove season', 'حذف الموسم', lang)}
+                      </button>
+                    )}
+                  </div>
+                  {(season.periods || []).map((p, pi) => (
+                    <div key={`${si}-p-${pi}`} className="working-hours-period-row">
+                      <div className="form-group settings-field">
+                        <label className="field-label">{t('Open', 'الفتح', lang)}</label>
+                        <input
+                          type="time"
+                          className="settings-input settings-time-input"
+                          value={p.open || '06:00'}
+                          onChange={(e) => {
+                            const next = [...(formData.workingHoursSeasons || [])]
+                            const periods = [...(next[si].periods || [])]
+                            periods[pi] = { ...periods[pi], open: e.target.value }
+                            next[si] = { ...next[si], periods }
+                            setFormData(prev => ({ ...prev, workingHoursSeasons: next }))
+                          }}
+                        />
+                      </div>
+                      <div className="form-group settings-field">
+                        <label className="field-label">{t('Close', 'الإغلاق', lang)}</label>
+                        <input
+                          type="time"
+                          className="settings-input settings-time-input"
+                          value={p.close || '23:00'}
+                          onChange={(e) => {
+                            const next = [...(formData.workingHoursSeasons || [])]
+                            const periods = [...(next[si].periods || [])]
+                            periods[pi] = { ...periods[pi], close: e.target.value }
+                            next[si] = { ...next[si], periods }
+                            setFormData(prev => ({ ...prev, workingHoursSeasons: next }))
+                          }}
+                        />
+                      </div>
+                      {(season.periods || []).length > 1 && (
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => {
+                            const next = [...(formData.workingHoursSeasons || [])]
+                            const periods = (next[si].periods || []).filter((_, j) => j !== pi)
+                            next[si] = { ...next[si], periods: periods.length ? periods : [{ open: '06:00', close: '23:00' }] }
+                            setFormData(prev => ({ ...prev, workingHoursSeasons: next }))
+                          }}
+                        >
+                          {t('Remove period', 'حذف الفترة', lang)}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => {
+                      const next = [...(formData.workingHoursSeasons || [])]
+                      const periods = [...(next[si].periods || []), { open: '18:00', close: '23:00' }]
+                      next[si] = { ...next[si], periods }
+                      setFormData(prev => ({ ...prev, workingHoursSeasons: next }))
+                    }}
+                  >
+                    + {t('Add period', 'إضافة فترة', lang)}
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  const next = [...(formData.workingHoursSeasons || []), {
+                    id: `season-${Date.now()}`,
+                    label: '',
+                    startDate: '06-01',
+                    endDate: '08-31',
+                    periods: [{ open: '07:00', close: '12:00' }, { open: '16:00', close: '23:00' }]
+                  }]
+                  setFormData(prev => ({ ...prev, workingHoursSeasons: next }))
+                }}
+              >
+                + {t('Add season', 'إضافة موسم', lang)}
+              </button>
             </div>
           </div>
           )}

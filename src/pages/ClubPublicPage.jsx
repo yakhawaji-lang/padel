@@ -16,6 +16,7 @@ import BookingPaymentShare from '../components/BookingPaymentShare'
 import BookingDetailModal from '../components/BookingDetailModal'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import { isTournamentWithoutMembers, kingTournamentReservesCourt, kingTournamentReservesCourtIds, getTournamentTeamsDetail } from '../utils/tournamentHelpers'
+import { getMergedWindowsForDate, getPublicBookingTimeSlots, coversBookingInterval } from '../utils/clubWorkingHours'
 import './ClubPublicPage.css'
 import '../components/BookingPaymentShare.css'
 
@@ -151,20 +152,18 @@ const getBlockedRangesForCourtAndDate = (courtNameOrId, dateStr, bookings, activ
   return ranges
 }
 
-/** مدد متاحة: نفس اليوم حتى الإغلاق، أو عبر منتصف الليل إذا كان الذيل ضمن أوقات اليوم التالي ولا يتعارض مع الحجوزات */
-const getAvailableDurations = (minDur, startTime, closingTime, blockedToday, blockedNext, maxDurationCap = 180) => {
+/** مدد متاحة: ضمن اتحاد نوافذ يوم العمل (ومنتصف الليل عند اليوم التالي)، دون تعارض مع الحجوزات */
+const getAvailableDurations = (minDur, startTime, mergedToday, mergedNext, blockedToday, blockedNext, maxDurationCap = 180) => {
   const startM = timeToMinutes(startTime)
-  const closingM = timeToMinutes(closingTime || '23:00')
   const nextBlocked = blockedNext || []
   const out = []
   for (let d = minDur; d <= maxDurationCap; d += 30) {
     const endAbs = startM + d
+    if (!coversBookingInterval(mergedToday, mergedNext, startM, endAbs)) continue
     if (endAbs <= 1440) {
-      if (endAbs > closingM) continue
       if (!overlapsAny(startM, endAbs, blockedToday)) out.push(d)
     } else {
       const part2End = endAbs - 1440
-      if (part2End > closingM) continue
       if (overlapsAny(startM, 1440, blockedToday)) continue
       if (overlapsAny(0, part2End, nextBlocked)) continue
       out.push(d)
@@ -211,38 +210,12 @@ const tournamentAccentHue = (tournamentId) => {
   return h % 360
 }
 
-/** جميع أوقات الشبكة بين الافتتاح والإغلاق — خطوة 30 دقيقة */
-const getTimeSlotsForClub = (club) => {
-  const open = club?.settings?.openingTime
-  const close = club?.settings?.closingTime
-  const step = PUBLIC_SLOT_STEP_MINUTES
-  const slots = []
-  if (!open || !close) {
-    for (let hour = 0; hour < 24; hour++) {
-      for (let s = 0; s < 60; s += step) slots.push(`${String(hour).padStart(2, '0')}:${String(s).padStart(2, '0')}`)
-    }
-    return slots
-  }
-  const [openH, openM] = open.split(':').map(Number)
-  const [closeH, closeM] = close.split(':').map(Number)
-  const openMinutes = openH * 60 + openM
-  const closeMinutes = closeH * 60 + closeM
-  for (let m = openMinutes; m < closeMinutes; m += step) {
-    const h = Math.floor(m / 60) % 24
-    const min = m % 60
-    slots.push(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`)
-  }
-  return slots
-}
+const getTimeSlotsForClub = (club, dateStr) =>
+  getPublicBookingTimeSlots(club?.settings, dateStr, PUBLIC_SLOT_STEP_MINUTES)
 
-const isSlotAValidBookableStart = (club, timeSlot) => {
-  const open = club?.settings?.openingTime
-  if (!open) return true
-  const openMinutes = timeToMinutes(open)
-  const slotM = timeToMinutes(timeSlot)
-  const diff = slotM - openMinutes
-  if (diff < 0) return false
-  return diff % PUBLIC_SLOT_STEP_MINUTES === 0
+const isSlotAValidBookableStart = (club, dateStr, timeSlot) => {
+  const slots = getPublicBookingTimeSlots(club?.settings, dateStr, PUBLIC_SLOT_STEP_MINUTES)
+  return slots.includes(timeSlot)
 }
 
 const getClubTournamentStats = (club) => {
@@ -563,12 +536,13 @@ const ClubPublicPage = () => {
     const blocked = getBlockedRangesForCourtAndDate(court, bookingModal.dateStr, bookings, activeLocks, activeLock?.lockId || null, 0)
     const nextD = shiftCalendarDateStr(bookingModal.dateStr, 1)
     const blockedNext = nextD ? getBlockedRangesForCourtAndDate(court, nextD, bookings, activeLocks, activeLock?.lockId || null, 0) : []
-    const closing = club?.settings?.closingTime || '23:00'
+    const mergedToday = getMergedWindowsForDate(club?.settings, bookingModal.dateStr)
+    const mergedNext = nextD ? getMergedWindowsForDate(club?.settings, nextD) : []
     const minForAvail = getMinPricedDurationMinutes(club)
-    const availableSet = new Set(getAvailableDurations(minForAvail, bookingModal.startTime, closing, blocked, blockedNext))
+    const availableSet = new Set(getAvailableDurations(minForAvail, bookingModal.startTime, mergedToday, mergedNext, blocked, blockedNext))
     const filtered = fromSettings.filter(d => availableSet.has(d.durationMinutes))
     return filtered.length > 0 ? filtered : fallback
-  }, [club, club?.settings?.closingTime, club?.settings?.bookingPrices?.durationPrices, bookingModal, bookings, activeLocks, activeLock?.lockId])
+  }, [club, club?.settings?.workingHoursSeasons, club?.settings?.openingTime, club?.settings?.closingTime, club?.settings?.bookingPrices?.durationPrices, bookingModal, bookings, activeLocks, activeLock?.lockId])
 
   useEffect(() => {
     if (bookingModal?.fromRange && bookingModal?.preselectDuration != null) {
@@ -592,19 +566,20 @@ const ClubPublicPage = () => {
 
   /** هل الشريحة قابلة للحجز فعلياً؟ (وقت بداية صالح + مدة كافية + لا تعارض) */
   const isSlotActuallyBookable = useCallback((court, dateStr, startTime) => {
-    if (!isSlotAValidBookableStart(club, startTime)) return false
+    if (!isSlotAValidBookableStart(club, dateStr, startTime)) return false
     const priced = getPublicPricedDurationOptions(club)
     const configured = priced.length > 0 ? priced.map(d => d.durationMinutes) : [60]
     const minForAvail = getMinPricedDurationMinutes(club)
     const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, 0)
     const nextD = shiftCalendarDateStr(dateStr, 1)
     const blockedNext = nextD ? getBlockedRangesForCourtAndDate(court, nextD, bookings, activeLocks, null, 0) : []
-    const closing = club?.settings?.closingTime || '23:00'
-    const available = getAvailableDurations(minForAvail, startTime, closing, blocked, blockedNext)
+    const mergedToday = getMergedWindowsForDate(club?.settings, dateStr)
+    const mergedNext = nextD ? getMergedWindowsForDate(club?.settings, nextD) : []
+    const available = getAvailableDurations(minForAvail, startTime, mergedToday, mergedNext, blocked, blockedNext)
     const availableSet = new Set(available)
     const allowed = configured.filter(d => availableSet.has(d))
     return allowed.length > 0
-  }, [club, club?.settings?.bookingPrices?.durationPrices, club?.settings?.closingTime, bookings, activeLocks])
+  }, [club, club?.settings?.bookingPrices?.durationPrices, club?.settings?.workingHoursSeasons, club?.settings?.openingTime, club?.settings?.closingTime, bookings, activeLocks])
 
   const handleSlotClick = useCallback(async (court, dateStr, startTime, existingLock = null) => {
     if (!platformUser || !isMember) return
@@ -626,9 +601,10 @@ const ClubPublicPage = () => {
     const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, 0)
     const nextD = shiftCalendarDateStr(dateStr, 1)
     const blockedNext = nextD ? getBlockedRangesForCourtAndDate(court, nextD, bookings, activeLocks, null, 0) : []
-    const closing = club?.settings?.closingTime || '23:00'
+    const mergedToday = getMergedWindowsForDate(club?.settings, dateStr)
+    const mergedNext = nextD ? getMergedWindowsForDate(club?.settings, nextD) : []
     const minForAvail = getMinPricedDurationMinutes(club)
-    const available = getAvailableDurations(minForAvail, startTime, closing, blocked, blockedNext)
+    const available = getAvailableDurations(minForAvail, startTime, mergedToday, mergedNext, blocked, blockedNext)
     const availableSet = new Set(available)
     const allowed = configured.filter(d => availableSet.has(d))
     if (allowed.length === 0) {
@@ -665,7 +641,7 @@ const ClubPublicPage = () => {
         setLockError(isNetwork ? networkMsg : (msg || fallback))
       }
     }
-  }, [clubId, platformUser, isMember, club?.settings?.bookingPrices?.durationPrices, club?.settings?.closingTime, club?.settings?.lockMinutes, language, refreshClub, bookings, activeLocks, club])
+  }, [clubId, platformUser, isMember, club?.settings?.bookingPrices?.durationPrices, club?.settings?.workingHoursSeasons, club?.settings?.openingTime, club?.settings?.closingTime, club?.settings?.lockMinutes, language, refreshClub, bookings, activeLocks, club])
 
   const maxBookingDuration = useMemo(() => getMaxPricedDurationMinutes(club), [club?.settings?.bookingPrices?.durationPrices])
 
@@ -690,9 +666,10 @@ const ClubPublicPage = () => {
     const blocked = getBlockedRangesForCourtAndDate(court, dateStr, bookings, activeLocks, null, 0)
     const nextD = shiftCalendarDateStr(dateStr, 1)
     const blockedNext = nextD ? getBlockedRangesForCourtAndDate(court, nextD, bookings, activeLocks, null, 0) : []
-    const closing = club?.settings?.closingTime || '23:00'
+    const mergedToday = getMergedWindowsForDate(club?.settings, dateStr)
+    const mergedNext = nextD ? getMergedWindowsForDate(club?.settings, nextD) : []
     const maxCap = maxBookingDuration
-    const available = getAvailableDurations(minPriced, startSlot, closing, blocked, blockedNext, maxCap)
+    const available = getAvailableDurations(minPriced, startSlot, mergedToday, mergedNext, blocked, blockedNext, maxCap)
     const priced = getPublicPricedDurationOptions(club)
     const allowed = priced.length > 0 ? priced.map(d => d.durationMinutes) : [60]
     if (!available.includes(duration) || !allowed.includes(duration)) {
@@ -727,7 +704,7 @@ const ClubPublicPage = () => {
       }
       setHoveredRange(null)
     }
-  }, [clubId, platformUser, club, club?.settings?.closingTime, club?.settings?.lockMinutes, club?.settings?.bookingPrices?.durationPrices, bookings, activeLocks, language, refreshClub, handleSlotClick, maxBookingDuration, slotStepMinutes])
+  }, [clubId, platformUser, club, club?.settings?.workingHoursSeasons, club?.settings?.openingTime, club?.settings?.closingTime, club?.settings?.lockMinutes, club?.settings?.bookingPrices?.durationPrices, bookings, activeLocks, language, refreshClub, handleSlotClick, maxBookingDuration, slotStepMinutes])
 
   const handleJoinTraining = useCallback(async () => {
     if (!trainingJoinModal?.booking || !platformUser || !isMember) return
@@ -1396,7 +1373,7 @@ const ClubPublicPage = () => {
             {courts.length === 0 ? (
               <p className="club-public-no-data">{language === 'en' ? 'No courts listed.' : 'لا توجد ملاعب مسجلة.'}</p>
             ) : (() => {
-              const timeSlots = getTimeSlotsForClub(club)
+              const timeSlots = getTimeSlotsForClub(club, courtGridDate)
               return (
                 <div
                   className="club-public-court-booking-wrap club-public-court-booking-wrap--schedule"

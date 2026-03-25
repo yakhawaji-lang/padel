@@ -1,3 +1,5 @@
+import { getPublicBookingTimeSlots } from './clubWorkingHours'
+
 /** Helpers for coach court grid - shared with ClubPublicPage logic */
 
 export function timeToMinutes(t) {
@@ -33,26 +35,8 @@ export function isSlotInPast(dateStr, startTime) {
   return slotMinutes <= nowMinutes
 }
 
-/** جميع الأوقات للعرض — كل 30 دقيقة من بداية وقت العمل */
-export function getTimeSlotsForClub(club) {
-  const open = club?.settings?.openingTime
-  const close = club?.settings?.closingTime
-  const slots = []
-  if (!open || !close) {
-    for (let hour = 6; hour < 24; hour++) {
-      slots.push(`${String(hour).padStart(2, '0')}:00`)
-      slots.push(`${String(hour).padStart(2, '0')}:30`)
-    }
-    return slots
-  }
-  const [openH, openM] = open.split(':').map(Number)
-  const [closeH, closeM] = close.split(':').map(Number)
-  const openMinutes = openH * 60 + openM
-  const closeMinutes = closeH * 60 + closeM
-  for (let m = openMinutes; m < closeMinutes; m += 30) {
-    const h = Math.floor(m / 60) % 24
-    const min = m % 60
-    slots.push(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`)
-  }
-  return slots
+/** جميع أوقات الشبكة لتاريخ محدد (مواسم + فترات متعددة) — خطوة 30 دقيقة */
+export function getTimeSlotsForClub(club, isoDate = null) {
+  const d = isoDate || new Date().toISOString().split('T')[0]
+  return getPublicBookingTimeSlots(club?.settings, d, 30)
 }
