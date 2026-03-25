@@ -534,6 +534,9 @@ router.post('/record-payment', async (req, res) => {
     const totalAmount = parseFloat(bRows[0]?.total_amount) || 0
     const allPaid = paidAmount >= totalAmount - 0.01
     const status = allPaid ? 'confirmed' : (paidAmount > 0 ? 'partially_paid' : 'pending_payments')
+    if (!allPaid) {
+      await bookingService.extendPaymentDeadlineAfterShareProgress(bid, clubId)
+    }
     await bookingService.updateBookingPayment(bid, clubId, paidAmount, status)
     const { rows: bDate } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bid, clubId])
     const dateStr = bDate[0]?.booking_date ? String(bDate[0].booking_date).split('T')[0] : null
@@ -586,6 +589,9 @@ router.post('/mark-share-paid-at-club', async (req, res) => {
     const totalAmount = parseFloat(bRows[0]?.total_amount) || 0
     const allPaid = paidAmount >= totalAmount - 0.01
     const status = allPaid ? 'confirmed' : (paidAmount > 0 ? 'partially_paid' : 'pending_payments')
+    if (!allPaid) {
+      await bookingService.extendPaymentDeadlineAfterShareProgress(bid, clubId)
+    }
     await bookingService.updateBookingPayment(bid, clubId, paidAmount, status)
     const { rows: bDate } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bid, clubId])
     const dateStr = bDate[0]?.booking_date ? String(bDate[0].booking_date).split('T')[0] : null

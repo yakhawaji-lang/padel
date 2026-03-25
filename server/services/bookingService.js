@@ -68,6 +68,29 @@ export async function updateBookingPaymentDeadline(bookingId, clubId, paymentDea
 }
 
 /**
+ * After a participant pays (or club marks a share paid), move payment_deadline_at forward so the
+ * expire job does not immediately re-mark partially_paid bookings as expired.
+ * Uses max(now + split_payment_deadline_minutes, end of booking_date local day).
+ */
+export async function extendPaymentDeadlineAfterShareProgress(bookingId, clubId) {
+  const { rows } = await query(
+    `SELECT cb.booking_date, cs.split_payment_deadline_minutes
+     FROM club_bookings cb
+     LEFT JOIN club_settings cs ON cs.club_id = cb.club_id
+     WHERE cb.id = ? AND cb.club_id = ? AND cb.deleted_at IS NULL`,
+    [bookingId, clubId]
+  )
+  if (!rows?.length) return null
+  const dateStr = rows[0].booking_date ? String(rows[0].booking_date).split('T')[0] : null
+  const mins = Math.max(15, parseInt(rows[0].split_payment_deadline_minutes, 10) || 30)
+  const fromNow = new Date(Date.now() + mins * 60 * 1000)
+  const endOfBookingDay = dateStr ? new Date(dateStr + 'T23:59:59') : fromNow
+  const deadline = new Date(Math.max(fromNow.getTime(), endOfBookingDay.getTime()))
+  await updateBookingPaymentDeadline(bookingId, clubId, deadline)
+  return deadline
+}
+
+/**
  * انتهاء صلاحية حجوزات غير المدفوعة (يستدعيها job)
  * @returns {Promise<number>} عدد الحجوزات التي تم تحديثها
  */
