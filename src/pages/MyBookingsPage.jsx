@@ -47,6 +47,8 @@ const MyBookingsPage = () => {
   const [addSplitForBookingId, setAddSplitForBookingId] = useState(null)
   const [addSplitRows, setAddSplitRows] = useState([{ phone: '', amount: '' }])
   const [addSplitBusy, setAddSplitBusy] = useState(false)
+  const [addSplitFavorites, setAddSplitFavorites] = useState([])
+  const [addSplitFavoritesLoading, setAddSplitFavoritesLoading] = useState(false)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -87,6 +89,62 @@ const MyBookingsPage = () => {
     window.addEventListener('clubs-synced', syncFromCache)
     return () => window.removeEventListener('clubs-synced', syncFromCache)
   }, [member?.id])
+
+  useEffect(() => {
+    if (!addSplitForBookingId || !member?.id) {
+      setAddSplitFavorites([])
+      return
+    }
+    const entry = bookings.find((x) => String(x.booking?.id) === String(addSplitForBookingId))
+    const clubId = entry?.club?.id
+    if (!clubId) {
+      setAddSplitFavorites([])
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      setAddSplitFavoritesLoading(true)
+      try {
+        const ids = await bookingApi.getFavoriteMembers(member.id, clubId)
+        const idList = Array.isArray(ids) ? ids.map(String) : []
+        const fromAll = getAllMembersFromStorage() || []
+        const fromClub = getClubMembersFromStorage(clubId) || []
+        const byId = new Map()
+        for (const m of [...fromClub, ...fromAll]) {
+          if (m?.id != null) byId.set(String(m.id), m)
+        }
+        const resolved = idList.map((id) => {
+          const m = byId.get(id)
+          const phone = (m?.mobile || m?.phone || '').trim()
+          return {
+            id,
+            name: (m?.name || m?.email || id).toString(),
+            phone
+          }
+        })
+        if (!cancelled) setAddSplitFavorites(resolved)
+      } catch {
+        if (!cancelled) setAddSplitFavorites([])
+      } finally {
+        if (!cancelled) setAddSplitFavoritesLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [addSplitForBookingId, member?.id, bookings])
+
+  const applyFavoritePhoneToSplitRows = (phone) => {
+    const p = (phone || '').trim()
+    if (!p) return
+    setAddSplitRows((prev) => {
+      const emptyIdx = prev.findIndex((r) => !(r.phone || '').trim())
+      if (emptyIdx >= 0) {
+        const next = [...prev]
+        next[emptyIdx] = { ...next[emptyIdx], phone: p }
+        return next
+      }
+      return [...prev, { phone: p, amount: '' }]
+    })
+  }
 
   const today = new Date().toISOString().split('T')[0]
   const normDate = (r) => {
@@ -332,7 +390,11 @@ const MyBookingsPage = () => {
       typeTraining: 'Training',
       typeTournament: 'Tournament',
       paidLabel: 'Paid',
-      awaitingPayment: 'Awaiting payment'
+      awaitingPayment: 'Awaiting payment',
+      splitFavorites: 'Favorites',
+      splitFavoritesEmpty: 'No favorites in this club yet. Add them from My favorites.',
+      splitFavoritesNoPhone: 'No phone on file',
+      splitFavHint: 'Tap a name to fill the phone field.'
     },
     ar: {
       myBookings: 'حجوزاتي',
@@ -369,7 +431,11 @@ const MyBookingsPage = () => {
       typeTraining: 'حصص تدريب',
       typeTournament: 'بطولة',
       paidLabel: 'مدفوع',
-      awaitingPayment: 'بانتظار الدفع'
+      awaitingPayment: 'بانتظار الدفع',
+      splitFavorites: 'المفضلة',
+      splitFavoritesEmpty: 'لا يوجد مفضلون في هذا النادي بعد. أضفهم من صفحة المفضلة.',
+      splitFavoritesNoPhone: 'لا يوجد جوال',
+      splitFavHint: 'اضغط على الاسم لملء الجوال في أول سطر فارغ.'
     }
   }
   const c = t[language] || t.en
@@ -685,6 +751,34 @@ const MyBookingsPage = () => {
                               </button>
                               {addSplitForBookingId === r.booking.id && (
                                 <div className="my-bookings-add-split-form">
+                                  <div className="my-bookings-add-split-favorites">
+                                    <p className="my-bookings-add-split-favorites-title">★ {c.splitFavorites}</p>
+                                    <p className="my-bookings-add-split-fav-hint">{c.splitFavHint}</p>
+                                    {addSplitFavoritesLoading ? (
+                                      <div className="my-bookings-add-split-fav-loading">{c.loading}</div>
+                                    ) : addSplitFavorites.length === 0 ? (
+                                      <p className="my-bookings-add-split-fav-empty">{c.splitFavoritesEmpty}</p>
+                                    ) : (
+                                      <div className="my-bookings-add-split-fav-chips" role="list">
+                                        {addSplitFavorites.map((f) => (
+                                          <button
+                                            key={f.id}
+                                            type="button"
+                                            className={`my-bookings-add-split-fav-chip ${f.phone ? '' : 'my-bookings-add-split-fav-chip--muted'}`}
+                                            disabled={!f.phone}
+                                            onClick={() => applyFavoritePhoneToSplitRows(f.phone)}
+                                          >
+                                            <span className="my-bookings-add-split-fav-chip-name">{f.name}</span>
+                                            {f.phone ? (
+                                              <span className="my-bookings-add-split-fav-chip-phone">{f.phone}</span>
+                                            ) : (
+                                              <span className="my-bookings-add-split-fav-chip-na">{c.splitFavoritesNoPhone}</span>
+                                            )}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
                                   {addSplitRows.map((row, ri) => (
                                     <div key={ri} className="my-bookings-add-split-row">
                                       <input
@@ -873,6 +967,89 @@ const MyBookingsPage = () => {
                               </Link>
                             </>
                           )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {r.showAddSplit && filter === 'upcoming' && r.club && (
+                    <div className="my-bookings-add-split my-bookings-add-split--card" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className="my-bookings-add-split-toggle"
+                        onClick={() => {
+                          if (addSplitForBookingId === r.booking.id) {
+                            setAddSplitForBookingId(null)
+                          } else {
+                            setAddSplitForBookingId(r.booking.id)
+                            setAddSplitRows([{ phone: '', amount: '' }])
+                          }
+                        }}
+                      >
+                        {language === 'en' ? '+ Add participants (share payment)' : '+ إضافة مشاركين (تقسيم)'}
+                      </button>
+                      {addSplitForBookingId === r.booking.id && (
+                        <div className="my-bookings-add-split-form">
+                          <div className="my-bookings-add-split-favorites">
+                            <p className="my-bookings-add-split-favorites-title">★ {c.splitFavorites}</p>
+                            <p className="my-bookings-add-split-fav-hint">{c.splitFavHint}</p>
+                            {addSplitFavoritesLoading ? (
+                              <div className="my-bookings-add-split-fav-loading">{c.loading}</div>
+                            ) : addSplitFavorites.length === 0 ? (
+                              <p className="my-bookings-add-split-fav-empty">{c.splitFavoritesEmpty}</p>
+                            ) : (
+                              <div className="my-bookings-add-split-fav-chips" role="list">
+                                {addSplitFavorites.map((f) => (
+                                  <button
+                                    key={f.id}
+                                    type="button"
+                                    className={`my-bookings-add-split-fav-chip ${f.phone ? '' : 'my-bookings-add-split-fav-chip--muted'}`}
+                                    disabled={!f.phone}
+                                    onClick={() => applyFavoritePhoneToSplitRows(f.phone)}
+                                  >
+                                    <span className="my-bookings-add-split-fav-chip-name">{f.name}</span>
+                                    {f.phone ? (
+                                      <span className="my-bookings-add-split-fav-chip-phone">{f.phone}</span>
+                                    ) : (
+                                      <span className="my-bookings-add-split-fav-chip-na">{c.splitFavoritesNoPhone}</span>
+                                    )}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          {addSplitRows.map((row, ri) => (
+                            <div key={ri} className="my-bookings-add-split-row">
+                              <input
+                                type="tel"
+                                placeholder={language === 'en' ? 'Phone' : 'الجوال'}
+                                value={row.phone}
+                                onChange={(e) => setAddSplitRows((prev) => prev.map((x, j) => (j === ri ? { ...x, phone: e.target.value } : x)))}
+                              />
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder={language === 'en' ? 'Amount' : 'المبلغ'}
+                                value={row.amount}
+                                onChange={(e) => setAddSplitRows((prev) => prev.map((x, j) => (j === ri ? { ...x, amount: e.target.value } : x)))}
+                              />
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            className="my-bookings-add-split-more"
+                            onClick={() => setAddSplitRows((prev) => [...prev, { phone: '', amount: '' }])}
+                          >
+                            {language === 'en' ? '+ Another' : '+ سطر'}
+                          </button>
+                          <button
+                            type="button"
+                            className="my-bookings-add-split-submit"
+                            disabled={addSplitBusy}
+                            onClick={() => submitAddSplit(r.booking, r.club)}
+                          >
+                            {addSplitBusy ? '…' : (language === 'en' ? 'Send invites' : 'إرسال الدعوات')}
+                          </button>
                         </div>
                       )}
                     </div>

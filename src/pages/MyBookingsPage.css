@@ -533,6 +533,102 @@
   gap: 8px;
 }
 
+.my-bookings-add-split--card {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--mb-border);
+}
+
+.my-bookings-add-split-favorites {
+  padding: 12px;
+  background: linear-gradient(180deg, #fffbeb 0%, #fff 100%);
+  border: 1px solid #fde68a;
+  border-radius: var(--mb-radius-sm);
+  margin-bottom: 4px;
+}
+
+.my-bookings-add-split-favorites-title {
+  margin: 0 0 4px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #b45309;
+}
+
+.my-bookings-add-split-fav-hint {
+  margin: 0 0 10px;
+  font-size: 0.75rem;
+  color: var(--mb-text-muted);
+  line-height: 1.35;
+}
+
+.my-bookings-add-split-fav-loading {
+  font-size: 0.8125rem;
+  color: var(--mb-text-muted);
+}
+
+.my-bookings-add-split-fav-empty {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--mb-text-muted);
+  line-height: 1.4;
+}
+
+.my-bookings-add-split-fav-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.my-bookings-add-split-fav-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #fcd34d;
+  background: #fff;
+  cursor: pointer;
+  text-align: start;
+  max-width: 100%;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.my-bookings-add-split-fav-chip:hover:not(:disabled) {
+  box-shadow: 0 2px 8px rgba(180, 83, 9, 0.15);
+  transform: translateY(-1px);
+}
+
+.my-bookings-add-split-fav-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.my-bookings-add-split-fav-chip--muted {
+  border-style: dashed;
+  border-color: var(--mb-border);
+  background: var(--mb-bg);
+}
+
+.my-bookings-add-split-fav-chip-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--mb-text);
+}
+
+.my-bookings-add-split-fav-chip-phone {
+  font-size: 0.75rem;
+  color: var(--mb-primary);
+  font-weight: 500;
+  direction: ltr;
+  unicode-bidi: embed;
+}
+
+.my-bookings-add-split-fav-chip-na {
+  font-size: 0.7rem;
+  color: var(--mb-text-muted);
+}
+
 .my-bookings-add-split-row {
   display: flex;
   gap: 8px;
