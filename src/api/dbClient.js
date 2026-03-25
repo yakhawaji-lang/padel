@@ -526,6 +526,14 @@ export async function getInviteByToken(token) {
   return fetchJson(`/api/bookings/invite/${encodeURIComponent(token)}`)
 }
 
+/** After pay-invite quick register: link booking_payment_shares row to the new member */
+export async function claimInviteShare({ inviteToken, clubId, memberId, phone, memberName }) {
+  return fetchJson('/api/bookings/claim-invite-share', {
+    method: 'POST',
+    body: JSON.stringify({ inviteToken, clubId, memberId, phone, memberName })
+  })
+}
+
 /** Get invite token for member's share (when not in cached booking data) */
 export async function getShareInviteToken(bookingId, clubId, memberId) {
   const params = new URLSearchParams({ bookingId, clubId, memberId })

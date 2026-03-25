@@ -226,13 +226,41 @@ const Register = () => {
       setError(language === 'en' ? 'Registration failed.' : 'فشل التسجيل.')
       return
     }
+    let inviteTokenFromReturn = null
+    if (returnTo && typeof returnTo === 'string') {
+      const m = returnTo.match(/^\/pay-invite\/([^/?#]+)/)
+      if (m) inviteTokenFromReturn = decodeURIComponent(m[1])
+    }
+    const bookingApi = inviteTokenFromReturn || joinClubId ? await import('../api/dbClient') : null
     if (joinClubId) {
       try {
-        const { default: bookingApi } = await import('../api/dbClient')
         await bookingApi.joinClub(joinClubId, newMember.id)
         await addMemberToClub(newMember.id, joinClubId)
       } catch (e) {
         console.warn('Auto-join club after register:', e)
+      }
+    }
+    if (inviteTokenFromReturn && bookingApi) {
+      try {
+        let claimClubId = joinClubId || null
+        if (!claimClubId) {
+          const inv = await bookingApi.getInviteByToken(inviteTokenFromReturn).catch(() => null)
+          claimClubId = inv?.clubId || null
+        }
+        if (claimClubId) {
+          await bookingApi.claimInviteShare({
+            inviteToken: inviteTokenFromReturn,
+            clubId: claimClubId,
+            memberId: newMember.id,
+            phone: newMember.phone || newMember.mobile || formData.phone,
+            memberName: newMember.name
+          })
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('clubs-synced'))
+          }
+        }
+      } catch (e) {
+        console.warn('Claim payment share after register:', e)
       }
     }
     setCurrentPlatformUser(newMember.id)

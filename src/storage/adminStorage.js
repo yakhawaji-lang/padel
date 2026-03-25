@@ -746,8 +746,20 @@ export async function addBookingToClub(clubId, bookingData) {
 }
 
 /** Get all court bookings for a member across all clubs. Returns { booking, club, clubName }[]. */
+function _phoneDigits(s) {
+  return (s || '').replace(/\D/g, '')
+}
+/** Last 9 digits — good enough to match 05xxxxxxxx vs 9665xxxxxxxx */
+function _phoneTailKey(digits) {
+  const d = _phoneDigits(digits)
+  return d.length >= 9 ? d.slice(-9) : d
+}
+
 export function getMemberBookings(memberId) {
   if (!memberId) return []
+  const members = getMergedMembersRaw()
+  const member = members.find(m => String(m?.id) === String(memberId))
+  const memberPhoneTail = _phoneTailKey(member?.phone || member?.mobile || '')
   const clubs = loadClubs()
   const results = []
   const memberIdStr = String(memberId)
@@ -758,7 +770,14 @@ export function getMemberBookings(memberId) {
         if (!isMemberInTournamentBooking(club, b, memberIdStr)) return
       } else {
         const isInitiator = String(b.memberId || b.initiatorMemberId || b.member_id || '') === memberIdStr
-        const isParticipant = Array.isArray(b.paymentShares) && b.paymentShares.some(s => String(s.memberId || '') === memberIdStr)
+        const isParticipant =
+          Array.isArray(b.paymentShares) &&
+          b.paymentShares.some(s => {
+            if (String(s.memberId || s.member_id || '') === memberIdStr) return true
+            if (!memberPhoneTail || memberPhoneTail.length < 8) return false
+            const shareTail = _phoneTailKey(s.phone || '')
+            return !!shareTail && shareTail === memberPhoneTail
+          })
         if (!isInitiator && !isParticipant) return
       }
       const rawDate = b.date || b.startDate || ''

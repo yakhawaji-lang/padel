@@ -714,6 +714,50 @@ router.get('/share-invite', async (req, res) => {
   }
 })
 
+/** POST /api/bookings/claim-invite-share - After quick register: attach member_id to unregistered share so My Bookings lists the booking */
+router.post('/claim-invite-share', async (req, res) => {
+  try {
+    const normalized = await hasNormalizedTables()
+    if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
+    const { inviteToken, clubId, memberId, phone, memberName } = req.body || {}
+    if (!inviteToken || !clubId || !memberId) {
+      return res.status(400).json({ error: 'inviteToken, clubId, memberId required' })
+    }
+    const pd = (s) => (s || '').replace(/\D/g, '')
+    const tailKey = (d) => (d.length >= 9 ? d.slice(-9) : d)
+    const { rows } = await query(
+      `SELECT id, phone, member_id, booking_id FROM booking_payment_shares WHERE invite_token = ? AND club_id = ?`,
+      [inviteToken, clubId]
+    )
+    if (!rows?.length) return res.status(404).json({ error: 'Share not found' })
+    const row = rows[0]
+    if (row.member_id != null && String(row.member_id).trim() !== '' && String(row.member_id) !== String(memberId)) {
+      return res.status(409).json({ error: 'Share already linked to another account' })
+    }
+    const rowPhone = pd(row.phone || '')
+    const userPhone = pd(phone || '')
+    if (rowPhone && userPhone && tailKey(rowPhone) !== tailKey(userPhone)) {
+      return res.status(403).json({ error: 'Phone does not match invite' })
+    }
+    const nameEsc = (memberName && String(memberName).trim()) ? String(memberName).trim().substring(0, 255) : null
+    if (nameEsc) {
+      await query(
+        `UPDATE booking_payment_shares SET member_id = ?, participant_type = 'registered', member_name = ? WHERE id = ? AND club_id = ?`,
+        [String(memberId), nameEsc, row.id, clubId]
+      )
+    } else {
+      await query(
+        `UPDATE booking_payment_shares SET member_id = ?, participant_type = 'registered' WHERE id = ? AND club_id = ?`,
+        [String(memberId), row.id, clubId]
+      )
+    }
+    res.json({ ok: true, bookingId: row.booking_id })
+  } catch (e) {
+    console.error('bookings claim-invite-share error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
 /** GET /api/bookings/invite/:token - Get invite/share data by token (must be before /:id) */
 router.get('/invite/:token', async (req, res) => {
   try {
