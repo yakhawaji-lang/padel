@@ -781,6 +781,7 @@ const ClubPublicPage = () => {
         paymentShares: payStyle === 'split' && (trainingJoinPaymentShares || []).length > 0 ? trainingJoinPaymentShares : undefined
       })
       setTrainingJoinModal(null)
+      setTrainingJoinStep(1)
       setTrainingJoinPaymentShares([])
       if (res?.paymentUrl && isElectronic) {
         try {
@@ -1621,6 +1622,7 @@ const ClubPublicPage = () => {
                           }
                           const handleCellClick = () => {
                             if (canJoinTraining) {
+                              setTrainingJoinStep(1)
                               setTrainingJoinModal({ booking: bookedItem, court })
                               return
                             }
@@ -1971,11 +1973,11 @@ const ClubPublicPage = () => {
           const joinPrice = parseFloat(bTrain?.totalAmount) || 0
           const splitSumInvalid = trainingJoinPaymentStyle === 'split' && (trainingJoinPaymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) > joinPrice
           return (
-          <div className="club-public-booking-modal-backdrop" onClick={() => { if (!trainingJoinSubmitting) { setTrainingJoinModal(null); setLockError(null) } }} role="presentation">
+          <div className="club-public-booking-modal-backdrop" onClick={() => { if (!trainingJoinSubmitting) { setTrainingJoinModal(null); setTrainingJoinStep(1); setLockError(null) } }} role="presentation">
             <div className="club-public-booking-modal club-public-training-join-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="join-training-modal-title">
               <h3 id="join-training-modal-title" className="club-public-booking-modal-title">{c.joinTraining}</h3>
               <div className="club-public-booking-stepper" aria-label={language === 'en' ? 'Join training steps' : 'خطوات الانضمام للتدريب'}>
-                {[1, 2, 3].map((n) => (
+                {[1, 2, 3, 4].map((n) => (
                   <React.Fragment key={n}>
                     {n > 1 && <span className={`club-public-booking-stepper-line ${trainingJoinStep >= n ? 'active' : ''}`} aria-hidden />}
                     <span
@@ -2073,6 +2075,16 @@ const ClubPublicPage = () => {
                         maxShareHint={maxSplitHintStr}
                       />
                     )}
+                  </>
+                )}
+                {trainingJoinStep === 4 && (
+                  <>
+                    <div className="club-public-booking-step-recap">
+                      <span className="club-public-booking-step-recap-main">{recapTrain}</span>
+                      <span className="club-public-booking-step-recap-meta">
+                        {trainingJoinPaymentStyle === 'split' ? c.splitWithOthers : c.iPay}
+                      </span>
+                    </div>
                     <div className="club-public-booking-payment-method club-public-training-join-final-pay">
                       <p className="club-public-booking-payment-method-label">{c.trainingJoinCompletePayment}</p>
                       <p className="club-public-booking-payment-section-desc">{c.trainingJoinPaymentMethodStep}</p>
@@ -2103,7 +2115,7 @@ const ClubPublicPage = () => {
               <div className="club-public-booking-modal-actions">
                 {trainingJoinStep === 1 && (
                   <>
-                    <button type="button" className="club-public-booking-modal-cancel" onClick={() => { if (!trainingJoinSubmitting) { setTrainingJoinModal(null); setLockError(null) } }} disabled={trainingJoinSubmitting}>
+                    <button type="button" className="club-public-booking-modal-cancel" onClick={() => { if (!trainingJoinSubmitting) { setTrainingJoinModal(null); setTrainingJoinStep(1); setLockError(null) } }} disabled={trainingJoinSubmitting}>
                       {language === 'en' ? 'Cancel' : 'إلغاء'}
                     </button>
                     <button type="button" className="club-public-booking-modal-confirm" onClick={() => setTrainingJoinStep(2)} disabled={trainingJoinSubmitting}>
@@ -2129,6 +2141,30 @@ const ClubPublicPage = () => {
                 {trainingJoinStep === 3 && (
                   <>
                     <button type="button" className="club-public-booking-modal-cancel" onClick={() => setTrainingJoinStep(2)} disabled={trainingJoinSubmitting}>
+                      {c.back}
+                    </button>
+                    <button
+                      type="button"
+                      className="club-public-booking-modal-confirm"
+                      onClick={() => {
+                        setTrainingJoinStep(4)
+                        setTrainingJoinPaymentMethod(pickFirstPaymentMethod(effectivePaymentChannels))
+                      }}
+                      disabled={
+                        trainingJoinSubmitting ||
+                        (trainingJoinPaymentStyle === 'split' && (
+                          (trainingJoinPaymentShares || []).length === 0 ||
+                          (trainingJoinPaymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) > joinPrice
+                        ))
+                      }
+                    >
+                      {c.continueBooking}
+                    </button>
+                  </>
+                )}
+                {trainingJoinStep === 4 && (
+                  <>
+                    <button type="button" className="club-public-booking-modal-cancel" onClick={() => setTrainingJoinStep(3)} disabled={trainingJoinSubmitting}>
                       {c.back}
                     </button>
                     <button

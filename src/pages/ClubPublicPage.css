@@ -1605,6 +1605,18 @@
   margin-top: 16px;
   padding-top: 16px;
 }
+/* Four-step join flow: keep stepper compact on narrow screens */
+@media (max-width: 380px) {
+  .club-public-training-join-modal .club-public-booking-stepper-line {
+    width: 16px;
+    margin: 0 2px;
+  }
+  .club-public-training-join-modal .club-public-booking-stepper-dot {
+    width: 26px;
+    height: 26px;
+    font-size: 0.72rem;
+  }
+}
 .club-public-training-join-modal .booking-payment-share {
   margin-top: 12px;
   padding-top: 16px;
