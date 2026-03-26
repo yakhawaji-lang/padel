@@ -36,14 +36,44 @@ export async function createBooking(params) {
   return { bookingId: bid }
 }
 
+function parseBookingDataJson(raw) {
+  if (!raw) return {}
+  if (typeof raw === 'object') return { ...raw }
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return {}
+  }
+}
+
 /**
- * إلغاء حجز (soft delete + status cancelled)
+ * إلغاء حجز (حالة ملغي — بدون deleted_at حتى تبقى مرئية في لوحة النادي)
+ * عند الإلغاء من العضو يُعلَّم data.memberSelfCancel لعرضها في تبويب مخصص.
  */
 export async function cancelBooking(bookingId, clubId, actor = {}) {
-  await query(
-    'UPDATE club_bookings SET status = ?, deleted_at = NOW(), deleted_by = ? WHERE id = ? AND club_id = ?',
-    ['cancelled', actor.actorId || null, bookingId, clubId]
-  )
+  const actorType = String(actor.actorType || '').toLowerCase()
+  const isMember = actorType === 'member'
+  let dataJson = null
+  if (isMember) {
+    const { rows } = await query('SELECT data FROM club_bookings WHERE id = ? AND club_id = ?', [bookingId, clubId])
+    const prev = parseBookingDataJson(rows?.[0]?.data)
+    dataJson = JSON.stringify({
+      ...prev,
+      memberSelfCancel: true,
+      memberSelfCancelAt: new Date().toISOString()
+    })
+  }
+  if (dataJson != null) {
+    await query(
+      'UPDATE club_bookings SET status = ?, deleted_by = ?, data = ? WHERE id = ? AND club_id = ?',
+      ['cancelled', actor.actorId || null, dataJson, bookingId, clubId]
+    )
+  } else {
+    await query(
+      'UPDATE club_bookings SET status = ?, deleted_by = ? WHERE id = ? AND club_id = ?',
+      ['cancelled', actor.actorId || null, bookingId, clubId]
+    )
+  }
   await logAudit({ tableName: 'club_bookings', recordId: bookingId, action: 'UPDATE', ...actor, clubId, newValue: { status: 'cancelled' } })
 }
 

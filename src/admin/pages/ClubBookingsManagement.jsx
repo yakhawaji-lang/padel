@@ -7,6 +7,21 @@ import { calculateBookingPrice } from '../../utils/bookingPricing'
 import './club-pages-common.css'
 import './BookingsManagement.css'
 
+const TERMINAL_BOOKING_STATUSES = ['cancelled', 'expired', 'cancelled_awaiting_refund_ack']
+
+function isTerminalBookingStatus(status) {
+  return TERMINAL_BOOKING_STATUSES.includes((status || '').toString().toLowerCase())
+}
+
+/** حجز ألغاه العضو (مسار الاسترداد/الإلغاء الذاتي أو deleted_by = العضو) */
+function isMemberCancelledBooking(b) {
+  if (!isTerminalBookingStatus(b?.status)) return false
+  if (b?.memberSelfCancel) return true
+  const mid = String(b?.memberId || b?.initiatorMemberId || '').trim()
+  const db = String(b?.deletedBy || '').trim()
+  return !!(mid && db && db === mid)
+}
+
 /** Admin list: court rental vs coach training vs tournament (king / social). */
 function classifyAdminBooking(b) {
   const d = b?.data && typeof b.data === 'object' ? b.data : {}
@@ -49,14 +64,22 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   }
 
   const today = new Date().toISOString().split('T')[0]
-  const { upcoming, past, displayed, typeCounts } = useMemo(() => {
+  const { upcoming, past, memberCancelled, displayed, typeCounts } = useMemo(() => {
     const withDate = bookings.map(b => ({
       ...b,
       dateStr: (b.date || b.startDate || '').toString().split('T')[0]
     }))
-    const upcomingL = withDate.filter(b => (b.dateStr || '') >= today)
-    const pastL = withDate.filter(b => (b.dateStr || '') < today)
-    const timeList = filter === 'upcoming' ? upcomingL : pastL
+    const upcomingL = withDate.filter(
+      b => !isTerminalBookingStatus(b.status) && (b.dateStr || '') >= today
+    )
+    const pastL = withDate.filter(
+      b => !isTerminalBookingStatus(b.status) && (b.dateStr || '') < today
+    )
+    const memberCancelled = [...withDate.filter(b => isMemberCancelledBooking(b))].sort((a, b) =>
+      String(b.dateStr || '').localeCompare(String(a.dateStr || ''))
+    )
+    const timeList =
+      filter === 'upcoming' ? upcomingL : filter === 'past' ? pastL : memberCancelled
     const counts = { all: timeList.length, court: 0, training: 0, tournament: 0 }
     for (const b of timeList) {
       const k = classifyAdminBooking(b)
@@ -74,7 +97,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
         return true
       })
     }
-    return { upcoming: upcomingL, past: pastL, displayed: disp, typeCounts: counts }
+    return { upcoming: upcomingL, past: pastL, memberCancelled, displayed: disp, typeCounts: counts }
   }, [bookings, filter, typeFilter, today])
 
   const formatDate = (dateStr) => {
@@ -280,19 +303,26 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     }
   }
 
-  const getStatusLabel = (status) => {
-    const s = (status || 'confirmed').toString()
+  const getStatusLabel = (status, bookingRow = null) => {
+    const s = (status || 'confirmed').toString().toLowerCase()
     const labels = {
       en: {
         initiated: 'In progress', locked: 'Reserved', pending_payments: 'Awaiting payments', pending_payment: 'Awaiting payment', partially_paid: 'Partial payment', confirmed: 'Confirmed',
-        cancelled: 'Cancelled', expired: 'Expired', cancelled_awaiting_refund_ack: 'Cancelled — awaiting refund confirmation'
+        cancelled: 'Cancelled', expired: 'Expired', cancelled_awaiting_refund_ack: 'Cancelled — awaiting refund confirmation',
+        byMember: 'Member cancelled'
       },
       ar: {
         initiated: 'قيد الإجراء', locked: 'محجوز', pending_payments: 'بانتظار الدفعات', pending_payment: 'بانتظار الدفع', partially_paid: 'دفع جزئي', confirmed: 'مؤكد',
-        cancelled: 'ملغي', expired: 'منتهي', cancelled_awaiting_refund_ack: 'ملغي — بانتظار تأكيد الاسترداد'
+        cancelled: 'ملغي', expired: 'منتهي', cancelled_awaiting_refund_ack: 'ملغي — بانتظار تأكيد الاسترداد',
+        byMember: 'ملغي من العضو'
       }
     }
-    return (labels[language] || labels.en)[s] || s
+    const L = labels[language] || labels.en
+    const base = L[s] || status
+    if (bookingRow && isMemberCancelledBooking(bookingRow) && ['cancelled', 'cancelled_awaiting_refund_ack'].includes(s)) {
+      return `${L.byMember} · ${base}`
+    }
+    return base
   }
 
   const getPaymentMethodLabel = (method) => {
@@ -316,6 +346,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       pageSubtitle: 'Court rentals, training sessions, and tournaments in one place.',
       upcoming: 'Upcoming',
       past: 'Past',
+      memberCancelled: 'Cancelled by member',
       filterByType: 'Booking type',
       filterAll: 'All',
       filterCourts: 'Courts',
@@ -379,6 +410,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       pageSubtitle: 'حجوزات الملاعب والحصص التدريبية والبطولات في مكان واحد.',
       upcoming: 'القادمة',
       past: 'السابقة',
+      memberCancelled: 'ملغاة من العضو',
       filterByType: 'نوع الحجز',
       filterAll: 'الكل',
       filterCourts: 'ملاعب',
@@ -510,6 +542,13 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
             >
               {c.past} ({past.length})
             </button>
+            <button
+              type="button"
+              className={`bookings-tab ${filter === 'member_cancelled' ? 'active' : ''}`}
+              onClick={() => setFilter('member_cancelled')}
+            >
+              {c.memberCancelled} ({memberCancelled.length})
+            </button>
           </div>
           <div className="bookings-type-strip" role="group" aria-label={c.filterByType}>
             <span className="bookings-type-strip-label">{c.filterByType}</span>
@@ -619,7 +658,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                             }}
                             title={showPaymentPanel ? c.clickToExpand : undefined}
                           >
-                            <span className="booking-status-label">{getStatusLabel(status)}</span>
+                            <span className="booking-status-label">{getStatusLabel(status, b)}</span>
                             {showPaymentPanel && <span className="booking-status-chevron" aria-hidden>{isExpanded ? '▲' : '▼'}</span>}
                           </button>
                         </td>

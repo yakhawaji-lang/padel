@@ -621,7 +621,8 @@ async function assembleClub(clubRow, courts, settings, adminUsers, offers, booki
         })(),
         totalAmount: parseFloat(b.total_amount) || 0,
         paidAmount: parseFloat(b.paid_amount) || 0,
-        initiatorMemberId: b.initiator_member_id
+        initiatorMemberId: b.initiator_member_id,
+        deletedBy: b.deleted_by || undefined
       }
     }),
     offers: (offers || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map(o => ({
@@ -708,7 +709,7 @@ export async function getClubsFromNormalized() {
     query(`SELECT * FROM club_courts WHERE club_id IN (${placeholders}) AND deleted_at IS NULL`, clubIds),
     query(`SELECT * FROM club_admin_users WHERE club_id IN (${placeholders}) AND deleted_at IS NULL`, clubIds),
     query(`SELECT * FROM club_offers WHERE club_id IN (${placeholders}) AND deleted_at IS NULL`, clubIds),
-    query(`SELECT * FROM club_bookings WHERE club_id IN (${placeholders}) AND deleted_at IS NULL`, clubIds),
+    query(`SELECT * FROM club_bookings WHERE club_id IN (${placeholders}) AND (deleted_at IS NULL OR LOWER(COALESCE(status,'')) IN ('cancelled', 'cancelled_awaiting_refund_ack', 'expired'))`, clubIds),
     query(`SELECT * FROM club_accounting WHERE club_id IN (${placeholders}) AND deleted_at IS NULL`, clubIds),
     query(`SELECT * FROM club_tournament_types WHERE club_id IN (${placeholders}) AND deleted_at IS NULL`, clubIds),
     query(`SELECT * FROM club_store WHERE club_id IN (${placeholders})`, clubIds),
