@@ -86,6 +86,105 @@
   text-align: center;
 }
 
+/* ----- Club wallets (per-club credit) ----- */
+.my-bookings-wallets {
+  max-width: 960px;
+  margin: 0 auto 20px;
+  padding: 0 16px;
+}
+
+.my-bookings-wallets-inner {
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+  border: 1px solid #bfdbfe;
+  border-radius: var(--mb-radius);
+  padding: 16px 18px;
+  box-shadow: var(--mb-shadow-card);
+}
+
+.my-bookings-wallets-title {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--mb-text);
+}
+
+.my-bookings-wallets-sub {
+  margin: 0 0 14px;
+  font-size: 0.8125rem;
+  color: var(--mb-text-muted);
+  line-height: 1.45;
+}
+
+.my-bookings-wallets-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.my-bookings-wallet-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 12px 14px;
+  background: var(--mb-surface);
+  border-radius: var(--mb-radius-sm);
+  border: 1px solid var(--mb-border);
+}
+
+.my-bookings-wallet-row--positive {
+  border-color: #86efac;
+  background: var(--mb-success-bg);
+}
+
+.my-bookings-wallet-club {
+  flex: 1 1 140px;
+  font-weight: 600;
+  color: var(--mb-text);
+  font-size: 0.9375rem;
+}
+
+.my-bookings-wallet-club-label {
+  font-weight: 500;
+  color: var(--mb-text-muted);
+  font-size: 0.8125rem;
+}
+
+.my-bookings-wallet-balance {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #15803d;
+}
+
+.my-bookings-wallet-row:not(.my-bookings-wallet-row--positive) .my-bookings-wallet-balance {
+  color: var(--mb-text-muted);
+}
+
+.my-bookings-wallet-link {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--mb-primary);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.my-bookings-wallet-link:hover {
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--mb-primary-hover);
+}
+
+@media (min-width: 640px) {
+  .my-bookings-wallet-row {
+    flex-wrap: nowrap;
+  }
+}
+
 .my-bookings-back {
   display: inline-flex;
   align-items: center;
@@ -197,8 +296,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 6px;
+  padding: 10px 10px;
   min-height: 48px;
   border: none;
   background: transparent;
@@ -1134,6 +1233,10 @@
 
 .my-bookings-card--tournament.my-bookings-card--pending::before {
   background: linear-gradient(180deg, #fb923c 0%, #ea580c 100%);
+}
+
+.my-bookings-card--cancelled::before {
+  background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%);
 }
 
 .my-bookings-card-badges {

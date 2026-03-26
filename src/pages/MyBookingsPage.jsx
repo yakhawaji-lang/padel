@@ -10,6 +10,13 @@ import './MyBookingsPage.css'
 import { findPaymentShareForMember, resolvePaymentShareDisplayName, shareNeedsRefundAcknowledgment } from '../utils/paymentShareMemberMatch.js'
 import { getTournamentMemberPaymentEntry } from '../utils/tournamentHelpers.js'
 
+/** حجوزات مُلغاة أو منتهية أو بانتظار تأكيد الاسترداد — تظهر في تبويب «ملغاة» وليس في القادمة/السابقة */
+const LIST_CANCELLED_STATUSES = ['cancelled', 'expired', 'cancelled_awaiting_refund_ack']
+
+function bookingIsListCancelled(booking) {
+  return LIST_CANCELLED_STATUSES.includes((booking?.status || '').toString().toLowerCase())
+}
+
 /** كل الحصص النشطة مدفوعة والمجموع يغطي إجمالي الحجز — لا نعرض إضافة مشاركين */
 function isSplitFullyPaidByAllParticipants(booking) {
   const shares = booking?.paymentShares || []
@@ -36,8 +43,9 @@ function getBookingDisplayProps({ booking, club, memberId }, language) {
     : '—'
   const clubLink = club ? `/clubs/${club.id}` : null
   const isTraining = !isTournament && (booking?.type === 'training' || booking?.data?.type === 'training')
-  const st = (booking?.status || '').toString()
+  const st = (booking?.status || '').toString().toLowerCase()
   const isAwaitingRefundAck = st === 'cancelled_awaiting_refund_ack'
+  const terminalCancelled = LIST_CANCELLED_STATUSES.includes(st)
   let isPaid = false
   let isPendingPayment = false
   let tournamentEntry = null
@@ -96,6 +104,7 @@ function getBookingDisplayProps({ booking, club, memberId }, language) {
     isAwaitingRefundAck,
     tournamentEntry,
     tournamentAwaitingClub,
+    terminalCancelled,
   }
 }
 
@@ -120,6 +129,7 @@ const MyBookingsPage = () => {
   const [addSplitFavoritesLoading, setAddSplitFavoritesLoading] = useState(false)
   const [trainingInvites, setTrainingInvites] = useState([])
   const [dismissingInviteId, setDismissingInviteId] = useState(null)
+  const [walletByClub, setWalletByClub] = useState({})
 
   useEffect(() => {
     setAppLanguage(language)
@@ -160,6 +170,45 @@ const MyBookingsPage = () => {
     window.addEventListener('clubs-synced', syncFromCache)
     return () => window.removeEventListener('clubs-synced', syncFromCache)
   }, [member?.id])
+
+  const clubIdsForWallet = React.useMemo(() => {
+    const ids = new Set()
+    if (fromClubId) ids.add(String(fromClubId))
+    bookings.forEach(({ club }) => {
+      if (club?.id != null) ids.add(String(club.id))
+    })
+    return [...ids]
+  }, [bookings, fromClubId])
+
+  const loadWalletBalances = React.useCallback(async () => {
+    if (!member?.id || clubIdsForWallet.length === 0) {
+      setWalletByClub({})
+      return
+    }
+    const entries = await Promise.all(
+      clubIdsForWallet.map(async (clubId) => {
+        try {
+          const r = await bookingApi.getWalletBalance(clubId, member.id)
+          const raw = r?.balance
+          const bal = typeof raw === 'number' ? raw : parseFloat(raw)
+          return [clubId, Number.isFinite(bal) ? bal : 0]
+        } catch {
+          return [clubId, 0]
+        }
+      })
+    )
+    setWalletByClub(Object.fromEntries(entries))
+  }, [member?.id, clubIdsForWallet])
+
+  useEffect(() => {
+    loadWalletBalances()
+  }, [loadWalletBalances])
+
+  useEffect(() => {
+    const onSync = () => loadWalletBalances()
+    window.addEventListener('clubs-synced', onSync)
+    return () => window.removeEventListener('clubs-synced', onSync)
+  }, [loadWalletBalances])
 
   const loadTrainingInvites = React.useCallback(async () => {
     if (!member?.id) {
@@ -245,9 +294,12 @@ const MyBookingsPage = () => {
     const d = r.booking.dateStr || r.booking.date || r.booking.startDate || ''
     return typeof d === 'string' ? d.split('T')[0] : (d && d.toISOString ? d.toISOString().split('T')[0] : '')
   }
-  const upcoming = bookings.filter(r => normDate(r) >= today)
-  const past = bookings.filter(r => normDate(r) < today)
-  const displayed = filter === 'upcoming' ? upcoming : past
+  const cancelledList = bookings
+    .filter((r) => bookingIsListCancelled(r.booking))
+    .sort((a, b) => String(normDate(b) || '').localeCompare(String(normDate(a) || '')))
+  const upcoming = bookings.filter((r) => normDate(r) >= today && !bookingIsListCancelled(r.booking))
+  const past = bookings.filter((r) => normDate(r) < today && !bookingIsListCancelled(r.booking))
+  const displayed = filter === 'upcoming' ? upcoming : filter === 'past' ? past : cancelledList
 
   const shareMemberDirectory = React.useMemo(() => {
     const byId = new Map()
@@ -395,7 +447,7 @@ const MyBookingsPage = () => {
   }
 
   const getStatusLabel = (status) => {
-    const s = (status || 'confirmed').toString()
+    const s = (status || 'confirmed').toString().toLowerCase()
     const labels = {
       en: {
         initiated: 'In progress', locked: 'Reserved', pending_payments: 'Awaiting payments', pending_payment: 'Awaiting payment', partially_paid: 'Partial payment', confirmed: 'Confirmed',
@@ -410,7 +462,7 @@ const MyBookingsPage = () => {
   }
 
   const getStatusClass = (status) => {
-    const s = (status || 'confirmed').toString()
+    const s = (status || 'confirmed').toString().toLowerCase()
     if (['confirmed'].includes(s)) return 'status-confirmed'
     if (['cancelled_awaiting_refund_ack'].includes(s)) return 'status-refund-ack'
     if (['initiated', 'locked', 'pending_payments', 'pending_payment', 'partially_paid'].includes(s)) return 'status-pending'
@@ -499,6 +551,11 @@ const MyBookingsPage = () => {
       noBookings: 'No bookings',
       noUpcoming: 'No upcoming bookings.',
       noPast: 'No past bookings.',
+      cancelled: 'Cancelled',
+      noCancelled: 'No cancelled bookings.',
+      walletTitle: 'Club wallet',
+      walletSubtitle: 'Balance you can use for club fees (credits from refunds appear here).',
+      walletAtClub: 'at',
       goToClub: 'View club',
       participants: 'Participants',
       paid: 'Paid',
@@ -548,6 +605,11 @@ const MyBookingsPage = () => {
       noBookings: 'لا توجد حجوزات',
       noUpcoming: 'لا توجد حجوزات قادمة.',
       noPast: 'لا توجد حجوزات سابقة.',
+      cancelled: 'الملغاة',
+      noCancelled: 'لا توجد حجوزات ملغاة.',
+      walletTitle: 'محفظة النادي',
+      walletSubtitle: 'رصيد يُستخدم لرسوم الحجز في النادي (تظهر هنا أرصدة الاسترداد إلى المحفظة).',
+      walletAtClub: 'في',
       goToClub: 'عرض النادي',
       participants: 'المشاركون',
       paid: 'دفع',
@@ -613,7 +675,7 @@ const MyBookingsPage = () => {
   }
 
   const renderBookingRow = ({ booking, club }, i) => {
-    let { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isTournament, isPaid, isPendingPayment, isAwaitingRefundAck, tournamentEntry, tournamentAwaitingClub } = getBookingDisplayProps({ booking, club, memberId: member?.id }, language)
+    let { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isTournament, isPaid, isPendingPayment, isAwaitingRefundAck, tournamentEntry, tournamentAwaitingClub, terminalCancelled } = getBookingDisplayProps({ booking, club, memberId: member?.id }, language)
     if (!booking.isTournament) {
       const isInitiator = String(booking.memberId || booking.initiatorMemberId || '') === String(member?.id || '')
       if (!isInitiator && member) {
@@ -667,12 +729,13 @@ const MyBookingsPage = () => {
       tournamentEntry,
       tournamentAwaitingClub,
       canLeaveTournament,
+      terminalCancelled,
     }
   }
 
   const rows = displayed.map((item, i) => renderBookingRow(item, i))
 
-  const backClubFromBookings = (upcoming[0]?.club || past[0]?.club || bookings[0]?.club) || null
+  const backClubFromBookings = (upcoming[0]?.club || past[0]?.club || cancelledList[0]?.club || bookings[0]?.club) || null
   const backClub = fromClubId ? getClubById(fromClubId) : backClubFromBookings
   const backLink = backClub ? `/clubs/${backClub.id}` : '/'
   const backText = backClub
@@ -704,6 +767,48 @@ const MyBookingsPage = () => {
         <div className="my-bookings-success-banner" role="alert">
           {c.paymentSuccess}
         </div>
+      )}
+
+      {clubIdsForWallet.length > 0 && (
+        <section className="my-bookings-wallets" aria-label={c.walletTitle}>
+          <div className="my-bookings-wallets-inner">
+            <h2 className="my-bookings-wallets-title">{c.walletTitle}</h2>
+            <p className="my-bookings-wallets-sub">{c.walletSubtitle}</p>
+            <ul className="my-bookings-wallets-list">
+              {clubIdsForWallet.map((cid) => {
+                const cl = getClubById(cid)
+                const label = cl
+                  ? language === 'ar'
+                    ? cl.nameAr || cl.name
+                    : cl.name || cl.nameAr
+                  : cid
+                const raw = walletByClub[cid]
+                const bal = typeof raw === 'number' ? raw : parseFloat(raw) || 0
+                const cur = cl?.settings?.currency || 'SAR'
+                const formatted = bal.toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })
+                const hasCredit = bal > 0.004
+                return (
+                  <li key={cid} className={`my-bookings-wallet-row ${hasCredit ? 'my-bookings-wallet-row--positive' : ''}`}>
+                    <span className="my-bookings-wallet-club">
+                      <span className="my-bookings-wallet-club-label">{c.walletAtClub}</span> {label}
+                    </span>
+                    <span className="my-bookings-wallet-balance">
+                      {formatted} {cur}
+                    </span>
+                    {cl?.id ? (
+                      <Link to={`/clubs/${cl.id}`} className="my-bookings-wallet-link">
+                        {c.goToClub}
+                      </Link>
+                    ) : null}
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        </section>
       )}
 
       {trainingInvites.length > 0 && (
@@ -779,12 +884,24 @@ const MyBookingsPage = () => {
             <span className="my-bookings-tab-label">{c.past}</span>
             <span className="my-bookings-tab-count">{past.length}</span>
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={filter === 'cancelled'}
+            className={`my-bookings-tab ${filter === 'cancelled' ? 'active' : ''}`}
+            onClick={() => setFilter('cancelled')}
+          >
+            <span className="my-bookings-tab-label">{c.cancelled}</span>
+            <span className="my-bookings-tab-count">{cancelledList.length}</span>
+          </button>
         </div>
 
         {displayed.length === 0 ? (
           <section className="my-bookings-empty" aria-live="polite">
             <div className="my-bookings-empty-icon" aria-hidden />
-            <p className="my-bookings-empty-title">{filter === 'upcoming' ? c.noUpcoming : c.noPast}</p>
+            <p className="my-bookings-empty-title">
+              {filter === 'upcoming' ? c.noUpcoming : filter === 'past' ? c.noPast : c.noCancelled}
+            </p>
             <Link to={backLink} className="my-bookings-empty-cta">{c.bookCourt}</Link>
           </section>
         ) : (
@@ -793,7 +910,7 @@ const MyBookingsPage = () => {
               {rows.map((r) => (
                 <article
                   key={r.key}
-                  className={`my-bookings-card my-bookings-card-clickable ${r.isTournament ? 'my-bookings-card--tournament' : r.isTraining ? 'my-bookings-card--training' : 'my-bookings-card--court'} ${r.isPaid ? 'my-bookings-card--paid' : 'my-bookings-card--pending'}`}
+                  className={`my-bookings-card my-bookings-card-clickable ${r.isTournament ? 'my-bookings-card--tournament' : r.isTraining ? 'my-bookings-card--training' : 'my-bookings-card--court'} ${r.terminalCancelled ? 'my-bookings-card--cancelled' : r.isPaid ? 'my-bookings-card--paid' : 'my-bookings-card--pending'}`}
                   role="button"
                   tabIndex={0}
                   onClick={() => setDetailRow(r)}
@@ -804,9 +921,11 @@ const MyBookingsPage = () => {
                       <span className={`my-bookings-type-badge ${r.isTournament ? 'my-bookings-type-badge--tournament' : r.isTraining ? 'my-bookings-type-badge--training' : 'my-bookings-type-badge--court'}`}>
                         {r.isTournament ? c.typeTournament : r.isTraining ? c.typeTraining : c.typeCourt}
                       </span>
-                      <span className={`my-bookings-payment-badge ${r.isPaid ? 'my-bookings-payment-badge--paid' : 'my-bookings-payment-badge--pending'}`}>
-                        {r.isPaid ? c.paidLabel : r.tournamentAwaitingClub ? c.tournamentAwaitingClub : c.awaitingPayment}
-                      </span>
+                      {!r.terminalCancelled ? (
+                        <span className={`my-bookings-payment-badge ${r.isPaid ? 'my-bookings-payment-badge--paid' : 'my-bookings-payment-badge--pending'}`}>
+                          {r.isPaid ? c.paidLabel : r.tournamentAwaitingClub ? c.tournamentAwaitingClub : c.awaitingPayment}
+                        </span>
+                      ) : null}
                       <span className={`my-bookings-status ${r.getStatusClass(r.booking.status)}`}>
                         {r.getStatusLabel(r.booking.status)}
                       </span>
@@ -1066,10 +1185,10 @@ const MyBookingsPage = () => {
                       )}
                     </div>
                   )}
-                  {r.isUpcoming && r.club && (
+                  {r.club && (
                     <div className="my-bookings-card-actions" onClick={(e) => e.stopPropagation()}>
                       <Link to={r.clubLink} className="my-bookings-card-link-btn">{c.goToClub}</Link>
-                      {r.canLeaveTournament && (
+                      {filter === 'upcoming' && r.canLeaveTournament && (
                         <button
                           type="button"
                           className="my-bookings-cancel-btn"
@@ -1079,7 +1198,7 @@ const MyBookingsPage = () => {
                           {cancelling === r.booking.id ? '…' : c.leaveTournament}
                         </button>
                       )}
-                      {r.canCancel && (
+                      {filter === 'upcoming' && r.canCancel && (
                         <button
                           type="button"
                           className="my-bookings-cancel-btn"
