@@ -72,9 +72,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     const upcomingL = withDate.filter(
       b => !isTerminalBookingStatus(b.status) && (b.dateStr || '') >= today
     )
-    const pastL = withDate.filter(
-      b => !isTerminalBookingStatus(b.status) && (b.dateStr || '') < today
-    )
+    const pastL = withDate.filter(b => (b.dateStr || '') < today)
     const memberCancelled = [...withDate.filter(b => isMemberCancelledBooking(b))].sort((a, b) =>
       String(b.dateStr || '').localeCompare(String(a.dateStr || ''))
     )
