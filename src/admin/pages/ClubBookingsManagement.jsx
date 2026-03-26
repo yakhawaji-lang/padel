@@ -292,9 +292,9 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       electronic: 'Confirm electronic/card refund was initiated per your bank or gateway? Invoice will be voided.',
     }
     const msgAr = {
-      cash: 'تأكيد تسليم المبلغ نقداً للعميل؟ سجّل الفاتورة كملغاة.',
-      wallet: 'تأكيد إضافة المبلغ لمحفظة العضو؟ سجّل الفاتورة كملغاة.',
-      electronic: 'تأكيد بدء الاسترداد الإلكتروني عبر البنك/البوابة؟ سجّل الفاتورة كملغاة.',
+      cash: 'تأكيد تسليم المبلغ نقداً للعميل؟ ستُلغى فاتورة الحجز وتُعامل كاسترداد.',
+      wallet: 'تأكيد إضافة المبلغ لمحفظة العضو؟ ستُلغى فاتورة الحجز وتُعامل كاسترداد.',
+      electronic: 'تأكيد بدء الاسترداد الإلكتروني عبر البنك/البوابة؟ ستُلغى فاتورة الحجز وتُعامل كاسترداد.',
     }
     const msg = (language === 'en' ? msgEn : msgAr)[ful] || (language === 'en' ? 'Confirm?' : 'تأكيد؟')
     if (!window.confirm(msg)) return
