@@ -226,9 +226,13 @@ export default function MemberBookingActionsModal({ booking, club, platformUser,
                     {quote.cancelFee > 0 ? <span> ({language === 'ar' ? 'بعد خصم' : 'after fee'} {quote.cancelFee})</span> : null}
                   </p>
                   <p className="member-booking-actions-muted" style={{ fontSize: 12 }}>
-                    {language === 'ar'
-                      ? 'بعد الطلب، يؤكد النادي تسليم المبلغ أو إضافته للمحفظة أو إتمام الاسترداد الإلكتروني.'
-                      : 'After you submit, the club will confirm cash payout, wallet credit, or electronic refund.'}
+                    {quote.allowElectronicRefundRoute
+                      ? language === 'ar'
+                        ? 'بعد الطلب، يؤكد النادي تسليم المبلغ أو إضافته للمحفظة أو إتمام الاسترداد الإلكتروني.'
+                        : 'After you submit, the club will confirm cash payout, wallet credit, or electronic refund.'
+                      : language === 'ar'
+                        ? 'بعد الطلب، يؤكد النادي تسليم المبلغ نقداً أو إضافته للمحفظة (الدفع كان في النادي).'
+                        : 'After you submit, the club will confirm cash payout or wallet credit (you paid at the club).'}
                   </p>
                   <div className="member-booking-actions-refund-btns">
                     <button type="button" className="member-booking-actions-secondary" disabled={busy} onClick={() => handleRefund('wallet')}>
@@ -237,9 +241,11 @@ export default function MemberBookingActionsModal({ booking, club, platformUser,
                     <button type="button" className="member-booking-actions-secondary" disabled={busy} onClick={() => handleRefund('cash')}>
                       {c.refundCash}
                     </button>
-                    <button type="button" className="member-booking-actions-secondary" disabled={busy} onClick={() => handleRefund('electronic')}>
-                      {c.refundElectronic}
-                    </button>
+                    {quote.allowElectronicRefundRoute ? (
+                      <button type="button" className="member-booking-actions-secondary" disabled={busy} onClick={() => handleRefund('electronic')}>
+                        {c.refundElectronic}
+                      </button>
+                    ) : null}
                   </div>
                 </>
               ) : !quote.canRequestRefundCancel && (quote.paidAmount || 0) > 0.01 ? (

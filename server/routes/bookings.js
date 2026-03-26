@@ -1642,6 +1642,14 @@ function parseBookingJsonData(raw) {
   }
 }
 
+/** Pay-at-club (cash at venue) — card/bank reversal does not apply. */
+function initiatorUsedElectronicCard(data) {
+  if (!data || typeof data !== 'object') return false
+  const m = (data.initiatorPaymentMethod || data.paymentMethod || '').toString().toLowerCase().trim()
+  if (!m || m === 'at_club' || m === 'pay_at_club' || m === 'cash') return false
+  return ['credit_card', 'mada', 'electronic', 'card', 'online', 'stripe', 'apple_pay', 'google_pay', 'tap', 'hyperpay'].includes(m)
+}
+
 /** GET /api/bookings/wallet-balance?clubId=&memberId= */
 router.get('/wallet-balance', async (req, res) => {
   try {
@@ -1699,6 +1707,7 @@ router.post('/member-self-service-quote', async (req, res) => {
       !['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st)
     const payPrefRaw = (data.initiatorPaymentMethod || data.paymentMethod || '').toString().toLowerCase()
     const initiatorPaymentMethod = payPrefRaw || 'at_club'
+    const allowElectronicRefundRoute = initiatorUsedElectronicCard(data)
     const wb = await walletService.getWalletBalance(clubId, memberId)
 
     res.json({
@@ -1714,6 +1723,7 @@ router.post('/member-self-service-quote', async (req, res) => {
       hoursUntilStart: hoursLeft,
       walletBalance: wb,
       initiatorPaymentMethod,
+      allowElectronicRefundRoute,
     })
   } catch (e) {
     console.error('member-self-service-quote:', e)
@@ -1830,6 +1840,11 @@ router.post('/member-refund-request', async (req, res) => {
     }
     const data = parseBookingJsonData(b.data)
     if (data.type === 'training') return res.status(400).json({ error: 'Not available for training' })
+    if (route === 'electronic' && !initiatorUsedElectronicCard(data)) {
+      return res.status(400).json({
+        error: 'Electronic refund applies only when the booking was paid by card or online.',
+      })
+    }
 
     const settings = await getBookingSettings(clubId)
     const dateYmd = normalizeBookingDateYmd(b.booking_date)
