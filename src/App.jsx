@@ -4999,6 +4999,15 @@ function App({ currentUser }) {
     setAtClubConfirmBookingId(booking.id)
     try {
       const res = await confirmPaidAtClubFull({ bookingId: bookingIdForApi, clubId })
+      const confirmedTotal = accountingBookingTotal(booking)
+      const idSet = new Set([String(bookingIdForApi), String(booking.id)].filter((x) => x && x !== 'undefined'))
+      setLocalBookings((prev) =>
+        prev.map((b) =>
+          idSet.has(String(b.id))
+            ? { ...b, paidAmount: confirmedTotal, paid_amount: confirmedTotal, status: 'confirmed' }
+            : b
+        )
+      )
       await refreshClubsFromApi()
       window.dispatchEvent(new CustomEvent('clubs-synced'))
       reloadAccountingInvoices()

@@ -1095,6 +1095,16 @@ export async function saveClubsToNormalized(items, actor = {}) {
 
     const bookings = club.bookings || []
     const bookingIds = new Set(bookings.map(b => (b?.id != null ? String(b.id) : '')).filter(Boolean))
+    const bidsList = [...bookingIds].filter(Boolean)
+    let dbBookingPayById = new Map()
+    if (bidsList.length > 0) {
+      const ph = bidsList.map(() => '?').join(',')
+      const { rows: payStateRows } = await query(
+        `SELECT id, paid_amount, status FROM club_bookings WHERE club_id = ? AND id IN (${ph}) AND deleted_at IS NULL`,
+        [cid, ...bidsList]
+      )
+      dbBookingPayById = new Map((payStateRows || []).map((r) => [String(r.id), r]))
+    }
     const { rows: existingBookings } = await query('SELECT id FROM club_bookings WHERE club_id=?', [cid])
     for (const eb of existingBookings || []) {
       const eid = eb?.id != null ? String(eb.id) : ''
@@ -1110,13 +1120,26 @@ export async function saveClubsToNormalized(items, actor = {}) {
       const startTime = b.startTime || b.timeSlot || null
       const endTime = b.endTime || b.timeSlot || null
       const totalAmount = parseFloat(b.totalAmount ?? b.price ?? b.amount) || 0
-      const paidAmount = parseFloat(b.paidAmount) || 0
+      let paidAmount = parseFloat(b.paidAmount ?? b.paid_amount) || 0
+      let status = b.status ?? null
+      const dbRow = dbBookingPayById.get(String(bid))
+      const clientSt = String(status || '').toLowerCase()
+      const terminalClient = ['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(clientSt)
+      if (dbRow && !terminalClient) {
+        const exPaid = parseFloat(dbRow.paid_amount) || 0
+        paidAmount = Math.max(paidAmount, exPaid)
+        const exSt = String(dbRow.status || '').toLowerCase()
+        if (exSt === 'confirmed') {
+          status = dbRow.status
+          paidAmount = Math.max(paidAmount, exPaid)
+        }
+      }
       try {
         await query(
           `INSERT INTO club_bookings (id, club_id, court_id, member_id, booking_date, time_slot, start_time, end_time, status, total_amount, paid_amount, initiator_member_id, data, created_by)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE court_id=VALUES(court_id), member_id=VALUES(member_id), booking_date=VALUES(booking_date), time_slot=VALUES(time_slot), start_time=VALUES(start_time), end_time=VALUES(end_time), status=VALUES(status), total_amount=VALUES(total_amount), paid_amount=VALUES(paid_amount), initiator_member_id=VALUES(initiator_member_id), data=VALUES(data), updated_at=NOW(), updated_by=VALUES(updated_by), deleted_at=NULL, deleted_by=NULL`,
-          [bid, cid, b.courtId || null, b.memberId || null, b.date || null, b.timeSlot || null, startTime, endTime, b.status || null, totalAmount, paidAmount, b.initiatorMemberId || b.memberId || null, JSON.stringify(bData), actor.actorId || null]
+          [bid, cid, b.courtId || null, b.memberId || null, b.date || null, b.timeSlot || null, startTime, endTime, status || null, totalAmount, paidAmount, b.initiatorMemberId || b.memberId || null, JSON.stringify(bData), actor.actorId || null]
         )
       } catch (e) {
         if (e?.message?.includes('Unknown column') && (e?.message?.includes('start_time') || e?.message?.includes('total_amount'))) {
@@ -1124,7 +1147,7 @@ export async function saveClubsToNormalized(items, actor = {}) {
             `INSERT INTO club_bookings (id, club_id, court_id, member_id, booking_date, time_slot, status, data, created_by)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE court_id=VALUES(court_id), member_id=VALUES(member_id), booking_date=VALUES(booking_date), time_slot=VALUES(time_slot), status=VALUES(status), data=VALUES(data), updated_at=NOW(), updated_by=VALUES(updated_by), deleted_at=NULL, deleted_by=NULL`,
-            [bid, cid, b.courtId || null, b.memberId || null, b.date || null, b.timeSlot || null, b.status || null, JSON.stringify({ ...bData, startTime, endTime, totalAmount, paidAmount }), actor.actorId || null]
+            [bid, cid, b.courtId || null, b.memberId || null, b.date || null, b.timeSlot || null, status || null, JSON.stringify({ ...bData, startTime, endTime, totalAmount, paidAmount }), actor.actorId || null]
           )
         } else throw e
       }
