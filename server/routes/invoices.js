@@ -2,6 +2,7 @@
  * Club-scoped invoices API (requires clubId query/body).
  */
 import { Router } from 'express'
+import { getActorFromRequest } from '../db/audit.js'
 import { query } from '../db/pool.js'
 import * as invoiceService from '../services/invoiceService.js'
 
@@ -41,6 +42,41 @@ router.get('/', async (req, res) => {
     res.json({ ok: true, invoices: rows || [], invoicingEnabled: true })
   } catch (e) {
     console.error('invoices list error:', e)
+    res.status(500).json({ error: e?.message || 'Database error' })
+  }
+})
+
+/** POST /api/invoices/purge — club or platform admin: hard-delete invoice + lines + payments */
+router.post('/purge', async (req, res) => {
+  try {
+    const { clubId, publicId } = req.body || {}
+    if (!clubId || !publicId) return res.status(400).json({ error: 'clubId and publicId required' })
+    if (!(await invoiceService.invoicingTablesExist())) {
+      return res.status(400).json({ error: 'Invoicing tables not installed' })
+    }
+    const actor = getActorFromRequest(req)
+    const at = String(actor.actorType || '').toLowerCase()
+    if (at === 'club_admin') {
+      if (!actor.clubId || String(actor.clubId) !== String(clubId)) {
+        return res.status(403).json({ error: 'Forbidden' })
+      }
+    } else if (at !== 'platform_admin') {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+    const act = {
+      actorType: actor.actorType || 'system',
+      actorId: actor.actorId,
+      actorName: actor.actorName,
+      clubId: String(clubId),
+      ipAddress: actor.ipAddress,
+    }
+    const r = await invoiceService.purgeInvoiceHard(clubId, publicId, act)
+    if (!r.ok && r.error === 'not_installed') {
+      return res.status(400).json({ error: 'Invoicing not available' })
+    }
+    res.json({ ok: true, missing: !!r.missing })
+  } catch (e) {
+    console.error('invoices purge error:', e)
     res.status(500).json({ error: e?.message || 'Database error' })
   }
 })

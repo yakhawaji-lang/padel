@@ -263,6 +263,9 @@ export const translations = {
     invoiceCreatedShort: 'Invoice issued',
     cancelBookingRow: 'Cancel booking',
     permanentDeleteBooking: 'Delete permanently',
+    permanentDeleteInvoice: 'Delete invoice (permanent)',
+    confirmPurgeInvoice:
+      'Permanently delete this invoice, its line items, and payment records from the database? This cannot be undone.',
   },
   ar: {
     title: 'بطولة هلا بادل',
@@ -528,6 +531,9 @@ export const translations = {
     invoiceCreatedShort: 'أُصدرت الفاتورة',
     cancelBookingRow: 'إلغاء الحجز',
     permanentDeleteBooking: 'حذف نهائي',
+    permanentDeleteInvoice: 'حذف الفاتورة نهائياً',
+    confirmPurgeInvoice:
+      'حذف هذه الفاتورة وبنودها وحركات القبض نهائياً من قاعدة البيانات؟ لا يمكن التراجع.',
   }
 }
 

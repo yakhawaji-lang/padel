@@ -3,6 +3,7 @@
  * Skips silently if migration tables are not present.
  */
 import crypto from 'crypto'
+import { logAudit } from '../db/audit.js'
 import { query, getPool } from '../db/pool.js'
 
 let _tablesCached = null
@@ -179,4 +180,52 @@ export async function issueInvoiceForFullBookingPayment({ clubId, bookingId, amo
     lineDescriptionEn: `Court booking — ${bookingId}`,
     lineDescriptionAr: `حجز ملعب — ${bookingId}`,
   })
+}
+
+/**
+ * Hard-delete invoice: lines, payments, then header (club admin / platform admin only — caller must enforce).
+ */
+export async function purgeInvoiceHard(clubId, publicId, actor = {}) {
+  if (!(await invoicingTablesExist())) return { ok: false, error: 'not_installed' }
+  const cid = String(clubId)
+  const pid = String(publicId)
+  const pool = getPool()
+  if (!pool) return { ok: false, error: 'no_pool' }
+  const conn = await pool.getConnection()
+  try {
+    const [rows] = await conn.execute(
+      'SELECT id, invoice_number FROM club_invoices WHERE public_id = ? AND club_id = ? LIMIT 1',
+      [pid, cid]
+    )
+    if (!rows?.length) return { ok: true, missing: true }
+    const invoiceId = rows[0].id
+    const invNo = rows[0].invoice_number
+    await conn.beginTransaction()
+    await conn.execute('DELETE FROM club_payments WHERE invoice_id = ?', [invoiceId])
+    await conn.execute('DELETE FROM club_invoice_lines WHERE invoice_id = ?', [invoiceId])
+    await conn.execute('DELETE FROM club_invoices WHERE id = ? AND club_id = ?', [invoiceId, cid])
+    await conn.commit()
+    await logAudit({
+      tableName: 'club_invoices',
+      recordId: String(invoiceId),
+      action: 'DELETE',
+      actorType: actor.actorType || 'system',
+      actorId: actor.actorId,
+      actorName: actor.actorName,
+      clubId: cid,
+      oldValue: { public_id: pid, invoice_number: invNo },
+      ipAddress: actor.ipAddress,
+    })
+    return { ok: true }
+  } catch (e) {
+    try {
+      await conn.rollback()
+    } catch {
+      /* ignore */
+    }
+    console.error('[invoiceService] purgeInvoiceHard', e?.message)
+    throw e
+  } finally {
+    conn.release()
+  }
 }

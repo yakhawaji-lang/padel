@@ -4026,6 +4026,20 @@ button:active {
   margin: 8px 0;
 }
 
+.club-invoices-table .club-invoice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.invoice-detail-modal__head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .invoice-detail-backdrop {
   position: fixed;
   inset: 0;

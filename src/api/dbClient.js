@@ -41,6 +41,7 @@ function needsDataActorHeaders(path, method) {
   const m = method || 'GET'
   if (path.startsWith('/api/data') && (m === 'POST' || m === 'PUT')) return true
   if (m === 'POST' && path === '/api/bookings/admin-purge') return true
+  if (m === 'POST' && path === '/api/invoices/purge') return true
   return false
 }
 
@@ -669,6 +670,14 @@ export async function fetchClubInvoices(clubId, { from, to, limit = 100, offset 
 export async function fetchClubInvoiceDetail(clubId, publicId) {
   const q = new URLSearchParams({ clubId: String(clubId) })
   return fetchJson(`/api/invoices/${encodeURIComponent(publicId)}?${q}`)
+}
+
+/** Club staff: permanently delete invoice row and related lines/payments in DB */
+export async function adminPurgeClubInvoice({ clubId, publicId }) {
+  return fetchJson('/api/invoices/purge', {
+    method: 'POST',
+    body: JSON.stringify({ clubId, publicId }),
+  })
 }
 
 // ---- Phone change verification ----

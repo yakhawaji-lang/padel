@@ -16,7 +16,14 @@ import {
   deleteMatchesByDateAndType
 } from './storage'
 import { loadClubs, getClubById, saveClubs, upsertMember, addMemberToClub, deleteMember, refreshClubsFromApi } from './storage/adminStorage'
-import { fetchClubInvoices, fetchClubInvoiceDetail, confirmPaidAtClubFull, adminPurgeBooking, cancelBooking as apiCancelBooking } from './api/dbClient'
+import {
+  fetchClubInvoices,
+  fetchClubInvoiceDetail,
+  confirmPaidAtClubFull,
+  adminPurgeBooking,
+  adminPurgeClubInvoice,
+  cancelBooking as apiCancelBooking,
+} from './api/dbClient'
 import { getClubAdminSession } from './storage/clubAuth'
 import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import LanguageIcon from './components/LanguageIcon'
@@ -454,6 +461,7 @@ function App({ currentUser }) {
   const [invoiceDetail, setInvoiceDetail] = useState(null)
   const [atClubConfirmBookingId, setAtClubConfirmBookingId] = useState(null)
   const [accountingDeleteBusy, setAccountingDeleteBusy] = useState(null) // 'cancel:id' | 'purge:id'
+  const [invoicePurgeBusy, setInvoicePurgeBusy] = useState(null) // public_id
   const isInitialMount = useRef(true) // Track if this is the first mount
   const isSavingRef = useRef(false) // Prevent save loops
   
@@ -5089,6 +5097,21 @@ function App({ currentUser }) {
     }
   }
 
+  const handlePurgeClubInvoice = async (publicId) => {
+    if (!clubId || !publicId) return
+    if (!window.confirm(t.confirmPurgeInvoice)) return
+    setInvoicePurgeBusy(publicId)
+    try {
+      await adminPurgeClubInvoice({ clubId, publicId })
+      setInvoiceDetail((cur) => (cur?.invoice?.public_id === publicId ? null : cur))
+      reloadAccountingInvoices()
+    } catch (e) {
+      window.alert(e?.message || (language === 'en' ? 'Could not delete invoice.' : 'تعذّر حذف الفاتورة.'))
+    } finally {
+      setInvoicePurgeBusy(null)
+    }
+  }
+
   // Accounting helper functions
   const getFilteredBookings = () => {
     let filtered = [...bookings]
@@ -7555,10 +7578,11 @@ function App({ currentUser }) {
                               </td>
                               <td>{[inv.customer_name, inv.customer_phone].filter(Boolean).join(' · ') || '—'}</td>
                               <td>{inv.source_type ? `${inv.source_type}${inv.source_ref ? ` (${inv.source_ref})` : ''}` : '—'}</td>
-                              <td>
+                              <td className="club-invoice-actions">
                                 <button
                                   type="button"
                                   className="btn-secondary btn-small"
+                                  disabled={!!invoicePurgeBusy}
                                   onClick={() => {
                                     fetchClubInvoiceDetail(clubId, inv.public_id)
                                       .then(setInvoiceDetail)
@@ -7566,6 +7590,16 @@ function App({ currentUser }) {
                                   }}
                                 >
                                   {t.viewDetails}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-danger btn-small"
+                                  disabled={!!invoicePurgeBusy}
+                                  onClick={() => handlePurgeClubInvoice(inv.public_id)}
+                                >
+                                  {invoicePurgeBusy === inv.public_id
+                                    ? '…'
+                                    : t.permanentDeleteInvoice}
                                 </button>
                               </td>
                             </tr>
@@ -7590,13 +7624,27 @@ function App({ currentUser }) {
                     >
                       <div className="invoice-detail-modal__head">
                         <h4>{invoiceDetail.invoice?.invoice_number}</h4>
-                        <button
-                          type="button"
-                          className="btn-secondary btn-small"
-                          onClick={() => setInvoiceDetail(null)}
-                        >
-                          {t.cancel}
-                        </button>
+                        <div className="invoice-detail-modal__head-actions">
+                          <button
+                            type="button"
+                            className="btn-danger btn-small"
+                            disabled={!!invoicePurgeBusy}
+                            onClick={() =>
+                              handlePurgeClubInvoice(invoiceDetail.invoice?.public_id)
+                            }
+                          >
+                            {invoicePurgeBusy === invoiceDetail.invoice?.public_id
+                              ? '…'
+                              : t.permanentDeleteInvoice}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-secondary btn-small"
+                            onClick={() => setInvoiceDetail(null)}
+                          >
+                            {t.cancel}
+                          </button>
+                        </div>
                       </div>
                       <p className="invoice-detail-modal__meta">
                         {t.totalAmount}:{' '}
