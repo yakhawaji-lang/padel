@@ -104,7 +104,7 @@ export async function hasConflict(clubId, courtId, date, startTime, endTime, exc
 
   let sql = `SELECT id, booking_date, start_time, end_time, time_slot FROM club_bookings 
      WHERE club_id = ? AND court_id = ? AND booking_date IN (?, ?, ?) AND deleted_at IS NULL
-     AND status IN (?, ?, ?, ?, ?)`
+     AND status IN (?, ?, ?, ?, ?, ?)`
   const params = [clubId, courtId, ...datesIn, ...STATUS_ACTIVE]
   if (excludeBookingId) {
     sql += ' AND id != ?'
