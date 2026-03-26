@@ -38,8 +38,8 @@ function getBookingDisplayProps({ booking, club, memberId }, language) {
   const isTraining = !isTournament && (booking?.type === 'training' || booking?.data?.type === 'training')
   const st = (booking?.status || '').toString()
   const isAwaitingRefundAck = st === 'cancelled_awaiting_refund_ack'
-  let isPaid = ['confirmed'].includes(st) && !isAwaitingRefundAck
-  let isPendingPayment = ['pending_payment', 'pending_payments', 'partially_paid', 'initiated', 'locked'].includes(st)
+  let isPaid = false
+  let isPendingPayment = false
   let tournamentEntry = null
   let tournamentAwaitingClub = false
   if (isTournament && memberId) {
@@ -48,6 +48,38 @@ function getBookingDisplayProps({ booking, club, memberId }, language) {
     isPaid = memberPaymentDone
     isPendingPayment = !memberPaymentDone && !['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st)
     tournamentAwaitingClub = !!(tournamentEntry && tournamentEntry.paymentMethod === 'at_club' && !tournamentEntry.clubReceived && !tournamentEntry.memberAck)
+  } else if (!isTournament) {
+    const shares = Array.isArray(booking?.paymentShares) ? booking.paymentShares : []
+    const total =
+      parseFloat(booking.totalAmount ?? booking.total_amount ?? booking.amount ?? booking.price ?? 0) || 0
+    const paid = parseFloat(booking.paidAmount ?? booking.paid_amount ?? 0) || 0
+    if (shares.length > 0) {
+      const paidSum = shares.reduce(
+        (s, sh) =>
+          s +
+          ((sh.paidAt || sh.paid_at) && !(sh.refundedAt || sh.refunded_at) ? parseFloat(sh.amount) || 0 : 0),
+        0
+      )
+      const activeSum = shares.reduce(
+        (s, sh) => s + (!(sh.removedAt || sh.removed_at) ? parseFloat(sh.amount) || 0 : 0),
+        0
+      )
+      const refTotal = total > 0.01 ? total : activeSum
+      isPaid = !isAwaitingRefundAck && refTotal > 0.01 && paidSum >= refTotal - 0.02
+      isPendingPayment =
+        !['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st) &&
+        (!isPaid || ['pending_payments', 'partially_paid', 'pending_payment', 'initiated', 'locked'].includes(st))
+    } else if (isAwaitingRefundAck || ['cancelled', 'expired'].includes(st)) {
+      isPaid = false
+      isPendingPayment = false
+    } else if (total <= 0.01) {
+      isPaid = ['confirmed'].includes(st)
+      isPendingPayment = ['pending_payment', 'pending_payments', 'partially_paid', 'initiated', 'locked'].includes(st)
+    } else {
+      isPaid = paid >= total - 0.02
+      isPendingPayment =
+        !isPaid || ['pending_payment', 'pending_payments', 'partially_paid', 'initiated', 'locked'].includes(st)
+    }
   }
   return {
     dateStr,

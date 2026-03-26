@@ -634,6 +634,14 @@ export async function completePayment({ bookingId, clubId }) {
   })
 }
 
+/** Club staff: full booking paid at club — confirm cash received, mark paid, issue invoice */
+export async function confirmPaidAtClubFull({ bookingId, clubId }) {
+  return fetchJson('/api/bookings/confirm-paid-at-club-full', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId }),
+  })
+}
+
 /** قائمة فواتير النادي (يتطلب تهجير جداول الفوترة على السيرفر) */
 export async function fetchClubInvoices(clubId, { from, to, limit = 100, offset = 0 } = {}) {
   const q = new URLSearchParams({ clubId: String(clubId) })

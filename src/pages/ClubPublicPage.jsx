@@ -1277,6 +1277,8 @@ const ClubPublicPage = () => {
           status: res?.status || 'confirmed',
           totalAmount: priceResult.price,
           paidAmount: (isSplit || isPendingPayment) ? 0 : priceResult.price,
+          ...(isSplit && { initiatorPaymentMethod: paymentMethod || 'at_club' }),
+          ...(!isSplit && payAtClub ? { paymentMethod: 'at_club', initiatorPaymentMethod: 'at_club' } : {}),
           ...(isSplit && { paymentDeadlineAt: new Date(Date.now() + mins * 60 * 1000).toISOString() })
         }
         const existing = Array.isArray(prev.bookings) ? prev.bookings : []

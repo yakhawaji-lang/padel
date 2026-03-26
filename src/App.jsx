@@ -16,7 +16,7 @@ import {
   deleteMatchesByDateAndType
 } from './storage'
 import { loadClubs, getClubById, saveClubs, upsertMember, addMemberToClub, deleteMember, refreshClubsFromApi } from './storage/adminStorage'
-import { fetchClubInvoices, fetchClubInvoiceDetail } from './api/dbClient'
+import { fetchClubInvoices, fetchClubInvoiceDetail, confirmPaidAtClubFull } from './api/dbClient'
 import { getClubAdminSession } from './storage/clubAuth'
 import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import LanguageIcon from './components/LanguageIcon'
@@ -38,6 +38,49 @@ function getBookingCalendarKind(booking) {
   const d = booking.data && typeof booking.data === 'object' ? booking.data : {}
   if ((booking.type || d.type || '').toString().toLowerCase() === 'training') return 'training'
   return 'court'
+}
+
+function bookingJsonData(booking) {
+  const d = booking?.data
+  if (d && typeof d === 'object') return d
+  if (typeof d === 'string') {
+    try {
+      return JSON.parse(d)
+    } catch {
+      return {}
+    }
+  }
+  return {}
+}
+
+function accountingBookingTotal(booking) {
+  return parseFloat(booking?.totalAmount ?? booking?.total_amount ?? booking?.amount ?? 0) || 0
+}
+
+function accountingPrimaryPaymentMethodRaw(booking) {
+  const shares = Array.isArray(booking?.paymentShares) ? booking.paymentShares : []
+  const jd = bookingJsonData(booking)
+  if (shares.length > 0) {
+    return (
+      booking.initiatorPaymentMethod ||
+      jd.initiatorPaymentMethod ||
+      booking.paymentMethod ||
+      jd.paymentMethod ||
+      shares[0]?.paymentMethod ||
+      'credit_card'
+    ).toString()
+  }
+  return (booking.initiatorPaymentMethod || jd.initiatorPaymentMethod || booking.paymentMethod || jd.paymentMethod || 'at_club').toString()
+}
+
+function accountingPaymentMethodLabel(raw, t) {
+  const k = (raw || '').toString().toLowerCase().replace(/-/g, '_')
+  if (k === 'at_club') return t.atClubPayment
+  if (k === 'credit_card') return t.card
+  if (k === 'mada') return t.mada
+  if (k === 'wallet') return t.wallet
+  if (k === 'electronic') return t.electronicPayment
+  return raw || '—'
 }
 
 /** Per-member row in team.memberTournamentPayments */
@@ -330,6 +373,7 @@ function App({ currentUser }) {
   const [clubInvoices, setClubInvoices] = useState([])
   const [invoicesPanel, setInvoicesPanel] = useState({ loading: false, error: null, enabled: true })
   const [invoiceDetail, setInvoiceDetail] = useState(null)
+  const [atClubConfirmBookingId, setAtClubConfirmBookingId] = useState(null)
   const isInitialMount = useRef(true) // Track if this is the first mount
   const isSavingRef = useRef(false) // Prevent save loops
   
@@ -4816,39 +4860,98 @@ function App({ currentUser }) {
     if (booking.isTournament) return 'paid'
 
     const shares = Array.isArray(booking.paymentShares) ? booking.paymentShares : []
-    const total = parseFloat(booking.totalAmount ?? booking.total_amount ?? booking.amount ?? 0) || 0
+    const total = accountingBookingTotal(booking)
 
     if (shares.length > 0) {
-      const paidSum = shares.reduce((s, sh) => s + (sh.paidAt ? (parseFloat(sh.amount) || 0) : 0), 0)
+      const paidSum = shares.reduce(
+        (s, sh) => s + ((sh.paidAt || sh.paid_at) && !(sh.refundedAt || sh.refunded_at) ? (parseFloat(sh.amount) || 0) : 0),
+        0
+      )
       if (total > 0.01 && paidSum >= total - 0.02) return 'paid'
       if (paidSum > 0.01) return 'partially_paid'
       return 'not_paid'
     }
 
-    const st = (booking.status || '').toString()
-    if (st === 'partially_paid') return 'partially_paid'
-    if (['pending_payment', 'pending_payments', 'initiated', 'locked'].includes(st)) return 'not_paid'
-    if (st === 'confirmed') return 'paid'
+    const st = (booking.status || '').toString().toLowerCase()
     if (['cancelled', 'expired'].includes(st)) return 'not_paid'
+    if (st === 'partially_paid') return 'partially_paid'
 
-    if (!booking.amount || booking.amount === '' || parseFloat(booking.amount) === 0) {
+    const paidDb = parseFloat(booking.paidAmount ?? booking.paid_amount ?? 0) || 0
+    if (total > 0.01) {
+      if (paidDb >= total - 0.02) return 'paid'
+      if (paidDb > 0.01) return 'partially_paid'
       return 'not_paid'
     }
 
-    const totalAmount = parseFloat(booking.amount) || 0
-    if (totalAmount === 0) return 'not_paid'
+    if (st === 'confirmed') return 'paid'
+    return 'not_paid'
+  }
 
-    const totalPaid = (booking.participants || []).reduce((sum, p) => {
-      const participant = typeof p === 'object' ? p : { amount: '', paid: false }
-      if (participant.paid) {
-        return sum + (parseFloat(participant.amount) || 0)
+  const reloadAccountingInvoices = () => {
+    if (!clubId) return
+    fetchClubInvoices(clubId, {
+      from: accountingDateFrom || undefined,
+      to: accountingDateTo || undefined,
+      limit: 150,
+    })
+      .then((data) => {
+        setClubInvoices(data.invoices || [])
+        setInvoicesPanel({
+          loading: false,
+          error: null,
+          enabled: data.invoicingEnabled !== false,
+        })
+      })
+      .catch((e) => setInvoicesPanel({ loading: false, error: e?.message || 'Error', enabled: true }))
+  }
+
+  const handleConfirmAtClubFullBooking = async (booking) => {
+    if (!clubId || !booking?.id) return
+    const ok = window.confirm(
+      language === 'en'
+        ? 'Confirm you received the full payment at the club? An invoice will be created if invoicing is enabled.'
+        : 'تأكيد استلام كامل المبلغ في النادي؟ ستُنشأ فاتورة إن كانت الفوترة مفعّلة.'
+    )
+    if (!ok) return
+    setAtClubConfirmBookingId(booking.id)
+    try {
+      const res = await confirmPaidAtClubFull({ bookingId: booking.id, clubId })
+      await refreshClubsFromApi()
+      window.dispatchEvent(new CustomEvent('clubs-synced'))
+      reloadAccountingInvoices()
+      const invNo = res?.invoice?.invoiceNumber
+      const base =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}${(import.meta.env.BASE_URL || '/').replace(/\/$/, '') || ''}`
+          : ''
+      const myBook = `${base}/my-bookings?from=${encodeURIComponent(String(clubId))}`
+      if (invNo && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        const msg =
+          language === 'en'
+            ? `Invoice ${invNo} is ready for your booking. View it in My bookings: ${myBook}`
+            : `فاتورتك ${invNo} جاهزة للحجز. اطلع عليها من حجوزاتي: ${myBook}`
+        try {
+          await navigator.clipboard.writeText(msg)
+          window.alert(
+            language === 'en'
+              ? `${t.invoiceCreatedShort}: ${invNo}. Message copied — paste in WhatsApp to send to the member.`
+              : `${t.invoiceCreatedShort}: ${invNo}. تم نسخ الرسالة — الصقها في واتساب لإرسالها للعضو.`
+          )
+        } catch {
+          window.alert(
+            language === 'en'
+              ? `${t.invoiceCreatedShort}: ${invNo}`
+              : `${t.invoiceCreatedShort}: ${invNo}`
+          )
+        }
+      } else if (invNo) {
+        window.alert(language === 'en' ? `${t.invoiceCreatedShort}: ${invNo}` : `${t.invoiceCreatedShort}: ${invNo}`)
       }
-      return sum
-    }, 0)
-
-    if (totalPaid === 0) return 'not_paid'
-    if (totalPaid >= totalAmount) return 'paid'
-    return 'partially_paid'
+    } catch (e) {
+      window.alert(e?.message || (language === 'en' ? 'Could not confirm payment.' : 'تعذّر تأكيد الدفع.'))
+    } finally {
+      setAtClubConfirmBookingId(null)
+    }
   }
 
   // Accounting helper functions
@@ -4877,7 +4980,19 @@ function App({ currentUser }) {
   }
 
   const calculateTotalPaid = (booking) => {
-    if (!booking || !booking.participants) return 0
+    if (!booking) return 0
+    if (booking.isTournament) return parseFloat(booking.amount) || 0
+    const shares = Array.isArray(booking.paymentShares) ? booking.paymentShares : []
+    if (shares.length > 0) {
+      return shares.reduce((sum, sh) => {
+        if ((sh.paidAt || sh.paid_at) && !(sh.refundedAt || sh.refunded_at)) {
+          return sum + (parseFloat(sh.amount) || 0)
+        }
+        return sum
+      }, 0)
+    }
+    const fromDb = parseFloat(booking.paidAmount ?? booking.paid_amount)
+    if (!Number.isNaN(fromDb)) return fromDb
     return (booking.participants || []).reduce((sum, p) => {
       const participant = typeof p === 'object' ? p : { amount: '', paid: false }
       return participant.paid ? sum + (parseFloat(participant.amount) || 0) : sum
@@ -4923,24 +5038,28 @@ function App({ currentUser }) {
     let totalPaid = 0
     let totalPending = 0
     let totalUnpaid = 0
-    
+
     filtered.forEach(booking => {
-      const amount = parseFloat(booking.amount) || 0
+      if (booking.isTournament) {
+        const amount = parseFloat(booking.amount) || 0
+        totalIncome += amount
+        totalPaid += amount
+        return
+      }
+      const amount = accountingBookingTotal(booking)
       totalIncome += amount
-      
       const paidAmount = calculateTotalPaid(booking)
       totalPaid += paidAmount
-      const remaining = amount - paidAmount
-      
-      if (paidAmount >= amount && amount > 0) {
-        // Fully paid
-      } else if (paidAmount > 0) {
+      const remaining = Math.max(0, amount - paidAmount)
+      if (amount > 0.01 && paidAmount >= amount - 0.02) {
+        // fully paid
+      } else if (amount > 0.01 && paidAmount > 0.01) {
         totalPending += remaining
-      } else {
+      } else if (amount > 0.01) {
         totalUnpaid += amount
       }
     })
-    
+
     return { totalIncome, totalPaid, totalPending, totalUnpaid }
   }
 
@@ -4961,11 +5080,8 @@ function App({ currentUser }) {
     csv += `${language === 'en' ? 'Date' : 'التاريخ'},${language === 'en' ? 'Time' : 'الوقت'},${language === 'en' ? 'Court' : 'الملعب'},${language === 'en' ? 'Total Amount' : 'المبلغ الإجمالي'},${language === 'en' ? 'Paid Amount' : 'المبلغ المدفوع'},${language === 'en' ? 'Remaining' : 'المتبقي'},${language === 'en' ? 'Status' : 'الحالة'},${language === 'en' ? 'Participants' : 'المشاركون'}\n`
     
     filtered.forEach(booking => {
-      const amount = parseFloat(booking.amount) || 0
-      const paidAmount = (booking.participants || []).reduce((sum, p) => {
-        const participant = typeof p === 'object' ? p : { amount: '', paid: false }
-        return participant.paid ? sum + (parseFloat(participant.amount) || 0) : sum
-      }, 0)
+      const amount = booking.isTournament ? parseFloat(booking.amount) || 0 : accountingBookingTotal(booking)
+      const paidAmount = calculateTotalPaid(booking)
       const remaining = amount - paidAmount
       const status = getPaymentStatus(booking)
       const statusLabel = status === 'paid' ? (language === 'en' ? 'Paid' : 'مدفوع') 
@@ -7426,11 +7542,21 @@ function App({ currentUser }) {
                           </thead>
                           <tbody>
                             {filtered.map(booking => {
-                              const totalAmount = parseFloat(booking.amount || 0)
+                              const totalAmount = booking.isTournament
+                                ? parseFloat(booking.amount || 0)
+                                : accountingBookingTotal(booking)
                               const paidAmount = calculateTotalPaid(booking)
-                              const remainingAmount = totalAmount - paidAmount
+                              const remainingAmount = Math.max(0, totalAmount - paidAmount)
                               const status = getPaymentStatus(booking)
-                              
+                              const shares = Array.isArray(booking.paymentShares) ? booking.paymentShares : []
+                              const pmRaw = accountingPrimaryPaymentMethodRaw(booking)
+                              const stLow = (booking.status || '').toString().toLowerCase()
+                              const canConfirmAtClubFull =
+                                !booking.isTournament &&
+                                shares.length === 0 &&
+                                stLow === 'pending_payment' &&
+                                (pmRaw || '').toString().toLowerCase() === 'at_club'
+
                               return (
                                 <tr key={booking.id}>
                                   <td>{booking.id}</td>
@@ -7441,18 +7567,7 @@ function App({ currentUser }) {
                                   <td>{paidAmount.toFixed(2)}</td>
                                   <td>{remainingAmount.toFixed(2)}</td>
                                   <td>
-                                    {booking.participants && booking.participants.length > 0 ? (
-                                      booking.participants.slice(0, 2).map((p, idx) => {
-                                        const participant = typeof p === 'object' ? p : { paymentMethod: 'card' }
-                                        return (
-                                          <span key={idx} className="payment-method-tag">
-                                            {t[participant.paymentMethod] || participant.paymentMethod}
-                                          </span>
-                                        )
-                                      })
-                                    ) : (
-                                      <span className="payment-method-tag">{t.card}</span>
-                                    )}
+                                    <span className="payment-method-tag">{accountingPaymentMethodLabel(pmRaw, t)}</span>
                                   </td>
                                   <td>
                                     <span className={`status-badge ${status}`}>
@@ -7460,15 +7575,30 @@ function App({ currentUser }) {
                                     </span>
                                   </td>
                                   <td>
-                                    <button 
-                                      className="btn-secondary btn-small"
-                                      onClick={() => {
-                                        setBookingFormData(booking)
-                                        setShowBookingModal(true)
-                                      }}
-                                    >
-                                      {t.viewDetails}
-                                    </button>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
+                                      {canConfirmAtClubFull && (
+                                        <button
+                                          type="button"
+                                          className="btn-primary btn-small"
+                                          disabled={atClubConfirmBookingId === booking.id}
+                                          onClick={() => handleConfirmAtClubFullBooking(booking)}
+                                        >
+                                          {atClubConfirmBookingId === booking.id
+                                            ? '…'
+                                            : t.confirmCashReceived}
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        className="btn-secondary btn-small"
+                                        onClick={() => {
+                                          setBookingFormData(booking)
+                                          setShowBookingModal(true)
+                                        }}
+                                      >
+                                        {t.viewDetails}
+                                      </button>
+                                    </div>
                                   </td>
                                 </tr>
                               )

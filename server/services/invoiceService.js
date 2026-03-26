@@ -161,8 +161,9 @@ export async function issueInvoiceForPaidShare({
   })
 }
 
-export async function issueInvoiceForFullBookingPayment({ clubId, bookingId, amount, currency, memberId, memberName }) {
+export async function issueInvoiceForFullBookingPayment({ clubId, bookingId, amount, currency, memberId, memberName, paymentMethod = 'electronic' }) {
   const idem = `cbf:${clubId}:${bookingId}:full`
+  const method = (paymentMethod || 'electronic').toString()
   return issuePaidInvoice({
     clubId,
     currency: currency || 'SAR',
@@ -173,7 +174,7 @@ export async function issueInvoiceForFullBookingPayment({ clubId, bookingId, amo
     sourceType: 'booking_full',
     sourceRef: String(bookingId),
     idempotencyKey: idem,
-    paymentMethod: 'electronic',
+    paymentMethod: method === 'at_club' ? 'at_club' : 'electronic',
     externalRef: null,
     lineDescriptionEn: `Court booking — ${bookingId}`,
     lineDescriptionAr: `حجز ملعب — ${bookingId}`,

@@ -65,7 +65,10 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
   const isParticipantWithShare = !!userShare && !userShare.paidAt && !needsRefundAck
   const chosePayAtClub = userShare && userShare.paymentMethod === 'at_club' && !userShare.paidAt
   const hasShares = paymentShares.length > 0
-  const initiatorChosePayAtClub = !hasShares && (booking?.initiatorPaymentMethod === 'at_club' || booking?.data?.initiatorPaymentMethod === 'at_club')
+  const initiatorChosePayAtClub =
+    !hasShares &&
+    (norm(booking?.initiatorPaymentMethod || booking?.data?.initiatorPaymentMethod) === 'at_club' ||
+      norm(booking?.paymentMethod || booking?.data?.paymentMethod) === 'at_club')
 
   useEffect(() => {
     if (!isParticipantWithShare || userShare?.inviteToken || !club?.id || !booking?.id || !platformUser?.id) return
@@ -227,6 +230,8 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       paid: 'Paid',
       pending: 'Pending',
       waitingConfirm: 'Waiting for club confirmation',
+      payAtClubPendingHint:
+        'You chose to pay at the club. The desk will confirm when they receive your payment; you do not need to tap pay again.',
       participants: 'Participants',
       addShare: 'Add participant',
       close: 'Close',
@@ -258,6 +263,8 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       paid: 'مدفوع',
       pending: 'قيد الانتظار',
       waitingConfirm: 'بانتظار التأكيد من النادي',
+      payAtClubPendingHint:
+        'اخترتَ الدفع في النادي. سيؤكد الاستقبال عند استلام المبلغ؛ لا حاجة للضغط على الدفع مرة أخرى.',
       participants: 'المشاركون',
       addShare: 'إضافة مشارك',
       close: 'إغلاق',
@@ -290,6 +297,11 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
               <p className="booking-detail-customer">{c.tournamentYourShare}: {tournamentFee} {currency}</p>
             )}
             {!isTournamentBooking && totalAmount > 0 && <p>{totalAmount} {currency}</p>}
+            {status === 'pending_payment' && initiatorChosePayAtClub && (
+              <p className="booking-detail-atclub-pending-hint" style={{ marginTop: 8, fontSize: '0.9rem', color: '#64748b' }}>
+                {c.payAtClubPendingHint}
+              </p>
+            )}
           </div>
 
             {needsRefundAck && club?.id && (

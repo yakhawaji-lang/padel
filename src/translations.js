@@ -254,6 +254,13 @@ export const translations = {
     invoiceLines: 'Line items',
     invoicePayments: 'Payments recorded',
     noAccountingRecords: 'No accounting records match your filters.',
+    atClubPayment: 'At club',
+    mada: 'Mada',
+    wallet: 'Wallet',
+    electronicPayment: 'Electronic',
+    confirmCashReceived: 'Confirm payment received',
+    copyInvoiceWhatsapp: 'Copy message (WhatsApp)',
+    invoiceCreatedShort: 'Invoice issued',
   },
   ar: {
     title: 'بطولة هلا بادل',
@@ -510,6 +517,13 @@ export const translations = {
     invoiceLines: 'البنود',
     invoicePayments: 'حركات القبض',
     noAccountingRecords: 'لا توجد سجلات محاسبية تطابق التصفية.',
+    atClubPayment: 'في النادي',
+    mada: 'مدى',
+    wallet: 'المحفظة',
+    electronicPayment: 'إلكتروني',
+    confirmCashReceived: 'تأكيد استلام الدفع',
+    copyInvoiceWhatsapp: 'نسخ رسالة (واتساب)',
+    invoiceCreatedShort: 'أُصدرت الفاتورة',
   }
 }
 

@@ -7,7 +7,7 @@ import { query } from './pool.js'
 import crypto from 'crypto'
 
 const LOCK_MINUTES_DEFAULT = 10
-const STATUS_ACTIVE = ['initiated', 'locked', 'pending_payments', 'partially_paid', 'confirmed']
+const STATUS_ACTIVE = ['initiated', 'locked', 'pending_payments', 'pending_payment', 'partially_paid', 'confirmed']
 
 function addDaysStr(isoDate, deltaDays) {
   const [y, m, d] = (isoDate || '').toString().split('-').map(Number)

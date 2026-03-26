@@ -283,6 +283,49 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     }
   }
 
+  const handleConfirmPaidAtClubFull = async (b) => {
+    if (!club?.id || !b?.id) return
+    const ok = window.confirm(
+      language === 'en'
+        ? 'Confirm you received the full payment at the club? An invoice will be created if invoicing is enabled.'
+        : 'تأكيد استلام كامل المبلغ في النادي؟ ستُنشأ فاتورة إن كانت الفوترة مفعّلة.'
+    )
+    if (!ok) return
+    setActionLoading('confirm-atclub-' + b.id)
+    try {
+      const res = await bookingApi.confirmPaidAtClubFull({ bookingId: b.id, clubId: club.id })
+      const invNo = res?.invoice?.invoiceNumber
+      const base =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}${(import.meta.env.BASE_URL || '/').replace(/\/$/, '') || ''}`
+          : ''
+      const myBook = `${base}/my-bookings?from=${encodeURIComponent(String(club.id))}`
+      if (invNo && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        const msg =
+          language === 'en'
+            ? `Invoice ${invNo} is ready for your booking. View it in My bookings: ${myBook}`
+            : `فاتورتك ${invNo} جاهزة للحجز. اطلع عليها من حجوزاتي: ${myBook}`
+        try {
+          await navigator.clipboard.writeText(msg)
+          window.alert(
+            language === 'en'
+              ? `Invoice ${invNo} was created. A WhatsApp message was copied — paste it to send to the member.`
+              : `أُنشئت الفاتورة ${invNo}. تم نسخ رسالة واتساب — الصقها لإرسالها للعضو.`
+          )
+        } catch {
+          window.alert(language === 'en' ? `Invoice ${invNo} was created.` : `أُنشئت الفاتورة ${invNo}.`)
+        }
+      } else if (invNo) {
+        window.alert(language === 'en' ? `Invoice ${invNo} was created.` : `أُنشئت الفاتورة ${invNo}.`)
+      }
+      refreshFromServer()
+    } catch (e) {
+      window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const handlePermanentDelete = async (bookingId) => {
     if (!window.confirm(language === 'en'
       ? 'Permanently delete from database? This cannot be undone.'
@@ -719,7 +762,13 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                 <div className="booking-payment-detail-item">
                                   <span className="booking-payment-detail-label">{c.paymentMethod}</span>
                                   <span className="booking-payment-detail-value">
-                                    {getPaymentMethodLabel(b.paymentMethod)}
+                                    {getPaymentMethodLabel(
+                                      b.initiatorPaymentMethod ||
+                                        b.paymentMethod ||
+                                        (b.data && typeof b.data === 'object'
+                                          ? (b.data.initiatorPaymentMethod || b.data.paymentMethod)
+                                          : undefined)
+                                    )}
                                   </span>
                                 </div>
                               )}
@@ -730,6 +779,42 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                 </span>
                               </div>
                             </div>
+                            {(() => {
+                              const singleM = (
+                                b.initiatorPaymentMethod ||
+                                b.paymentMethod ||
+                                (b.data && typeof b.data === 'object'
+                                  ? (b.data.initiatorPaymentMethod || b.data.paymentMethod)
+                                  : '') ||
+                                ''
+                              ).toString()
+                              const isAtClubFullPending =
+                                !hasShares &&
+                                (status || '').toString() === 'pending_payment' &&
+                                singleM.toLowerCase() === 'at_club'
+                              if (!isAtClubFullPending) return null
+                              return (
+                                <div className="booking-atclub-confirm-bar" style={{ marginTop: 12 }}>
+                                  <p className="booking-atclub-confirm-hint" style={{ margin: '0 0 8px', fontSize: '0.9rem', color: '#64748b' }}>
+                                    {language === 'en'
+                                      ? 'The booker will pay at the club. When you receive the money at the desk, confirm here to mark the booking paid and issue the invoice.'
+                                      : 'الحاجز سيدفع في النادي. عند استلام المبلغ في الاستقبال، أكّد هنا لتسجيل الدفع وإصدار الفاتورة.'}
+                                  </p>
+                                  <button
+                                    type="button"
+                                    className="booking-payment-mark-paid-btn"
+                                    disabled={actionLoading === 'confirm-atclub-' + b.id}
+                                    onClick={() => handleConfirmPaidAtClubFull(b)}
+                                  >
+                                    {actionLoading === 'confirm-atclub-' + b.id
+                                      ? '…'
+                                      : language === 'en'
+                                        ? 'Confirm payment received'
+                                        : 'تأكيد استلام الدفع'}
+                                  </button>
+                                </div>
+                              )
+                            })()}
                             {hasShares && (
                               <div className="booking-payment-shares">
                                 <h5 className="booking-payment-shares-title">{c.amountPerParticipant}</h5>
