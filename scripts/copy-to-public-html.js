@@ -9,35 +9,45 @@ import { execSync } from 'child_process'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
-const target = join(root, '..', 'public_html')
 
-if (!existsSync(target)) {
-  console.log('[copy-to-public-html] public_html not found (local dev?) — skipping')
-  process.exit(0)
-}
+function main() {
+  const target = join(root, '..', 'public_html')
 
-const exclude = new Set(['node_modules', '.git', 'tmp'])
-const items = readdirSync(root)
+  if (!existsSync(target)) {
+    console.log('[copy-to-public-html] public_html not found (local dev?) — skipping')
+    return
+  }
 
-console.log('[copy-to-public-html] Copying from', root, 'to', target)
+  const exclude = new Set(['node_modules', '.git', 'tmp'])
+  const items = readdirSync(root)
 
-for (const name of items) {
-  if (exclude.has(name)) continue
-  const src = join(root, name)
-  const dest = join(target, name)
+  console.log('[copy-to-public-html] Copying from', root, 'to', target)
+
+  for (const name of items) {
+    if (exclude.has(name)) continue
+    const src = join(root, name)
+    const dest = join(target, name)
+    try {
+      cpSync(src, dest, { recursive: true })
+      console.log('  copied:', name)
+    } catch (e) {
+      console.warn('  skip', name, ':', e.message)
+    }
+  }
+
+  console.log('[copy-to-public-html] Running npm install in public_html...')
   try {
-    cpSync(src, dest, { recursive: true })
-    console.log('  copied:', name)
+    execSync('npm install --omit=dev', { cwd: target, stdio: 'inherit' })
+    console.log('[copy-to-public-html] Done. App will run from public_html.')
   } catch (e) {
-    console.warn('  skip', name, ':', e.message)
+    console.warn('[copy-to-public-html] npm install failed:', e.message)
+    console.log('[copy-to-public-html] Copy done. Run "npm install" in public_html manually.')
   }
 }
 
-console.log('[copy-to-public-html] Running npm install in public_html...')
 try {
-  execSync('npm install --omit=dev', { cwd: target, stdio: 'inherit' })
-  console.log('[copy-to-public-html] Done. App will run from public_html.')
+  main()
 } catch (e) {
-  console.warn('[copy-to-public-html] npm install failed:', e.message)
-  console.log('[copy-to-public-html] Copy done. Run "npm install" in public_html manually.')
+  console.error('[copy-to-public-html] unexpected:', e?.message || e)
 }
+process.exit(0)
