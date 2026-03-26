@@ -9,6 +9,18 @@ import { isBase64Image, saveClubImageToGallery, saveCourtImageToGallery, saveOff
 
 const SOFT_DELETE_WHERE = 'deleted_at IS NULL'
 
+/** حذف نهائي لحجز أزيل من payload النادي (إزالة من القائمة في لوحة التحكم) */
+async function purgeClubBookingFromDb(clubId, bookingId, actor = {}) {
+  const cid = String(clubId)
+  const bid = String(bookingId)
+  await query('DELETE FROM booking_slot_locks WHERE booking_id = ?', [bid]).catch(() => {})
+  await query('DELETE FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?', [bid, cid]).catch(() => {})
+  await query('DELETE FROM booking_refunds WHERE booking_id = ? AND club_id = ?', [bid, cid]).catch(() => {})
+  await query('DELETE FROM coach_training_invites WHERE booking_id = ? AND club_id = ?', [bid, cid]).catch(() => {})
+  await query('DELETE FROM club_bookings WHERE id = ? AND club_id = ?', [bid, cid])
+  await logAudit({ tableName: 'club_bookings', recordId: bid, action: 'DELETE', ...actor, clubId: cid })
+}
+
 /** Check if a column exists in a table (for migrations) */
 async function columnExists(table, column) {
   try {
@@ -1082,13 +1094,12 @@ export async function saveClubsToNormalized(items, actor = {}) {
     }
 
     const bookings = club.bookings || []
-    const bookingIds = new Set(bookings.map(b => b?.id).filter(Boolean))
-    const { rows: existingBookings } = await query('SELECT id FROM club_bookings WHERE club_id=? AND deleted_at IS NULL', [cid])
-    for (const eb of existingBookings) {
-      if (!bookingIds.has(eb.id)) {
-        await query('UPDATE club_bookings SET deleted_at=NOW(), deleted_by=? WHERE club_id=? AND id=?', [actor.actorId || null, cid, eb.id])
-        await query('DELETE FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?', [eb.id, cid]).catch(() => {})
-        await logAudit({ tableName: 'club_bookings', recordId: eb.id, action: 'DELETE', ...actor, clubId: cid })
+    const bookingIds = new Set(bookings.map(b => (b?.id != null ? String(b.id) : '')).filter(Boolean))
+    const { rows: existingBookings } = await query('SELECT id FROM club_bookings WHERE club_id=?', [cid])
+    for (const eb of existingBookings || []) {
+      const eid = eb?.id != null ? String(eb.id) : ''
+      if (eid && !bookingIds.has(eid)) {
+        await purgeClubBookingFromDb(cid, eid, actor)
       }
     }
     for (const b of bookings) {

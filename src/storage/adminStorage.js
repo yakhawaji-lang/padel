@@ -946,14 +946,16 @@ export async function updateBookingInClub(clubId, bookingId, updates) {
   return updated
 }
 
-/** Delete a court booking from a club. Returns true on success. Only updates bookings; preserves club.members so membership is not affected. */
+/** Delete a court booking from a club and sync DB (hard delete when normalized). Throws if club/booking missing. */
 export async function deleteBookingFromClub(clubId, bookingId) {
   const clubs = loadClubs()
   const club = clubs.find(c => c.id === clubId)
-  if (!club) return false
+  if (!club) throw new Error('Club not found')
   const list = club.bookings || []
   const filtered = list.filter(b => String(b.id) !== String(bookingId))
-  if (filtered.length === list.length) return false
+  if (filtered.length === list.length) {
+    throw new Error('Booking not found in club list')
+  }
   const updatedClub = { ...club, bookings: filtered, updatedAt: new Date().toISOString() }
   const updatedClubs = clubs.map(c => c.id === clubId ? updatedClub : c)
   await saveClubs(updatedClubs)

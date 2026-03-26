@@ -60,6 +60,10 @@ const AllBookingsDashboard = ({ language }) => {
     try {
       await deleteBookingFromClub(clubId, bookingId)
       setClubs(loadClubs() || [])
+    } catch (e) {
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert((e && e.message) || ((language || 'en') === 'en' ? 'Delete failed' : 'فشل الحذف'))
+      }
     } finally {
       setDeleting(null)
     }

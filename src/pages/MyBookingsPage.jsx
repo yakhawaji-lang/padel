@@ -342,7 +342,12 @@ const MyBookingsPage = () => {
         await bookingApi.cancelBooking(bookingId)
         ok = true
       } catch (_) {
-        ok = await deleteBookingFromClub(clubId, bookingId)
+        try {
+          await deleteBookingFromClub(clubId, bookingId)
+          ok = true
+        } catch {
+          ok = false
+        }
       }
       if (ok && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('clubs-synced'))
