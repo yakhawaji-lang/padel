@@ -11,6 +11,7 @@ import { logAudit } from '../db/audit.js'
 import * as lock from '../db/bookingLock.js'
 import * as bookingService from '../services/bookingService.js'
 import * as paymentShareRecalc from '../services/paymentShareRecalc.js'
+import * as invoiceService from '../services/invoiceService.js'
 import * as idempotency from '../db/idempotency.js'
 import { getBookingSettings } from '../db/bookingSettings.js'
 import { hasNormalizedTables } from '../db/normalizedData.js'
@@ -471,6 +472,14 @@ router.post('/join-training', async (req, res) => {
   }
 })
 
+const shareForInvoiceSql = `
+  SELECT bps.id, bps.booking_id, bps.amount, bps.member_id, bps.member_name, bps.phone,
+    COALESCE(cs.currency, 'SAR') AS currency
+  FROM booking_payment_shares bps
+  INNER JOIN club_bookings cb ON cb.id = bps.booking_id AND cb.club_id = bps.club_id AND cb.deleted_at IS NULL
+  LEFT JOIN club_settings cs ON cs.club_id = bps.club_id
+`
+
 /** POST /api/bookings/record-payment - Record payment for a share (update paid_at, payment_method, recalc status)
  * - paymentMethod 'at_club': commitment only, paid_at = NULL
  * - paymentReference (electronic): actual payment, paid_at = NOW()
@@ -481,10 +490,10 @@ router.post('/record-payment', async (req, res) => {
     if (!clubId) return res.status(400).json({ error: 'clubId required' })
     let shareRows
     if (shareId) {
-      const r = await query('SELECT id, booking_id, amount, member_id FROM booking_payment_shares WHERE id = ? AND club_id = ?', [shareId, clubId])
+      const r = await query(`${shareForInvoiceSql} WHERE bps.id = ? AND bps.club_id = ?`, [shareId, clubId])
       shareRows = r.rows
     } else if (inviteToken) {
-      const r = await query('SELECT id, booking_id, amount, member_id FROM booking_payment_shares WHERE invite_token = ? AND club_id = ?', [inviteToken, clubId])
+      const r = await query(`${shareForInvoiceSql} WHERE bps.invite_token = ? AND bps.club_id = ?`, [inviteToken, clubId])
       shareRows = r.rows
     } else {
       return res.status(400).json({ error: 'shareId or inviteToken required' })
@@ -534,6 +543,24 @@ router.post('/record-payment', async (req, res) => {
     const { rows: bDate } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bid, clubId])
     const dateStr = bDate[0]?.booking_date ? String(bDate[0].booking_date).split('T')[0] : null
     if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
+    if (!isAtClub) {
+      try {
+        await invoiceService.issueInvoiceForPaidShare({
+          clubId,
+          bookingId: bid,
+          shareId: share.id,
+          amount: share.amount,
+          currency: share.currency,
+          memberId: share.member_id,
+          memberName: share.member_name,
+          phone: share.phone,
+          paymentMethod: isElectronic ? 'electronic' : 'other',
+          paymentReference: paymentReference || null,
+        })
+      } catch (invErr) {
+        console.warn('[record-payment] invoice:', invErr?.message)
+      }
+    }
     res.json({ ok: true, paidAmount, status })
   } catch (e) {
     console.error('bookings record-payment error:', e)
@@ -548,10 +575,10 @@ router.post('/mark-share-paid-at-club', async (req, res) => {
     if (!clubId) return res.status(400).json({ error: 'clubId required' })
     let shareRows
     if (shareId) {
-      const r = await query('SELECT id, booking_id, amount, member_id FROM booking_payment_shares WHERE id = ? AND club_id = ?', [shareId, clubId])
+      const r = await query(`${shareForInvoiceSql} WHERE bps.id = ? AND bps.club_id = ?`, [shareId, clubId])
       shareRows = r.rows
     } else if (inviteToken) {
-      const r = await query('SELECT id, booking_id, amount, member_id FROM booking_payment_shares WHERE invite_token = ? AND club_id = ?', [inviteToken, clubId])
+      const r = await query(`${shareForInvoiceSql} WHERE bps.invite_token = ? AND bps.club_id = ?`, [inviteToken, clubId])
       shareRows = r.rows
     } else {
       return res.status(400).json({ error: 'shareId or inviteToken required' })
@@ -582,6 +609,22 @@ router.post('/mark-share-paid-at-club', async (req, res) => {
     const { rows: bDate } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bid, clubId])
     const dateStr = bDate[0]?.booking_date ? String(bDate[0].booking_date).split('T')[0] : null
     if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
+    try {
+      await invoiceService.issueInvoiceForPaidShare({
+        clubId,
+        bookingId: bid,
+        shareId: share.id,
+        amount: share.amount,
+        currency: share.currency,
+        memberId: share.member_id,
+        memberName: share.member_name,
+        phone: share.phone,
+        paymentMethod: 'at_club',
+        paymentReference: null,
+      })
+    } catch (invErr) {
+      console.warn('[mark-share-paid-at-club] invoice:', invErr?.message)
+    }
     res.json({ ok: true, paidAmount, status })
   } catch (e) {
     console.error('bookings mark-share-paid-at-club error:', e)
@@ -1363,7 +1406,10 @@ router.post('/complete-payment', async (req, res) => {
     const { bookingId, clubId } = req.body || {}
     if (!bookingId || !clubId) return res.status(400).json({ error: 'bookingId and clubId required' })
     const { rows } = await query(
-      'SELECT id, status, total_amount FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL',
+      `SELECT cb.id, cb.status, cb.total_amount, cb.member_id, COALESCE(cs.currency, 'SAR') AS currency
+       FROM club_bookings cb
+       LEFT JOIN club_settings cs ON cs.club_id = cb.club_id
+       WHERE cb.id = ? AND cb.club_id = ? AND cb.deleted_at IS NULL`,
       [bookingId, clubId]
     )
     if (!rows?.length) return res.status(404).json({ error: 'Booking not found' })
@@ -1373,6 +1419,23 @@ router.post('/complete-payment', async (req, res) => {
     }
     const totalAmount = parseFloat(b.total_amount) || 0
     await bookingService.updateBookingPayment(bookingId, clubId, totalAmount, 'confirmed')
+    let memberName = null
+    if (b.member_id) {
+      const mr = await query('SELECT name FROM members WHERE id = ? AND deleted_at IS NULL', [String(b.member_id)])
+      memberName = mr?.rows?.[0]?.name || null
+    }
+    try {
+      await invoiceService.issueInvoiceForFullBookingPayment({
+        clubId,
+        bookingId,
+        amount: totalAmount,
+        currency: b.currency,
+        memberId: b.member_id,
+        memberName,
+      })
+    } catch (invErr) {
+      console.warn('[complete-payment] invoice:', invErr?.message)
+    }
     const { rows: bDate } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bookingId, clubId])
     const dateStr = bDate[0]?.booking_date ? String(bDate[0].booking_date).split('T')[0] : null
     if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)

@@ -16,6 +16,7 @@ import {
   deleteMatchesByDateAndType
 } from './storage'
 import { loadClubs, getClubById, saveClubs, upsertMember, addMemberToClub, deleteMember, refreshClubsFromApi } from './storage/adminStorage'
+import { fetchClubInvoices, fetchClubInvoiceDetail } from './api/dbClient'
 import { getClubAdminSession } from './storage/clubAuth'
 import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import LanguageIcon from './components/LanguageIcon'
@@ -326,6 +327,9 @@ function App({ currentUser }) {
   const [accountingDateTo, setAccountingDateTo] = useState('') // Filter: to date
   const [accountingStatusFilter, setAccountingStatusFilter] = useState('all') // Filter: 'all', 'paid', 'partially_paid', 'not_paid'
   const [accountingCourtFilter, setAccountingCourtFilter] = useState('all') // Filter: 'all', 'Court 1', 'Court 2', etc.
+  const [clubInvoices, setClubInvoices] = useState([])
+  const [invoicesPanel, setInvoicesPanel] = useState({ loading: false, error: null, enabled: true })
+  const [invoiceDetail, setInvoiceDetail] = useState(null)
   const isInitialMount = useRef(true) // Track if this is the first mount
   const isSavingRef = useRef(false) // Prevent save loops
   
@@ -628,6 +632,33 @@ function App({ currentUser }) {
       setShowCalendar(false)
     }
   }, [oldTournamentTab, activeTab])
+
+  useEffect(() => {
+    if (activeTab !== 'accounting' || !clubId) return
+    let cancelled = false
+    setInvoicesPanel((p) => ({ ...p, loading: true, error: null }))
+    fetchClubInvoices(clubId, {
+      from: accountingDateFrom || undefined,
+      to: accountingDateTo || undefined,
+      limit: 150,
+    })
+      .then((data) => {
+        if (cancelled) return
+        setClubInvoices(data.invoices || [])
+        setInvoicesPanel({
+          loading: false,
+          error: null,
+          enabled: data.invoicingEnabled !== false,
+        })
+      })
+      .catch((e) => {
+        if (cancelled) return
+        setInvoicesPanel({ loading: false, error: e?.message || 'Error', enabled: true })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab, clubId, accountingDateFrom, accountingDateTo])
 
   // Update calendar month when selected date changes
   useEffect(() => {
@@ -7229,6 +7260,147 @@ function App({ currentUser }) {
                     </select>
                   </div>
                 </div>
+
+                <div className="club-invoices-section">
+                  <h3 className="club-invoices-section__title">{t.clubInvoicesSection}</h3>
+                  {invoicesPanel.loading && <p className="club-invoices-section__hint">{t.invoicesLoading}</p>}
+                  {invoicesPanel.error && <p className="club-invoices-section__err">{invoicesPanel.error}</p>}
+                  {!invoicesPanel.enabled && !invoicesPanel.loading && (
+                    <p className="club-invoices-section__hint">{t.invoicesNotInstalled}</p>
+                  )}
+                  {invoicesPanel.enabled && !invoicesPanel.loading && clubInvoices.length === 0 && (
+                    <p className="club-invoices-section__hint">{t.noInvoices}</p>
+                  )}
+                  {invoicesPanel.enabled && clubInvoices.length > 0 && (
+                    <div className="accounting-table-container">
+                      <table className="accounting-table club-invoices-table">
+                        <thead>
+                          <tr>
+                            <th>{t.invoiceNumber}</th>
+                            <th>{t.invoiceIssuedAt}</th>
+                            <th>{t.amount}</th>
+                            <th>{t.invoiceCustomer}</th>
+                            <th>{t.invoiceSource}</th>
+                            <th>{t.actions}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {clubInvoices.map((inv) => (
+                            <tr key={inv.public_id}>
+                              <td>{inv.invoice_number}</td>
+                              <td>
+                                {inv.issued_at
+                                  ? String(inv.issued_at).replace('T', ' ').slice(0, 16)
+                                  : '—'}
+                              </td>
+                              <td>
+                                {parseFloat(inv.total || 0).toFixed(2)} {inv.currency || 'SAR'}
+                              </td>
+                              <td>{[inv.customer_name, inv.customer_phone].filter(Boolean).join(' · ') || '—'}</td>
+                              <td>{inv.source_type ? `${inv.source_type}${inv.source_ref ? ` (${inv.source_ref})` : ''}` : '—'}</td>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="btn-secondary btn-small"
+                                  onClick={() => {
+                                    fetchClubInvoiceDetail(clubId, inv.public_id)
+                                      .then(setInvoiceDetail)
+                                      .catch((err) => console.error(err))
+                                  }}
+                                >
+                                  {t.viewDetails}
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {invoiceDetail && (
+                  <div
+                    className="invoice-detail-backdrop"
+                    role="presentation"
+                    onClick={() => setInvoiceDetail(null)}
+                  >
+                    <div
+                      className="invoice-detail-modal"
+                      role="dialog"
+                      aria-modal="true"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="invoice-detail-modal__head">
+                        <h4>{invoiceDetail.invoice?.invoice_number}</h4>
+                        <button
+                          type="button"
+                          className="btn-secondary btn-small"
+                          onClick={() => setInvoiceDetail(null)}
+                        >
+                          {t.cancel}
+                        </button>
+                      </div>
+                      <p className="invoice-detail-modal__meta">
+                        {t.totalAmount}:{' '}
+                        <strong>
+                          {parseFloat(invoiceDetail.invoice?.total || 0).toFixed(2)}{' '}
+                          {invoiceDetail.invoice?.currency || 'SAR'}
+                        </strong>
+                        {' · '}
+                        {invoiceDetail.invoice?.status}
+                      </p>
+                      <h5 className="invoice-detail-modal__sub">{t.invoiceLines}</h5>
+                      <table className="accounting-table invoice-detail-modal__table">
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>{language === 'ar' ? 'عر' : 'EN'}</th>
+                            <th>{t.amount}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(invoiceDetail.lines || []).map((line) => (
+                            <tr key={line.line_no}>
+                              <td>{line.line_no}</td>
+                              <td>
+                                {language === 'ar' && line.description_ar
+                                  ? line.description_ar
+                                  : line.description}
+                              </td>
+                              <td>{parseFloat(line.line_total || 0).toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <h5 className="invoice-detail-modal__sub">{t.invoicePayments}</h5>
+                      <table className="accounting-table invoice-detail-modal__table">
+                        <thead>
+                          <tr>
+                            <th>{t.amount}</th>
+                            <th>{t.paymentMethod}</th>
+                            <th>{t.bookingDate}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(invoiceDetail.payments || []).map((p, idx) => (
+                            <tr key={idx}>
+                              <td>
+                                {parseFloat(p.amount || 0).toFixed(2)} {p.currency || ''}
+                              </td>
+                              <td>{p.method || '—'}</td>
+                              <td>
+                                {p.recorded_at
+                                  ? String(p.recorded_at).replace('T', ' ').slice(0, 19)
+                                  : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
 
                 {/* Accounting Table */}
                 {(() => {

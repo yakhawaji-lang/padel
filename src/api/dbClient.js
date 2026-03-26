@@ -608,6 +608,21 @@ export async function completePayment({ bookingId, clubId }) {
   })
 }
 
+/** قائمة فواتير النادي (يتطلب تهجير جداول الفوترة على السيرفر) */
+export async function fetchClubInvoices(clubId, { from, to, limit = 100, offset = 0 } = {}) {
+  const q = new URLSearchParams({ clubId: String(clubId) })
+  if (from) q.set('from', from)
+  if (to) q.set('to', to)
+  if (limit != null) q.set('limit', String(limit))
+  if (offset != null) q.set('offset', String(offset))
+  return fetchJson(`/api/invoices?${q}`)
+}
+
+export async function fetchClubInvoiceDetail(clubId, publicId) {
+  const q = new URLSearchParams({ clubId: String(clubId) })
+  return fetchJson(`/api/invoices/${encodeURIComponent(publicId)}?${q}`)
+}
+
 // ---- Phone change verification ----
 export async function sendPhoneChangeCode(memberId, newPhone) {
   return fetchJson('/api/email/send-phone-change-code', {

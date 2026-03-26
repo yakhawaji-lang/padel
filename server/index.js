@@ -26,6 +26,7 @@ import smsWebhookRouter from './routes/smsWebhook.js'
 import initDbRouter from './routes/initDb.js'
 import dataRouter from './routes/data.js'
 import bookingsRouter from './routes/bookings.js'
+import invoicesRouter from './routes/invoices.js'
 import clubsRouter from './routes/clubs.js'
 import settingsUploadRouter from './routes/settingsUpload.js'
 import galleryRouter from './routes/gallery.js'
@@ -52,6 +53,7 @@ app.use('/api/sms-webhook', smsWebhookRouter)
 app.use('/api/init-db', initDbRouter)
 app.use('/api/data', dataRouter)
 app.use('/api/bookings', bookingsRouter)
+app.use('/api/invoices', invoicesRouter)
 app.use('/api/clubs', clubsRouter)
 app.use('/api/gallery', galleryRouter)
 app.use('/api/email', emailRouter)

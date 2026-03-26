@@ -185,6 +185,7 @@ export const translations = {
     notPaid: 'Not Paid',
     allStatuses: 'All Statuses',
     allCourts: 'All Courts',
+    bookingId: 'Booking ID',
     bookingDate: 'Booking Date',
     time: 'Time',
     court: 'Court',
@@ -242,6 +243,17 @@ export const translations = {
     bookingWorkingHoursHint: 'Prefer times within your usual opening range; all times remain editable.',
     bookingParticipantsOptional:
       'Participants are optional. Record court, time, and amount only — then check “payment collected” if the guest already paid at the desk.',
+    clubInvoicesSection: 'Club invoices (ledger)',
+    invoicesLoading: 'Loading invoices…',
+    invoicesNotInstalled: 'Invoice tables are not installed on the server yet. Run the SQL migration linked in the project docs.',
+    noInvoices: 'No invoices in this date range.',
+    invoiceNumber: 'Invoice #',
+    invoiceIssuedAt: 'Issued',
+    invoiceCustomer: 'Customer',
+    invoiceSource: 'Source',
+    invoiceLines: 'Line items',
+    invoicePayments: 'Payments recorded',
+    noAccountingRecords: 'No accounting records match your filters.',
   },
   ar: {
     title: 'بطولة هلا بادل',
@@ -429,6 +441,7 @@ export const translations = {
     notPaid: 'غير مدفوع',
     allStatuses: 'جميع الحالات',
     allCourts: 'جميع الملاعب',
+    bookingId: 'رقم الحجز',
     bookingDate: 'تاريخ الحجز',
     time: 'الوقت',
     court: 'الملعب',
@@ -486,6 +499,17 @@ export const translations = {
     bookingWorkingHoursHint: 'يُفضّل ضمن أوقات العمل المعتادة؛ ويبقى تعديل جميع الأوقات ممكناً.',
     bookingParticipantsOptional:
       'المشاركون اختياريون. يمكنك حفظ الملعب والوقت والمبلغ فقط — ثم تفعيل «تم استلام المبلغ» إذا دفع في الاستقبال.',
+    clubInvoicesSection: 'فواتير النادي (سجل محاسبي)',
+    invoicesLoading: 'جاري تحميل الفواتير…',
+    invoicesNotInstalled: 'جداول الفوترة غير مثبتة على السيرفر بعد. نفّذ ملف التهجير SQL الموثّق في المشروع.',
+    noInvoices: 'لا توجد فواتير ضمن نطاق التاريخ.',
+    invoiceNumber: 'رقم الفاتورة',
+    invoiceIssuedAt: 'تاريخ الإصدار',
+    invoiceCustomer: 'العميل',
+    invoiceSource: 'المصدر',
+    invoiceLines: 'البنود',
+    invoicePayments: 'حركات القبض',
+    noAccountingRecords: 'لا توجد سجلات محاسبية تطابق التصفية.',
   }
 }
 
