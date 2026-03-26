@@ -1642,6 +1642,18 @@ function parseBookingJsonData(raw) {
   }
 }
 
+/** Booker/member id for wallet credit (columns + booking JSON). */
+function resolveBookingMemberIdForWallet(row, data) {
+  const d = data && typeof data === 'object' ? data : {}
+  const cands = [row?.member_id, row?.initiator_member_id, d.memberId, d.initiatorMemberId, d.member_id, d.initiator_member_id]
+  for (const c of cands) {
+    if (c == null || c === '') continue
+    const s = String(c).trim()
+    if (s && s !== 'undefined' && s !== 'null') return s
+  }
+  return ''
+}
+
 /** Pay-at-club (cash at venue) — card/bank reversal does not apply. */
 function initiatorUsedElectronicCard(data) {
   if (!data || typeof data !== 'object') return false
@@ -1943,12 +1955,15 @@ router.post('/admin-fulfill-member-refund', async (req, res) => {
     if (!rows?.length) return res.status(404).json({ error: 'Booking not found' })
     const b = rows[0]
     const st = (b.status || '').toLowerCase()
-    if (st !== 'cancelled_awaiting_refund_ack') {
-      return res.status(400).json({ error: 'Booking is not awaiting refund fulfillment' })
-    }
     const prevData = parseBookingJsonData(b.data)
-    if (!prevData.memberRefundPreference && !prevData.memberSelfCancel) {
+    const hasMemberRefundIntent = !!(prevData.memberRefundPreference || prevData.memberSelfCancel)
+    if (!hasMemberRefundIntent) {
       return res.status(400).json({ error: 'No member refund request on this booking' })
+    }
+    const awaitingAck = st === 'cancelled_awaiting_refund_ack'
+    const repairIncompleteFulfillment = st === 'cancelled' && !prevData.clubRefundFulfilledAt
+    if (!awaitingAck && !repairIncompleteFulfillment) {
+      return res.status(400).json({ error: 'Booking is not awaiting refund fulfillment' })
     }
 
     let net = parseFloat(prevData.memberRefundNet)
@@ -1956,14 +1971,24 @@ router.post('/admin-fulfill-member-refund', async (req, res) => {
     if (net < 0.01) net = parseFloat(b.total_amount) || 0
     net = Math.round(net * 100) / 100
 
-    const mid = String(b.member_id || b.initiator_member_id || '')
-    if (f === 'wallet' && net > 0 && mid) {
-      const cr = await walletService.creditWallet(clubId, mid, net, {
-        reason: 'booking_refund_club_confirmed',
-        refType: 'booking',
-        refId: bookingId,
-      })
-      if (!cr.ok) return res.status(400).json({ error: cr.error || 'Wallet credit failed' })
+    const mid = resolveBookingMemberIdForWallet(b, prevData)
+
+    if (f === 'wallet') {
+      if (!Number.isFinite(net) || net < 0.01) {
+        return res.status(400).json({ error: 'Refund amount is zero or invalid for wallet credit' })
+      }
+      if (!mid) {
+        return res.status(400).json({ error: 'Cannot credit wallet: booking has no member id on record' })
+      }
+      const alreadyCredited = await walletService.hasBookingRefundCredit(clubId, mid, bookingId)
+      if (!alreadyCredited) {
+        const cr = await walletService.creditWallet(clubId, mid, net, {
+          reason: 'booking_refund_club_confirmed',
+          refType: 'booking',
+          refId: bookingId,
+        })
+        if (!cr.ok) return res.status(400).json({ error: cr.error || 'Wallet credit failed' })
+      }
     }
 
     const act = {

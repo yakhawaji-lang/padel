@@ -142,6 +142,36 @@ export async function runMigration() {
     await query('ALTER TABLE member_clubs ADD COLUMN is_coach TINYINT(1) DEFAULT 0')
   }
 
+  if (!(await tableExists('member_wallet'))) {
+    await query(`
+      CREATE TABLE member_wallet (
+        club_id VARCHAR(255) NOT NULL,
+        member_id VARCHAR(255) NOT NULL,
+        balance DECIMAL(14,2) NOT NULL DEFAULT 0,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (club_id, member_id),
+        INDEX idx_mw_club (club_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `)
+  }
+  if (!(await tableExists('member_wallet_ledger'))) {
+    await query(`
+      CREATE TABLE member_wallet_ledger (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        club_id VARCHAR(255) NOT NULL,
+        member_id VARCHAR(255) NOT NULL,
+        amount DECIMAL(14,2) NOT NULL,
+        direction ENUM('credit','debit') NOT NULL,
+        balance_after DECIMAL(14,2) NOT NULL,
+        reason VARCHAR(64) NOT NULL,
+        ref_type VARCHAR(32) NULL,
+        ref_id VARCHAR(255) NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_mwl_member (club_id, member_id, created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `)
+  }
+
   await query(`
     UPDATE club_bookings SET start_time = time_slot 
     WHERE start_time IS NULL AND time_slot IS NOT NULL

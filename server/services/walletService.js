@@ -1,31 +1,85 @@
 /**
- * Member club wallet — balance + ledger (requires migration member_wallet, member_wallet_ledger)
+ * Member club wallet — balance + ledger (tables auto-created when missing)
  */
 import { query, getPool } from '../db/pool.js'
 
-let _tablesOk = null
+let _walletSchemaReady = false
 
-export async function walletTablesExist() {
-  if (_tablesOk !== null) return _tablesOk
+function normalizeMemberId(memberId) {
+  if (memberId == null) return ''
+  const s = String(memberId).trim()
+  if (!s || s === 'undefined' || s === 'null') return ''
+  return s
+}
+
+/** Create member_wallet + ledger if needed (idempotent). */
+export async function ensureMemberWalletTables() {
+  if (_walletSchemaReady) return true
   try {
-    const { rows } = await query(
-      `SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.TABLES
-       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_wallet'`,
+    await query(
+      `CREATE TABLE IF NOT EXISTS member_wallet (
+        club_id VARCHAR(255) NOT NULL,
+        member_id VARCHAR(255) NOT NULL,
+        balance DECIMAL(14,2) NOT NULL DEFAULT 0,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (club_id, member_id),
+        INDEX idx_mw_club (club_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
       []
     )
-    _tablesOk = Number(rows?.[0]?.c) > 0
-    return _tablesOk
+    await query(
+      `CREATE TABLE IF NOT EXISTS member_wallet_ledger (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        club_id VARCHAR(255) NOT NULL,
+        member_id VARCHAR(255) NOT NULL,
+        amount DECIMAL(14,2) NOT NULL,
+        direction ENUM('credit','debit') NOT NULL,
+        balance_after DECIMAL(14,2) NOT NULL,
+        reason VARCHAR(64) NOT NULL,
+        ref_type VARCHAR(32) NULL,
+        ref_id VARCHAR(255) NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_mwl_member (club_id, member_id, created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+      []
+    )
+    _walletSchemaReady = true
+    return true
+  } catch (e) {
+    console.error('[wallet] ensureMemberWalletTables:', e?.message)
+    return false
+  }
+}
+
+export async function walletTablesExist() {
+  return ensureMemberWalletTables()
+}
+
+/** Idempotency: already credited this booking refund to wallet? */
+export async function hasBookingRefundCredit(clubId, memberId, bookingId) {
+  const mid = normalizeMemberId(memberId)
+  if (!clubId || !mid || !bookingId) return false
+  if (!(await ensureMemberWalletTables())) return false
+  try {
+    const { rows } = await query(
+      `SELECT 1 AS ok FROM member_wallet_ledger
+       WHERE club_id = ? AND member_id = ? AND ref_type = 'booking' AND ref_id = ?
+         AND direction = 'credit' AND reason = 'booking_refund_club_confirmed' LIMIT 1`,
+      [String(clubId), mid, String(bookingId)]
+    )
+    return rows?.length > 0
   } catch {
-    _tablesOk = false
     return false
   }
 }
 
 export async function getWalletBalance(clubId, memberId) {
-  if (!(await walletTablesExist()) || !clubId || !memberId) return 0
+  const mid = normalizeMemberId(memberId)
+  if (!clubId || !mid) return 0
+  if (!(await ensureMemberWalletTables())) return 0
   const { rows } = await query(
     'SELECT balance FROM member_wallet WHERE club_id = ? AND member_id = ?',
-    [String(clubId), String(memberId)]
+    [String(clubId), mid]
   )
   return rows?.length ? Math.round((parseFloat(rows[0].balance) || 0) * 100) / 100 : 0
 }
@@ -35,8 +89,12 @@ export async function getWalletBalance(clubId, memberId) {
  */
 export async function creditWallet(clubId, memberId, amount, { reason, refType, refId } = {}) {
   const amt = Math.round((parseFloat(amount) || 0) * 100) / 100
-  if (!(await walletTablesExist()) || !clubId || !memberId || amt <= 0) {
+  const mid = normalizeMemberId(memberId)
+  if (!clubId || !mid || amt <= 0) {
     return { ok: false, error: 'Invalid credit' }
+  }
+  if (!(await ensureMemberWalletTables())) {
+    return { ok: false, error: 'Wallet tables unavailable' }
   }
   const pool = getPool()
   if (!pool) return { ok: false, error: 'Database not configured' }
@@ -45,18 +103,18 @@ export async function creditWallet(clubId, memberId, amount, { reason, refType, 
     await conn.beginTransaction()
     await conn.execute(
       `INSERT INTO member_wallet (club_id, member_id, balance) VALUES (?, ?, ?)
-       ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)`,
-      [String(clubId), String(memberId), amt]
+       ON DUPLICATE KEY UPDATE balance = balance + ?`,
+      [String(clubId), mid, amt, amt]
     )
     const [balRows] = await conn.execute(
       'SELECT balance FROM member_wallet WHERE club_id = ? AND member_id = ? FOR UPDATE',
-      [String(clubId), String(memberId)]
+      [String(clubId), mid]
     )
     const bal = Math.round((parseFloat(balRows?.[0]?.balance) || 0) * 100) / 100
     await conn.execute(
       `INSERT INTO member_wallet_ledger (club_id, member_id, amount, direction, balance_after, reason, ref_type, ref_id)
        VALUES (?, ?, ?, 'credit', ?, ?, ?, ?)`,
-      [String(clubId), String(memberId), amt, bal, reason || 'credit', refType || null, refId || null]
+      [String(clubId), mid, amt, bal, reason || 'credit', refType || null, refId || null]
     )
     await conn.commit()
     return { ok: true, balanceAfter: bal }
@@ -71,8 +129,12 @@ export async function creditWallet(clubId, memberId, amount, { reason, refType, 
 
 export async function debitWallet(clubId, memberId, amount, { reason, refType, refId } = {}) {
   const amt = Math.round((parseFloat(amount) || 0) * 100) / 100
-  if (!(await walletTablesExist()) || !clubId || !memberId || amt <= 0) {
+  const mid = normalizeMemberId(memberId)
+  if (!clubId || !mid || amt <= 0) {
     return { ok: false, error: 'Invalid debit' }
+  }
+  if (!(await ensureMemberWalletTables())) {
+    return { ok: false, error: 'Wallet tables unavailable' }
   }
   const pool = getPool()
   if (!pool) return { ok: false, error: 'Database not configured' }
@@ -82,11 +144,11 @@ export async function debitWallet(clubId, memberId, amount, { reason, refType, r
     await conn.execute(
       `INSERT INTO member_wallet (club_id, member_id, balance) VALUES (?, ?, 0)
        ON DUPLICATE KEY UPDATE club_id = club_id`,
-      [String(clubId), String(memberId)]
+      [String(clubId), mid]
     )
     const [balRows] = await conn.execute(
       'SELECT balance FROM member_wallet WHERE club_id = ? AND member_id = ? FOR UPDATE',
-      [String(clubId), String(memberId)]
+      [String(clubId), mid]
     )
     const current = Math.round((parseFloat(balRows?.[0]?.balance) || 0) * 100) / 100
     if (current + 1e-9 < amt) {
@@ -96,12 +158,12 @@ export async function debitWallet(clubId, memberId, amount, { reason, refType, r
     const next = Math.round((current - amt) * 100) / 100
     await conn.execute(
       'UPDATE member_wallet SET balance = ? WHERE club_id = ? AND member_id = ?',
-      [next, String(clubId), String(memberId)]
+      [next, String(clubId), mid]
     )
     await conn.execute(
       `INSERT INTO member_wallet_ledger (club_id, member_id, amount, direction, balance_after, reason, ref_type, ref_id)
        VALUES (?, ?, ?, 'debit', ?, ?, ?, ?)`,
-      [String(clubId), String(memberId), amt, next, reason || 'debit', refType || null, refId || null]
+      [String(clubId), mid, amt, next, reason || 'debit', refType || null, refId || null]
     )
     await conn.commit()
     return { ok: true, balanceAfter: next }
