@@ -9,11 +9,12 @@ const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 const PLATFORM_PAYMENT_GATEWAYS_KEY = 'platform_payment_gateways'
 
 const DEFAULT_PLATFORM = {
-  enabledChannels: { at_club: true, credit_card: false, mada: false, split: true }
+  enabledChannels: { at_club: true, wallet: false, credit_card: false, mada: false, split: true }
 }
 
 const DEFAULT_CLUB = {
   at_club: true,
+  wallet: false,
   credit_card: false,
   mada: false,
   split: true
@@ -21,6 +22,7 @@ const DEFAULT_CLUB = {
 
 const TABS = [
   { key: 'at_club', icon: '🏢', labelEn: 'At club', labelAr: 'الدفع في النادي' },
+  { key: 'wallet', icon: '👛', labelEn: 'Member wallet', labelAr: 'محفظة العضو' },
   { key: 'credit_card', icon: '💳', labelEn: 'Credit card', labelAr: 'البطاقة الائتمانية' },
   { key: 'mada', icon: '💳', labelEn: 'Mada', labelAr: 'متاب' },
   { key: 'split', icon: '👥', labelEn: 'Share with others', labelAr: 'مشاركة الدفع' }
@@ -54,6 +56,7 @@ export default function ClubPaymentSettingsPage({ club, language = 'en', onUpdat
     if (c && typeof c === 'object' && !Array.isArray(c)) {
       setClubChannels({
         at_club: c.at_club !== false,
+        wallet: !!c.wallet,
         credit_card: !!c.credit_card,
         mada: !!c.mada,
         split: c.split !== false
@@ -94,6 +97,7 @@ export default function ClubPaymentSettingsPage({ club, language = 'en', onUpdat
     if (key === 'credit_card' && !plat.credit_card) return
     if (key === 'mada' && !plat.mada) return
     if (key === 'at_club' && plat.at_club === false) return
+    if (key === 'wallet' && !plat.wallet) return
     if (key === 'split' && plat.split === false) return
     setClubChannels((prev) => ({ ...prev, [key]: !prev[key] }))
   }
@@ -117,7 +121,13 @@ export default function ClubPaymentSettingsPage({ club, language = 'en', onUpdat
     madaTitle: t('Mada', 'متاب', lang),
     madaDesc: t('Mada online payment. Requires platform admin to enable it.', 'دفع متاب. يتطلب تفعيله من مدير المنصة.', lang),
     splitTitle: t('Share payment with members', 'مشاركة الدفع مع الأعضاء', lang),
-    splitDesc: t('Allow split bookings for this club when the platform allows it.', 'السماح بتقسيم تكلفة الحجز في هذا النادي عندما تسمح المنصة.', lang)
+    splitDesc: t('Allow split bookings for this club when the platform allows it.', 'السماح بتقسيم تكلفة الحجز في هذا النادي عندما تسمح المنصة.', lang),
+    walletTitle: t('Member wallet balance', 'الدفع من رصيد المحفظة', lang),
+    walletDesc: t(
+      'Members can pay with wallet balance for this club when the platform enables wallets.',
+      'يمكن للأعضاء الدفع من رصيد المحفظة في هذا النادي عندما تفعّل المنصة المحفظة.',
+      lang
+    )
   }
 
   if (loading) {
@@ -148,6 +158,7 @@ export default function ClubPaymentSettingsPage({ club, language = 'en', onUpdat
         <span className="club-payment-effective-label">{c.effective}:</span>
         <span className="club-payment-effective-tags">
           {effectivePreview.at_club !== false && <span className="tag">{lang === 'ar' ? 'في النادي' : 'At club'}</span>}
+          {effectivePreview.wallet && <span className="tag">{lang === 'ar' ? 'محفظة' : 'Wallet'}</span>}
           {effectivePreview.credit_card && <span className="tag">Stripe</span>}
           {effectivePreview.mada && <span className="tag">Mada</span>}
           {effectivePreview.split !== false && <span className="tag">{lang === 'ar' ? 'مشاركة' : 'Split'}</span>}
@@ -183,6 +194,23 @@ export default function ClubPaymentSettingsPage({ club, language = 'en', onUpdat
                 checked={clubChannels.at_club !== false}
                 onChange={() => toggleClubChannel('at_club')}
                 disabled={saving || plat.at_club === false}
+              />
+              <span>{c.enableForClub}</span>
+            </label>
+          </div>
+        )}
+
+        {activeTab === 'wallet' && (
+          <div className="payment-tab-panel">
+            <h2 className="panel-title">{c.walletTitle}</h2>
+            <p className="panel-desc">{c.walletDesc}</p>
+            {!plat.wallet && <p className="panel-platform-off">{c.platformOff}</p>}
+            <label className="payment-toggle-row">
+              <input
+                type="checkbox"
+                checked={!!clubChannels.wallet}
+                onChange={() => toggleClubChannel('wallet')}
+                disabled={saving || !plat.wallet}
               />
               <span>{c.enableForClub}</span>
             </label>

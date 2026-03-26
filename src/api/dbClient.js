@@ -437,6 +437,32 @@ export async function confirmBooking({ lockId, clubId, courtId, date, startTime,
   })
 }
 
+export async function getWalletBalance(clubId, memberId) {
+  const q = new URLSearchParams({ clubId: String(clubId), memberId: String(memberId) })
+  return fetchJson(`/api/bookings/wallet-balance?${q}`)
+}
+
+export async function memberBookingSelfServiceQuote({ bookingId, clubId, memberId }) {
+  return fetchJson('/api/bookings/member-self-service-quote', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId, memberId }),
+  })
+}
+
+export async function memberRescheduleBooking(payload) {
+  return fetchJson('/api/bookings/member-reschedule-booking', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function memberRefundRequest({ bookingId, clubId, memberId, refundRoute }) {
+  return fetchJson('/api/bookings/member-refund-request', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId, memberId, refundRoute }),
+  })
+}
+
 export async function cancelBooking(bookingId) {
   return fetchJson('/api/bookings/cancel', {
     method: 'POST',

@@ -4,6 +4,7 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import * as bookingApi from '../api/dbClient'
+import MemberBookingActionsModal from './MemberBookingActionsModal'
 import { resolvePaymentShareDisplayName, shareNeedsRefundAcknowledgment } from '../utils/paymentShareMemberMatch'
 import { getTournamentMemberPaymentEntry } from '../utils/tournamentHelpers'
 import { updateTournamentMemberPaymentEntry, withdrawMemberFromTournament } from '../storage/adminStorage'
@@ -35,6 +36,7 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
   const [payMenuOpen, setPayMenuOpen] = useState(false)
   const [ackRefundBusy, setAckRefundBusy] = useState(false)
   const [tournamentExitBusy, setTournamentExitBusy] = useState(false)
+  const [memberActionsOpen, setMemberActionsOpen] = useState(false)
 
   const dateStr = booking?.dateStr || booking?.date || (booking?.startDate || '').toString().split('T')[0]
   const startTime = booking?.startTime || booking?.timeSlot || ''
@@ -306,10 +308,20 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
             )}
 
           <div className="booking-detail-actions">
-            {club?.id && !isTournamentBooking && (
-              <Link to={`/clubs/${club.id}#court-booking`} className="booking-detail-action" onClick={onClose}>
+            {club?.id && !isTournamentBooking && isInitiator && platformUser?.id && (
+              <button
+                type="button"
+                className="booking-detail-action booking-detail-action-btn"
+                onClick={() => setMemberActionsOpen(true)}
+              >
                 <span className="booking-detail-action-icon">✏️</span>
                 <span>{c.edit}</span>
+              </button>
+            )}
+            {club?.id && !isTournamentBooking && !isInitiator && (
+              <Link to={`/clubs/${club.id}#court-booking`} className="booking-detail-action" onClick={onClose}>
+                <span className="booking-detail-action-icon">📅</span>
+                <span>{language === 'ar' ? 'صفحة الحجز' : 'Booking page'}</span>
               </Link>
             )}
 
@@ -499,6 +511,20 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
           </div>
         </div>
       </div>
+      {memberActionsOpen && club && booking && platformUser && (
+        <MemberBookingActionsModal
+          booking={booking}
+          club={club}
+          platformUser={platformUser}
+          language={language}
+          onClose={() => setMemberActionsOpen(false)}
+          onUpdated={() => {
+            onUpdated?.()
+            setMemberActionsOpen(false)
+            onClose?.()
+          }}
+        />
+      )}
     </div>
   )
 }

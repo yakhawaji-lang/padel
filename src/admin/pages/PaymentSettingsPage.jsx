@@ -8,7 +8,7 @@ const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 const PLATFORM_PAYMENT_GATEWAYS_KEY = 'platform_payment_gateways'
 
 const DEFAULT_PAYMENT_GATEWAYS = {
-  enabledChannels: { at_club: true, credit_card: false, mada: false, split: true },
+  enabledChannels: { at_club: true, wallet: false, credit_card: false, mada: false, split: true },
   stripe: { publishableKey: '', secretKey: '', webhookSecret: '' },
   mada: { merchantId: '', apiKey: '', gatewayId: '' },
   split: { deadlineMinutes: 30 }
@@ -16,6 +16,7 @@ const DEFAULT_PAYMENT_GATEWAYS = {
 
 const TABS = [
   { key: 'at_club', icon: '🏢', labelEn: 'At club', labelAr: 'الدفع في النادي' },
+  { key: 'wallet', icon: '👛', labelEn: 'Member wallet', labelAr: 'محفظة العضو' },
   { key: 'credit_card', icon: '💳', labelEn: 'Credit card', labelAr: 'البطاقة الائتمانية' },
   { key: 'mada', icon: '💳', labelEn: 'Mada', labelAr: 'متاب' },
   { key: 'split', icon: '👥', labelEn: 'Share with others', labelAr: 'مشاركة الدفع' }
@@ -109,7 +110,13 @@ export default function PaymentSettingsPage() {
     gatewayId: t('Gateway ID', 'معرّف البوابة', language),
     splitTitle: t('Share payment with members', 'مشاركة الدفع مع الأعضاء', language),
     splitDesc: t('Allow members to share the booking cost with others. This is not a payment method — it enables cost sharing.', 'السماح للأعضاء بمشاركة تكلفة الحجز مع الآخرين. هذا ليس خيار دفع بل خيار مشاركة التكلفة.', language),
-    deadlineMinutes: t('Deadline (minutes)', 'المهلة (دقائق)', language)
+    deadlineMinutes: t('Deadline (minutes)', 'المهلة (دقائق)', language),
+    walletTitle: t('Member wallet balance', 'الدفع من رصيد المحفظة', language),
+    walletDesc: t(
+      'Lets members pay bookings and fees using club-specific wallet balance (refunds and credits). Clubs can enable wallet only if the platform allows it.',
+      'يسمح للأعضاء بدفع الحجوزات والرسوم من رصيد محفظة خاصة بالنادي (استردادات وائتمانات). يمكن للنادي تفعيل المحفظة فقط إذا سمحت المنصة.',
+      language
+    )
   }
 
   if (loading) {
@@ -161,6 +168,22 @@ export default function PaymentSettingsPage() {
                 type="checkbox"
                 checked={paymentGateways.enabledChannels?.at_club !== false}
                 onChange={() => toggleChannel('at_club')}
+                disabled={saving}
+              />
+              <span>{c.enableGateway}</span>
+            </label>
+          </div>
+        )}
+
+        {activeTab === 'wallet' && (
+          <div className="payment-tab-panel">
+            <h2 className="panel-title">{c.walletTitle}</h2>
+            <p className="panel-desc">{c.walletDesc}</p>
+            <label className="payment-toggle-row">
+              <input
+                type="checkbox"
+                checked={!!paymentGateways.enabledChannels?.wallet}
+                onChange={() => toggleChannel('wallet')}
                 disabled={saving}
               />
               <span>{c.enableGateway}</span>

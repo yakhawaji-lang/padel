@@ -38,6 +38,11 @@ function bookingNumFromDb(val, defaultVal) {
   return (val != null && val !== '' && !Number.isNaN(n)) ? n : defaultVal
 }
 
+function bookingStrFromDb(val, defaultVal) {
+  if (val == null || val === '') return defaultVal
+  return String(val)
+}
+
 function bookingNumToDb(val, defaultVal) {
   if (val === null || val === undefined || val === '') return defaultVal
   const n = Number(val)
@@ -72,9 +77,21 @@ async function ensureClubSettingsBookingColumns() {
     { name: 'allow_incomplete_bookings', type: 'TINYINT(1)', def: '0' },
     { name: 'preparation_time_minutes', type: 'INT', def: '0' },
     { name: 'working_hours_seasons', type: 'JSON', def: 'NULL' },
-    { name: 'payment_enabled_channels', type: 'JSON', def: 'NULL' }
+    { name: 'payment_enabled_channels', type: 'JSON', def: 'NULL' },
+    { name: 'reschedule_fee_mode', type: "VARCHAR(16) NOT NULL DEFAULT 'none'", def: '_special' },
+    { name: 'reschedule_fee_value', type: 'DECIMAL(10,2) NOT NULL DEFAULT 0', def: '_special' },
+    { name: 'free_reschedule_count', type: 'INT NOT NULL DEFAULT 1', def: '_special' },
+    { name: 'cancel_refund_hours_before', type: 'INT NOT NULL DEFAULT 24', def: '_special' },
+    { name: 'cancel_fee_mode', type: "VARCHAR(16) NOT NULL DEFAULT 'none'", def: '_special' },
+    { name: 'cancel_fee_value', type: 'DECIMAL(10,2) NOT NULL DEFAULT 0', def: '_special' },
   ]
   for (const { name, type, def } of cols) {
+    if (def === '_special') {
+      if (!(await columnExists('club_settings', name))) {
+        await query(`ALTER TABLE club_settings ADD COLUMN \`${name}\` ${type}`)
+      }
+      continue
+    }
     if (!(await columnExists('club_settings', name))) {
       if (def === 'NULL') {
         await query(`ALTER TABLE club_settings ADD COLUMN \`${name}\` ${type} NULL`)
@@ -480,6 +497,12 @@ function settingsFromSettingsRow(s) {
       }
       return []
     })(),
+    rescheduleFeeMode: bookingStrFromDb(row.reschedule_fee_mode, 'none'),
+    rescheduleFeeValue: bookingNumFromDb(row.reschedule_fee_value, 0),
+    freeRescheduleCount: bookingNumFromDb(row.free_reschedule_count, 1),
+    cancelRefundHoursBefore: bookingNumFromDb(row.cancel_refund_hours_before, 24),
+    cancelFeeMode: bookingStrFromDb(row.cancel_fee_mode, 'none'),
+    cancelFeeValue: bookingNumFromDb(row.cancel_fee_value, 0),
     ...(() => {
       const v = row.payment_enabled_channels
       if (v && typeof v === 'object' && !Array.isArray(v)) return { paymentEnabledChannels: v }
@@ -674,9 +697,9 @@ export async function getClubsFromNormalized() {
 
   let settingsRes
   try {
-    settingsRes = await query(`SELECT club_id, default_language, timezone, currency, booking_duration, preparation_time_minutes, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, payment_enabled_channels, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, updated_by FROM club_settings WHERE club_id IN (${placeholders})`, clubIds)
+    settingsRes = await query(`SELECT club_id, default_language, timezone, currency, booking_duration, preparation_time_minutes, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, payment_enabled_channels, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, reschedule_fee_mode, reschedule_fee_value, free_reschedule_count, cancel_refund_hours_before, cancel_fee_mode, cancel_fee_value, updated_by FROM club_settings WHERE club_id IN (${placeholders})`, clubIds)
   } catch (e) {
-    if (e?.message?.includes('Unknown column') && (e?.message?.includes('lock_minutes') || e?.message?.includes('preparation_time_minutes') || e?.message?.includes('working_hours_seasons') || e?.message?.includes('payment_enabled_channels'))) {
+    if (e?.message?.includes('Unknown column') && (e?.message?.includes('lock_minutes') || e?.message?.includes('preparation_time_minutes') || e?.message?.includes('working_hours_seasons') || e?.message?.includes('payment_enabled_channels') || e?.message?.includes('reschedule_fee'))) {
       await ensureClubSettingsBookingColumns()
       settingsRes = await query(`SELECT * FROM club_settings WHERE club_id IN (${placeholders})`, clubIds)
     } else throw e
@@ -1330,10 +1353,25 @@ export async function updateClubSettingsInDb(clubId, settings, actor = {}) {
   const splitPaymentDeadlineMinutes = getSettingNum(s, 'splitPaymentDeadlineMinutes', 'split_payment_deadline_minutes', 30)
   const refundDays = getSettingNum(s, 'refundDays', 'refund_days', 3)
   const allowIncomplete = getSettingBool(s, ALLOW_INCOMPLETE_JS, 'allow_incomplete_bookings') ? 1 : 0
-  const bookingParams = [lockMinutes, paymentDeadlineMinutes, splitManageMinutes, splitPaymentDeadlineMinutes, refundDays, allowIncomplete, actor.actorId || null, cid]
+  const normPolicyMode = (v, def) => {
+    const t = (v == null || v === '') ? def : String(v).toLowerCase()
+    return (['none', 'percent', 'fixed'].includes(t) ? t : def).substring(0, 16)
+  }
+  const rescheduleFeeMode = normPolicyMode(s.rescheduleFeeMode, 'none')
+  const rescheduleFeeValue = toNum(s.rescheduleFeeValue, 0)
+  const freeRescheduleParsed = parseInt(String(toNum(s.freeRescheduleCount, 1)), 10)
+  const freeRescheduleCount = Math.max(0, Math.min(100, Number.isNaN(freeRescheduleParsed) ? 1 : freeRescheduleParsed))
+  const cancelRefundHoursBefore = Math.max(0, Math.min(24 * 90, toNum(s.cancelRefundHoursBefore, 24)))
+  const cancelFeeMode = normPolicyMode(s.cancelFeeMode, 'none')
+  const cancelFeeValue = toNum(s.cancelFeeValue, 0)
+  const bookingParams = [
+    lockMinutes, paymentDeadlineMinutes, splitManageMinutes, splitPaymentDeadlineMinutes, refundDays, allowIncomplete,
+    rescheduleFeeMode, rescheduleFeeValue, freeRescheduleCount, cancelRefundHoursBefore, cancelFeeMode, cancelFeeValue,
+    actor.actorId || null, cid,
+  ]
 
   const generalUpdateSql = `UPDATE club_settings SET default_language=?, timezone=?, currency=?, booking_duration=?, preparation_time_minutes=?, max_booking_advance=?, cancellation_policy=?, opening_time=?, closing_time=?, header_bg_color=?, header_text_color=?, hero_bg_color=?, hero_bg_opacity=?, hero_title_color=?, hero_text_color=?, hero_stats_color=?, social_links=?, booking_prices=?, working_hours_seasons=?, payment_enabled_channels=?, updated_at=NOW(), updated_by=? WHERE club_id=?`
-  const bookingUpdateSql = `UPDATE club_settings SET lock_minutes=?, payment_deadline_minutes=?, split_manage_minutes=?, split_payment_deadline_minutes=?, refund_days=?, allow_incomplete_bookings=?, updated_at=NOW(), updated_by=? WHERE club_id=?`
+  const bookingUpdateSql = `UPDATE club_settings SET lock_minutes=?, payment_deadline_minutes=?, split_manage_minutes=?, split_payment_deadline_minutes=?, refund_days=?, allow_incomplete_bookings=?, reschedule_fee_mode=?, reschedule_fee_value=?, free_reschedule_count=?, cancel_refund_hours_before=?, cancel_fee_mode=?, cancel_fee_value=?, updated_at=NOW(), updated_by=? WHERE club_id=?`
 
   try {
     const { rows: existing } = await query('SELECT club_id FROM club_settings WHERE club_id = ?', [cid])
@@ -1350,7 +1388,7 @@ export async function updateClubSettingsInDb(clubId, settings, actor = {}) {
     }
     await query(bookingUpdateSql, bookingParams)
   } catch (e) {
-    if (e?.message?.includes('Unknown column') && (e?.message?.includes('lock_minutes') || e?.message?.includes('refund_days') || e?.message?.includes('allow_incomplete') || e?.message?.includes('preparation_time_minutes') || e?.message?.includes('working_hours_seasons') || e?.message?.includes('payment_enabled_channels'))) {
+    if (e?.message?.includes('Unknown column') && (e?.message?.includes('lock_minutes') || e?.message?.includes('refund_days') || e?.message?.includes('allow_incomplete') || e?.message?.includes('preparation_time_minutes') || e?.message?.includes('working_hours_seasons') || e?.message?.includes('payment_enabled_channels') || e?.message?.includes('reschedule_fee'))) {
       await ensureClubSettingsBookingColumns()
       const { rows: existing2 } = await query('SELECT club_id FROM club_settings WHERE club_id = ?', [cid])
       if (!existing2 || existing2.length === 0) {

@@ -1,0 +1,192 @@
+.member-booking-actions-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  z-index: 2147483641;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.member-booking-actions-modal {
+  background: #fff;
+  border-radius: 16px;
+  max-width: 520px;
+  width: 100%;
+  max-height: 92vh;
+  overflow: auto;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+}
+
+.member-booking-actions-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.member-booking-actions-head h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: #0f172a;
+}
+
+.member-booking-actions-close {
+  border: none;
+  background: #f1f5f9;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #475569;
+}
+
+.member-booking-actions-close:hover {
+  background: #e2e8f0;
+}
+
+.member-booking-actions-body {
+  padding: 16px 20px 20px;
+}
+
+.member-booking-actions-wallet {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  color: #334155;
+}
+
+.member-booking-actions-muted {
+  color: #64748b;
+  font-size: 0.88rem;
+  margin: 0 0 12px;
+}
+
+.member-booking-actions-err,
+.member-booking-actions-warn {
+  margin: 12px 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+.member-booking-actions-err {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.member-booking-actions-warn {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.member-booking-actions-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.member-booking-actions-section h4 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.member-booking-actions-section--danger h4 {
+  color: #b91c1c;
+}
+
+.member-booking-actions-fee {
+  margin: 0 0 12px;
+  font-size: 0.92rem;
+  color: #334155;
+}
+
+.member-booking-actions-ok {
+  margin: 0 0 12px;
+  color: #15803d;
+  font-size: 0.92rem;
+}
+
+.member-booking-actions-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.member-booking-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 480px) {
+  .member-booking-actions-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.member-booking-actions-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.member-booking-actions-input {
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 0.95rem;
+}
+
+.member-booking-actions-primary {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.member-booking-actions-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.member-booking-actions-refund-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.member-booking-actions-secondary {
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: start;
+}
+
+.member-booking-actions-secondary:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.member-booking-actions-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

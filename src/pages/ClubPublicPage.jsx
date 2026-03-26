@@ -991,6 +991,7 @@ const ClubPublicPage = () => {
       creditCard: 'Credit card (pay now)',
       mada: 'Mada (pay now)',
       electronicPayment: 'Electronic payment',
+      payFromWallet: 'Club wallet',
       viewMyBookings: 'View my bookings',
       loginToBook: 'Login to book courts',
       courtPrices: 'Court booking prices',
@@ -1094,6 +1095,7 @@ const ClubPublicPage = () => {
       creditCard: 'البطاقة الائتمانية (ادفع الآن)',
       mada: 'متاب (ادفع الآن)',
       electronicPayment: 'الدفع الإلكتروني',
+      payFromWallet: 'المحفظة (رصيد النادي)',
       viewMyBookings: 'عرض حجوزاتي',
       loginToBook: 'سجّل الدخول لحجز الملاعب',
       courtPrices: 'أسعار حجوزات الملاعب',
@@ -1216,6 +1218,7 @@ const ClubPublicPage = () => {
       const idempotencyKey = `confirm_${activeLock.lockId}`
       const isSplit = paymentStyle === 'split' && paymentShares.length > 0
       const payAtClub = paymentMethod === 'at_club'
+      const isWalletPay = paymentMethod === 'wallet'
       const isOnlinePayment = paymentMethod === 'credit_card' || paymentMethod === 'mada'
       const res = await bookingApi.confirmBooking({
         lockId: activeLock.lockId,
@@ -1227,7 +1230,9 @@ const ClubPublicPage = () => {
         memberId: platformUser.id,
         memberName,
         totalAmount: priceResult.price,
-        paymentMethod: isSplit ? undefined : (payAtClub ? 'at_club' : (isOnlinePayment ? paymentMethod : undefined)),
+        paymentMethod: isSplit
+          ? undefined
+          : (payAtClub ? 'at_club' : (isWalletPay ? 'wallet' : (isOnlinePayment ? paymentMethod : undefined))),
         initiatorPaymentMethod: isSplit ? (paymentMethod || 'at_club') : undefined,
         paymentShares: isSplit ? paymentShares : undefined,
         idempotencyKey
@@ -1806,6 +1811,12 @@ const ClubPublicPage = () => {
                         <label className="club-public-booking-payment-radio">
                           <input type="radio" name="paymentMethod" checked={paymentMethod === 'mada'} onChange={() => setPaymentMethod('mada')} />
                           <span>{c.mada}</span>
+                        </label>
+                      )}
+                      {effectivePaymentChannels?.wallet && (
+                        <label className="club-public-booking-payment-radio">
+                          <input type="radio" name="paymentMethod" checked={paymentMethod === 'wallet'} onChange={() => setPaymentMethod('wallet')} />
+                          <span>{c.payFromWallet}</span>
                         </label>
                       )}
                     </div>

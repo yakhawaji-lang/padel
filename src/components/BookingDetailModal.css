@@ -116,6 +116,15 @@
   gap: 8px;
 }
 
+.booking-detail-action-btn {
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  width: 100%;
+  text-align: inherit;
+}
+
 .booking-detail-action {
   display: flex;
   align-items: center;
