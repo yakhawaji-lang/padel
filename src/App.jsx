@@ -4934,23 +4934,24 @@ function App({ currentUser }) {
     if (!booking) return 'not_paid'
     if (booking.isTournament) return 'paid'
 
+    const st = (booking.status || '').toString().toLowerCase()
+    if (['cancelled', 'expired'].includes(st)) return 'not_paid'
+
     const shares = Array.isArray(booking.paymentShares) ? booking.paymentShares : []
     const total = accountingBookingTotal(booking)
+    const fromDb = parseFloat(booking.paidAmount ?? booking.paid_amount ?? 0) || 0
 
     if (shares.length > 0) {
       const paidSum = shares.reduce(
         (s, sh) => s + ((sh.paidAt || sh.paid_at) && !(sh.refundedAt || sh.refunded_at) ? (parseFloat(sh.amount) || 0) : 0),
         0
       )
-      if (total > 0.01 && paidSum >= total - 0.02) return 'paid'
-      if (paidSum > 0.01) return 'partially_paid'
+      const paidEff = Math.max(paidSum, fromDb)
+      if (total > 0.01 && paidEff >= total - 0.02) return 'paid'
+      if (paidEff > 0.01) return 'partially_paid'
       return 'not_paid'
     }
 
-    const st = (booking.status || '').toString().toLowerCase()
-    if (['cancelled', 'expired'].includes(st)) return 'not_paid'
-
-    const fromDb = parseFloat(booking.paidAmount ?? booking.paid_amount ?? 0) || 0
     const fromParticipants = (booking.participants || []).reduce((sum, p) => {
       const participant = typeof p === 'object' ? p : { amount: '', paid: false }
       return participant.paid ? sum + (parseFloat(participant.amount) || 0) : sum
@@ -5140,22 +5141,22 @@ function App({ currentUser }) {
   const calculateTotalPaid = (booking) => {
     if (!booking) return 0
     if (booking.isTournament) return parseFloat(booking.amount) || 0
+    const fromDb = parseFloat(booking.paidAmount ?? booking.paid_amount ?? 0) || 0
     const shares = Array.isArray(booking.paymentShares) ? booking.paymentShares : []
     if (shares.length > 0) {
-      return shares.reduce((sum, sh) => {
+      const fromShares = shares.reduce((sum, sh) => {
         if ((sh.paidAt || sh.paid_at) && !(sh.refundedAt || sh.refunded_at)) {
           return sum + (parseFloat(sh.amount) || 0)
         }
         return sum
       }, 0)
+      return Math.max(fromShares, fromDb)
     }
-    const fromDb = parseFloat(booking.paidAmount ?? booking.paid_amount)
     const partSum = (booking.participants || []).reduce((sum, p) => {
       const participant = typeof p === 'object' ? p : { amount: '', paid: false }
       return participant.paid ? sum + (parseFloat(participant.amount) || 0) : sum
     }, 0)
-    if (!Number.isNaN(fromDb)) return Math.max(fromDb, partSum)
-    return partSum
+    return Math.max(fromDb, partSum)
   }
 
   const formatBookingDate = (dateString, lang) => {
