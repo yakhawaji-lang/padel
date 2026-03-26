@@ -162,6 +162,16 @@ export async function issueInvoiceForPaidShare({
   })
 }
 
+/** Mark paid booking_full invoices as void after member refund is fulfilled at the club. */
+export async function voidClubInvoicesForBookingRefund(clubId, bookingId) {
+  if (!(await invoicingTablesExist())) return { ok: true, skipped: true }
+  await query(
+    `UPDATE club_invoices SET status = 'void', updated_at = NOW() WHERE club_id = ? AND source_type = 'booking_full' AND source_ref = ? AND deleted_at IS NULL`,
+    [String(clubId), String(bookingId)]
+  )
+  return { ok: true }
+}
+
 export async function issueInvoiceForFullBookingPayment({ clubId, bookingId, amount, currency, memberId, memberName, paymentMethod = 'electronic' }) {
   const idem = `cbf:${clubId}:${bookingId}:full`
   const method = (paymentMethod || 'electronic').toString()

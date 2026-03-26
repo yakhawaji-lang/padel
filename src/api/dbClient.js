@@ -42,6 +42,7 @@ function needsDataActorHeaders(path, method) {
   if (path.startsWith('/api/data') && (m === 'POST' || m === 'PUT')) return true
   if (m === 'POST' && path === '/api/bookings/admin-purge') return true
   if (m === 'POST' && path === '/api/invoices/purge') return true
+  if (m === 'POST' && path === '/api/bookings/admin-fulfill-member-refund') return true
   return false
 }
 
@@ -585,6 +586,14 @@ export async function adminRefundBookingFull({ bookingId, clubId, refundMethod, 
   return fetchJson('/api/bookings/admin-refund-booking-full', {
     method: 'POST',
     body: JSON.stringify({ bookingId, clubId, refundMethod, refundReference, refundNotes })
+  })
+}
+
+/** Club staff: complete member cancel/refund (cash handed, wallet credit, or electronic reversal recorded) */
+export async function adminFulfillMemberRefund({ bookingId, clubId, fulfillment }) {
+  return fetchJson('/api/bookings/admin-fulfill-member-refund', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId, fulfillment }),
   })
 }
 

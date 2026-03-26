@@ -283,6 +283,32 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     }
   }
 
+  const handleFulfillMemberRefund = async (b, fulfillment) => {
+    if (!club?.id || !b?.id) return
+    const ful = String(fulfillment).toLowerCase()
+    const msgEn = {
+      cash: 'Confirm you handed the refund amount in cash to the customer? Invoice will be voided.',
+      wallet: 'Confirm the refund amount was credited to the member wallet? Invoice will be voided.',
+      electronic: 'Confirm electronic/card refund was initiated per your bank or gateway? Invoice will be voided.',
+    }
+    const msgAr = {
+      cash: 'تأكيد تسليم المبلغ نقداً للعميل؟ سجّل الفاتورة كملغاة.',
+      wallet: 'تأكيد إضافة المبلغ لمحفظة العضو؟ سجّل الفاتورة كملغاة.',
+      electronic: 'تأكيد بدء الاسترداد الإلكتروني عبر البنك/البوابة؟ سجّل الفاتورة كملغاة.',
+    }
+    const msg = (language === 'en' ? msgEn : msgAr)[ful] || (language === 'en' ? 'Confirm?' : 'تأكيد؟')
+    if (!window.confirm(msg)) return
+    setActionLoading(`fulfill-refund-${b.id}`)
+    try {
+      await bookingApi.adminFulfillMemberRefund({ bookingId: b.id, clubId: club.id, fulfillment: ful })
+      refreshFromServer()
+    } catch (e) {
+      window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const handleConfirmPaidAtClubFull = async (b) => {
     if (!club?.id || !b?.id) return
     const ok = window.confirm(
@@ -815,6 +841,49 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                 </div>
                               )
                             })()}
+                            {rowAwaitingRefundAck && !hasShares && (b.memberSelfCancel || b.memberRefundPreference) && (
+                              <div className="booking-member-refund-fulfill" style={{ marginTop: 12, padding: 14, background: '#fffbeb', borderRadius: 8, border: '1px solid #fcd34d' }}>
+                                <h5 style={{ margin: '0 0 8px', fontSize: '1rem' }}>
+                                  {language === 'en' ? 'Member refund request' : 'طلب استرداد من العضو'}
+                                </h5>
+                                <p style={{ margin: '0 0 10px', fontSize: '0.9rem', color: '#92400e' }}>
+                                  {language === 'en' ? 'Preference' : 'الخيار'}: <strong>{String(b.memberRefundPreference || '—')}</strong>
+                                  {' · '}
+                                  {language === 'en' ? 'Net' : 'الصافي'}: <strong>{b.memberRefundNet != null ? b.memberRefundNet : '—'} {currency}</strong>
+                                </p>
+                                <p style={{ margin: '0 0 12px', fontSize: '0.85rem', color: '#78350f' }}>
+                                  {language === 'en'
+                                    ? 'Choose how you completed the refund. For card payments, use Electronic after your bank reversal.'
+                                    : 'اختر كيف نفّذت الاسترداد. للدفع بالبطاقة استخدم «إلكتروني» بعد عكس العملية لدى البنك.'}
+                                </p>
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                  <button
+                                    type="button"
+                                    className="booking-payment-mark-paid-btn"
+                                    disabled={actionLoading === `fulfill-refund-${b.id}`}
+                                    onClick={() => handleFulfillMemberRefund(b, 'cash')}
+                                  >
+                                    {actionLoading === `fulfill-refund-${b.id}` ? '…' : language === 'en' ? 'Paid cash to customer' : 'دفع نقداً للعميل'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="booking-payment-mark-paid-btn"
+                                    disabled={actionLoading === `fulfill-refund-${b.id}`}
+                                    onClick={() => handleFulfillMemberRefund(b, 'wallet')}
+                                  >
+                                    {language === 'en' ? 'Credited wallet' : 'إضافة للمحفظة'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="booking-refund-btn booking-refund-btn--warn"
+                                    disabled={actionLoading === `fulfill-refund-${b.id}`}
+                                    onClick={() => handleFulfillMemberRefund(b, 'electronic')}
+                                  >
+                                    {language === 'en' ? 'Electronic / bank refund' : 'استرداد إلكتروني / بنك'}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                             {hasShares && (
                               <div className="booking-payment-shares">
                                 <h5 className="booking-payment-shares-title">{c.amountPerParticipant}</h5>

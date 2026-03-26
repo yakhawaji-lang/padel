@@ -1688,9 +1688,17 @@ router.post('/member-self-service-quote', async (req, res) => {
     const hoursLeft = hoursUntilBookingStart(dateYmd, String(b.start_time || ''))
     const minH = Math.max(0, parseInt(settings.cancelRefundHoursBefore, 10) || 24)
     const cancelAllowed = hoursLeft != null && hoursLeft >= minH
-    const paid = parseFloat(b.paid_amount) || 0
-    const cancelFee = cancelAllowed ? computePolicyFee(settings.cancelFeeMode, settings.cancelFeeValue, paid) : 0
-    const refundNet = Math.max(0, Math.round((paid - cancelFee) * 100) / 100)
+    let paidEff = parseFloat(b.paid_amount) || 0
+    if (paidEff < 0.01 && st === 'confirmed') paidEff = parseFloat(b.total_amount) || 0
+    const cancelFee = cancelAllowed ? computePolicyFee(settings.cancelFeeMode, settings.cancelFeeValue, paidEff) : 0
+    const refundNet = Math.max(0, Math.round((paidEff - cancelFee) * 100) / 100)
+    const canRequestRefundCancel =
+      hoursLeft != null &&
+      hoursLeft > 0 &&
+      paidEff > 0.01 &&
+      !['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st)
+    const payPrefRaw = (data.initiatorPaymentMethod || data.paymentMethod || '').toString().toLowerCase()
+    const initiatorPaymentMethod = payPrefRaw || 'at_club'
     const wb = await walletService.getWalletBalance(clubId, memberId)
 
     res.json({
@@ -1699,11 +1707,13 @@ router.post('/member-self-service-quote', async (req, res) => {
       freeRescheduleCount: freeCap,
       nextRescheduleFee: Math.round(fee * 100) / 100,
       cancelAllowed,
+      canRequestRefundCancel,
       cancelFee: Math.round(cancelFee * 100) / 100,
       estimatedRefundNet: refundNet,
-      paidAmount: paid,
+      paidAmount: paidEff,
       hoursUntilStart: hoursLeft,
       walletBalance: wb,
+      initiatorPaymentMethod,
     })
   } catch (e) {
     console.error('member-self-service-quote:', e)
@@ -1776,7 +1786,7 @@ router.post('/member-reschedule-booking', async (req, res) => {
   }
 })
 
-/** POST /api/bookings/member-refund-request — cancel + refund to wallet or pending electronic */
+/** POST /api/bookings/member-refund-request — member cancels paid booking; refund preference stored; club fulfills cash/wallet/electronic */
 router.post('/member-refund-request', async (req, res) => {
   try {
     const normalized = await hasNormalizedTables()
@@ -1785,8 +1795,24 @@ router.post('/member-refund-request', async (req, res) => {
     if (!bookingId || !clubId || !memberId || !refundRoute) {
       return res.status(400).json({ error: 'bookingId, clubId, memberId, refundRoute required' })
     }
-    const route = String(refundRoute).toLowerCase()
-    if (route !== 'wallet' && route !== 'original') return res.status(400).json({ error: 'refundRoute must be wallet or original' })
+    const rawRoute = String(refundRoute).toLowerCase()
+    const route =
+      rawRoute === 'wallet'
+        ? 'wallet'
+        : rawRoute === 'electronic' || rawRoute === 'original' || rawRoute === 'cash'
+          ? rawRoute === 'electronic'
+            ? 'electronic'
+            : 'cash'
+          : null
+    if (!route) return res.status(400).json({ error: 'refundRoute must be wallet, cash, original, or electronic' })
+
+    const { rows: paidShareCheck } = await query(
+      `SELECT id FROM booking_payment_shares WHERE booking_id = ? AND club_id = ? AND removed_at IS NULL AND paid_at IS NOT NULL LIMIT 1`,
+      [bookingId, clubId]
+    ).catch(() => ({ rows: [] }))
+    if (paidShareCheck?.length) {
+      return res.status(400).json({ error: 'Split-payment booking: contact the club to arrange refund.' })
+    }
 
     const { rows } = await query(
       `SELECT id, member_id, initiator_member_id, status, booking_date, start_time, total_amount, paid_amount, data
@@ -1808,57 +1834,172 @@ router.post('/member-refund-request', async (req, res) => {
     const settings = await getBookingSettings(clubId)
     const dateYmd = normalizeBookingDateYmd(b.booking_date)
     const hoursLeft = hoursUntilBookingStart(dateYmd, String(b.start_time || ''))
-    const minH = Math.max(0, parseInt(settings.cancelRefundHoursBefore, 10) || 24)
-    if (hoursLeft == null || hoursLeft < minH) {
-      return res.status(400).json({ error: 'Cancellation window has closed', minHoursBeforeStart: minH })
+    if (hoursLeft == null || hoursLeft <= 0) {
+      return res.status(400).json({ error: 'Cannot cancel after booking start' })
     }
 
-    const paid = parseFloat(b.paid_amount) || 0
-    const cancelFee = computePolicyFee(settings.cancelFeeMode, settings.cancelFeeValue, paid)
-    const net = Math.max(0, Math.round((paid - cancelFee) * 100) / 100)
+    let paid = parseFloat(b.paid_amount) || 0
+    if (paid < 0.01 && st === 'confirmed') paid = parseFloat(b.total_amount) || 0
+
     const actor = { actorType: 'member', actorId: String(memberId) }
 
-    await bookingService.cancelBooking(bookingId, clubId, actor)
+    if (paid < 0.01) {
+      await bookingService.cancelBooking(bookingId, clubId, actor)
+      await lock.deleteLockByBooking(bookingId)
+      if (dateYmd) slotCache.invalidateLocks(clubId, dateYmd)
+      return res.json({ ok: true, immediateCancel: true, netAmount: 0 })
+    }
+
+    const minH = Math.max(0, parseInt(settings.cancelRefundHoursBefore, 10) || 24)
+    const withinPolicy = hoursLeft >= minH
+    const cancelFee = withinPolicy ? computePolicyFee(settings.cancelFeeMode, settings.cancelFeeValue, paid) : 0
+    const net = Math.max(0, Math.round((paid - cancelFee) * 100) / 100)
+
+    const newData = {
+      ...data,
+      memberSelfCancel: true,
+      memberSelfCancelAt: new Date().toISOString(),
+      memberRefundPreference: route,
+      memberRefundNet: net,
+      memberRefundFee: cancelFee,
+      memberRefundGross: paid,
+      memberRefundOutsidePolicy: !withinPolicy,
+    }
+    await query(
+      `UPDATE club_bookings SET status = 'cancelled_awaiting_refund_ack', data = ? WHERE id = ? AND club_id = ?`,
+      [JSON.stringify(newData), bookingId, clubId]
+    )
     await lock.deleteLockByBooking(bookingId)
     if (dateYmd) slotCache.invalidateLocks(clubId, dateYmd)
-
-    if (route === 'wallet' && net > 0) {
-      const cr = await walletService.creditWallet(clubId, memberId, net, { reason: 'booking_refund', refType: 'booking', refId: bookingId })
-      if (!cr.ok) console.warn('[refund] wallet credit failed:', cr.error)
-    }
 
     const expectedBy = new Date()
     expectedBy.setDate(expectedBy.getDate() + (settings.refundDays || 3))
     try {
       await query(
         `INSERT INTO booking_refunds (booking_id, club_id, member_id, amount, status, expected_by_date, refund_route, fee_amount, net_amount)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          bookingId,
-          clubId,
-          memberId,
-          paid,
-          route === 'wallet' ? 'completed' : 'pending',
-          expectedBy.toISOString().split('T')[0],
-          route,
-          cancelFee,
-          net,
-        ]
+         VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?)`,
+        [bookingId, clubId, memberId, paid, expectedBy.toISOString().split('T')[0], route, cancelFee, net]
       )
     } catch (brErr) {
       try {
         await query(
           'INSERT INTO booking_refunds (booking_id, club_id, member_id, amount, status, expected_by_date) VALUES (?, ?, ?, ?, ?, ?)',
-          [bookingId, clubId, memberId, paid, route === 'wallet' ? 'completed' : 'pending', expectedBy.toISOString().split('T')[0]]
+          [bookingId, clubId, memberId, paid, 'pending', expectedBy.toISOString().split('T')[0]]
         )
       } catch (e2) {
         console.warn('booking_refunds:', e2?.message)
       }
     }
 
-    res.json({ ok: true, refundRoute: route, fee: cancelFee, netAmount: net })
+    res.json({ ok: true, refundRoute: route, fee: cancelFee, netAmount: net, awaitingClubFulfillment: true })
   } catch (e) {
     console.error('member-refund-request:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** POST /api/bookings/admin-fulfill-member-refund — club confirms refund: cash, wallet credit, or electronic (manual / bank) */
+router.post('/admin-fulfill-member-refund', async (req, res) => {
+  try {
+    const normalized = await hasNormalizedTables()
+    if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
+    const { bookingId, clubId, fulfillment } = req.body || {}
+    if (!bookingId || !clubId || !fulfillment) {
+      return res.status(400).json({ error: 'bookingId, clubId, fulfillment required' })
+    }
+    const actor = getActorFromRequest(req)
+    const at = String(actor.actorType || '').toLowerCase()
+    if (at === 'club_admin') {
+      if (!actor.clubId || String(actor.clubId) !== String(clubId)) {
+        return res.status(403).json({ error: 'Forbidden' })
+      }
+    } else if (at !== 'platform_admin') {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+    const f = String(fulfillment).toLowerCase()
+    if (!['cash', 'wallet', 'electronic'].includes(f)) {
+      return res.status(400).json({ error: 'fulfillment must be cash, wallet, or electronic' })
+    }
+
+    const { rows } = await query(
+      `SELECT member_id, initiator_member_id, paid_amount, total_amount, status, data FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
+      [bookingId, clubId]
+    )
+    if (!rows?.length) return res.status(404).json({ error: 'Booking not found' })
+    const b = rows[0]
+    const st = (b.status || '').toLowerCase()
+    if (st !== 'cancelled_awaiting_refund_ack') {
+      return res.status(400).json({ error: 'Booking is not awaiting refund fulfillment' })
+    }
+    const prevData = parseBookingJsonData(b.data)
+    if (!prevData.memberRefundPreference && !prevData.memberSelfCancel) {
+      return res.status(400).json({ error: 'No member refund request on this booking' })
+    }
+
+    let net = parseFloat(prevData.memberRefundNet)
+    if (!Number.isFinite(net) || net < 0) net = parseFloat(b.paid_amount) || 0
+    if (net < 0.01) net = parseFloat(b.total_amount) || 0
+    net = Math.round(net * 100) / 100
+
+    const mid = String(b.member_id || b.initiator_member_id || '')
+    if (f === 'wallet' && net > 0 && mid) {
+      const cr = await walletService.creditWallet(clubId, mid, net, {
+        reason: 'booking_refund_club_confirmed',
+        refType: 'booking',
+        refId: bookingId,
+      })
+      if (!cr.ok) return res.status(400).json({ error: cr.error || 'Wallet credit failed' })
+    }
+
+    const act = {
+      actorType: actor.actorType || 'system',
+      actorId: actor.actorId,
+      actorName: actor.actorName,
+      clubId: String(clubId),
+      ipAddress: actor.ipAddress,
+    }
+    const merged = {
+      ...prevData,
+      clubRefundFulfilledAt: new Date().toISOString(),
+      clubRefundFulfillment: f,
+      clubRefundAmount: net,
+    }
+    await query(`UPDATE club_bookings SET status = 'cancelled', paid_amount = 0, data = ? WHERE id = ? AND club_id = ?`, [
+      JSON.stringify(merged),
+      bookingId,
+      clubId,
+    ])
+
+    try {
+      await query(
+        `UPDATE booking_refunds SET status = 'completed' WHERE booking_id = ? AND club_id = ? AND status = 'pending' ORDER BY id DESC LIMIT 1`,
+        [bookingId, clubId]
+      )
+    } catch (e) {
+      console.warn('[admin-fulfill-member-refund] booking_refunds:', e?.message)
+    }
+
+    try {
+      await invoiceService.voidClubInvoicesForBookingRefund(clubId, bookingId)
+    } catch (invE) {
+      console.warn('[admin-fulfill-member-refund] invoice void:', invE?.message)
+    }
+
+    await logAudit({
+      tableName: 'club_bookings',
+      recordId: String(bookingId),
+      action: 'UPDATE',
+      ...act,
+      newValue: { refundFulfilled: f, amount: net },
+    })
+
+    const { rows: dr } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bookingId, clubId])
+    const dateStr = bookingService.normalizeBookingDateYmd(dr[0]?.booking_date)
+    if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
+
+    res.json({ ok: true, fulfillment: f, netAmount: net })
+  } catch (e) {
+    console.error('admin-fulfill-member-refund:', e)
     res.status(500).json({ error: dbError(e) })
   }
 })

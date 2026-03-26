@@ -37,8 +37,10 @@ export default function MemberBookingActionsModal({ booking, club, platformUser,
       apply: 'Save new time',
       cancelTitle: 'Cancel & refund',
       cancelHint: 'Within the club cancellation window. Fees may apply.',
-      refundWallet: 'Refund to my club wallet',
-      refundOriginal: 'Request refund to original payment (club processes)',
+      refundWallet: 'Refund to my club wallet (after club confirms)',
+      refundCash: 'Cash refund at club (after staff confirms)',
+      refundElectronic: 'Card/bank refund (club processes reversal)',
+      refundOutsideHint: 'Outside the automatic cancellation window — the club will confirm the final amount.',
       notAllowed: 'Not allowed at this time.',
       hoursLeft: 'Hours until start',
       success: 'Done.',
@@ -60,8 +62,10 @@ export default function MemberBookingActionsModal({ booking, club, platformUser,
       apply: 'حفظ الموعد الجديد',
       cancelTitle: 'إلغاء واسترداد',
       cancelHint: 'ضمن المهلة المسموحة من النادي. قد تُطبَّق رسوم.',
-      refundWallet: 'استرداد إلى محفظتي في النادي',
-      refundOriginal: 'طلب استرداد للدفع الأصلي (يعالجه النادي)',
+      refundWallet: 'استرداد إلى محفظتي (بعد تأكيد النادي)',
+      refundCash: 'استرداد نقداً من النادي (بعد تأكيد الموظف)',
+      refundElectronic: 'استرداد للبطاقة/البنك (يعالجه النادي إلكترونياً)',
+      refundOutsideHint: 'خارج المهلة التلقائية — النادي يؤكد المبلغ النهائي.',
       notAllowed: 'غير مسموح حالياً.',
       hoursLeft: 'ساعات حتى بداية الحجز',
       success: 'تم.',
@@ -209,22 +213,41 @@ export default function MemberBookingActionsModal({ booking, club, platformUser,
               {quote.hoursUntilStart != null && (
                 <p className="member-booking-actions-muted">{c.hoursLeft}: {quote.hoursUntilStart.toFixed(1)}</p>
               )}
-              {quote.cancelAllowed ? (
+              {(quote.cancelAllowed || quote.canRequestRefundCancel) && (quote.paidAmount || 0) > 0.01 ? (
                 <>
+                  {!quote.cancelAllowed && quote.canRequestRefundCancel ? (
+                    <p className="member-booking-actions-warn" style={{ borderRadius: 8, padding: '10px 12px' }}>
+                      {c.refundOutsideHint}
+                    </p>
+                  ) : null}
                   <p className="member-booking-actions-fee">
                     {language === 'ar' ? 'صافي الاسترداد التقريبي' : 'Estimated net refund'}:{' '}
                     <strong>{quote.estimatedRefundNet} {currency}</strong>
                     {quote.cancelFee > 0 ? <span> ({language === 'ar' ? 'بعد خصم' : 'after fee'} {quote.cancelFee})</span> : null}
                   </p>
+                  <p className="member-booking-actions-muted" style={{ fontSize: 12 }}>
+                    {language === 'ar'
+                      ? 'بعد الطلب، يؤكد النادي تسليم المبلغ أو إضافته للمحفظة أو إتمام الاسترداد الإلكتروني.'
+                      : 'After you submit, the club will confirm cash payout, wallet credit, or electronic refund.'}
+                  </p>
                   <div className="member-booking-actions-refund-btns">
                     <button type="button" className="member-booking-actions-secondary" disabled={busy} onClick={() => handleRefund('wallet')}>
                       {c.refundWallet}
                     </button>
-                    <button type="button" className="member-booking-actions-secondary" disabled={busy} onClick={() => handleRefund('original')}>
-                      {c.refundOriginal}
+                    <button type="button" className="member-booking-actions-secondary" disabled={busy} onClick={() => handleRefund('cash')}>
+                      {c.refundCash}
+                    </button>
+                    <button type="button" className="member-booking-actions-secondary" disabled={busy} onClick={() => handleRefund('electronic')}>
+                      {c.refundElectronic}
                     </button>
                   </div>
                 </>
+              ) : !quote.canRequestRefundCancel && (quote.paidAmount || 0) > 0.01 ? (
+                <p className="member-booking-actions-warn">{c.notAllowed}</p>
+              ) : (quote.paidAmount || 0) <= 0.01 ? (
+                <p className="member-booking-actions-muted">
+                  {language === 'ar' ? 'لا مبلغ مدفوع — يمكنك إلغاء الحجز من زر الإلغاء في القائمة إن وُجد.' : 'No paid amount — cancel from the list action if available.'}
+                </p>
               ) : (
                 <p className="member-booking-actions-warn">{c.notAllowed}</p>
               )}
