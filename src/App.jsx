@@ -122,6 +122,46 @@ function mapClubBookingsForLocalState(localOnly) {
   })
 }
 
+/** Normalize court label for matching resource / court-2 / Court 2 */
+function normCourtLabel(s) {
+  return String(s || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+}
+
+function bookingRowMatchesCourt(row, booking) {
+  const r = normCourtLabel(row.resource || row.court || row.courtName || row.courtId)
+  const targets = [booking.resource, booking.court, booking.courtName, booking.courtId]
+    .filter(Boolean)
+    .map(normCourtLabel)
+  if (!targets.length) return true
+  return targets.some(t => t && (r === t || r.includes(t) || t.includes(r)))
+}
+
+/** Map UI row to real DB booking id (bk_*) when local numeric id was wrong or missing from club.bookings. */
+function resolveClubBookingRowId(booking, clubId) {
+  const bid = booking?.id
+  if (bid == null || !clubId) return bid
+  const clubs = loadClubs()
+  const club = clubs.find(c => c.id === clubId)
+  const list = club?.bookings
+  if (!Array.isArray(list) || !list.length) return bid
+  const sameId = list.find(b => String(b.id) === String(bid))
+  if (sameId?.id != null) return sameId.id
+  const d0 = (booking.date || booking.startDate || '').toString().split('T')[0]
+  const wantEnd = (booking.endTime || '').toString()
+  const slot = list.find(b => {
+    if (b.isTournament) return false
+    const bd = (b.date || b.startDate || '').toString().split('T')[0]
+    if (bd !== d0) return false
+    if (String(b.startTime || '') !== String(booking.startTime || '')) return false
+    if (wantEnd && String(b.endTime || '') !== wantEnd) return false
+    return bookingRowMatchesCourt(b, booking)
+  })
+  return slot?.id ?? bid
+}
+
 /** Per-member row in team.memberTournamentPayments */
 function normalizeMemberPaymentEntry(raw) {
   if (!raw || typeof raw !== 'object') return { fee: '', clubReceived: false, memberAck: false }
@@ -4946,9 +4986,10 @@ function App({ currentUser }) {
         : 'تأكيد استلام كامل المبلغ في النادي؟ ستُنشأ فاتورة إن كانت الفوترة مفعّلة.'
     )
     if (!ok) return
+    const bookingIdForApi = resolveClubBookingRowId(booking, clubId)
     setAtClubConfirmBookingId(booking.id)
     try {
-      const res = await confirmPaidAtClubFull({ bookingId: booking.id, clubId })
+      const res = await confirmPaidAtClubFull({ bookingId: bookingIdForApi, clubId })
       await refreshClubsFromApi()
       window.dispatchEvent(new CustomEvent('clubs-synced'))
       reloadAccountingInvoices()
@@ -4990,25 +5031,6 @@ function App({ currentUser }) {
   const isPlaytomicLocalBooking = (booking) =>
     booking?.source === 'playtomic' || String(booking?.id ?? '').startsWith('playtomic_')
 
-  const resolveAccountingPurgeBookingId = (booking, cId) => {
-    const clubs = loadClubs()
-    const club = clubs.find(c => c.id === cId)
-    const bid = booking?.id
-    if (bid == null || !club?.bookings?.length) return bid
-    const list = club.bookings
-    const sameId = list.find(b => String(b.id) === String(bid))
-    if (sameId?.id != null) return sameId.id
-    const d0 = (booking.date || '').toString().split('T')[0]
-    const slot = list.find(
-      b =>
-        !b.isTournament &&
-        String((b.date || '').toString().split('T')[0]) === String(d0) &&
-        String(b.startTime || '') === String(booking.startTime || '') &&
-        String(b.resource || '') === String(booking.resource || '')
-    )
-    return slot?.id ?? bid
-  }
-
   const handleAccountingCancelBooking = async (booking) => {
     if (!clubId || !booking?.id || isPlaytomicLocalBooking(booking)) return
     if (
@@ -5021,7 +5043,7 @@ function App({ currentUser }) {
       return
     setAccountingDeleteBusy(`cancel:${booking.id}`)
     try {
-      await apiCancelBooking(booking.id)
+      await apiCancelBooking(resolveClubBookingRowId(booking, clubId))
       await refreshClubsFromApi()
       window.dispatchEvent(new CustomEvent('clubs-synced'))
       reloadAccountingInvoices()
@@ -5044,7 +5066,7 @@ function App({ currentUser }) {
       return
     setAccountingDeleteBusy(`purge:${booking.id}`)
     try {
-      const purgeId = resolveAccountingPurgeBookingId(booking, clubId)
+      const purgeId = resolveClubBookingRowId(booking, clubId)
       const idStrip = new Set(
         [booking.id, purgeId].filter(x => x != null && x !== '').map(x => String(x))
       )
