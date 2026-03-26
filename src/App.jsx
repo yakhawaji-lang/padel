@@ -15,8 +15,8 @@ import {
   deleteMatchesByTournament,
   deleteMatchesByDateAndType
 } from './storage'
-import { loadClubs, getClubById, saveClubs, upsertMember, addMemberToClub, deleteMember, refreshClubsFromApi, deleteBookingFromClub } from './storage/adminStorage'
-import { fetchClubInvoices, fetchClubInvoiceDetail, confirmPaidAtClubFull, cancelBooking as apiCancelBooking } from './api/dbClient'
+import { loadClubs, getClubById, saveClubs, upsertMember, addMemberToClub, deleteMember, refreshClubsFromApi } from './storage/adminStorage'
+import { fetchClubInvoices, fetchClubInvoiceDetail, confirmPaidAtClubFull, adminPurgeBooking, cancelBooking as apiCancelBooking } from './api/dbClient'
 import { getClubAdminSession } from './storage/clubAuth'
 import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import LanguageIcon from './components/LanguageIcon'
@@ -81,6 +81,45 @@ function accountingPaymentMethodLabel(raw, t) {
   if (k === 'wallet') return t.wallet
   if (k === 'electronic') return t.electronicPayment
   return raw || '—'
+}
+
+/** Booking already has a stable id from DB or client (not a placeholder to remap). */
+function hasPersistableBookingId(b) {
+  if (!b) return false
+  if (b.isTournament) return b.id != null && b.id !== ''
+  const id = b.id
+  if (id == null || id === '') return false
+  if (String(id).startsWith('playtomic_')) return false
+  const n = Number(id)
+  if (!Number.isNaN(n) && n > 0) return true
+  return typeof id === 'string' && id.trim().length > 0
+}
+
+/** When normalizing club.bookings for local state, keep this row's id (vs assign next local counter). */
+function clubLocalBookingKeepsServerId(b) {
+  if (!b) return false
+  if (b.isTournament && b.id != null) return true
+  const id = b.id
+  if (id == null || id === '') return false
+  if (String(id).startsWith('playtomic_')) return false
+  const n = Number(id)
+  if (!Number.isNaN(n) && n > 0) return true
+  return typeof id === 'string' && id.trim().length > 0
+}
+
+function mapClubBookingsForLocalState(localOnly) {
+  const list = Array.isArray(localOnly) ? localOnly : []
+  let maxId = 0
+  return list.map(b => {
+    if (b.isTournament && b.id != null) return b
+    if (clubLocalBookingKeepsServerId(b)) {
+      const idNum = typeof b.id === 'number' ? b.id : Number(b.id)
+      if (!Number.isNaN(idNum) && idNum > 0) maxId = Math.max(maxId, idNum)
+      return b
+    }
+    maxId += 1
+    return { ...b, id: maxId, source: 'local' }
+  })
 }
 
 /** Per-member row in team.memberTournamentPayments */
@@ -601,16 +640,7 @@ function App({ currentUser }) {
         // Load bookings from club (DB)
         const clubBookings = club?.bookings && Array.isArray(club.bookings) ? club.bookings : []
         const localOnly = clubBookings.filter(b => !b.source || b.source !== 'playtomic')
-        let maxId = 0
-        const withIds = localOnly.map(b => {
-          if (b.isTournament && b.id != null) return b
-          if (b.id != null && b.id > 0 && !String(b.id).startsWith('playtomic_')) {
-            maxId = Math.max(maxId, typeof b.id === 'number' ? b.id : 0)
-            return b
-          }
-          maxId += 1
-          return { ...b, id: maxId, source: 'local' }
-        })
+        const withIds = mapClubBookingsForLocalState(localOnly)
         setLocalBookings(withIds)
         mergeBookings(withIds, playtomicBookings)
         
@@ -647,16 +677,7 @@ function App({ currentUser }) {
         // Refresh bookings from updated club
         const clubBookings = club?.bookings && Array.isArray(club.bookings) ? club.bookings : []
         const localOnly = clubBookings.filter(b => !b.source || b.source !== 'playtomic')
-        let maxId = 0
-        const withIds = localOnly.map(b => {
-          if (b.isTournament && b.id != null) return b
-          if (b.id != null && b.id > 0 && !String(b.id).startsWith('playtomic_')) {
-            maxId = Math.max(maxId, typeof b.id === 'number' ? b.id : 0)
-            return b
-          }
-          maxId += 1
-          return { ...b, id: maxId, source: 'local' }
-        })
+        const withIds = mapClubBookingsForLocalState(localOnly)
         setLocalBookings(withIds)
       }
     }
@@ -4771,16 +4792,20 @@ function App({ currentUser }) {
     }
     
     let updatedLocalBookings
-    if (bookingData.id && bookingData.id > 0 && !bookingData.id.toString().startsWith('playtomic_')) {
+    if (hasPersistableBookingId(bookingData)) {
       // Update existing local booking by ID
       updatedLocalBookings = localBookings.map(b =>
-        b.id === bookingData.id ? { ...normalizedBooking, id: bookingData.id, source: 'local' } : b
+        String(b.id) === String(bookingData.id) ? { ...normalizedBooking, id: bookingData.id, source: 'local' } : b
       )
     } else {
       // Create new local booking
       const existingIds = localBookings
-        .filter(b => b.id != null && b.id > 0 && !b.id.toString().startsWith('playtomic_'))
-        .map(b => b.id)
+        .filter(b => {
+          if (b.id == null || String(b.id).startsWith('playtomic_')) return false
+          const n = Number(b.id)
+          return !Number.isNaN(n) && n > 0
+        })
+        .map(b => Number(b.id))
       const nextId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1
       const newBooking = {
         ...normalizedBooking,
@@ -4793,14 +4818,13 @@ function App({ currentUser }) {
     // Clean up: Ensure all bookings in the updated array have IDs
     let maxId = 0
     updatedLocalBookings = updatedLocalBookings.map(b => {
-      if (b.id && b.id > 0 && !b.id.toString().startsWith('playtomic_')) {
-        maxId = Math.max(maxId, b.id)
+      if (clubLocalBookingKeepsServerId(b)) {
+        const n = typeof b.id === 'number' ? b.id : Number(b.id)
+        if (!Number.isNaN(n) && n > 0) maxId = Math.max(maxId, n)
         return { ...b, source: 'local' }
-      } else {
-        // Assign ID to any booking that still doesn't have one
-        maxId += 1
-        return { ...b, id: maxId, status: b.status || 'confirmed', source: 'local' }
       }
+      maxId += 1
+      return { ...b, id: maxId, status: b.status || 'confirmed', source: 'local' }
     })
     
     setLocalBookings(updatedLocalBookings)
@@ -4811,8 +4835,8 @@ function App({ currentUser }) {
       const clubs = loadClubs()
       const club = clubs.find(c => c.id === clubId)
       if (club) {
-        const savedBooking = updatedLocalBookings.find(b => 
-          (bookingData.id && b.id === bookingData.id) ||
+        const savedBooking = updatedLocalBookings.find(b =>
+          (bookingData.id != null && String(b.id) === String(bookingData.id)) ||
           (b.date === normalizedBooking.date && b.startTime === normalizedBooking.startTime && b.resource === normalizedBooking.resource)
         )
         const bookingId = savedBooking?.id || bookingData.id
@@ -4838,9 +4862,11 @@ function App({ currentUser }) {
     setBookingFormData(null)
   }
 
-  const deleteBookingAndInvoice = (bookingId) => {
-    if (!bookingId) return
-    const updatedLocalBookings = localBookings.filter(b => b.id !== bookingId)
+  const deleteBookingAndInvoice = (bookingIdOrIds) => {
+    const raw = Array.isArray(bookingIdOrIds) ? bookingIdOrIds : [bookingIdOrIds]
+    const idStrip = new Set(raw.filter(x => x != null && x !== '').map(x => String(x)))
+    if (idStrip.size === 0) return
+    const updatedLocalBookings = localBookings.filter(b => !idStrip.has(String(b.id)))
     setLocalBookings(updatedLocalBookings)
     saveBookingsToClub(updatedLocalBookings)
     mergeBookings(updatedLocalBookings, playtomicBookings)
@@ -4848,7 +4874,7 @@ function App({ currentUser }) {
       const clubs = loadClubs()
       const club = clubs.find(c => c.id === clubId)
       if (club) {
-        const acc = (club.accounting || []).filter(a => a.bookingId !== bookingId)
+        const acc = (club.accounting || []).filter(a => !idStrip.has(String(a.bookingId)))
         saveClubs(clubs.map(c => c.id === clubId ? { ...c, accounting: acc } : c)).catch(e => console.error('saveClubs:', e))
       }
     }
@@ -4964,6 +4990,25 @@ function App({ currentUser }) {
   const isPlaytomicLocalBooking = (booking) =>
     booking?.source === 'playtomic' || String(booking?.id ?? '').startsWith('playtomic_')
 
+  const resolveAccountingPurgeBookingId = (booking, cId) => {
+    const clubs = loadClubs()
+    const club = clubs.find(c => c.id === cId)
+    const bid = booking?.id
+    if (bid == null || !club?.bookings?.length) return bid
+    const list = club.bookings
+    const sameId = list.find(b => String(b.id) === String(bid))
+    if (sameId?.id != null) return sameId.id
+    const d0 = (booking.date || '').toString().split('T')[0]
+    const slot = list.find(
+      b =>
+        !b.isTournament &&
+        String((b.date || '').toString().split('T')[0]) === String(d0) &&
+        String(b.startTime || '') === String(booking.startTime || '') &&
+        String(b.resource || '') === String(booking.resource || '')
+    )
+    return slot?.id ?? bid
+  }
+
   const handleAccountingCancelBooking = async (booking) => {
     if (!clubId || !booking?.id || isPlaytomicLocalBooking(booking)) return
     if (
@@ -4999,8 +5044,19 @@ function App({ currentUser }) {
       return
     setAccountingDeleteBusy(`purge:${booking.id}`)
     try {
-      await deleteBookingFromClub(clubId, booking.id)
-      deleteBookingAndInvoice(booking.id)
+      const purgeId = resolveAccountingPurgeBookingId(booking, clubId)
+      const idStrip = new Set(
+        [booking.id, purgeId].filter(x => x != null && x !== '').map(x => String(x))
+      )
+      await adminPurgeBooking({ clubId, bookingId: purgeId })
+      const clubs = loadClubs().map(c => {
+        if (c.id !== clubId) return c
+        const nextBookings = (c.bookings || []).filter(b => !idStrip.has(String(b.id)))
+        const accounting = (c.accounting || []).filter(a => !idStrip.has(String(a.bookingId)))
+        return { ...c, bookings: nextBookings, accounting }
+      })
+      await saveClubs(clubs)
+      deleteBookingAndInvoice([...idStrip])
       await refreshClubsFromApi()
       window.dispatchEvent(new CustomEvent('clubs-synced'))
       reloadAccountingInvoices()
@@ -5243,16 +5299,7 @@ function App({ currentUser }) {
         setCurrentClub(club)
         const clubBookings = club?.bookings && Array.isArray(club.bookings) ? club.bookings : []
         const localOnly = clubBookings.filter(b => !b.source || b.source !== 'playtomic')
-        let maxId = 0
-        const withIds = localOnly.map(b => {
-          if (b.isTournament && b.id != null) return b
-          if (b.id != null && b.id > 0 && !String(b.id).startsWith('playtomic_')) {
-            maxId = Math.max(maxId, typeof b.id === 'number' ? b.id : 0)
-            return b
-          }
-          maxId += 1
-          return { ...b, id: maxId, source: 'local' }
-        })
+        const withIds = mapClubBookingsForLocalState(localOnly)
         setLocalBookings(withIds)
       }
     })
@@ -6919,8 +6966,14 @@ function App({ currentUser }) {
                                       }
                                       // If booking doesn't have an ID, assign one immediately
                                       let bookingToEdit = { ...booking, date: booking.date }
-                                      if (!booking.id || booking.id <= 0) {
-                                        const existingIds = bookings.filter(b => b.id != null && b.id > 0).map(b => b.id)
+                                      if (!hasPersistableBookingId(booking)) {
+                                        const existingIds = bookings
+                                          .filter(b => {
+                                            if (b.id == null || String(b.id).startsWith('playtomic_')) return false
+                                            const n = Number(b.id)
+                                            return !Number.isNaN(n) && n > 0
+                                          })
+                                          .map(b => Number(b.id))
                                         const newId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1
                                         bookingToEdit.id = newId
                                         // Update the booking in the array with the new ID
@@ -6929,14 +6982,15 @@ function App({ currentUser }) {
                                            b.startTime === booking.startTime && 
                                            b.endTime === booking.endTime && 
                                            b.resource === booking.resource &&
-                                           (!b.id || b.id <= 0))
+                                           !hasPersistableBookingId(b))
                                             ? { ...b, id: newId }
                                             : b
                                         )
                                         const localOnly = updatedBookings.filter(b => !b.source || b.source !== 'playtomic')
-                                        setLocalBookings(localOnly)
-                                        saveBookingsToClub(localOnly)
-                                        mergeBookings(localOnly, playtomicBookings)
+                                        const withIds = mapClubBookingsForLocalState(localOnly)
+                                        setLocalBookings(withIds)
+                                        saveBookingsToClub(withIds)
+                                        mergeBookings(withIds, playtomicBookings)
                                       }
                                       setBookingFormData(bookingToEdit)
                                       setShowBookingModal(true)
@@ -7196,8 +7250,14 @@ function App({ currentUser }) {
                                           return
                                         }
                                         let bookingToEdit = { ...booking, date: booking.date }
-                                        if (!booking.id || booking.id <= 0) {
-                                          const existingIds = bookings.filter(b => b.id != null && b.id > 0).map(b => b.id)
+                                        if (!hasPersistableBookingId(booking)) {
+                                          const existingIds = bookings
+                                            .filter(b => {
+                                              if (b.id == null || String(b.id).startsWith('playtomic_')) return false
+                                              const n = Number(b.id)
+                                              return !Number.isNaN(n) && n > 0
+                                            })
+                                            .map(b => Number(b.id))
                                           const newId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1
                                           bookingToEdit.id = newId
                                           const updatedBookings = bookings.map(b => 
@@ -7205,14 +7265,15 @@ function App({ currentUser }) {
                                              b.startTime === booking.startTime && 
                                              b.endTime === booking.endTime && 
                                              b.resource === booking.resource &&
-                                             (!b.id || b.id <= 0))
+                                             !hasPersistableBookingId(b))
                                               ? { ...b, id: newId }
                                               : b
                                           )
                                           const localOnly = updatedBookings.filter(b => !b.source || b.source !== 'playtomic')
-                                          setLocalBookings(localOnly)
-                                          saveBookingsToClub(localOnly)
-                                          mergeBookings(localOnly, playtomicBookings)
+                                          const withIds = mapClubBookingsForLocalState(localOnly)
+                                          setLocalBookings(withIds)
+                                          saveBookingsToClub(withIds)
+                                          mergeBookings(withIds, playtomicBookings)
                                         }
                                         setBookingFormData(bookingToEdit)
                                         setShowBookingModal(true)

@@ -17,7 +17,7 @@ import * as walletService from '../services/walletService.js'
 import { computePolicyFee, hoursUntilBookingStart } from '../services/bookingPolicy.js'
 import * as idempotency from '../db/idempotency.js'
 import { getBookingSettings } from '../db/bookingSettings.js'
-import { hasNormalizedTables } from '../db/normalizedData.js'
+import { hasNormalizedTables, purgeClubBookingFromDb } from '../db/normalizedData.js'
 import * as slotCache from '../lib/slotCache.js'
 import { sendPlatformMessage } from '../services/messageSend.js'
 
@@ -1548,6 +1548,45 @@ router.post('/confirm-paid-at-club-full', async (req, res) => {
     })
   } catch (e) {
     console.error('bookings confirm-paid-at-club-full error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** POST /api/bookings/admin-purge — Club or platform admin: hard-delete booking (DB + related tables) */
+router.post('/admin-purge', async (req, res) => {
+  try {
+    const normalized = await hasNormalizedTables()
+    if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
+    const { clubId, bookingId } = req.body || {}
+    if (!clubId || !bookingId) return res.status(400).json({ error: 'clubId and bookingId required' })
+    const actor = getActorFromRequest(req)
+    const at = String(actor.actorType || '').toLowerCase()
+    if (at === 'club_admin') {
+      if (!actor.clubId || String(actor.clubId) !== String(clubId)) {
+        return res.status(403).json({ error: 'Forbidden' })
+      }
+    } else if (at !== 'platform_admin') {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+    const act = {
+      actorType: actor.actorType || 'system',
+      actorId: actor.actorId,
+      actorName: actor.actorName,
+      clubId: String(clubId),
+      ipAddress: actor.ipAddress,
+    }
+    const bid = String(bookingId)
+    const cid = String(clubId)
+    const { rows: pre } = await query(
+      'SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?',
+      [bid, cid]
+    )
+    await purgeClubBookingFromDb(cid, bid, act)
+    const dateStr = pre[0]?.booking_date ? String(pre[0].booking_date).split('T')[0] : null
+    if (cid && dateStr) slotCache.invalidateLocks(cid, dateStr)
+    res.json({ ok: true })
+  } catch (e) {
+    console.error('bookings admin-purge error:', e)
     res.status(500).json({ error: dbError(e) })
   }
 })

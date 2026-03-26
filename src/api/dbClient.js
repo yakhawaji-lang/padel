@@ -37,8 +37,15 @@ function getDataActorHeaders() {
   return h
 }
 
+function needsDataActorHeaders(path, method) {
+  const m = method || 'GET'
+  if (path.startsWith('/api/data') && (m === 'POST' || m === 'PUT')) return true
+  if (m === 'POST' && path === '/api/bookings/admin-purge') return true
+  return false
+}
+
 async function fetchJson(path, options = {}) {
-  const actorHeaders = path.startsWith('/api/data') && (options.method === 'POST' || options.method === 'PUT') ? getDataActorHeaders() : {}
+  const actorHeaders = needsDataActorHeaders(path, options.method) ? getDataActorHeaders() : {}
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: { 'Content-Type': 'application/json', ...actorHeaders, ...options.headers }
@@ -639,6 +646,13 @@ export async function confirmPaidAtClubFull({ bookingId, clubId }) {
   return fetchJson('/api/bookings/confirm-paid-at-club-full', {
     method: 'POST',
     body: JSON.stringify({ bookingId, clubId }),
+  })
+}
+
+export async function adminPurgeBooking({ clubId, bookingId }) {
+  return fetchJson('/api/bookings/admin-purge', {
+    method: 'POST',
+    body: JSON.stringify({ clubId, bookingId }),
   })
 }
 

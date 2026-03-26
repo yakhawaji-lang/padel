@@ -10,7 +10,7 @@ import { isBase64Image, saveClubImageToGallery, saveCourtImageToGallery, saveOff
 const SOFT_DELETE_WHERE = 'deleted_at IS NULL'
 
 /** حذف نهائي لحجز أزيل من payload النادي (إزالة من القائمة في لوحة التحكم) */
-async function purgeClubBookingFromDb(clubId, bookingId, actor = {}) {
+export async function purgeClubBookingFromDb(clubId, bookingId, actor = {}) {
   const cid = String(clubId)
   const bid = String(bookingId)
   await query('DELETE FROM booking_slot_locks WHERE booking_id = ?', [bid]).catch(() => {})
