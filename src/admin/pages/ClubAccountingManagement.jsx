@@ -1,8 +1,25 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { loadClubs, getClubById } from '../../storage/adminStorage'
+import * as bookingApi from '../../api/dbClient'
 import './club-pages-common.css'
 import './AccountingManagement.css'
+import './BookingsManagement.css'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
+
+function bookingAllowsElectronicFulfillment(b) {
+  const m = (
+    b?.initiatorPaymentMethod ||
+    b?.paymentMethod ||
+    (b?.data && typeof b.data === 'object' ? b.data.initiatorPaymentMethod || b.data.paymentMethod : '') ||
+    ''
+  )
+    .toString()
+    .toLowerCase()
+    .trim()
+  if (!m || m === 'at_club' || m === 'pay_at_club' || m === 'cash') return false
+  return ['credit_card', 'mada', 'electronic', 'card', 'online', 'stripe', 'apple_pay', 'google_pay', 'tap', 'hyperpay'].includes(m)
+}
 
 function Modal({ title, onClose, children }) {
   return (
@@ -18,15 +35,91 @@ function Modal({ title, onClose, children }) {
   )
 }
 
-const ClubAccountingManagement = ({ club, onUpdateClub, language }) => {
+const ClubAccountingManagement = ({ club, onUpdateClub, language, onRefresh }) => {
   const lang = language || 'en'
   const [accounting, setAccounting] = useState(club?.accounting || [])
+  const [bookings, setBookings] = useState([])
+  const [actionLoading, setActionLoading] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
   const [formData, setFormData] = useState({ date: '', description: '', amount: '', type: 'revenue', status: 'completed' })
 
   useEffect(() => {
     setAccounting(club?.accounting || [])
   }, [club?.id, club?.accounting])
+
+  const refreshBookingsFromCache = () => {
+    if (!club?.id) return
+    loadClubs()
+    const c = getClubById(club.id)
+    setBookings(Array.isArray(c?.bookings) ? c.bookings : [])
+  }
+
+  useEffect(() => {
+    if (!club?.id) return
+    refreshBookingsFromCache()
+    const onSynced = () => refreshBookingsFromCache()
+    window.addEventListener('clubs-synced', onSynced)
+    return () => window.removeEventListener('clubs-synced', onSynced)
+  }, [club?.id])
+
+  const pendingMemberRefunds = useMemo(() => {
+    const list = (bookings || []).filter((b) => {
+      const st = (b.status || '').toString().toLowerCase()
+      if (st !== 'cancelled_awaiting_refund_ack') return false
+      const shares = Array.isArray(b.paymentShares) ? b.paymentShares : []
+      if (shares.length > 0) return false
+      return !!(b.memberSelfCancel || b.memberRefundPreference)
+    })
+    return list.sort((a, b) => {
+      const da = (a.date || a.startDate || '').toString().split('T')[0]
+      const db = (b.date || b.startDate || '').toString().split('T')[0]
+      return String(db).localeCompare(String(da))
+    })
+  }, [bookings])
+
+  const formatBookingDate = (dateStr) => {
+    if (!dateStr) return '—'
+    const d = typeof dateStr === 'string' ? dateStr.split('T')[0] : ''
+    if (!d) return '—'
+    try {
+      return new Date(d + 'T12:00:00').toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA', {
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      })
+    } catch {
+      return d
+    }
+  }
+
+  const handleFulfillMemberRefund = async (b, fulfillment) => {
+    if (!club?.id || !b?.id) return
+    const ful = String(fulfillment).toLowerCase()
+    const msgEn = {
+      cash: 'Confirm you handed the refund amount in cash to the customer? Invoice will be voided.',
+      wallet: 'Confirm the refund amount was credited to the member wallet? Invoice will be voided.',
+      electronic: 'Confirm electronic/card refund was initiated per your bank or gateway? Invoice will be voided.',
+    }
+    const msgAr = {
+      cash: 'تأكيد تسليم المبلغ نقداً للعميل؟ ستُلغى فاتورة الحجز وتُعامل كاسترداد.',
+      wallet: 'تأكيد إضافة المبلغ لمحفظة العضو؟ ستُلغى فاتورة الحجز وتُعامل كاسترداد.',
+      electronic: 'تأكيد بدء الاسترداد الإلكتروني عبر البنك/البوابة؟ ستُلغى فاتورة الحجز وتُعامل كاسترداد.',
+    }
+    const msg = (lang === 'en' ? msgEn : msgAr)[ful] || (lang === 'en' ? 'Confirm?' : 'تأكيد؟')
+    if (!window.confirm(msg)) return
+    setActionLoading(`fulfill-refund-${b.id}`)
+    try {
+      await bookingApi.adminFulfillMemberRefund({ bookingId: b.id, clubId: club.id, fulfillment: ful })
+      refreshBookingsFromCache()
+      onRefresh?.()
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+    } catch (e) {
+      window.alert(lang === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
+    } finally {
+      setActionLoading(null)
+    }
+  }
 
   if (!club) {
     return (
@@ -116,6 +209,107 @@ const ClubAccountingManagement = ({ club, onUpdateClub, language }) => {
           + {t('Add Transaction', 'إضافة عملية', lang)}
         </button>
       </div>
+
+      {pendingMemberRefunds.length > 0 && (
+        <section className="cxp-card cxp-refund-queue" aria-label={t('Member refund requests', 'طلبات استرداد الأعضاء', lang)}>
+          <h2 className="cxp-refund-queue-title">
+            {t('Member refund requests', 'طلبات استرداد الأعضاء', lang)}
+          </h2>
+          <p className="cxp-refund-queue-intro">
+            {t(
+              'Bookings cancelled by members pending your confirmation of how the refund was completed.',
+              'حجوزات ألغاها الأعضاء وبانتظار تأكيدك لطريقة تنفيذ الاسترداد.',
+              lang
+            )}
+          </p>
+          <ul className="cxp-refund-queue-list">
+            {pendingMemberRefunds.map((b) => {
+              const dateRaw = (b.date || b.startDate || '').toString().split('T')[0]
+              const timeLine = [b.startTime, b.endTime].filter(Boolean).join(' — ')
+              const customer = b.memberName || b.customerName || b.customer || '—'
+              const resource = b.resource || b.courtName || b.court || '—'
+              const showElectronic = bookingAllowsElectronicFulfillment(b)
+              return (
+                <li key={b.id} className="cxp-refund-queue-item">
+                  <div className="cxp-refund-queue-item-meta">
+                    <strong className="cxp-refund-queue-customer">{customer}</strong>
+                    <span className="cxp-refund-queue-date">
+                      {formatBookingDate(dateRaw)}
+                      {timeLine ? ` · ${timeLine}` : ''} · {resource}
+                    </span>
+                    <span className="cxp-refund-queue-id">
+                      {t('Booking', 'حجز', lang)} #{b.id}
+                    </span>
+                  </div>
+                  <div
+                    className="booking-member-refund-fulfill cxp-refund-fulfill-inner"
+                    style={{
+                      marginTop: 10,
+                      padding: 14,
+                      background: '#fffbeb',
+                      borderRadius: 8,
+                      border: '1px solid #fcd34d',
+                    }}
+                  >
+                    <h5 style={{ margin: '0 0 8px', fontSize: '1rem' }}>
+                      {t('Member refund request', 'طلب استرداد من العضو', lang)}
+                    </h5>
+                    <p style={{ margin: '0 0 10px', fontSize: '0.9rem', color: '#92400e' }}>
+                      {t('Preference', 'الخيار')}: <strong>{String(b.memberRefundPreference || '—')}</strong>
+                      {' · '}
+                      {t('Net', 'الصافي')}:{' '}
+                      <strong>{b.memberRefundNet != null ? b.memberRefundNet : '—'} {currency}</strong>
+                    </p>
+                    <p style={{ margin: '0 0 12px', fontSize: '0.85rem', color: '#78350f' }}>
+                      {showElectronic
+                        ? t(
+                            'Choose how you completed the refund. For card payments, use Electronic after your bank reversal.',
+                            'اختر كيف نفّذت الاسترداد. للدفع بالبطاقة استخدم «إلكتروني» بعد عكس العملية لدى البنك.',
+                            lang
+                          )
+                        : t(
+                            'Choose cash or wallet. This booking was paid at the club — no card reversal.',
+                            'اختر النقد أو المحفظة. الدفع كان في النادي — لا يوجد عكس للبطاقة.',
+                            lang
+                          )}
+                    </p>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        className="booking-payment-mark-paid-btn"
+                        disabled={actionLoading === `fulfill-refund-${b.id}`}
+                        onClick={() => handleFulfillMemberRefund(b, 'cash')}
+                      >
+                        {actionLoading === `fulfill-refund-${b.id}`
+                          ? '…'
+                          : t('Paid cash to customer', 'دفع نقداً للعميل', lang)}
+                      </button>
+                      <button
+                        type="button"
+                        className="booking-payment-mark-paid-btn"
+                        disabled={actionLoading === `fulfill-refund-${b.id}`}
+                        onClick={() => handleFulfillMemberRefund(b, 'wallet')}
+                      >
+                        {t('Credited wallet', 'إضافة للمحفظة', lang)}
+                      </button>
+                      {showElectronic ? (
+                        <button
+                          type="button"
+                          className="booking-refund-btn booking-refund-btn--warn"
+                          disabled={actionLoading === `fulfill-refund-${b.id}`}
+                          onClick={() => handleFulfillMemberRefund(b, 'electronic')}
+                        >
+                          {t('Electronic / bank refund', 'استرداد إلكتروني / بنك', lang)}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      )}
 
       <div className="cxp-card" style={{ overflow: 'hidden', padding: 0 }}>
         <div style={{ overflowX: 'auto' }}>

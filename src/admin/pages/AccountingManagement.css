@@ -174,3 +174,57 @@
     font-size: 12px;
   }
 }
+
+/* Member refund queue (same actions as Bookings page) */
+.cxp-refund-queue {
+  margin-bottom: 24px;
+  padding: 20px 22px;
+  border: 1px solid #fde68a;
+  background: linear-gradient(180deg, #fffbeb 0%, #ffffff 48%);
+}
+
+.cxp-refund-queue-title {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.cxp-refund-queue-intro {
+  margin: 0 0 18px;
+  font-size: 0.875rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.cxp-refund-queue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.cxp-refund-queue-item-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.cxp-refund-queue-customer {
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.cxp-refund-queue-date {
+  font-size: 0.875rem;
+  color: #475569;
+}
+
+.cxp-refund-queue-id {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-family: ui-monospace, monospace;
+}
