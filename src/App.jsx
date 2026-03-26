@@ -15,8 +15,8 @@ import {
   deleteMatchesByTournament,
   deleteMatchesByDateAndType
 } from './storage'
-import { loadClubs, getClubById, saveClubs, upsertMember, addMemberToClub, deleteMember, refreshClubsFromApi } from './storage/adminStorage'
-import { fetchClubInvoices, fetchClubInvoiceDetail, confirmPaidAtClubFull } from './api/dbClient'
+import { loadClubs, getClubById, saveClubs, upsertMember, addMemberToClub, deleteMember, refreshClubsFromApi, deleteBookingFromClub } from './storage/adminStorage'
+import { fetchClubInvoices, fetchClubInvoiceDetail, confirmPaidAtClubFull, cancelBooking as apiCancelBooking } from './api/dbClient'
 import { getClubAdminSession } from './storage/clubAuth'
 import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import LanguageIcon from './components/LanguageIcon'
@@ -374,6 +374,7 @@ function App({ currentUser }) {
   const [invoicesPanel, setInvoicesPanel] = useState({ loading: false, error: null, enabled: true })
   const [invoiceDetail, setInvoiceDetail] = useState(null)
   const [atClubConfirmBookingId, setAtClubConfirmBookingId] = useState(null)
+  const [accountingDeleteBusy, setAccountingDeleteBusy] = useState(null) // 'cancel:id' | 'purge:id'
   const isInitialMount = useRef(true) // Track if this is the first mount
   const isSavingRef = useRef(false) // Prevent save loops
   
@@ -4874,15 +4875,21 @@ function App({ currentUser }) {
 
     const st = (booking.status || '').toString().toLowerCase()
     if (['cancelled', 'expired'].includes(st)) return 'not_paid'
-    if (st === 'partially_paid') return 'partially_paid'
 
-    const paidDb = parseFloat(booking.paidAmount ?? booking.paid_amount ?? 0) || 0
+    const fromDb = parseFloat(booking.paidAmount ?? booking.paid_amount ?? 0) || 0
+    const fromParticipants = (booking.participants || []).reduce((sum, p) => {
+      const participant = typeof p === 'object' ? p : { amount: '', paid: false }
+      return participant.paid ? sum + (parseFloat(participant.amount) || 0) : sum
+    }, 0)
+    const paidEff = Math.max(fromDb, fromParticipants)
+
     if (total > 0.01) {
-      if (paidDb >= total - 0.02) return 'paid'
-      if (paidDb > 0.01) return 'partially_paid'
+      if (paidEff >= total - 0.02) return 'paid'
+      if (paidEff > 0.01) return 'partially_paid'
       return 'not_paid'
     }
 
+    if (st === 'partially_paid') return 'partially_paid'
     if (st === 'confirmed') return 'paid'
     return 'not_paid'
   }
@@ -4954,6 +4961,56 @@ function App({ currentUser }) {
     }
   }
 
+  const isPlaytomicLocalBooking = (booking) =>
+    booking?.source === 'playtomic' || String(booking?.id ?? '').startsWith('playtomic_')
+
+  const handleAccountingCancelBooking = async (booking) => {
+    if (!clubId || !booking?.id || isPlaytomicLocalBooking(booking)) return
+    if (
+      !window.confirm(
+        language === 'en'
+          ? 'Cancel this booking? It will stay in records as cancelled.'
+          : 'إلغاء هذا الحجز؟ سيبقى مسجّلاً كملغى.'
+      )
+    )
+      return
+    setAccountingDeleteBusy(`cancel:${booking.id}`)
+    try {
+      await apiCancelBooking(booking.id)
+      await refreshClubsFromApi()
+      window.dispatchEvent(new CustomEvent('clubs-synced'))
+      reloadAccountingInvoices()
+    } catch (e) {
+      window.alert(e?.message || (language === 'en' ? 'Could not cancel.' : 'تعذّر الإلغاء.'))
+    } finally {
+      setAccountingDeleteBusy(null)
+    }
+  }
+
+  const handleAccountingPurgeBooking = async (booking) => {
+    if (!clubId || !booking?.id || isPlaytomicLocalBooking(booking)) return
+    if (
+      !window.confirm(
+        language === 'en'
+          ? 'Permanently delete this booking from the database? Invoices already issued are not removed. This cannot be undone.'
+          : 'حذف هذا الحجز نهائياً من قاعدة البيانات؟ الفواتير الصادرة لا تُحذف. لا يمكن التراجع.'
+      )
+    )
+      return
+    setAccountingDeleteBusy(`purge:${booking.id}`)
+    try {
+      await deleteBookingFromClub(clubId, booking.id)
+      deleteBookingAndInvoice(booking.id)
+      await refreshClubsFromApi()
+      window.dispatchEvent(new CustomEvent('clubs-synced'))
+      reloadAccountingInvoices()
+    } catch (e) {
+      window.alert(e?.message || (language === 'en' ? 'Could not delete.' : 'تعذّر الحذف.'))
+    } finally {
+      setAccountingDeleteBusy(null)
+    }
+  }
+
   // Accounting helper functions
   const getFilteredBookings = () => {
     let filtered = [...bookings]
@@ -4992,11 +5049,12 @@ function App({ currentUser }) {
       }, 0)
     }
     const fromDb = parseFloat(booking.paidAmount ?? booking.paid_amount)
-    if (!Number.isNaN(fromDb)) return fromDb
-    return (booking.participants || []).reduce((sum, p) => {
+    const partSum = (booking.participants || []).reduce((sum, p) => {
       const participant = typeof p === 'object' ? p : { amount: '', paid: false }
       return participant.paid ? sum + (parseFloat(participant.amount) || 0) : sum
     }, 0)
+    if (!Number.isNaN(fromDb)) return Math.max(fromDb, partSum)
+    return partSum
   }
 
   const formatBookingDate = (dateString, lang) => {
@@ -7556,6 +7614,10 @@ function App({ currentUser }) {
                                 shares.length === 0 &&
                                 stLow === 'pending_payment' &&
                                 (pmRaw || '').toString().toLowerCase() === 'at_club'
+                              const playtomicRow = isPlaytomicLocalBooking(booking)
+                              const canCancelAccountingRow =
+                                !!booking.id && !playtomicRow && !['cancelled', 'expired'].includes(stLow)
+                              const canPurgeAccountingRow = !!booking.id && !playtomicRow
 
                               return (
                                 <tr key={booking.id}>
@@ -7586,6 +7648,30 @@ function App({ currentUser }) {
                                           {atClubConfirmBookingId === booking.id
                                             ? '…'
                                             : t.confirmCashReceived}
+                                        </button>
+                                      )}
+                                      {canCancelAccountingRow && (
+                                        <button
+                                          type="button"
+                                          className="btn-warning btn-small"
+                                          disabled={!!accountingDeleteBusy}
+                                          onClick={() => handleAccountingCancelBooking(booking)}
+                                        >
+                                          {accountingDeleteBusy === `cancel:${booking.id}`
+                                            ? '…'
+                                            : t.cancelBookingRow}
+                                        </button>
+                                      )}
+                                      {canPurgeAccountingRow && (
+                                        <button
+                                          type="button"
+                                          className="btn-danger btn-small"
+                                          disabled={!!accountingDeleteBusy}
+                                          onClick={() => handleAccountingPurgeBooking(booking)}
+                                        >
+                                          {accountingDeleteBusy === `purge:${booking.id}`
+                                            ? '…'
+                                            : t.permanentDeleteBooking}
                                         </button>
                                       )}
                                       <button

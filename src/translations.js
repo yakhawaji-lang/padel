@@ -261,6 +261,8 @@ export const translations = {
     confirmCashReceived: 'Confirm payment received',
     copyInvoiceWhatsapp: 'Copy message (WhatsApp)',
     invoiceCreatedShort: 'Invoice issued',
+    cancelBookingRow: 'Cancel booking',
+    permanentDeleteBooking: 'Delete permanently',
   },
   ar: {
     title: 'بطولة هلا بادل',
@@ -524,6 +526,8 @@ export const translations = {
     confirmCashReceived: 'تأكيد استلام الدفع',
     copyInvoiceWhatsapp: 'نسخ رسالة (واتساب)',
     invoiceCreatedShort: 'أُصدرت الفاتورة',
+    cancelBookingRow: 'إلغاء الحجز',
+    permanentDeleteBooking: 'حذف نهائي',
   }
 }
 
