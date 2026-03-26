@@ -247,6 +247,9 @@ export const translations = {
     invoicesLoading: 'Loading invoices…',
     invoicesNotInstalled: 'Invoice tables are not installed on the server yet. Run the SQL migration linked in the project docs.',
     noInvoices: 'No invoices in this date range.',
+    noInvoicesLedgerTitle: 'No issued invoices in this period',
+    noInvoicesLedgerHint:
+      'The table below lists court bookings and payment status — not the invoice ledger. Invoices appear here after payment is confirmed when invoicing is enabled.',
     invoiceNumber: 'Invoice #',
     invoiceIssuedAt: 'Issued',
     invoiceCustomer: 'Customer',
@@ -515,6 +518,9 @@ export const translations = {
     invoicesLoading: 'جاري تحميل الفواتير…',
     invoicesNotInstalled: 'جداول الفوترة غير مثبتة على السيرفر بعد. نفّذ ملف التهجير SQL الموثّق في المشروع.',
     noInvoices: 'لا توجد فواتير ضمن نطاق التاريخ.',
+    noInvoicesLedgerTitle: 'لا توجد فواتير مُصدَّرة في هذا النطاق',
+    noInvoicesLedgerHint:
+      'الجدول أدناه يعرض حجوزات الملاعب وحالة الدفع — وليس سجل الفواتير. تظهر الفواتير هنا بعد تأكيد الدفع عند تفعيل الفوترة.',
     invoiceNumber: 'رقم الفاتورة',
     invoiceIssuedAt: 'تاريخ الإصدار',
     invoiceCustomer: 'العميل',

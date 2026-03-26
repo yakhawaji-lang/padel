@@ -7549,7 +7549,10 @@ function App({ currentUser }) {
                     <p className="club-invoices-section__hint">{t.invoicesNotInstalled}</p>
                   )}
                   {invoicesPanel.enabled && !invoicesPanel.loading && clubInvoices.length === 0 && (
-                    <p className="club-invoices-section__hint">{t.noInvoices}</p>
+                    <div className="club-invoices-empty">
+                      <p className="club-invoices-empty__title">{t.noInvoicesLedgerTitle}</p>
+                      <p className="club-invoices-empty__hint">{t.noInvoicesLedgerHint}</p>
+                    </div>
                   )}
                   {invoicesPanel.enabled && clubInvoices.length > 0 && (
                     <div className="accounting-table-container">
@@ -7627,7 +7630,7 @@ function App({ currentUser }) {
                         <div className="invoice-detail-modal__head-actions">
                           <button
                             type="button"
-                            className="btn-danger btn-small"
+                            className="accounting-action accounting-action--danger"
                             disabled={!!invoicePurgeBusy}
                             onClick={() =>
                               handlePurgeClubInvoice(invoiceDetail.invoice?.public_id)
@@ -7639,7 +7642,7 @@ function App({ currentUser }) {
                           </button>
                           <button
                             type="button"
-                            className="btn-secondary btn-small"
+                            className="accounting-action accounting-action--ghost"
                             onClick={() => setInvoiceDetail(null)}
                           >
                             {t.cancel}
@@ -7767,12 +7770,26 @@ function App({ currentUser }) {
                                       {getPaymentStatusLabel(status, language)}
                                     </span>
                                   </td>
-                                  <td>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
+                                  <td className="accounting-actions-cell">
+                                    <div
+                                      className="accounting-actions-toolbar"
+                                      role="group"
+                                      aria-label={t.actions}
+                                    >
+                                      <button
+                                        type="button"
+                                        className="accounting-action accounting-action--ghost"
+                                        onClick={() => {
+                                          setBookingFormData(booking)
+                                          setShowBookingModal(true)
+                                        }}
+                                      >
+                                        {t.viewDetails}
+                                      </button>
                                       {canConfirmAtClubFull && (
                                         <button
                                           type="button"
-                                          className="btn-primary btn-small"
+                                          className="accounting-action accounting-action--primary"
                                           disabled={atClubConfirmBookingId === booking.id}
                                           onClick={() => handleConfirmAtClubFullBooking(booking)}
                                         >
@@ -7784,7 +7801,7 @@ function App({ currentUser }) {
                                       {canCancelAccountingRow && (
                                         <button
                                           type="button"
-                                          className="btn-warning btn-small"
+                                          className="accounting-action accounting-action--warning"
                                           disabled={!!accountingDeleteBusy}
                                           onClick={() => handleAccountingCancelBooking(booking)}
                                         >
@@ -7796,7 +7813,7 @@ function App({ currentUser }) {
                                       {canPurgeAccountingRow && (
                                         <button
                                           type="button"
-                                          className="btn-danger btn-small"
+                                          className="accounting-action accounting-action--danger"
                                           disabled={!!accountingDeleteBusy}
                                           onClick={() => handleAccountingPurgeBooking(booking)}
                                         >
@@ -7805,16 +7822,6 @@ function App({ currentUser }) {
                                             : t.permanentDeleteBooking}
                                         </button>
                                       )}
-                                      <button
-                                        type="button"
-                                        className="btn-secondary btn-small"
-                                        onClick={() => {
-                                          setBookingFormData(booking)
-                                          setShowBookingModal(true)
-                                        }}
-                                      >
-                                        {t.viewDetails}
-                                      </button>
                                     </div>
                                   </td>
                                 </tr>
