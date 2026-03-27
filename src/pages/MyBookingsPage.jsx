@@ -9,6 +9,7 @@ import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './MyBookingsPage.css'
 import { findPaymentShareForMember, resolvePaymentShareDisplayName, shareNeedsRefundAcknowledgment } from '../utils/paymentShareMemberMatch.js'
 import { getTournamentMemberPaymentEntry } from '../utils/tournamentHelpers.js'
+import { isContactsPickSupported, pickPhoneNumbersFromContacts } from '../utils/contactPicker'
 
 /** حجوزات مُلغاة أو منتهية أو بانتظار تأكيد الاسترداد — تظهر في تبويب «ملغاة» وليس في القادمة/السابقة */
 const LIST_CANCELLED_STATUSES = ['cancelled', 'expired', 'cancelled_awaiting_refund_ack']
@@ -126,6 +127,7 @@ const MyBookingsPage = () => {
   const [addSplitBusy, setAddSplitBusy] = useState(false)
   const [addSplitFavorites, setAddSplitFavorites] = useState([])
   const [addSplitFavoritesLoading, setAddSplitFavoritesLoading] = useState(false)
+  const [addSplitContactBusy, setAddSplitContactBusy] = useState(false)
   const [trainingInvites, setTrainingInvites] = useState([])
   const [dismissingInviteId, setDismissingInviteId] = useState(null)
   const [walletByClub, setWalletByClub] = useState({})
@@ -286,6 +288,34 @@ const MyBookingsPage = () => {
       }
       return [...prev, { phone: p, amount: '' }]
     })
+  }
+
+  const applyPhonesToSplitRows = (phones) => {
+    const list = (phones || []).map((p) => String(p).trim()).filter(Boolean)
+    if (list.length === 0) return
+    setAddSplitRows((prev) => {
+      let next = [...prev]
+      for (const pi of list) {
+        const emptyIdx = next.findIndex((r) => !(r.phone || '').trim())
+        if (emptyIdx >= 0) {
+          next[emptyIdx] = { ...next[emptyIdx], phone: pi }
+        } else {
+          next = [...next, { phone: pi, amount: '' }]
+        }
+      }
+      return next
+    })
+  }
+
+  const pickPhonesForSplit = async () => {
+    setAddSplitContactBusy(true)
+    try {
+      const { phones, error } = await pickPhoneNumbersFromContacts({ multiple: true, max: 12 })
+      if (error === 'USER_CANCELLED') return
+      if (phones.length > 0) applyPhonesToSplitRows(phones)
+    } finally {
+      setAddSplitContactBusy(false)
+    }
   }
 
   const today = new Date().toISOString().split('T')[0]
@@ -589,6 +619,7 @@ const MyBookingsPage = () => {
       splitFavoritesEmpty: 'No favorites in this club yet. Add them from My favorites.',
       splitFavoritesNoPhone: 'No phone on file',
       splitFavHint: 'Tap a name to fill the phone field.',
+      splitPickContacts: 'From contacts',
       splitParticipants: 'Split payment participants',
       yourShareAmountsHint: 'Only you see each person’s share amount.',
       trainingInviteTitle: 'Training join requests',
@@ -644,6 +675,7 @@ const MyBookingsPage = () => {
       splitFavoritesEmpty: 'لا يوجد مفضلون في هذا النادي بعد. أضفهم من صفحة المفضلة.',
       splitFavoritesNoPhone: 'لا يوجد جوال',
       splitFavHint: 'اضغط على الاسم لملء الجوال في أول سطر فارغ.',
+      splitPickContacts: 'من جهات الاتصال',
       splitParticipants: 'المشاركون في التقسيم',
       yourShareAmountsHint: 'أنت فقط ترى مبلغ حصة كل مشارك.',
       trainingInviteTitle: 'طلبات انضمام — حصص تدريب',
@@ -1154,12 +1186,23 @@ const MyBookingsPage = () => {
                               </div>
                             )}
                           </div>
+                          {isContactsPickSupported() ? (
+                            <button
+                              type="button"
+                              className="my-bookings-add-split-contacts-btn"
+                              onClick={pickPhonesForSplit}
+                              disabled={addSplitContactBusy || addSplitBusy}
+                            >
+                              {addSplitContactBusy ? '…' : `📇 ${c.splitPickContacts}`}
+                            </button>
+                          ) : null}
                           {addSplitRows.map((row, ri) => (
                             <div key={ri} className="my-bookings-add-split-row">
                               <input
                                 type="tel"
                                 placeholder={language === 'en' ? 'Phone' : 'الجوال'}
                                 value={row.phone}
+                                autoComplete="tel"
                                 onChange={(e) => setAddSplitRows((prev) => prev.map((x, j) => (j === ri ? { ...x, phone: e.target.value } : x)))}
                               />
                               <input

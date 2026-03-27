@@ -908,6 +908,33 @@
   color: var(--mb-text-muted);
 }
 
+.my-bookings-add-split-contacts-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: 1px solid var(--mb-border);
+  border-radius: var(--mb-radius-sm);
+  background: #fff;
+  color: var(--mb-text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.my-bookings-add-split-contacts-btn:hover:not(:disabled) {
+  background: var(--mb-bg);
+  border-color: #94a3b8;
+}
+
+.my-bookings-add-split-contacts-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .my-bookings-add-split-row {
   display: flex;
   gap: 8px;

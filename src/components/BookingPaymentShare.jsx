@@ -8,14 +8,10 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import * as bookingApi from '../api/dbClient'
 import { getImageUrl } from '../api/dbClient'
+import { normalizePhone, phoneDigits } from '../utils/phoneNormalize'
+import { isContactsPickSupported, pickPhoneNumbersFromContacts } from '../utils/contactPicker'
 
-const CONTACT_PICKER_SUPPORTED = typeof navigator !== 'undefined' && 'contacts' in navigator && typeof navigator.contacts?.select === 'function'
-
-/** Normalize phone to E.164-like for WhatsApp */
-export function normalizePhone(s) {
-  if (!s || typeof s !== 'string') return ''
-  return s.replace(/\s/g, '').replace(/^00/, '+').replace(/^0/, '+966')
-}
+export { normalizePhone } from '../utils/phoneNormalize'
 
 /** Base path of the app (e.g. /app) — same as Vite base / Router basename, no trailing slash */
 export function getAppBasePath() {
@@ -69,11 +65,6 @@ export function buildWhatsAppLinkForRegistered(phone, clubName, dateStr, timeStr
   return `https://wa.me/${base}?text=${encodeURIComponent(msg)}`
 }
 
-/** Extract digits from phone for search */
-function phoneDigits(s) {
-  return (s || '').replace(/\D/g, '')
-}
-
 export default function BookingPaymentShare({
   totalPrice,
   currency,
@@ -102,6 +93,7 @@ export default function BookingPaymentShare({
   const [memberSearchQuery, setMemberSearchQuery] = useState('')
   const [customAmounts, setCustomAmounts] = useState({})
   const [contactError, setContactError] = useState('')
+  const [contactsBusy, setContactsBusy] = useState(false)
   const [favoriteIds, setFavoriteIds] = useState(new Set())
   const [favoritesLoading, setFavoritesLoading] = useState(false)
 
@@ -231,36 +223,74 @@ export default function BookingPaymentShare({
 
   const pickFromContacts = async () => {
     setContactError('')
+    setContactsBusy(true)
     try {
-      const contacts = await navigator.contacts.select(['tel', 'name'], { multiple: true })
-      if (contacts?.length > 0) {
-        let validPhones = contacts.map(c => (c.tel && c.tel[0]) || '').map(tel => normalizePhone(tel)).filter(p => p && p.length >= 8)
-        if (maxShareCount != null) {
-          const room = Math.max(0, maxShareCount - shares.length)
-          validPhones = validPhones.slice(0, room)
-        }
-        if (validPhones.length > 0) {
-          const totalParticipants = shares.length + validPhones.length + 1
-          const amt = splitMode === 'equal'
-            ? Math.round((totalPrice / totalParticipants) * 100) / 100
-            : Math.round((remaining / validPhones.length) * 100) / 100
-          const newShares = validPhones.map(p => ({
-            phone: p,
-            type: 'unregistered',
-            amount: amt,
-            whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, amt, currency, clubId)
-          }))
-          onChange([...shares, ...newShares])
-        } else {
-          setContactError(t('No valid phone in selected contacts', 'لا يوجد رقم صالح في جهات الاتصال المختارة'))
-        }
+      const room = maxShareCount != null ? Math.max(0, maxShareCount - shares.length) : 20
+      const { phones: validPhonesRaw, error } = await pickPhoneNumbersFromContacts({ multiple: true, max: room })
+      if (error === 'USER_CANCELLED') return
+      if (error === 'PERMISSION_DENIED') {
+        setContactError(t('Allow contacts access in settings to pick numbers', 'اسمح بالوصول لجهات الاتصال من إعدادات الجهاز أو التطبيق'))
+        return
+      }
+      if (error === 'NOT_SUPPORTED') {
+        setContactError(t('Contacts are not available in this browser. Type the number or use keyboard suggestions.', 'جهات الاتصال غير متاحة في هذا المتصفح. أدخل الرقم يدوياً أو من اقتراحات لوحة المفاتيح.'))
+        return
+      }
+      let validPhones = validPhonesRaw.filter(p => phoneDigits(p).length >= 8)
+      if (maxShareCount != null) validPhones = validPhones.slice(0, room)
+      if (validPhones.length > 0) {
+        const totalParticipants = shares.length + validPhones.length + 1
+        const amt = splitMode === 'equal'
+          ? Math.round((totalPrice / totalParticipants) * 100) / 100
+          : Math.round((remaining / validPhones.length) * 100) / 100
+        const newShares = validPhones.map(p => ({
+          phone: p,
+          type: 'unregistered',
+          amount: amt,
+          whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, amt, currency, clubId)
+        }))
+        onChange([...shares, ...newShares])
+      } else if (error === 'NATIVE_PICK_FAILED' || error === 'WEB_PICK_FAILED') {
+        setContactError(t('Could not read contacts. Try again or enter the number manually.', 'تعذر قراءة جهات الاتصال. أعد المحاولة أو أدخل الرقم يدوياً.'))
+      } else {
+        setContactError(t('No valid phone in selected contacts', 'لا يوجد رقم صالح في جهات الاتصال المختارة'))
       }
     } catch (e) {
-      if (e.name === 'SecurityError' || e.message?.includes('gesture')) {
-        setContactError(t('Please click the button again to select contacts', 'انقر الزر مرة أخرى لاختيار جهة اتصال'))
+      if (e?.name === 'SecurityError' || e?.message?.includes?.('gesture')) {
+        setContactError(t('Please tap the button again to open contacts', 'انقر الزر مرة أخرى لفتح جهات الاتصال'))
       } else {
         setContactError(t('Could not access contacts. Enter phone manually.', 'تعذر الوصول لجهات الاتصال. أدخل الرقم يدوياً.'))
       }
+    } finally {
+      setContactsBusy(false)
+    }
+  }
+
+  const fillSearchFromContacts = async () => {
+    setContactError('')
+    setContactsBusy(true)
+    try {
+      const { phones, error } = await pickPhoneNumbersFromContacts({ multiple: false, max: 1 })
+      if (error === 'USER_CANCELLED') return
+      if (error === 'PERMISSION_DENIED') {
+        setContactError(t('Allow contacts access in settings to pick a number', 'اسمح بالوصول لجهات الاتصال من الإعدادات'))
+        return
+      }
+      if (error === 'NOT_SUPPORTED') {
+        setContactError(t('Contacts picker is not available here.', 'اختيار جهات الاتصال غير متوفر هنا.'))
+        return
+      }
+      if (phones[0]) {
+        setMemberSearchQuery(phones[0])
+        return
+      }
+      if (error === 'NATIVE_PICK_FAILED' || error === 'WEB_PICK_FAILED') {
+        setContactError(t('Could not read contacts.', 'تعذر قراءة جهات الاتصال.'))
+      } else {
+        setContactError(t('No valid phone in that contact', 'لا يوجد رقم صالح في جهة الاتصال'))
+      }
+    } finally {
+      setContactsBusy(false)
     }
   }
 
@@ -373,11 +403,11 @@ export default function BookingPaymentShare({
             <p className="booking-payment-share-add-title">{t('Add participant', 'إضافة مشارك')}</p>
             <div className="booking-payment-share-add-type">
               <label className="booking-payment-share-radio">
-                <input type="radio" name="addType" checked={addType === 'registered'} onChange={() => setAddType('registered')} />
+                <input type="radio" name="addType" checked={addType === 'registered'} onChange={() => { setAddType('registered'); setContactError('') }} />
                 <span>{t('Registered member', 'عضو مسجل')}</span>
               </label>
               <label className="booking-payment-share-radio">
-                <input type="radio" name="addType" checked={addType === 'unregistered'} onChange={() => setAddType('unregistered')} />
+                <input type="radio" name="addType" checked={addType === 'unregistered'} onChange={() => { setAddType('unregistered'); setContactError('') }} />
                 <span>{t('Not on platform', 'غير مسجل')}</span>
               </label>
             </div>
@@ -428,14 +458,30 @@ export default function BookingPaymentShare({
                 <p className="booking-payment-share-search-label">
                   {favoriteMembers.length > 0 ? t('Or search by phone', 'أو ابحث برقم الجوال') : t('Search by phone', 'البحث برقم الجوال')}
                 </p>
-                <input
-                  type="tel"
-                  className="booking-payment-share-search"
-                  placeholder={t('Search by phone (9+ digits)', 'البحث برقم الجوال (9+ أرقام)')}
-                  value={memberSearchQuery}
-                  onChange={e => setMemberSearchQuery(e.target.value)}
-                  inputMode="tel"
-                />
+                <div className="booking-payment-share-search-row">
+                  <input
+                    type="tel"
+                    className="booking-payment-share-search"
+                    placeholder={t('Search by phone (9+ digits)', 'البحث برقم الجوال (9+ أرقام)')}
+                    value={memberSearchQuery}
+                    onChange={e => { setMemberSearchQuery(e.target.value); setContactError('') }}
+                    inputMode="tel"
+                    autoComplete="tel"
+                    enterKeyHint="search"
+                  />
+                  {isContactsPickSupported() ? (
+                    <button
+                      type="button"
+                      className="booking-payment-share-contact-icon-btn"
+                      onClick={fillSearchFromContacts}
+                      disabled={atShareCap || contactsBusy}
+                      title={t('Pick from contacts', 'اختر من جهات الاتصال')}
+                      aria-label={t('Pick from contacts', 'اختر من جهات الاتصال')}
+                    >
+                      <span className="booking-payment-share-contact-icon" aria-hidden>📇</span>
+                    </button>
+                  ) : null}
+                </div>
                 {favoritesFirst.length > 0 ? (
                   favoritesFirst.map(m => {
                     const isFavorite = favoriteIds.has(String(m.id))
@@ -477,9 +523,9 @@ export default function BookingPaymentShare({
             {addType === 'unregistered' && (
               <div className="booking-payment-share-phone">
                 <p className="booking-payment-share-phone-hint">{t('Enter phone number to send WhatsApp link for registration, club join, and payment share', 'أدخل رقم الجوال لإرسال رابط واتساب للتسجيل في النادي والمنصة والمشاركة بالدفع')}</p>
-                {CONTACT_PICKER_SUPPORTED && (
-                  <button type="button" className="booking-payment-share-contact-btn" onClick={pickFromContacts} disabled={atShareCap}>
-                    {t('Select from contacts', 'اختر من جهات الاتصال')}
+                {isContactsPickSupported() && (
+                  <button type="button" className="booking-payment-share-contact-btn" onClick={pickFromContacts} disabled={atShareCap || contactsBusy}>
+                    {contactsBusy ? '…' : t('Select from contacts', 'اختر من جهات الاتصال')}
                   </button>
                 )}
                 <div className="booking-payment-share-phone-row">
@@ -490,14 +536,18 @@ export default function BookingPaymentShare({
                     onChange={e => { setManualPhone(e.target.value); setContactError('') }}
                     onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addUnregistered())}
                     inputMode="tel"
+                    autoComplete="tel"
+                    enterKeyHint="done"
                   />
                   <button type="button" className="booking-payment-share-add-phone" onClick={() => addUnregistered()} disabled={atShareCap}>
                     {t('Add', 'إضافة')}
                   </button>
                 </div>
-                {contactError && <p className="booking-payment-share-error" role="alert">{contactError}</p>}
               </div>
             )}
+            {contactError ? (
+              <p className="booking-payment-share-error booking-payment-share-error--add-block" role="alert">{contactError}</p>
+            ) : null}
           </div>
           ) : null}
         </div>

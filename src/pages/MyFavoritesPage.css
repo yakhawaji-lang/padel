@@ -126,6 +126,49 @@
 }
 
 /* ----- Phone input with country code ----- */
+.my-favorites-phone-with-contacts {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.my-favorites-phone-with-contacts .my-favorites-phone-row {
+  flex: 1;
+  min-width: 0;
+}
+
+.my-favorites-contact-pick-btn {
+  flex-shrink: 0;
+  width: 48px;
+  min-height: 48px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  color: #334155;
+  transition: background 0.2s, border-color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.my-favorites-contact-pick-btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.my-favorites-contact-pick-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.my-favorites-contact-pick-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
 .my-favorites-phone-row {
   display: flex;
   gap: 0;

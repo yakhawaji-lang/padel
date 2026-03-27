@@ -12,11 +12,14 @@ import { getImageUrl } from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import { DEFAULT_COUNTRY, normalizeSearchDigits, getMinDigitsForCountry, normalizeMemberPhone } from '../utils/countryCodes'
+import { splitPickedPhoneToCountryAndNational } from '../utils/phoneNormalize'
+import { isContactsPickSupported, pickPhoneNumbersFromContacts } from '../utils/contactPicker'
 import CountryCodeSelect from '../components/CountryCodeSelect'
 import './MyFavoritesPage.css'
 
 const MyFavoritesPage = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
   const fromClubId = searchParams.get('from')
   const [member, setMember] = useState(null)
@@ -30,6 +33,7 @@ const MyFavoritesPage = () => {
   const [loading, setLoading] = useState(false)
   const [actionError, setActionError] = useState('')
   const [addingId, setAddingId] = useState(null)
+  const [favoritesContactBusy, setFavoritesContactBusy] = useState(false)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -152,6 +156,34 @@ const MyFavoritesPage = () => {
     }
   }
 
+  const fillSearchFromDeviceContacts = async () => {
+    setActionError('')
+    setFavoritesContactBusy(true)
+    try {
+      const { phones, error } = await pickPhoneNumbersFromContacts({ multiple: false, max: 1 })
+      if (error === 'USER_CANCELLED') return
+      if (error === 'PERMISSION_DENIED') {
+        setActionError(t('Allow contacts in Settings to pick a number.', 'اسمح بالوصول لجهات الاتصال من الإعدادات لاختيار الرقم.'))
+        return
+      }
+      if (error === 'NOT_SUPPORTED') {
+        setActionError(t('Contacts picker is not available in this browser.', 'اختيار جهات الاتصال غير متاح في هذا المتصفح.'))
+        return
+      }
+      if (!phones[0]) {
+        if (error === 'NATIVE_PICK_FAILED' || error === 'WEB_PICK_FAILED') {
+          setActionError(t('Could not read contacts.', 'تعذر قراءة جهات الاتصال.'))
+        }
+        return
+      }
+      const { countryCode: cc, national } = splitPickedPhoneToCountryAndNational(phones[0])
+      setCountryCode(cc)
+      setNumberInput((national || '').replace(/\D/g, ''))
+    } finally {
+      setFavoritesContactBusy(false)
+    }
+  }
+
   const t = (en, ar) => (language === 'ar' ? ar : en)
 
   const backClub = fromClubId ? getClubById(fromClubId) : (club || null)
@@ -216,23 +248,38 @@ const MyFavoritesPage = () => {
                   <p className="my-favorites-add-hint">
                     {t('Enter full phone number to search and add', 'أدخل رقم الجوال كاملاً للبحث والإضافة')}
                   </p>
-                  <div className="my-favorites-phone-row">
-                    <CountryCodeSelect
-                      value={countryCode}
-                      onChange={setCountryCode}
-                      language={language}
-                      placeholder={t('Search: Saudi Arabia, Egypt, 966...', 'ابحث: السعودية، مصر، 966...')}
-                      className="my-favorites-country-select"
-                    />
-                    <input
-                      type="tel"
-                      className="my-favorites-number-input"
-                      placeholder={countryCode === '966' ? t('5xxxxxxxx', '5xxxxxxxx') : t('Number', 'الرقم')}
-                      value={numberInput}
-                      onChange={e => setNumberInput(e.target.value.replace(/[^\d]/g, ''))}
-                      inputMode="tel"
-                      dir="ltr"
-                    />
+                  <div className="my-favorites-phone-with-contacts">
+                    <div className="my-favorites-phone-row">
+                      <CountryCodeSelect
+                        value={countryCode}
+                        onChange={setCountryCode}
+                        language={language}
+                        placeholder={t('Search: Saudi Arabia, Egypt, 966...', 'ابحث: السعودية، مصر، 966...')}
+                        className="my-favorites-country-select"
+                      />
+                      <input
+                        type="tel"
+                        className="my-favorites-number-input"
+                        placeholder={countryCode === '966' ? t('5xxxxxxxx', '5xxxxxxxx') : t('Number', 'الرقم')}
+                        value={numberInput}
+                        onChange={e => setNumberInput(e.target.value.replace(/[^\d]/g, ''))}
+                        inputMode="tel"
+                        autoComplete="tel-national"
+                        dir="ltr"
+                      />
+                    </div>
+                    {isContactsPickSupported() ? (
+                      <button
+                        type="button"
+                        className="my-favorites-contact-pick-btn"
+                        onClick={fillSearchFromDeviceContacts}
+                        disabled={favoritesContactBusy}
+                        title={t('Pick from contacts', 'اختر من جهات الاتصال')}
+                        aria-label={t('Pick from contacts', 'اختر من جهات الاتصال')}
+                      >
+                        <span className="my-favorites-contact-pick-icon" aria-hidden>📇</span>
+                      </button>
+                    ) : null}
                   </div>
                   {filteredBySearch.length > 0 ? (
                     <div className="my-favorites-results">
