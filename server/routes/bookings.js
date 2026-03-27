@@ -21,6 +21,56 @@ import { hasNormalizedTables, purgeClubBookingFromDb } from '../db/normalizedDat
 import * as slotCache from '../lib/slotCache.js'
 import { sendPlatformMessage } from '../services/messageSend.js'
 
+/**
+ * فاتورة حجز ملعب — دافع واحد، المبلغ المدفوع = الإجمالي، بدون صفوف booking_payment_shares.
+ * idempotent عبر issueInvoiceForFullBookingPayment.
+ */
+async function issueFullBookingInvoiceIfConfirmedSinglePayer({
+  clubId,
+  bookingId,
+  status,
+  totalAmount,
+  paidAmount,
+  memberId,
+  memberName,
+  isWalletPay,
+  isOnlinePayment,
+  paymentMethodRaw,
+}) {
+  if ((status || '') !== 'confirmed') return
+  const total = Math.round((parseFloat(totalAmount) || 0) * 100) / 100
+  const paid = Math.round((parseFloat(paidAmount) || 0) * 100) / 100
+  if (total < 0.01 || paid < total - 0.02) return
+  if (!(await invoiceService.invoicingTablesExist())) return
+  const { rows: cnt } = await query(
+    'SELECT COUNT(*) AS c FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
+    [bookingId, clubId]
+  )
+  if (Number(cnt?.[0]?.c) > 0) return
+
+  const { rows: csRows } = await query('SELECT currency FROM club_settings WHERE club_id = ? LIMIT 1', [clubId])
+  const currency = csRows?.[0]?.currency || 'SAR'
+
+  let invPm = 'electronic'
+  if (isWalletPay) invPm = 'wallet'
+  else if (isOnlinePayment) invPm = 'electronic'
+  else invPm = invoiceService.normalizeClubPaymentMethodForInvoice(paymentMethodRaw)
+
+  try {
+    await invoiceService.issueInvoiceForFullBookingPayment({
+      clubId,
+      bookingId,
+      amount: total,
+      currency,
+      memberId,
+      memberName,
+      paymentMethod: invPm,
+    })
+  } catch (e) {
+    console.warn('[bookings] full-booking invoice:', e?.message)
+  }
+}
+
 const router = Router()
 
 const bookingRateLimit = rateLimit({
@@ -133,7 +183,39 @@ router.post('/confirm', async (req, res) => {
 
     if (idempotencyKey) {
       const existing = await idempotency.checkIdempotency(idempotencyKey)
-      if (existing) return res.json({ ok: true, bookingId: existing, status: 'confirmed', idempotent: true })
+      if (existing) {
+        try {
+          const { rows: br } = await query(
+            `SELECT status, total_amount, paid_amount, member_id, data FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
+            [existing, clubId]
+          )
+          if (br?.length) {
+            const bb = br[0]
+            const d = parseBookingJsonData(bb.data)
+            const isW = String(d.paymentMethod || '').toLowerCase() === 'wallet'
+            let mn = memberName
+            if (bb.member_id && !mn) {
+              const mr = await query('SELECT name FROM members WHERE id = ? AND deleted_at IS NULL', [String(bb.member_id)])
+              mn = mr?.rows?.[0]?.name || null
+            }
+            await issueFullBookingInvoiceIfConfirmedSinglePayer({
+              clubId,
+              bookingId: existing,
+              status: bb.status,
+              totalAmount: bb.total_amount,
+              paidAmount: bb.paid_amount,
+              memberId: bb.member_id,
+              memberName: mn,
+              isWalletPay: isW,
+              isOnlinePayment: false,
+              paymentMethodRaw: d.paymentMethod,
+            })
+          }
+        } catch (e) {
+          console.warn('[bookings confirm] idempotent invoice:', e?.message)
+        }
+        return res.json({ ok: true, bookingId: existing, status: 'confirmed', idempotent: true })
+      }
     }
 
     const actor = getActorFromRequest(req)
@@ -317,6 +399,19 @@ router.post('/confirm', async (req, res) => {
     } catch (waErr) {
       console.warn('[Bookings] Message send error:', waErr?.message)
     }
+
+    await issueFullBookingInvoiceIfConfirmedSinglePayer({
+      clubId,
+      bookingId: bid,
+      status,
+      totalAmount,
+      paidAmount,
+      memberId,
+      memberName,
+      isWalletPay,
+      isOnlinePayment,
+      paymentMethodRaw: paymentMethod,
+    })
 
     res.json({
       ok: true,
@@ -1932,6 +2027,31 @@ router.post('/member-reschedule-booking', async (req, res) => {
     const oldDate = normalizeBookingDateYmd(b.booking_date)
     if (oldDate) slotCache.invalidateLocks(clubId, oldDate)
     slotCache.invalidateLocks(clubId, dateYmd)
+    if (feeR > 0.01 && payFeeFromWallet) {
+      try {
+        const { rows: csFee } = await query('SELECT currency FROM club_settings WHERE club_id = ? LIMIT 1', [clubId])
+        const cur = csFee?.[0]?.currency || 'SAR'
+        const mnr = await query('SELECT name FROM members WHERE id = ? AND deleted_at IS NULL', [String(memberId)])
+        const feeName = mnr?.rows?.[0]?.name || null
+        await invoiceService.issuePaidInvoice({
+          clubId,
+          currency: cur,
+          total: feeR,
+          customerMemberId: memberId,
+          customerName: feeName,
+          customerPhone: null,
+          sourceType: 'booking_fee',
+          sourceRef: `${bookingId}:reschedule:${cnt + 1}`,
+          idempotencyKey: `brsf:${clubId}:${bookingId}:${cnt + 1}`,
+          paymentMethod: 'wallet',
+          externalRef: null,
+          lineDescriptionEn: `Reschedule fee — booking ${bookingId}`,
+          lineDescriptionAr: `رسوم إعادة جدولة — حجز ${bookingId}`,
+        })
+      } catch (invE) {
+        console.warn('[member-reschedule-booking] invoice:', invE?.message)
+      }
+    }
     res.json({ ok: true, rescheduleFeeCharged: feeR })
   } catch (e) {
     console.error('member-reschedule-booking:', e)

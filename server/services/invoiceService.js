@@ -172,9 +172,18 @@ export async function voidClubInvoicesForBookingRefund(clubId, bookingId) {
   return { ok: true }
 }
 
+/** قيمة method المناسبة لجدول club_payments (electronic | at_club | wallet | other) */
+export function normalizeClubPaymentMethodForInvoice(paymentMethod) {
+  const m = (paymentMethod || 'electronic').toString().toLowerCase().trim()
+  if (m === 'at_club') return 'at_club'
+  if (m === 'wallet') return 'wallet'
+  if (m === 'credit_card' || m === 'mada' || m === 'electronic') return 'electronic'
+  return 'other'
+}
+
 export async function issueInvoiceForFullBookingPayment({ clubId, bookingId, amount, currency, memberId, memberName, paymentMethod = 'electronic' }) {
   const idem = `cbf:${clubId}:${bookingId}:full`
-  const method = (paymentMethod || 'electronic').toString()
+  const method = normalizeClubPaymentMethodForInvoice(paymentMethod)
   return issuePaidInvoice({
     clubId,
     currency: currency || 'SAR',
@@ -185,7 +194,7 @@ export async function issueInvoiceForFullBookingPayment({ clubId, bookingId, amo
     sourceType: 'booking_full',
     sourceRef: String(bookingId),
     idempotencyKey: idem,
-    paymentMethod: method === 'at_club' ? 'at_club' : 'electronic',
+    paymentMethod: method,
     externalRef: null,
     lineDescriptionEn: `Court booking — ${bookingId}`,
     lineDescriptionAr: `حجز ملعب — ${bookingId}`,
