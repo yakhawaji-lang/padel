@@ -1196,6 +1196,30 @@
   overflow: hidden;
 }
 
+/* Deep-link من صفحة النادي: تمييز بطاقة الحجز بعد التمرير */
+.my-bookings-card--focus-highlight {
+  border-color: #93c5fd;
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.45),
+    0 8px 28px rgba(37, 99, 235, 0.12),
+    var(--mb-shadow-card);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .my-bookings-card--focus-highlight {
+    animation: my-bookings-card-focus-ring 0.6s ease-out;
+  }
+}
+
+@keyframes my-bookings-card-focus-ring {
+  from {
+    box-shadow:
+      0 0 0 8px rgba(37, 99, 235, 0.35),
+      0 8px 28px rgba(37, 99, 235, 0.18),
+      var(--mb-shadow-card);
+  }
+}
+
 /* شريط لوني جانبي — بطاقات الموبايل */
 .my-bookings-card::before {
   content: '';

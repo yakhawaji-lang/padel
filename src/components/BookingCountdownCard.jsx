@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import './BookingCountdownCard.css'
 
 /** حساب الوقت المتبقي حتى بداية الحجز (بالثواني). تاريخ ووقت محلي. */
@@ -46,7 +47,7 @@ function getCountdownParts(seconds) {
   }
 }
 
-export default function BookingCountdownCard({ booking, formatDate, language, onClick }) {
+export default function BookingCountdownCard({ booking, formatDate, language, onClick, to }) {
   const { dateStr, startTime, endTime, resource, courtName, court, memberName, customerName, customer } = booking
   const courtLabel = resource || courtName || court || '—'
   const customerLabel = memberName || customerName || customer || '—'
@@ -82,15 +83,11 @@ export default function BookingCountdownCard({ booking, formatDate, language, on
   const paymentExpired = needsPayment && paymentDeadlineAt && secondsUntilPay != null && secondsUntilPay <= 0
   const parts = status === 'upcoming' && secondsLeft != null && !showPaymentCountdown ? getCountdownParts(secondsLeft) : null
 
-  const isClickable = typeof onClick === 'function'
-  return (
-    <article
-      className={`booking-countdown-card booking-countdown-card--${status} ${isTraining ? 'booking-countdown-card--training' : 'booking-countdown-card--court'} ${isClickable ? 'booking-countdown-card--clickable' : ''}`}
-      role={isClickable ? 'button' : undefined}
-      tabIndex={isClickable ? 0 : undefined}
-      onClick={isClickable ? () => onClick(booking) : undefined}
-      onKeyDown={isClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(booking) } } : undefined}
-    >
+  const isClickable = Boolean(to) || typeof onClick === 'function'
+  const cardClass = `booking-countdown-card booking-countdown-card--${status} ${isTraining ? 'booking-countdown-card--training' : 'booking-countdown-card--court'} ${isClickable ? 'booking-countdown-card--clickable' : ''}`
+
+  const inner = (
+    <>
       <div className="booking-countdown-card__accent" aria-hidden />
       <div className="booking-countdown-card__body">
         <div className="booking-countdown-card__main">
@@ -169,6 +166,26 @@ export default function BookingCountdownCard({ booking, formatDate, language, on
           )}
         </div>
       </div>
+    </>
+  )
+
+  if (to) {
+    return (
+      <Link to={to} className={cardClass}>
+        {inner}
+      </Link>
+    )
+  }
+
+  return (
+    <article
+      className={cardClass}
+      role={typeof onClick === 'function' ? 'button' : undefined}
+      tabIndex={typeof onClick === 'function' ? 0 : undefined}
+      onClick={typeof onClick === 'function' ? () => onClick(booking) : undefined}
+      onKeyDown={typeof onClick === 'function' ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(booking) } } : undefined}
+    >
+      {inner}
     </article>
   )
 }

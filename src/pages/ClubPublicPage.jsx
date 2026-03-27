@@ -13,7 +13,6 @@ import { getClubAdminSession } from '../storage/clubAuth'
 import MemberAccountDropdown from '../components/MemberAccountDropdown'
 import BookingCountdownCard from '../components/BookingCountdownCard'
 import BookingPaymentShare from '../components/BookingPaymentShare'
-import BookingDetailModal from '../components/BookingDetailModal'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import { isTournamentWithoutMembers, kingTournamentReservesCourt, kingTournamentReservesCourtIds, getTournamentTeamsDetail } from '../utils/tournamentHelpers'
 import { getMergedWindowsForDate, getPublicBookingTimeSlots, coversBookingInterval } from '../utils/clubWorkingHours'
@@ -271,7 +270,6 @@ const ClubPublicPage = () => {
   const [activeLocks, setActiveLocks] = useState([])
   const [lockError, setLockError] = useState(null)
   const [loadRetrying, setLoadRetrying] = useState(false)
-  const [detailBooking, setDetailBooking] = useState(null)
   const [trainingJoinModal, setTrainingJoinModal] = useState(null) // { booking, court } - للانضمام لجلسة تدريب
   const [trainingJoinSubmitting, setTrainingJoinSubmitting] = useState(false)
   const [trainingJoinPaymentStyle, setTrainingJoinPaymentStyle] = useState('single') // 'single' | 'split' — مطابق حجز الملاعب
@@ -560,17 +558,6 @@ const ClubPublicPage = () => {
       return []
     }
   }, [club?.id])
-
-  const bookingMemberDirectory = React.useMemo(() => {
-    const byId = new Map()
-    for (const m of clubMembersList || []) {
-      if (m?.id != null) byId.set(String(m.id), m)
-    }
-    for (const m of allPlatformMembersList || []) {
-      if (m?.id != null && !byId.has(String(m.id))) byId.set(String(m.id), m)
-    }
-    return [...byId.values()]
-  }, [clubMembersList, allPlatformMembersList])
 
   const [bookingSubmitting, setBookingSubmitting] = useState(false)
   const [bookingDuration, setBookingDuration] = useState(60)
@@ -2219,22 +2206,15 @@ const ClubPublicPage = () => {
                         booking={b}
                         formatDate={formatDate}
                         language={language}
-                        onClick={platformUser ? () => setDetailBooking(b) : undefined}
+                        to={
+                          platformUser && clubId && b.id
+                            ? `/my-bookings?from=${encodeURIComponent(clubId)}&booking=${encodeURIComponent(String(b.id))}`
+                            : undefined
+                        }
                       />
                     ))}
                   </div>
                 </div>
-                {detailBooking && (
-                  <BookingDetailModal
-                    booking={detailBooking}
-                    club={club}
-                    platformUser={platformUser}
-                    memberDirectory={bookingMemberDirectory}
-                    language={language}
-                    onClose={() => setDetailBooking(null)}
-                    onUpdated={() => { refreshClub(); setDetailBooking(null) }}
-                  />
-                )}
               </>
             )}
           </div>

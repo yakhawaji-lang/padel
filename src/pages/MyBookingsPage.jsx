@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { getMemberBookings, getClubById, loadClubs, refreshClubsFromApi, getClubMembersFromStorage, getAllMembersFromStorage, updateTournamentMemberPaymentEntry } from '../storage/adminStorage'
@@ -299,6 +299,72 @@ const MyBookingsPage = () => {
   const upcoming = bookings.filter((r) => normDate(r) >= today && !bookingIsListCancelled(r.booking))
   const past = bookings.filter((r) => normDate(r) < today && !bookingIsListCancelled(r.booking))
   const displayed = filter === 'upcoming' ? upcoming : filter === 'past' ? past : cancelledList
+
+  /** من صفحة النادي: ?booking=id — اختر التبويب المناسب ثم مرّر ولوّن البطاقة */
+  const focusBookingIdParam = searchParams.get('booking')
+  const focusScrollDoneRef = useRef(null)
+
+  useEffect(() => {
+    if (!focusBookingIdParam || !member?.id || bookings.length === 0) return
+    const item = bookings.find((x) => String(x.booking?.id) === String(focusBookingIdParam))
+    if (!item) return
+    const b = item.booking
+    if (bookingIsListCancelled(b)) {
+      setFilter('cancelled')
+      return
+    }
+    const d = (b.dateStr || b.date || b.startDate || '').toString().split('T')[0]
+    const todayStr = new Date().toISOString().split('T')[0]
+    setFilter(d < todayStr ? 'past' : 'upcoming')
+  }, [focusBookingIdParam, bookings, member?.id])
+
+  useLayoutEffect(() => {
+    if (!focusBookingIdParam || !member?.id) return
+    if (focusScrollDoneRef.current === focusBookingIdParam) return
+    const inList = displayed.some(({ booking: b }) => String(b?.id) === String(focusBookingIdParam))
+    if (!inList) return
+
+    let cancelled = false
+    const attempt = () => {
+      if (cancelled || focusScrollDoneRef.current === focusBookingIdParam) return
+      const el = document.getElementById(`my-booking-card-${focusBookingIdParam}`)
+      if (!el) return
+      focusScrollDoneRef.current = focusBookingIdParam
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('my-bookings-card--focus-highlight')
+      window.setTimeout(() => {
+        el.classList.remove('my-bookings-card--focus-highlight')
+      }, 2600)
+      const next = new URLSearchParams(searchParams)
+      next.delete('booking')
+      const qs = next.toString()
+      navigate(qs ? `/my-bookings?${qs}` : '/my-bookings', { replace: true })
+    }
+
+    attempt()
+    const t0 = window.setTimeout(attempt, 0)
+    const t1 = window.setTimeout(attempt, 100)
+    return () => {
+      cancelled = true
+      clearTimeout(t0)
+      clearTimeout(t1)
+    }
+  }, [focusBookingIdParam, displayed, member?.id, navigate, searchParams])
+
+  useEffect(() => {
+    if (!searchParams.get('booking')) focusScrollDoneRef.current = null
+  }, [searchParams])
+
+  useEffect(() => {
+    const bid = searchParams.get('booking')
+    if (!bid || !member?.id || bookings.length === 0) return
+    const exists = bookings.some((x) => String(x.booking?.id) === String(bid))
+    if (exists) return
+    const next = new URLSearchParams(searchParams)
+    next.delete('booking')
+    const qs = next.toString()
+    navigate(qs ? `/my-bookings?${qs}` : '/my-bookings', { replace: true })
+  }, [searchParams, bookings, member?.id, navigate])
 
   const shareMemberDirectory = React.useMemo(() => {
     const byId = new Map()
@@ -849,6 +915,7 @@ const MyBookingsPage = () => {
               {rows.map((r) => (
                 <article
                   key={r.key}
+                  id={r.booking?.id ? `my-booking-card-${r.booking.id}` : undefined}
                   className={`my-bookings-card my-bookings-card-clickable ${r.isTournament ? 'my-bookings-card--tournament' : r.isTraining ? 'my-bookings-card--training' : 'my-bookings-card--court'} ${r.terminalCancelled ? 'my-bookings-card--cancelled' : r.isPaid ? 'my-bookings-card--paid' : 'my-bookings-card--pending'}`}
                   role="button"
                   tabIndex={0}
