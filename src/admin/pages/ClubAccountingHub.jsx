@@ -1,5 +1,6 @@
-import React, { useMemo, useState, useCallback } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import './ClubAccountingHub.css'
+import { fetchClubInvoices } from '../../api/dbClient'
 
 const TERMINAL_STATUSES = ['cancelled', 'expired', 'cancelled_awaiting_refund_ack']
 
@@ -37,6 +38,7 @@ function monthRange() {
 const SUB_TABS = [
   { id: 'overview', icon: '📈', en: 'Overview', ar: 'نظرة عامة' },
   { id: 'bookings', icon: '📅', en: 'Court revenue', ar: 'إيرادات الملاعب' },
+  { id: 'invoices', icon: '🧾', en: 'Invoices', ar: 'الفواتير' },
   { id: 'ledger', icon: '📒', en: 'Ledger', ar: 'دفتر القيود' },
   { id: 'reports', icon: '📤', en: 'Reports', ar: 'التقارير' }
 ]
@@ -50,7 +52,55 @@ export default function ClubAccountingHub({ club, language, onUpdateClub }) {
   const [reportFrom, setReportFrom] = useState(monthRange().start)
   const [reportTo, setReportTo] = useState(monthRange().end)
 
+  const invoiceRangeStart = useMemo(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 120)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }, [])
+  const [invoiceFrom, setInvoiceFrom] = useState(invoiceRangeStart)
+  const [invoiceTo, setInvoiceTo] = useState(() => new Date().toISOString().split('T')[0])
+  const [invoiceQuery, setInvoiceQuery] = useState('')
+  const [invoices, setInvoices] = useState([])
+  const [invoicesLoading, setInvoicesLoading] = useState(false)
+  const [invoicingEnabled, setInvoicingEnabled] = useState(true)
+
   const t = (en, ar) => (lang === 'ar' ? ar : en)
+
+  useEffect(() => {
+    if (subTab !== 'invoices' || !club?.id) return
+    let cancelled = false
+    ;(async () => {
+      setInvoicesLoading(true)
+      try {
+        const r = await fetchClubInvoices(club.id, { from: invoiceFrom, to: invoiceTo, limit: 250, offset: 0 })
+        if (!cancelled && r?.ok !== false) {
+          setInvoices(Array.isArray(r.invoices) ? r.invoices : [])
+          setInvoicingEnabled(r.invoicingEnabled !== false)
+        }
+      } catch {
+        if (!cancelled) {
+          setInvoices([])
+          setInvoicingEnabled(false)
+        }
+      } finally {
+        if (!cancelled) setInvoicesLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [subTab, club?.id, invoiceFrom, invoiceTo])
+
+  const filteredInvoices = useMemo(() => {
+    const q = invoiceQuery.trim().toLowerCase()
+    if (!q) return invoices
+    return invoices.filter((inv) => {
+      const num = String(inv.invoice_number || '').toLowerCase()
+      const cust = String(inv.customer_name || '').toLowerCase()
+      const pid = String(inv.public_id || '').toLowerCase()
+      const src = String(inv.source_ref || '').toLowerCase()
+      const st = String(inv.status || '').toLowerCase()
+      return num.includes(q) || cust.includes(q) || pid.includes(q) || src.includes(q) || st.includes(q)
+    })
+  }, [invoices, invoiceQuery])
 
   const bookings = useMemo(() => (Array.isArray(club?.bookings) ? club.bookings : []), [club?.bookings])
   const accounting = useMemo(() => (Array.isArray(club?.accounting) ? club.accounting : []), [club?.accounting])
@@ -339,6 +389,107 @@ export default function ClubAccountingHub({ club, language, onUpdateClub }) {
                   </ul>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {subTab === 'invoices' && (
+          <div className="acc-panel acc-panel--invoices">
+            {!invoicingEnabled ? (
+              <div className="acc-card acc-invoice-hint acc-invoice-hint--warn">
+                <p className="acc-invoice-hint__title">{t('Invoicing is not available', 'الفوترة غير مفعّلة')}</p>
+                <p className="acc-invoice-hint__body">
+                  {t(
+                    'Install invoicing tables on the server or confirm payments from Bookings to sync when enabled.',
+                    'ثبّت جداول الفوترة على السيرفر، أو أكّد المدفوعات من الحجوزات عندما تكون الفوترة جاهزة.'
+                  )}
+                </p>
+              </div>
+            ) : null}
+            <div className="acc-toolbar acc-toolbar--wrap">
+              <input
+                type="search"
+                className="acc-input acc-input--grow acc-input--prominent"
+                placeholder={t(
+                  'Search invoice #, customer, booking ref, status…',
+                  'بحث برقم الفاتورة، العميل، مرجع الحجز، الحالة…'
+                )}
+                value={invoiceQuery}
+                onChange={(e) => setInvoiceQuery(e.target.value)}
+                aria-label={t('Search invoices', 'بحث في الفواتير')}
+              />
+              <label className="acc-field acc-field--inline">
+                <span className="acc-field__label">{t('From', 'من')}</span>
+                <input
+                  type="date"
+                  className="acc-input western-numerals"
+                  value={invoiceFrom}
+                  onChange={(e) => setInvoiceFrom(e.target.value)}
+                />
+              </label>
+              <label className="acc-field acc-field--inline">
+                <span className="acc-field__label">{t('To', 'إلى')}</span>
+                <input
+                  type="date"
+                  className="acc-input western-numerals"
+                  value={invoiceTo}
+                  onChange={(e) => setInvoiceTo(e.target.value)}
+                />
+              </label>
+            </div>
+            <p className="acc-invoice-count">
+              {invoicesLoading
+                ? t('Loading…', 'جاري التحميل…')
+                : t(`${filteredInvoices.length} invoice(s)`, `${filteredInvoices.length} فاتورة`)}
+            </p>
+            <div className="acc-table-wrap">
+              <table className="acc-table acc-table--invoices">
+                <thead>
+                  <tr>
+                    <th>{t('Invoice #', 'رقم الفاتورة')}</th>
+                    <th>{t('Issued', 'الإصدار')}</th>
+                    <th>{t('Customer', 'العميل')}</th>
+                    <th>{t('Total', 'الإجمالي')}</th>
+                    <th>{t('Status', 'الحالة')}</th>
+                    <th>{t('Source', 'المصدر')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredInvoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="acc-table__empty">
+                        {t('No invoices in this range.', 'لا توجد فواتير في هذه الفترة.')}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredInvoices.map((inv) => (
+                      <tr key={inv.public_id || inv.invoice_number}>
+                        <td>
+                          <code className="acc-code">{inv.invoice_number || '—'}</code>
+                        </td>
+                        <td className="western-numerals">
+                          {inv.issued_at
+                            ? String(inv.issued_at).split('T')[0]
+                            : '—'}
+                        </td>
+                        <td>{inv.customer_name || '—'}</td>
+                        <td className="western-numerals">
+                          {formatMoney(inv.total ?? inv.amount_paid, inv.currency || currency, lang)}
+                        </td>
+                        <td>
+                          <span className="acc-pill acc-pill--income">{inv.status || '—'}</span>
+                        </td>
+                        <td className="acc-invoice-source">
+                          <span className="acc-invoice-source-type">{inv.source_type || '—'}</span>
+                          {inv.source_ref ? (
+                            <code className="acc-code acc-code--sub">{String(inv.source_ref).slice(0, 24)}</code>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

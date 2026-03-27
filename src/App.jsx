@@ -21,6 +21,8 @@ import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import LanguageIcon from './components/LanguageIcon'
 import ClubCalendarBookingDetailSheet from './components/ClubCalendarBookingDetailSheet'
 import { getBookingCalendarKind } from './utils/bookingCalendarKind'
+import { isLikelyServerBookingId, showInvoiceAlertFromApiResult } from './utils/bookingInvoiceSync'
+import * as bookingApi from './api/dbClient'
 import { buildWhatsAppLink, buildWhatsAppLinkForRegistered } from './components/BookingPaymentShare'
 import playtomicApi from './services/playtomicApi'
 import {
@@ -4775,6 +4777,27 @@ function App({ currentUser }) {
     mergeBookings(updatedLocalBookings, playtomicBookings)
     setShowBookingModal(false)
     setBookingFormData(null)
+
+    const syncInv =
+      bookingData.markFullyPaidAtClub &&
+      totalAmt > 0.01 &&
+      clubId &&
+      isLikelyServerBookingId(bookingData.id)
+    if (syncInv) {
+      const bid = bookingData.id
+      ;(async () => {
+        try {
+          const res = await bookingApi.confirmPaidAtClubFull({ bookingId: bid, clubId })
+          if (res?.invoice?.invoiceNumber) {
+            showInvoiceAlertFromApiResult(res, { language, clubId })
+          }
+          await refreshClubsFromApi()
+          if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+        } catch {
+          /* offline or not eligible on server — local booking still saved */
+        }
+      })()
+    }
   }
 
   const deleteBookingAndInvoice = (bookingIdOrIds) => {
@@ -4878,18 +4901,45 @@ function App({ currentUser }) {
     mergeBookings(updatedLocalBookings, playtomicBookings)
   }
 
-  const confirmCalendarSharePaid = (bookingId, shareIndex) => {
+  const syncBookingsAfterApi = async () => {
+    await refreshClubsFromApi()
+    const clubs = loadClubs()
+    const club = clubs.find((c) => c.id === clubId)
+    if (club) {
+      setCurrentClub(club)
+      const clubBookings = club?.bookings && Array.isArray(club.bookings) ? club.bookings : []
+      const localOnly = clubBookings.filter((b) => !b.source || b.source !== 'playtomic')
+      const withIds = mapClubBookingsForLocalState(localOnly)
+      setLocalBookings(withIds)
+    }
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+  }
+
+  const confirmCalendarSharePaid = async (bookingId, shareIndex) => {
+    const row = bookings.find((x) => String(x.id) === String(bookingId))
+    const sh = row?.paymentShares?.[shareIndex]
+
+    if (clubId && row && isLikelyServerBookingId(bookingId) && sh?.id) {
+      try {
+        await bookingApi.markSharePaidAtClub({ shareId: sh.id, clubId })
+        await syncBookingsAfterApi()
+        return
+      } catch {
+        /* fall through to local patch */
+      }
+    }
+
     applyBookingPatch(bookingId, (b) => {
       const shares = Array.isArray(b.paymentShares) ? [...b.paymentShares] : []
       if (!shares[shareIndex]) return b
-      const row = { ...shares[shareIndex], paidAt: new Date().toISOString() }
-      Reflect.deleteProperty(row, 'paid_at')
-      shares[shareIndex] = row
+      const r = { ...shares[shareIndex], paidAt: new Date().toISOString() }
+      Reflect.deleteProperty(r, 'paid_at')
+      shares[shareIndex] = r
       const total = parseFloat(b.totalAmount ?? b.total_amount ?? b.amount ?? 0) || 0
       const paidSum = shares.reduce(
-        (s, sh) =>
+        (s, sh2) =>
           s +
-          ((sh.paidAt || sh.paid_at) && !(sh.refundedAt || sh.refunded_at) ? parseFloat(sh.amount) || 0 : 0),
+          ((sh2.paidAt || sh2.paid_at) && !(sh2.refundedAt || sh2.refunded_at) ? parseFloat(sh2.amount) || 0 : 0),
         0
       )
       let status = b.status
@@ -4902,7 +4952,20 @@ function App({ currentUser }) {
     })
   }
 
-  const confirmCalendarFullPayment = (bookingId) => {
+  const confirmCalendarFullPayment = async (bookingId) => {
+    if (clubId && isLikelyServerBookingId(bookingId)) {
+      try {
+        const res = await bookingApi.confirmPaidAtClubFull({ bookingId, clubId })
+        if (res?.invoice?.invoiceNumber) {
+          showInvoiceAlertFromApiResult(res, { language, clubId })
+        }
+        await syncBookingsAfterApi()
+        return
+      } catch {
+        /* fall through — apply local patch for desk-only clubs */
+      }
+    }
+
     applyBookingPatch(bookingId, (b) => {
       const total = parseFloat(b.totalAmount ?? b.total_amount ?? b.amount ?? 0) || 0
       let paymentShares = b.paymentShares
@@ -7037,8 +7100,8 @@ function App({ currentUser }) {
                     })
                     setContentTab('teams')
                   }}
-                  onConfirmSharePaid={(idx) => confirmCalendarSharePaid(detailBookingLive.id, idx)}
-                  onConfirmFullPayment={() => confirmCalendarFullPayment(detailBookingLive.id)}
+                  onConfirmSharePaid={(idx) => void confirmCalendarSharePaid(detailBookingLive.id, idx)}
+                  onConfirmFullPayment={() => void confirmCalendarFullPayment(detailBookingLive.id)}
                 />
               ) : null}
               

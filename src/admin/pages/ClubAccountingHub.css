@@ -575,3 +575,73 @@
   color: var(--acc-muted);
   line-height: 1.45;
 }
+
+/* Invoices tab */
+.acc-toolbar--wrap {
+  align-items: flex-end;
+}
+
+.acc-input--prominent {
+  min-width: min(100%, 320px);
+  border-width: 2px;
+}
+
+.acc-field--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.acc-field__label {
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
+.acc-invoice-hint {
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border-radius: var(--acc-radius);
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+}
+
+.acc-invoice-hint--warn .acc-invoice-hint__title {
+  margin: 0 0 6px;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.acc-invoice-hint__body {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #78350f;
+  line-height: 1.45;
+}
+
+.acc-invoice-count {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  color: var(--acc-muted);
+  font-weight: 600;
+}
+
+.acc-invoice-source {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.acc-invoice-source-type {
+  font-size: 0.8rem;
+  color: var(--acc-muted);
+  text-transform: capitalize;
+}
+
+.acc-code--sub {
+  font-size: 0.72rem;
+  opacity: 0.9;
+}
+
+.acc-table--invoices td {
+  font-size: 0.86rem;
+}

@@ -1506,45 +1506,74 @@ router.post('/confirm-paid-at-club-full', async (req, res) => {
     )
     if (!rows?.length) return res.status(404).json({ error: 'Booking not found' })
     const b = rows[0]
-    if ((b.status || '').toLowerCase() !== 'pending_payment') {
-      return res.status(400).json({ error: 'Booking is not awaiting club payment confirmation' })
-    }
+    const st = (b.status || '').toLowerCase()
     const data = parseBookingJsonData(b.data)
     const atClub =
       String(data.initiatorPaymentMethod || '').toLowerCase() === 'at_club' ||
-      String(data.paymentMethod || '').toLowerCase() === 'at_club'
-    if (!atClub) {
-      return res.status(400).json({ error: 'This booking is not pay-at-club full payment' })
-    }
+      String(data.paymentMethod || '').toLowerCase() === 'at_club' ||
+      String(data.initiatorPaymentMethod || '').toLowerCase() === 'pay_at_club'
     const totalAmount = parseFloat(b.total_amount) || 0
-    await bookingService.updateBookingPayment(bookingId, clubId, totalAmount, 'confirmed')
+    const paidAmount = parseFloat(b.paid_amount) || 0
+    const isFullPaid = totalAmount > 0.01 && paidAmount >= totalAmount - 0.02
+
     let memberName = null
     if (b.member_id) {
       const mr = await query('SELECT name FROM members WHERE id = ? AND deleted_at IS NULL', [String(b.member_id)])
       memberName = mr?.rows?.[0]?.name || null
     }
+
     let invoice = null
-    try {
-      invoice = await invoiceService.issueInvoiceForFullBookingPayment({
-        clubId,
-        bookingId,
-        amount: totalAmount,
-        currency: b.currency,
-        memberId: b.member_id,
-        memberName,
-        paymentMethod: 'at_club',
-      })
-    } catch (invErr) {
-      console.warn('[confirm-paid-at-club-full] invoice:', invErr?.message)
+
+    if (st === 'pending_payment' && atClub) {
+      await bookingService.updateBookingPayment(bookingId, clubId, totalAmount, 'confirmed')
+      try {
+        invoice = await invoiceService.issueInvoiceForFullBookingPayment({
+          clubId,
+          bookingId,
+          amount: totalAmount,
+          currency: b.currency,
+          memberId: b.member_id,
+          memberName,
+          paymentMethod: 'at_club',
+        })
+      } catch (invErr) {
+        console.warn('[confirm-paid-at-club-full] invoice:', invErr?.message)
+      }
+    } else if ((st === 'confirmed' || st === 'partially_paid') && isFullPaid) {
+      try {
+        invoice = await invoiceService.issueInvoiceForFullBookingPayment({
+          clubId,
+          bookingId,
+          amount: totalAmount,
+          currency: b.currency,
+          memberId: b.member_id,
+          memberName,
+          paymentMethod: 'at_club',
+        })
+      } catch (invErr) {
+        console.warn('[confirm-paid-at-club-full] invoice-only:', invErr?.message)
+      }
+    } else if (st === 'pending_payment' && !atClub) {
+      return res.status(400).json({ error: 'This booking is not pay-at-club full payment' })
+    } else {
+      return res.status(400).json({ error: 'Booking is not eligible for club payment confirmation' })
     }
+
     const { rows: bDate } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bookingId, clubId])
     const dateStr = bDate[0]?.booking_date ? String(bDate[0].booking_date).split('T')[0] : null
     if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
+
+    const invPayload = invoice
+      ? {
+          publicId: invoice.publicId || null,
+          invoiceNumber: invoice.invoiceNumber,
+          duplicate: !!invoice.duplicate,
+        }
+      : null
+
     res.json({
       ok: true,
-      invoice: invoice?.publicId
-        ? { publicId: invoice.publicId, invoiceNumber: invoice.invoiceNumber }
-        : null,
+      invoice: invPayload,
     })
   } catch (e) {
     console.error('bookings confirm-paid-at-club-full error:', e)

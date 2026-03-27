@@ -387,14 +387,22 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
           await navigator.clipboard.writeText(msg)
           window.alert(
             language === 'en'
-              ? `Invoice ${invNo} was created. A WhatsApp message was copied — paste it to send to the member.`
-              : `أُنشئت الفاتورة ${invNo}. تم نسخ رسالة واتساب — الصقها لإرسالها للعضو.`
+              ? `Invoice ${invNo} was created. It also appears under Admin → Accounting → Invoices. A message was copied for the member.`
+              : `أُنشئت الفاتورة ${invNo}. تظهر أيضاً في لوحة النادي: المحاسبة ← الفواتير. تم نسخ رسالة للعضو.`
           )
         } catch {
-          window.alert(language === 'en' ? `Invoice ${invNo} was created.` : `أُنشئت الفاتورة ${invNo}.`)
+          window.alert(
+            language === 'en'
+              ? `Invoice ${invNo} was created. See Accounting → Invoices.`
+              : `أُنشئت الفاتورة ${invNo}. راجع المحاسبة ← الفواتير.`
+          )
         }
       } else if (invNo) {
-        window.alert(language === 'en' ? `Invoice ${invNo} was created.` : `أُنشئت الفاتورة ${invNo}.`)
+        window.alert(
+          language === 'en'
+            ? `Invoice ${invNo} was created. See Accounting → Invoices.`
+            : `أُنشئت الفاتورة ${invNo}. راجع المحاسبة ← الفواتير.`
+        )
       }
       refreshFromServer()
     } catch (e) {
