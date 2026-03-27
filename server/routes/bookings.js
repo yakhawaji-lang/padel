@@ -1726,8 +1726,8 @@ router.get('/wallet-balance', async (req, res) => {
   try {
     const { clubId, memberId } = req.query
     if (!clubId || !memberId) return res.status(400).json({ error: 'clubId and memberId required' })
-    const bal = await walletService.getWalletBalance(clubId, memberId)
-    res.json({ ok: true, balance: bal })
+    const { balance, repaired } = await walletService.getWalletBalanceWithRepair(clubId, memberId)
+    res.json({ ok: true, balance, repaired })
   } catch (e) {
     res.status(500).json({ error: dbError(e) })
   }
