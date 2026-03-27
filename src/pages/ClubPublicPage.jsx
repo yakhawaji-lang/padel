@@ -19,6 +19,7 @@ import { getMergedWindowsForDate, getPublicBookingTimeSlots, coversBookingInterv
 import { getEffectivePaymentChannels, pickFirstPaymentMethod } from '../utils/paymentChannels'
 import './ClubPublicPage.css'
 import { memberRelatesToCourtBooking } from '../utils/paymentShareMemberMatch.js'
+import { isMemberCancelledBooking } from '../utils/bookingMemberCancel'
 import '../components/BookingPaymentShare.css'
 
 const getClubBookings = (clubId) => {
@@ -112,7 +113,7 @@ const getBlockedRangesForCourtAndDate = (courtNameOrId, dateStr, bookings, activ
   ;(bookings || []).forEach(b => {
     if (b.isTournament) {
       if (!['king', 'social'].includes(b.tournamentType) || !kingTournamentReservesCourtIds(courtIds, b)) return
-      if (['cancelled', 'expired'].includes((b.status || '').toString())) return
+      if (['cancelled', 'expired'].includes((b.status || '').toString().toLowerCase())) return
       const bDate = (b.date || b.startDate || '').toString().split('T')[0]
       if (bDate !== dateStr) {
         const prev = shiftCalendarDateStr(dateStr, -1)
@@ -125,7 +126,7 @@ const getBlockedRangesForCourtAndDate = (courtNameOrId, dateStr, bookings, activ
       addOvernightPairToDate(bDateNorm, start, end, true)
       return
     }
-    if (['cancelled', 'expired'].includes((b.status || '').toString())) return
+    if (['cancelled', 'expired'].includes((b.status || '').toString().toLowerCase())) return
     const bDate = (b.date || b.startDate || '').toString().split('T')[0]
     if (bDate !== dateStr) {
       const prev = shiftCalendarDateStr(dateStr, -1)
@@ -1522,7 +1523,8 @@ const ClubPublicPage = () => {
                           const courtIdForMatch = (court.id || court.name || '').toString()
                           const dateStr = courtGridDate
                           const bookedItem = bookings.find(b => {
-                            const status = (b.status || '').toString()
+                            if (isMemberCancelledBooking(b)) return false
+                            const status = (b.status || '').toString().toLowerCase()
                             if (['cancelled', 'expired'].includes(status)) return false
                             const bDate = (b.date || b.startDate || '').toString().split('T')[0]
                             if (bDate !== dateStr) return false

@@ -4,6 +4,7 @@ import * as bookingApi from '../../api/dbClient'
 import './club-pages-common.css'
 import './AccountingManagement.css'
 import './BookingsManagement.css'
+import { hasMemberSelfCancelFlag } from '../../utils/bookingMemberCancel'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
@@ -68,7 +69,7 @@ const ClubAccountingManagement = ({ club, onUpdateClub, language, onRefresh }) =
       if (st !== 'cancelled_awaiting_refund_ack') return false
       const shares = Array.isArray(b.paymentShares) ? b.paymentShares : []
       if (shares.length > 0) return false
-      return !!(b.memberSelfCancel || b.memberRefundPreference)
+      return !!(hasMemberSelfCancelFlag(b) || b.memberRefundPreference)
     })
     return list.sort((a, b) => {
       const da = (a.date || a.startDate || '').toString().split('T')[0]

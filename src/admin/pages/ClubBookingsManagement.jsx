@@ -4,23 +4,13 @@ import { resolvePaymentShareDisplayName } from '../../utils/paymentShareMemberMa
 import * as bookingApi from '../../api/dbClient'
 import CalendarPicker from '../../components/CalendarPicker'
 import { calculateBookingPrice } from '../../utils/bookingPricing'
+import {
+  isTerminalBookingStatus,
+  isMemberCancelledBooking,
+  bookingHasCollectedPayment,
+} from '../../utils/bookingMemberCancel'
 import './club-pages-common.css'
 import './BookingsManagement.css'
-
-const TERMINAL_BOOKING_STATUSES = ['cancelled', 'expired', 'cancelled_awaiting_refund_ack']
-
-function isTerminalBookingStatus(status) {
-  return TERMINAL_BOOKING_STATUSES.includes((status || '').toString().toLowerCase())
-}
-
-/** حجز ألغاه العضو (مسار الاسترداد/الإلغاء الذاتي أو deleted_by = العضو) */
-function isMemberCancelledBooking(b) {
-  if (!isTerminalBookingStatus(b?.status)) return false
-  if (b?.memberSelfCancel) return true
-  const mid = String(b?.memberId || b?.initiatorMemberId || '').trim()
-  const db = String(b?.deletedBy || '').trim()
-  return !!(mid && db && db === mid)
-}
 
 /** Admin list: court rental vs coach training vs tournament (king / social). */
 function classifyAdminBooking(b) {
@@ -491,6 +481,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       statOutstandingHint: 'Booked value minus collected',
       collectionHealth: 'Collection progress',
       statTotalInList: 'Total rows in list',
+      actionsNoRefundNeeded: 'Cancelled before payment — no refund action required.',
       upcoming: 'Upcoming',
       past: 'Past',
       memberCancelled: 'Cancelled by member',
@@ -575,6 +566,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       statOutstandingHint: 'قيمة الحجز ناقص المحصّل',
       collectionHealth: 'تقدم التحصيل',
       statTotalInList: 'إجمالي السجلات',
+      actionsNoRefundNeeded: 'أُلغي قبل اكتمال الدفع — لا إجراء استرداد مطلوب.',
       upcoming: 'القادمة',
       past: 'السابقة',
       memberCancelled: 'ملغاة من العضو',
@@ -879,6 +871,12 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                   const rowAwaitingRefundAck = status === 'cancelled_awaiting_refund_ack'
                   const rowEnded = ['cancelled', 'expired'].includes(status)
                   const blockActions = rowEnded || rowAwaitingRefundAck
+                  const statusLc = (status || '').toString().toLowerCase()
+                  const noFinancialFollowUp =
+                    isMemberCancelledBooking(b) &&
+                    ['cancelled', 'expired'].includes(statusLc) &&
+                    !bookingHasCollectedPayment(b) &&
+                    statusLc !== 'cancelled_awaiting_refund_ack'
                   const isLoading = actionLoading === b.id || actionLoading === 'perm-' + b.id
                   const isPendingPayment = ['pending_payments', 'partially_paid'].includes(status)
                   const paymentShares = Array.isArray(b.paymentShares) ? b.paymentShares : []
@@ -937,6 +935,9 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                           </button>
                         </td>
                         <td>
+                        {noFinancialFollowUp ? (
+                          <p className="bookings-actions-note">{c.actionsNoRefundNeeded}</p>
+                        ) : (
                         <div className="bookings-actions">
                           <button
                             type="button"
@@ -977,6 +978,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                             ⚠️
                           </button>
                         </div>
+                        )}
                       </td>
                     </tr>
                     {showPaymentPanel && isExpanded && (
@@ -1048,7 +1050,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                 </div>
                               )
                             })()}
-                            {rowAwaitingRefundAck && !hasShares && (b.memberSelfCancel || b.memberRefundPreference) && (
+                            {rowAwaitingRefundAck && !hasShares && (isMemberCancelledBooking(b) || b.memberRefundPreference) && (
                               <div className="booking-member-refund-fulfill" style={{ marginTop: 12, padding: 14, background: '#fffbeb', borderRadius: 8, border: '1px solid #fcd34d' }}>
                                 <h5 style={{ margin: '0 0 8px', fontSize: '1rem' }}>
                                   {language === 'en' ? 'Member refund request' : 'طلب استرداد من العضو'}

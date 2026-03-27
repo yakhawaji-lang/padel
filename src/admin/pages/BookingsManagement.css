@@ -857,6 +857,14 @@
 }
 
 /* ---- Admin bookings: type chips, kind badges, clearer hierarchy ---- */
+.bookings-actions-note {
+  margin: 0;
+  max-width: 14rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #64748b;
+}
+
 .bookings-toolbar {
   display: flex;
   flex-direction: column;

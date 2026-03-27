@@ -27,6 +27,7 @@ import {
   getLegacyOpenCloseBounds,
   isSameDayIntervalWithinClubHours
 } from './utils/clubWorkingHours'
+import { shouldHideMemberCancelledFromClubCalendar, isMemberCancelledBooking } from './utils/bookingMemberCancel'
 
 /** Court rental vs training vs tournament blocks on the bookings calendar */
 function getBookingCalendarKind(booking) {
@@ -379,6 +380,10 @@ function App({ currentUser }) {
   const [matchToEdit, setMatchToEdit] = useState(null) // Match being edited
   // Booking state
   const [bookings, setBookings] = useState([]) // Array of booking objects (merged local + Playtomic)
+  const calendarBookings = useMemo(
+    () => bookings.filter((b) => !shouldHideMemberCancelledFromClubCalendar(b)),
+    [bookings]
+  )
   const [localBookings, setLocalBookings] = useState([]) // Local bookings only
   const [playtomicBookings, setPlaytomicBookings] = useState([]) // Playtomic bookings only
   const [isLoadingPlaytomic, setIsLoadingPlaytomic] = useState(false) // Loading state for Playtomic API
@@ -4317,7 +4322,7 @@ function App({ currentUser }) {
 
   const getBookingsForSlot = (day, timeSlot) => {
     // Only return bookings that START at this time slot (for merged cell rendering)
-    return bookings.filter(booking => {
+    return calendarBookings.filter(booking => {
       const bookingDate = new Date(booking.date)
       const bookingDay = bookingDate.toDateString()
       const slotDay = day.toDateString()
@@ -4342,7 +4347,7 @@ function App({ currentUser }) {
   }
 
   const getBookingsForCourtSlot = (court, timeSlot, date) => {
-    return bookings.filter(booking => {
+    return calendarBookings.filter(booking => {
       const bookingDate = new Date(booking.date)
       const bookingDay = bookingDate.toISOString().split('T')[0]
       if (bookingDay !== date || booking.startTime !== timeSlot) return false
@@ -4420,7 +4425,7 @@ function App({ currentUser }) {
   }
 
   const getWeeklyBookingLaneLayout = (booking, day) => {
-    const overlapCluster = bookings.filter(
+    const overlapCluster = calendarBookings.filter(
       (b) => sameCalendarDayAsBooking(b, day) && bookingIntervalsOverlap(b, booking)
     )
     const baseLaneKeys = overlapCluster.map(normalizeWeeklyLaneKey)
@@ -4600,7 +4605,7 @@ function App({ currentUser }) {
     const newEndMinutes = timeToMinutes(newEnd)
     
     // Check for conflicts with existing bookings
-    const conflict = bookings.find(existing => {
+    const conflict = calendarBookings.find(existing => {
       // Skip the booking being edited
       if (excludeBookingId && existing.id === excludeBookingId) return false
       
@@ -5351,7 +5356,7 @@ function App({ currentUser }) {
                     {bookings.filter(b => {
                       const today = new Date().toISOString().split('T')[0]
                       const d = (b.date || b.startDate || '').toString().split('T')[0]
-                      return !b.isTournament && d >= today
+                      return !b.isTournament && d >= today && !isMemberCancelledBooking(b)
                     }).length}
                   </span>
                   <span className="app-home-card-label">{t.upcomingBookings}</span>
