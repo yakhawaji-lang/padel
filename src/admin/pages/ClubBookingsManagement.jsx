@@ -8,7 +8,8 @@ import {
   isTerminalBookingStatus,
   isMemberCancelledBooking,
   bookingHasCollectedPayment,
-  bookingNeedsClubRefundFollowUp,
+  bookingJsonData,
+  hasMemberSelfCancelFlag,
 } from '../../utils/bookingMemberCancel'
 import './club-pages-common.css'
 import './BookingsManagement.css'
@@ -353,16 +354,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     if (!window.confirm(msg)) return
     setActionLoading(`fulfill-refund-${b.id}`)
     try {
-      const out = await bookingApi.adminFulfillMemberRefund({ bookingId: b.id, clubId: club.id, fulfillment: ful })
+      await bookingApi.adminFulfillMemberRefund({ bookingId: b.id, clubId: club.id, fulfillment: ful })
       refreshFromServer()
-      if (ful === 'wallet' && out?.walletBalanceAfter != null) {
-        const cur = club?.settings?.currency || 'SAR'
-        window.alert(
-          language === 'en'
-            ? `Wallet credited. New balance: ${out.walletBalanceAfter} ${cur}.`
-            : `تم إضافة المبلغ للمحفظة. الرصيد الحالي: ${out.walletBalanceAfter} ${cur}.`
-        )
-      }
     } catch (e) {
       window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
     } finally {
@@ -445,16 +438,32 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       en: {
         initiated: 'In progress', locked: 'Reserved', pending_payments: 'Awaiting payments', pending_payment: 'Awaiting payment', partially_paid: 'Partial payment', confirmed: 'Confirmed',
         cancelled: 'Cancelled', expired: 'Expired', cancelled_awaiting_refund_ack: 'Cancelled — awaiting refund confirmation',
-        byMember: 'Member cancelled'
+        byMember: 'Member cancelled',
+        refundedWalletSuffix: 'Paid booking — credited to wallet',
+        refundedCashSuffix: 'Paid booking — refunded in cash',
+        refundedElecSuffix: 'Paid booking — electronic/bank refund recorded',
       },
       ar: {
         initiated: 'قيد الإجراء', locked: 'محجوز', pending_payments: 'بانتظار الدفعات', pending_payment: 'بانتظار الدفع', partially_paid: 'دفع جزئي', confirmed: 'مؤكد',
         cancelled: 'ملغي', expired: 'منتهي', cancelled_awaiting_refund_ack: 'ملغي — بانتظار تأكيد الاسترداد',
-        byMember: 'ملغي من العضو'
+        byMember: 'ملغي من العضو',
+        refundedWalletSuffix: 'أُلغي بعد الدفع — أُودع المبلغ في المحفظة',
+        refundedCashSuffix: 'أُلغي بعد الدفع — استرداد نقدي',
+        refundedElecSuffix: 'أُلغي بعد الدفع — تسجيل استرداد إلكتروني/بنك',
       }
     }
     const L = labels[language] || labels.en
     const base = L[s] || status
+    if (bookingRow && isMemberCancelledBooking(bookingRow) && s === 'cancelled') {
+      const jd = bookingJsonData(bookingRow)
+      const frAt = jd.clubRefundFulfilledAt || bookingRow.clubRefundFulfilledAt
+      const frHow = String(jd.clubRefundFulfillment || bookingRow.clubRefundFulfillment || '').toLowerCase()
+      if (frAt) {
+        if (frHow === 'wallet') return `${L.byMember} · ${L.refundedWalletSuffix}`
+        if (frHow === 'cash') return `${L.byMember} · ${L.refundedCashSuffix}`
+        if (frHow === 'electronic') return `${L.byMember} · ${L.refundedElecSuffix}`
+      }
+    }
     if (bookingRow && isMemberCancelledBooking(bookingRow) && ['cancelled', 'cancelled_awaiting_refund_ack'].includes(s)) {
       return `${L.byMember} · ${base}`
     }
@@ -499,6 +508,10 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       collectionHealth: 'Collection progress',
       statTotalInList: 'Total rows in list',
       actionsNoRefundNeeded: 'Cancelled before payment — no refund action required.',
+      actionsRefundDoneWallet: 'Paid booking — refund completed: amount credited to the member wallet.',
+      actionsRefundDoneCash: 'Paid booking — refund completed: cash to customer.',
+      actionsRefundDoneElectronic: 'Paid booking — refund completed: electronic/bank (recorded).',
+      actionsRefundDoneOther: 'Paid booking — refund marked complete by the club.',
       upcoming: 'Upcoming',
       past: 'Past',
       memberCancelled: 'Cancelled by member',
@@ -584,6 +597,10 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       collectionHealth: 'تقدم التحصيل',
       statTotalInList: 'إجمالي السجلات',
       actionsNoRefundNeeded: 'أُلغي قبل اكتمال الدفع — لا إجراء استرداد مطلوب.',
+      actionsRefundDoneWallet: 'أُلغي بعد اكتمال الدفع — اكتمل الاسترداد: أُضيف المبلغ لمحفظة العضو.',
+      actionsRefundDoneCash: 'أُلغي بعد اكتمال الدفع — اكتمل الاسترداد: تسليم نقدي للعميل.',
+      actionsRefundDoneElectronic: 'أُلغي بعد اكتمال الدفع — اكتمل الاسترداد: إلكتروني/بنك (مسجّل).',
+      actionsRefundDoneOther: 'أُلغي بعد اكتمال الدفع — سجّل النادي اكتمال الاسترداد.',
       upcoming: 'القادمة',
       past: 'السابقة',
       memberCancelled: 'ملغاة من العضو',
@@ -889,25 +906,45 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                   const rowEnded = ['cancelled', 'expired'].includes(status)
                   const blockActions = rowEnded || rowAwaitingRefundAck
                   const statusLc = (status || '').toString().toLowerCase()
+                  const statusNorm = statusLc.replace(/-/g, '_')
+                  const bookingData = bookingJsonData(b)
+                  const fulfilledRefund = !!(bookingData.clubRefundFulfilledAt || b.clubRefundFulfilledAt)
+                  const refundFulfillment = String(
+                    bookingData.clubRefundFulfillment || b.clubRefundFulfillment || ''
+                  ).toLowerCase()
+                  const memberRefundPendingFulfillment =
+                    ['cancelled', 'canceled'].includes(statusNorm) &&
+                    !fulfilledRefund &&
+                    (hasMemberSelfCancelFlag(b) ||
+                      !!(bookingData.memberRefundPreference || b.memberRefundPreference))
                   const noFinancialFollowUp =
                     isTerminalBookingStatus(status) &&
-                    ['cancelled', 'expired', 'canceled'].includes(statusLc.replace(/-/g, '_')) &&
+                    ['cancelled', 'expired', 'canceled'].includes(statusNorm) &&
                     !bookingHasCollectedPayment(b) &&
                     statusLc !== 'cancelled_awaiting_refund_ack' &&
-                    !bookingNeedsClubRefundFollowUp(b)
+                    !fulfilledRefund &&
+                    !memberRefundPendingFulfillment
+                  let actionsFulfilledNote = null
+                  if (fulfilledRefund) {
+                    if (refundFulfillment === 'wallet') actionsFulfilledNote = c.actionsRefundDoneWallet
+                    else if (refundFulfillment === 'cash') actionsFulfilledNote = c.actionsRefundDoneCash
+                    else if (refundFulfillment === 'electronic') actionsFulfilledNote = c.actionsRefundDoneElectronic
+                    else actionsFulfilledNote = c.actionsRefundDoneOther
+                  }
                   const isLoading = actionLoading === b.id || actionLoading === 'perm-' + b.id
                   const isPendingPayment = ['pending_payments', 'partially_paid'].includes(status)
                   const paymentShares = Array.isArray(b.paymentShares) ? b.paymentShares : []
                   const hasShares = paymentShares.length > 0
                   const currency = priceInfo.currency || club?.settings?.currency || 'SAR'
                   const totalAmount = b.totalAmount ?? b.total_amount ?? priceInfo.price ?? 0
-                  const showPaymentPanel = rowAwaitingRefundAck || (
-                    !rowEnded && (
-                      hasShares ||
-                      isPendingPayment ||
-                      (Number(totalAmount) > 0 && ['confirmed', 'partially_paid', 'pending_payments', 'pending_payment'].includes(status))
-                    )
-                  )
+                  const showPaymentPanel =
+                    rowAwaitingRefundAck ||
+                    memberRefundPendingFulfillment ||
+                    (!rowEnded &&
+                      (hasShares ||
+                        isPendingPayment ||
+                        (Number(totalAmount) > 0 &&
+                          ['confirmed', 'partially_paid', 'pending_payments', 'pending_payment'].includes(status))))
                   const isExpanded = expandedPaymentId === b.id
                   const statusClass = ['confirmed'].includes(status)
                     ? 'confirmed'
@@ -953,51 +990,54 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                           </button>
                         </td>
                         <td>
-                        {noFinancialFollowUp ? (
-                          <p className="bookings-actions-note">{c.actionsNoRefundNeeded}</p>
-                        ) : (
-                        <div className="bookings-actions">
-                          <button
-                            type="button"
-                            className="btn-secondary btn-icon"
-                            onClick={() => openEditModal(b)}
-                            disabled={isLoading || isTournamentRow}
-                            title={isTournamentRow ? c.editDisabledTournament : c.edit}
-                          >
-                            ✏️
-                          </button>
-                          {!blockActions && (b.dateStr || '') >= today && (
-                            <button
-                              type="button"
-                              className="btn-warning btn-icon"
-                              onClick={() => handleCancel(b)}
-                              disabled={isLoading}
-                              title={c.cancel}
-                            >
-                              ⛔
-                            </button>
+                          {(actionsFulfilledNote || noFinancialFollowUp) && (
+                            <p className="bookings-actions-note">
+                              {actionsFulfilledNote || c.actionsNoRefundNeeded}
+                            </p>
                           )}
-                          <button
-                            type="button"
-                            className="btn-danger btn-icon"
-                            onClick={() => handleDelete(b.id)}
-                            disabled={isLoading}
-                            title={c.delete}
-                          >
-                            🗑️
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-danger-outline btn-icon"
-                            onClick={() => handlePermanentDelete(b.id)}
-                            disabled={isLoading}
-                            title={c.permanentDelete}
-                          >
-                            ⚠️
-                          </button>
-                        </div>
-                        )}
-                      </td>
+                          {(!noFinancialFollowUp || actionsFulfilledNote) && (
+                            <div className="bookings-actions">
+                              <button
+                                type="button"
+                                className="btn-secondary btn-icon"
+                                onClick={() => openEditModal(b)}
+                                disabled={isLoading || isTournamentRow}
+                                title={isTournamentRow ? c.editDisabledTournament : c.edit}
+                              >
+                                ✏️
+                              </button>
+                              {!blockActions && (b.dateStr || '') >= today && (
+                                <button
+                                  type="button"
+                                  className="btn-warning btn-icon"
+                                  onClick={() => handleCancel(b)}
+                                  disabled={isLoading}
+                                  title={c.cancel}
+                                >
+                                  ⛔
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                className="btn-danger btn-icon"
+                                onClick={() => handleDelete(b.id)}
+                                disabled={isLoading}
+                                title={c.delete}
+                              >
+                                🗑️
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-danger-outline btn-icon"
+                                onClick={() => handlePermanentDelete(b.id)}
+                                disabled={isLoading}
+                                title={c.permanentDelete}
+                              >
+                                ⚠️
+                              </button>
+                            </div>
+                          )}
+                        </td>
                     </tr>
                     {showPaymentPanel && isExpanded && (
                       <tr className="booking-payment-details-row">
@@ -1068,7 +1108,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                 </div>
                               )
                             })()}
-                            {rowAwaitingRefundAck && !hasShares && (isMemberCancelledBooking(b) || b.memberRefundPreference) && (
+                            {(rowAwaitingRefundAck || memberRefundPendingFulfillment) &&
+                              (isMemberCancelledBooking(b) || b.memberRefundPreference || bookingData.memberRefundPreference) && (
                               <div className="booking-member-refund-fulfill" style={{ marginTop: 12, padding: 14, background: '#fffbeb', borderRadius: 8, border: '1px solid #fcd34d' }}>
                                 <h5 style={{ margin: '0 0 8px', fontSize: '1rem' }}>
                                   {language === 'en' ? 'Member refund request' : 'طلب استرداد من العضو'}
