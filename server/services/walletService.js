@@ -73,10 +73,107 @@ export async function hasBookingRefundCredit(clubId, memberId, bookingId) {
   }
 }
 
-export async function getWalletBalance(clubId, memberId) {
+/** True if any wallet credit exists for this booking refund (any member). Avoids double-crediting when repairing. */
+export async function hasAnyBookingRefundWalletCreditForBooking(clubId, bookingId) {
+  if (!clubId || !bookingId) return false
+  if (!(await ensureMemberWalletTables())) return false
+  try {
+    const { rows } = await query(
+      `SELECT 1 AS ok FROM member_wallet_ledger
+       WHERE club_id = ? AND ref_type = 'booking' AND ref_id = ?
+         AND direction = 'credit' AND reason = 'booking_refund_club_confirmed' LIMIT 1`,
+      [String(clubId), String(bookingId)]
+    )
+    return rows?.length > 0
+  } catch {
+    return false
+  }
+}
+
+function parseRowData(raw) {
+  if (!raw) return {}
+  if (typeof raw === 'object') return { ...raw }
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * Idempotent: if booking is marked club wallet refund fulfilled but ledger credit is missing, apply it.
+ * Called when the member opens wallet balance so past bugs (wrong member id / skipped credit) self-heal safely.
+ */
+export async function repairMissingWalletCreditsForMember(clubId, memberId) {
+  const mid = normalizeMemberId(memberId)
+  if (!clubId || !mid) return { repaired: 0 }
+  if (!(await ensureMemberWalletTables())) return { repaired: 0 }
+  const cid = String(clubId)
+  let repaired = 0
+  try {
+    const { rows: fromBooker } = await query(
+      `SELECT id, data FROM club_bookings
+       WHERE club_id = ? AND deleted_at IS NULL AND LOWER(COALESCE(status,'')) = 'cancelled'
+         AND (member_id = ? OR initiator_member_id = ?)`,
+      [cid, mid, mid]
+    )
+    const { rows: fromRefund } = await query(
+      `SELECT cb.id, cb.data FROM club_bookings cb
+       INNER JOIN booking_refunds br ON br.booking_id = cb.id AND br.club_id = cb.club_id
+       WHERE cb.club_id = ? AND cb.deleted_at IS NULL AND LOWER(COALESCE(cb.status,'')) = 'cancelled'
+         AND br.member_id = ?`,
+      [cid, mid]
+    )
+    const byId = new Map()
+    for (const r of [...(fromBooker || []), ...(fromRefund || [])]) {
+      if (r?.id != null) byId.set(String(r.id), r)
+    }
+    const maxOps = 40
+    for (const row of byId.values()) {
+      if (repaired >= maxOps) break
+      const bid = row.id
+      const d = parseRowData(row.data)
+      const ff = String(d.clubRefundFulfillment || '').toLowerCase()
+      if (ff !== 'wallet' || !d.clubRefundFulfilledAt) continue
+      if (await hasAnyBookingRefundWalletCreditForBooking(cid, bid)) continue
+      let net = parseFloat(d.clubRefundAmount)
+      if (!Number.isFinite(net) || net < 0.01) net = parseFloat(d.memberRefundNet)
+      if (!Number.isFinite(net) || net < 0.01) {
+        try {
+          const { rows: nr } = await query(
+            `SELECT net_amount, amount FROM booking_refunds WHERE booking_id = ? AND club_id = ? ORDER BY id DESC LIMIT 1`,
+            [bid, cid]
+          )
+          const n = parseFloat(nr?.[0]?.net_amount)
+          const g = parseFloat(nr?.[0]?.amount)
+          net = Number.isFinite(n) && n >= 0.01 ? n : (Number.isFinite(g) ? g : 0)
+        } catch {
+          net = 0
+        }
+      }
+      net = Math.round(net * 100) / 100
+      if (net < 0.01) continue
+      const cr = await creditWallet(cid, mid, net, {
+        reason: 'booking_refund_club_confirmed',
+        refType: 'booking',
+        refId: String(bid),
+      })
+      if (cr.ok) repaired += 1
+      else console.warn('[wallet] repair credit failed booking', bid, cr.error)
+    }
+  } catch (e) {
+    console.warn('[wallet] repairMissingWalletCreditsForMember:', e?.message)
+  }
+  return { repaired }
+}
+
+export async function getWalletBalance(clubId, memberId, { skipRepair = false } = {}) {
   const mid = normalizeMemberId(memberId)
   if (!clubId || !mid) return 0
   if (!(await ensureMemberWalletTables())) return 0
+  if (!skipRepair) {
+    await repairMissingWalletCreditsForMember(clubId, mid)
+  }
   const { rows } = await query(
     'SELECT balance FROM member_wallet WHERE club_id = ? AND member_id = ?',
     [String(clubId), mid]

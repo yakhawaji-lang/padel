@@ -1683,10 +1683,11 @@ function resolveBookingMemberIdForWallet(row, data) {
   return ''
 }
 
-/** When club_bookings columns are empty, use member id from refund row or last paid share. */
+/**
+ * Member who should receive wallet credit: refund requester first (booking_refunds), then booker columns/JSON, then paid share.
+ * Order matters — club_bookings.member_id can differ from the logged-in member who requested the refund.
+ */
 async function resolveBookingMemberIdForWalletWithFallback(row, data, bookingId, clubId) {
-  let mid = resolveBookingMemberIdForWallet(row, data)
-  if (mid) return mid
   try {
     const { rows } = await query(
       `SELECT member_id FROM booking_refunds WHERE booking_id = ? AND club_id = ? ORDER BY id DESC LIMIT 1`,
@@ -1697,6 +1698,8 @@ async function resolveBookingMemberIdForWalletWithFallback(row, data, bookingId,
   } catch (e) {
     console.warn('[admin-fulfill-member-refund] booking_refunds lookup:', e?.message)
   }
+  const fromRow = resolveBookingMemberIdForWallet(row, data)
+  if (fromRow) return fromRow
   try {
     const { rows } = await query(
       `SELECT member_id FROM booking_payment_shares WHERE booking_id = ? AND club_id = ? AND paid_at IS NOT NULL AND member_id IS NOT NULL AND TRIM(COALESCE(member_id,'')) <> '' ORDER BY paid_at DESC LIMIT 1`,
@@ -1776,7 +1779,7 @@ router.post('/member-self-service-quote', async (req, res) => {
     const payPrefRaw = (data.initiatorPaymentMethod || data.paymentMethod || '').toString().toLowerCase()
     const initiatorPaymentMethod = payPrefRaw || 'at_club'
     const allowElectronicRefundRoute = initiatorUsedElectronicCard(data)
-    const wb = await walletService.getWalletBalance(clubId, memberId)
+    const wb = await walletService.getWalletBalance(clubId, memberId, { skipRepair: true })
 
     res.json({
       ok: true,
@@ -2027,8 +2030,7 @@ router.post('/admin-fulfill-member-refund', async (req, res) => {
     if (net < 0.01) net = parseFloat(b.total_amount) || 0
     net = Math.round(net * 100) / 100
 
-    let mid = resolveBookingMemberIdForWallet(b, prevData)
-    if (!mid) mid = await resolveBookingMemberIdForWalletWithFallback(b, prevData, bookingId, clubId)
+    const mid = await resolveBookingMemberIdForWalletWithFallback(b, prevData, bookingId, clubId)
 
     if (f === 'wallet') {
       if (!Number.isFinite(net) || net < 0.01) {
@@ -2042,7 +2044,7 @@ router.post('/admin-fulfill-member-refund', async (req, res) => {
         const cr = await walletService.creditWallet(clubId, mid, net, {
           reason: 'booking_refund_club_confirmed',
           refType: 'booking',
-          refId: bookingId,
+          refId: String(bookingId),
         })
         if (!cr.ok) return res.status(400).json({ error: cr.error || 'Wallet credit failed' })
       }
