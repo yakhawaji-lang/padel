@@ -8,6 +8,7 @@ const MENU_ITEMS = [
   { path: 'dashboard', icon: '📊', label: { en: 'Dashboard', ar: 'لوحة التحكم' }, perm: 'dashboard' },
   { path: 'members', icon: '👥', label: { en: 'Members', ar: 'الأعضاء' }, perm: 'members' },
   { path: 'bookings', icon: '📅', label: { en: 'Bookings', ar: 'الحجوزات' }, perm: 'dashboard' },
+  { path: 'accounting', icon: '💼', label: { en: 'Accounting', ar: 'المحاسبة' }, perm: 'accounting' },
   { path: 'booking-prices', icon: '💰', label: { en: 'Prices', ar: 'الأسعار' }, perm: 'settings' },
   { path: 'offers', icon: '🎁', label: { en: 'Offers', ar: 'العروض' }, perm: 'offers' },
   { path: 'store', icon: '🛒', label: { en: 'Store', ar: 'المتجر' }, perm: 'store' },

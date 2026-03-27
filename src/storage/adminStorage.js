@@ -1063,7 +1063,7 @@ export const getClubAdminSessionFromCredentials = (email, password) => {
     // Owner: allow both approved and pending clubs (المسجّل يدخل بانتظار الموافقة)
     const isOwnerMatch = (club.adminEmail || club.email || '').toLowerCase() === em && (club.adminPassword || '') === (password || '')
     if (isOwnerMatch) {
-      return { club, isOwner: true, clubId: club.id, userId: 'owner', permissions: ['dashboard', 'members', 'offers', 'store', 'settings', 'users'] }
+      return { club, isOwner: true, clubId: club.id, userId: 'owner', permissions: ['dashboard', 'members', 'accounting', 'offers', 'store', 'settings', 'users'] }
     }
     if (club.status && club.status !== 'approved') continue
     const users = club.adminUsers || []

@@ -12,6 +12,7 @@ export const PLATFORM_PERMISSIONS = [
 export const CLUB_PERMISSIONS = [
   { id: 'dashboard', label: { en: 'Dashboard', ar: 'لوحة التحكم' }, icon: '📊' },
   { id: 'members', label: { en: 'Members', ar: 'الأعضاء' }, icon: '👥' },
+  { id: 'accounting', label: { en: 'Accounting', ar: 'المحاسبة' }, icon: '💼' },
   { id: 'offers', label: { en: 'Offers', ar: 'العروض' }, icon: '🎁' },
   { id: 'store', label: { en: 'Store', ar: 'المتجر' }, icon: '🛒' },
   { id: 'settings', label: { en: 'Settings', ar: 'الإعدادات' }, icon: '⚙️' },

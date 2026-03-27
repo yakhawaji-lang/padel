@@ -411,6 +411,15 @@ const ClubDashboard = ({ club }) => {
                   <span className="action-icon">🎁</span>
                   <span className="action-label">{t.manageOffers}</span>
                 </button>
+                {hasClubPermission(getClubAdminSession(), 'accounting') && (
+                  <button 
+                    className="quick-action-btn action-secondary"
+                    onClick={() => navigate(`/admin/club/${club.id}/accounting`)}
+                  >
+                    <span className="action-icon">💼</span>
+                    <span className="action-label">{language === 'en' ? 'Accounting' : 'المحاسبة'}</span>
+                  </button>
+                )}
                 {hasClubPermission(getClubAdminSession(), 'store') && (
                   <button 
                     className="quick-action-btn action-secondary"
