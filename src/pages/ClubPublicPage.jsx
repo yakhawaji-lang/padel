@@ -282,6 +282,8 @@ const ClubPublicPage = () => {
   const [trainingJoinPaymentShares, setTrainingJoinPaymentShares] = useState([])
   const [trainingJoinStep, setTrainingJoinStep] = useState(1)
   const [hoveredRange, setHoveredRange] = useState(null) // { court, courtId, startSlot, endSlot } - نطاق التمرير للحجز
+  const [bookingSubmitting, setBookingSubmitting] = useState(false)
+  const [bookingDuration, setBookingDuration] = useState(60)
   const hasTouch = typeof window !== 'undefined' && 'ontouchstart' in window
   const touchSelectRef = React.useRef(null) // { court, courtId, dateStr, startSlot } during touch drag
   const rangeLeaveTimeoutRef = React.useRef(null) // تأخير مسح النطاق عند المغادرة لتجنب الوَمْض
@@ -640,8 +642,6 @@ const ClubPublicPage = () => {
     }
   }, [club?.id])
 
-  const [bookingSubmitting, setBookingSubmitting] = useState(false)
-  const [bookingDuration, setBookingDuration] = useState(60)
   const durationOptions = useMemo(() => {
     const fromSettings = getPublicPricedDurationOptions(club)
     const fallback = fromSettings.length > 0 ? fromSettings : [{ durationMinutes: 60, price: 0 }]
