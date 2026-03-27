@@ -19,6 +19,8 @@ import { loadClubs, getClubById, saveClubs, upsertMember, addMemberToClub, delet
 import { getClubAdminSession } from './storage/clubAuth'
 import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import LanguageIcon from './components/LanguageIcon'
+import ClubCalendarBookingDetailSheet from './components/ClubCalendarBookingDetailSheet'
+import { getBookingCalendarKind } from './utils/bookingCalendarKind'
 import { buildWhatsAppLink, buildWhatsAppLinkForRegistered } from './components/BookingPaymentShare'
 import playtomicApi from './services/playtomicApi'
 import {
@@ -28,17 +30,6 @@ import {
   isSameDayIntervalWithinClubHours
 } from './utils/clubWorkingHours'
 import { isTerminalBookingStatus, isMemberCancelledBooking } from './utils/bookingMemberCancel'
-
-/** Court rental vs training vs tournament blocks on the bookings calendar */
-function getBookingCalendarKind(booking) {
-  if (!booking) return 'court'
-  if (booking.isTournament) {
-    return (booking.tournamentType || '').toString().toLowerCase() === 'social' ? 'tournament_social' : 'tournament_king'
-  }
-  const d = booking.data && typeof booking.data === 'object' ? booking.data : {}
-  if ((booking.type || d.type || '').toString().toLowerCase() === 'training') return 'training'
-  return 'court'
-}
 
 function bookingJsonData(booking) {
   const d = booking?.data
@@ -291,7 +282,7 @@ function CalendarBookingTooltip({
         <span className="booking-tooltip__foot-icon" aria-hidden>
           {language === 'ar' ? '↩' : '↪'}
         </span>
-        <span>{t.calendarClickEdit}</span>
+        <span>{t.calendarClickDetails}</span>
       </footer>
     </div>
   )
@@ -384,6 +375,13 @@ function App({ currentUser }) {
     () => bookings.filter((b) => !isTerminalBookingStatus(b?.status)),
     [bookings]
   )
+  const detailBookingLive = useMemo(() => {
+    if (!calendarDetailBooking) return null
+    const id = calendarDetailBooking.id
+    if (id == null) return calendarDetailBooking
+    const fresh = bookings.find((b) => String(b.id) === String(id))
+    return fresh || calendarDetailBooking
+  }, [bookings, calendarDetailBooking])
   const [localBookings, setLocalBookings] = useState([]) // Local bookings only
   const [playtomicBookings, setPlaytomicBookings] = useState([]) // Playtomic bookings only
   const [isLoadingPlaytomic, setIsLoadingPlaytomic] = useState(false) // Loading state for Playtomic API
@@ -394,6 +392,7 @@ function App({ currentUser }) {
   const [hoveredBooking, setHoveredBooking] = useState(null) // Booking ID being hovered for tooltip
   const [bookingTooltipRect, setBookingTooltipRect] = useState(null)
   const bookingTooltipAnchorRef = useRef(null)
+  const [calendarDetailBooking, setCalendarDetailBooking] = useState(null)
   const [currentWeek, setCurrentWeek] = useState(new Date()) // Current week being displayed
   const [bookingView, setBookingView] = useState('weekly') // 'weekly' or 'courts' for booking calendar view
   const [selectedDateForCourtView, setSelectedDateForCourtView] = useState(new Date().toISOString().split('T')[0]) // Selected date for court view
@@ -476,6 +475,7 @@ function App({ currentUser }) {
       bookingTooltipAnchorRef.current = null
       setHoveredBooking(null)
       setBookingTooltipRect(null)
+      setCalendarDetailBooking(null)
     }
   }, [activeTab])
 
@@ -483,6 +483,7 @@ function App({ currentUser }) {
     bookingTooltipAnchorRef.current = null
     setHoveredBooking(null)
     setBookingTooltipRect(null)
+    setCalendarDetailBooking(null)
   }, [bookingView])
 
   // Initialize IndexedDB and load saved data on mount
@@ -4793,7 +4794,7 @@ function App({ currentUser }) {
     if (booking.isTournament) return 'paid'
 
     const st = (booking.status || '').toString().toLowerCase()
-    if (['cancelled', 'expired'].includes(st)) return 'not_paid'
+    if (isTerminalBookingStatus(booking?.status)) return 'not_paid'
 
     const shares = Array.isArray(booking.paymentShares) ? booking.paymentShares : []
     const total = accountingBookingTotal(booking)
@@ -4858,6 +4859,109 @@ function App({ currentUser }) {
     }, new Map())
     
     setBookings(Array.from(unique.values()))
+  }
+
+  const applyBookingPatch = (bookingId, patchFn) => {
+    if (bookingId == null || String(bookingId).startsWith('playtomic_')) {
+      alert(
+        language === 'en'
+          ? 'Playtomic bookings are read-only here. Use Playtomic to update payments.'
+          : 'حجوزات Playtomic للقراءة فقط هنا. حدّث الدفع من Playtomic.'
+      )
+      return
+    }
+    const updatedLocalBookings = localBookings.map((b) =>
+      String(b.id) === String(bookingId) ? patchFn({ ...b }) : b
+    )
+    setLocalBookings(updatedLocalBookings)
+    saveBookingsToClub(updatedLocalBookings)
+    mergeBookings(updatedLocalBookings, playtomicBookings)
+  }
+
+  const confirmCalendarSharePaid = (bookingId, shareIndex) => {
+    applyBookingPatch(bookingId, (b) => {
+      const shares = Array.isArray(b.paymentShares) ? [...b.paymentShares] : []
+      if (!shares[shareIndex]) return b
+      const row = { ...shares[shareIndex], paidAt: new Date().toISOString() }
+      Reflect.deleteProperty(row, 'paid_at')
+      shares[shareIndex] = row
+      const total = parseFloat(b.totalAmount ?? b.total_amount ?? b.amount ?? 0) || 0
+      const paidSum = shares.reduce(
+        (s, sh) =>
+          s +
+          ((sh.paidAt || sh.paid_at) && !(sh.refundedAt || sh.refunded_at) ? parseFloat(sh.amount) || 0 : 0),
+        0
+      )
+      let status = b.status
+      if (total > 0.01) {
+        if (paidSum >= total - 0.02) status = 'confirmed'
+        else if (paidSum > 0.01) status = 'partially_paid'
+        else status = b.status || 'pending_payment'
+      }
+      return { ...b, paymentShares: shares, status, paidAmount: paidSum, paid_amount: paidSum }
+    })
+  }
+
+  const confirmCalendarFullPayment = (bookingId) => {
+    applyBookingPatch(bookingId, (b) => {
+      const total = parseFloat(b.totalAmount ?? b.total_amount ?? b.amount ?? 0) || 0
+      let paymentShares = b.paymentShares
+      if (Array.isArray(paymentShares) && paymentShares.length > 0) {
+        const now = new Date().toISOString()
+        paymentShares = paymentShares.map((sh) => {
+          const row = { ...sh, paidAt: now }
+          Reflect.deleteProperty(row, 'paid_at')
+          return row
+        })
+      }
+      const paidSum =
+        Array.isArray(paymentShares) && paymentShares.length > 0
+          ? paymentShares.reduce((s, sh) => s + (parseFloat(sh.amount) || 0), 0)
+          : total
+      return {
+        ...b,
+        paymentShares: paymentShares || b.paymentShares,
+        paidAmount: paidSum,
+        paid_amount: paidSum,
+        status: 'confirmed',
+      }
+    })
+  }
+
+  const openBookingCalendarDetail = (booking, e) => {
+    if (e) e.stopPropagation()
+    handleCalendarBookingMouseLeave()
+    if (booking.isTournament) {
+      setCalendarDetailBooking(booking)
+      return
+    }
+    let bookingToUse = { ...booking, date: booking.date }
+    if (!hasPersistableBookingId(booking)) {
+      const existingIds = bookings
+        .filter((b) => {
+          if (b.id == null || String(b.id).startsWith('playtomic_')) return false
+          const n = Number(b.id)
+          return !Number.isNaN(n) && n > 0
+        })
+        .map((b) => Number(b.id))
+      const newId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1
+      bookingToUse = { ...bookingToUse, id: newId }
+      const updatedBookings = bookings.map((b) =>
+        b.date === booking.date &&
+        b.startTime === booking.startTime &&
+        b.endTime === booking.endTime &&
+        b.resource === booking.resource &&
+        !hasPersistableBookingId(b)
+          ? { ...b, id: newId }
+          : b
+      )
+      const localOnly = updatedBookings.filter((b) => !b.source || b.source !== 'playtomic')
+      const withIds = mapClubBookingsForLocalState(localOnly)
+      setLocalBookings(withIds)
+      saveBookingsToClub(withIds)
+      mergeBookings(withIds, playtomicBookings)
+    }
+    setCalendarDetailBooking(bookingToUse)
   }
 
   // Load bookings from Playtomic API
@@ -6535,52 +6639,7 @@ function App({ currentUser }) {
                                     className={eventClass}
                                     onMouseEnter={(e) => handleCalendarBookingMouseEnter(booking, e)}
                                     onMouseLeave={handleCalendarBookingMouseLeave}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      if (booking.isTournament) {
-                                        const courtsDefault = (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean)
-                                        setTournamentBookingData({
-                                          date: (booking.date || '').toString().split('T')[0],
-                                          startTime: booking.startTime || '09:00',
-                                          endTime: booking.endTime || '18:00',
-                                          tournamentType: booking.tournamentType || 'king',
-                                          tournamentCourtIds: Array.isArray(booking.tournamentCourtIds) && booking.tournamentCourtIds.length > 0 ? [...booking.tournamentCourtIds] : courtsDefault,
-                                          editingBookingId: booking.id
-                                        })
-                                        setShowTournamentBookingModal(true)
-                                        return
-                                      }
-                                      // If booking doesn't have an ID, assign one immediately
-                                      let bookingToEdit = { ...booking, date: booking.date }
-                                      if (!hasPersistableBookingId(booking)) {
-                                        const existingIds = bookings
-                                          .filter(b => {
-                                            if (b.id == null || String(b.id).startsWith('playtomic_')) return false
-                                            const n = Number(b.id)
-                                            return !Number.isNaN(n) && n > 0
-                                          })
-                                          .map(b => Number(b.id))
-                                        const newId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1
-                                        bookingToEdit.id = newId
-                                        // Update the booking in the array with the new ID
-                                        const updatedBookings = bookings.map(b => 
-                                          (b.date === booking.date && 
-                                           b.startTime === booking.startTime && 
-                                           b.endTime === booking.endTime && 
-                                           b.resource === booking.resource &&
-                                           !hasPersistableBookingId(b))
-                                            ? { ...b, id: newId }
-                                            : b
-                                        )
-                                        const localOnly = updatedBookings.filter(b => !b.source || b.source !== 'playtomic')
-                                        const withIds = mapClubBookingsForLocalState(localOnly)
-                                        setLocalBookings(withIds)
-                                        saveBookingsToClub(withIds)
-                                        mergeBookings(withIds, playtomicBookings)
-                                      }
-                                      setBookingFormData(bookingToEdit)
-                                      setShowBookingModal(true)
-                                    }}
+                                    onClick={(e) => openBookingCalendarDetail(booking, e)}
                                     style={{
                                       position: 'absolute',
                                       top: 0,
@@ -6820,50 +6879,7 @@ function App({ currentUser }) {
                                       className={eventClass}
                                       onMouseEnter={(e) => handleCalendarBookingMouseEnter(booking, e)}
                                       onMouseLeave={handleCalendarBookingMouseLeave}
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        if (booking.isTournament) {
-                                          const courtsDefault = (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean)
-                                          setTournamentBookingData({
-                                            date: (booking.date || '').toString().split('T')[0],
-                                            startTime: booking.startTime || '09:00',
-                                            endTime: booking.endTime || '18:00',
-                                            tournamentType: booking.tournamentType || 'king',
-                                            tournamentCourtIds: Array.isArray(booking.tournamentCourtIds) && booking.tournamentCourtIds.length > 0 ? [...booking.tournamentCourtIds] : courtsDefault,
-                                            editingBookingId: booking.id
-                                          })
-                                          setShowTournamentBookingModal(true)
-                                          return
-                                        }
-                                        let bookingToEdit = { ...booking, date: booking.date }
-                                        if (!hasPersistableBookingId(booking)) {
-                                          const existingIds = bookings
-                                            .filter(b => {
-                                              if (b.id == null || String(b.id).startsWith('playtomic_')) return false
-                                              const n = Number(b.id)
-                                              return !Number.isNaN(n) && n > 0
-                                            })
-                                            .map(b => Number(b.id))
-                                          const newId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1
-                                          bookingToEdit.id = newId
-                                          const updatedBookings = bookings.map(b => 
-                                            (b.date === booking.date && 
-                                             b.startTime === booking.startTime && 
-                                             b.endTime === booking.endTime && 
-                                             b.resource === booking.resource &&
-                                             !hasPersistableBookingId(b))
-                                              ? { ...b, id: newId }
-                                              : b
-                                          )
-                                          const localOnly = updatedBookings.filter(b => !b.source || b.source !== 'playtomic')
-                                          const withIds = mapClubBookingsForLocalState(localOnly)
-                                          setLocalBookings(withIds)
-                                          saveBookingsToClub(withIds)
-                                          mergeBookings(withIds, playtomicBookings)
-                                        }
-                                        setBookingFormData(bookingToEdit)
-                                        setShowBookingModal(true)
-                                      }}
+                                      onClick={(e) => openBookingCalendarDetail(booking, e)}
                                       style={{
                                         position: 'absolute',
                                         top: 0,
@@ -6971,6 +6987,60 @@ function App({ currentUser }) {
                     document.body
                   )
                 })()}
+
+              {activeTab === 'bookings' && detailBookingLive ? (
+                <ClubCalendarBookingDetailSheet
+                  booking={detailBookingLive}
+                  language={language}
+                  t={t}
+                  currentClub={currentClub}
+                  paymentStatus={getPaymentStatus(detailBookingLive)}
+                  onClose={() => setCalendarDetailBooking(null)}
+                  onEditCourtBooking={() => {
+                    const b = detailBookingLive
+                    setCalendarDetailBooking(null)
+                    if (b && !b.isTournament) setBookingFormData(b)
+                    setShowBookingModal(true)
+                  }}
+                  onEditTournamentSchedule={() => {
+                    const b = detailBookingLive
+                    setCalendarDetailBooking(null)
+                    if (!b?.isTournament) return
+                    const courtsDefault = (currentClub?.courts || [])
+                      .filter((c) => !c.maintenance)
+                      .map((c) => (c.id != null && c.id !== '' ? String(c.id) : String(c.name || '')))
+                      .filter(Boolean)
+                    setTournamentBookingData({
+                      date: (b.date || '').toString().split('T')[0],
+                      startTime: b.startTime || '09:00',
+                      endTime: b.endTime || '18:00',
+                      tournamentType: b.tournamentType || 'king',
+                      tournamentCourtIds:
+                        Array.isArray(b.tournamentCourtIds) && b.tournamentCourtIds.length > 0
+                          ? [...b.tournamentCourtIds]
+                          : courtsDefault,
+                      editingBookingId: b.id,
+                    })
+                    setShowTournamentBookingModal(true)
+                  }}
+                  onOpenTournament={() => {
+                    const b = detailBookingLive
+                    setCalendarDetailBooking(null)
+                    if (!b?.isTournament) return
+                    setActiveTab(b.tournamentType === 'social' ? 'social' : 'king')
+                    setViewedTournamentBooking({
+                      id: b.id,
+                      date: b.date,
+                      startTime: b.startTime,
+                      endTime: b.endTime,
+                      tournamentType: b.tournamentType || 'king',
+                    })
+                    setContentTab('teams')
+                  }}
+                  onConfirmSharePaid={(idx) => confirmCalendarSharePaid(detailBookingLive.id, idx)}
+                  onConfirmFullPayment={() => confirmCalendarFullPayment(detailBookingLive.id)}
+                />
+              ) : null}
               
               {/* Booking Form Modal */}
               {showBookingModal && (
