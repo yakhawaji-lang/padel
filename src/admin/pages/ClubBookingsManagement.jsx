@@ -98,6 +98,68 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     return { upcoming: upcomingL, past: pastL, memberCancelled, displayed: disp, typeCounts: counts }
   }, [bookings, filter, typeFilter, today])
 
+  const bookingStats = useMemo(() => {
+    const withDate = bookings.map(b => ({
+      ...b,
+      dateStr: (b.date || b.startDate || '').toString().split('T')[0]
+    }))
+    const weekEnd = new Date()
+    weekEnd.setDate(weekEnd.getDate() + 7)
+    const weekEndStr = weekEnd.toISOString().split('T')[0]
+
+    let active = 0
+    let upcomingN = 0
+    let weekUpcoming = 0
+    let partialCount = 0
+    let pendingPay = 0
+    let collected = 0
+    let booked = 0
+
+    for (const b of withDate) {
+      if (isTerminalBookingStatus(b.status)) continue
+      active += 1
+      const ds = b.dateStr || ''
+      if (ds >= today) {
+        upcomingN += 1
+        if (ds <= weekEndStr) weekUpcoming += 1
+      }
+      const paid = parseFloat(b.paidAmount ?? b.paid_amount) || 0
+      collected += paid
+      const totRaw = b.totalAmount ?? b.total_amount
+      const tot = parseFloat(totRaw)
+      let gross = !Number.isNaN(tot) && tot > 0 ? tot : NaN
+      if (Number.isNaN(gross) && b.price != null && b.price !== '') {
+        const pr = parseFloat(b.price)
+        gross = !Number.isNaN(pr) ? pr : 0
+      } else if (Number.isNaN(gross)) {
+        gross = 0
+      }
+      booked += gross
+
+      const st = (b.status || '').toString().toLowerCase()
+      if (st === 'partially_paid') partialCount += 1
+      if (['pending_payment', 'pending_payments', 'partially_paid'].includes(st)) pendingPay += 1
+    }
+
+    const outstanding = Math.max(0, booked - collected)
+    const terminal = withDate.filter(b => isTerminalBookingStatus(b.status)).length
+    const collectionRate = booked > 0 ? Math.min(100, Math.max(0, (collected / booked) * 100)) : 0
+
+    return {
+      active,
+      upcomingN,
+      weekUpcoming,
+      partialCount,
+      pendingPay,
+      collected,
+      booked,
+      outstanding,
+      terminal,
+      total: bookings.length,
+      collectionRate
+    }
+  }, [bookings, today])
+
   const formatDate = (dateStr) => {
     if (!dateStr) return '—'
     try {
@@ -411,6 +473,24 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     en: {
       bookings: 'Bookings',
       pageSubtitle: 'Court rentals, training sessions, and tournaments in one place.',
+      statsAria: 'Bookings overview statistics',
+      statEyebrow: 'Operations desk',
+      statActive: 'Active reservations',
+      statActiveHint: 'Non-cancelled in the system',
+      statUpcoming: 'Upcoming on calendar',
+      statUpcomingHint: 'Today and future dates',
+      statWeek: 'Next 7 days',
+      statWeekHint: 'Scheduled within a week',
+      statPending: 'Awaiting payment',
+      statPendingHint: 'Pending or partial checkout',
+      statCollected: 'Collected',
+      statCollectedHint: 'Paid amounts on active bookings',
+      statBooked: 'Booked value',
+      statBookedHint: 'From totals & listed prices',
+      statOutstanding: 'Outstanding',
+      statOutstandingHint: 'Booked value minus collected',
+      collectionHealth: 'Collection progress',
+      statTotalInList: 'Total rows in list',
       upcoming: 'Upcoming',
       past: 'Past',
       memberCancelled: 'Cancelled by member',
@@ -475,6 +555,24 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     ar: {
       bookings: 'الحجوزات',
       pageSubtitle: 'حجوزات الملاعب والحصص التدريبية والبطولات في مكان واحد.',
+      statsAria: 'إحصائيات نظرة عامة على الحجوزات',
+      statEyebrow: 'مكتب العمليات',
+      statActive: 'حجوزات نشطة',
+      statActiveHint: 'غير ملغاة في النظام',
+      statUpcoming: 'قادمة في التقويم',
+      statUpcomingHint: 'اليوم والتواريخ القادمة',
+      statWeek: 'خلال 7 أيام',
+      statWeekHint: 'مجدولة خلال أسبوع',
+      statPending: 'بانتظار الدفع',
+      statPendingHint: 'دفع معلق أو جزئي',
+      statCollected: 'المحصّل',
+      statCollectedHint: 'المبالغ المدفوعة على الحجوزات النشطة',
+      statBooked: 'قيمة الحجوزات',
+      statBookedHint: 'من الإجماليات والأسعار المعروضة',
+      statOutstanding: 'المستحق',
+      statOutstandingHint: 'قيمة الحجز ناقص المحصّل',
+      collectionHealth: 'تقدم التحصيل',
+      statTotalInList: 'إجمالي السجلات',
       upcoming: 'القادمة',
       past: 'السابقة',
       memberCancelled: 'ملغاة من العضو',
@@ -573,28 +671,114 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     return [...byId.values()]
   }, [club?.id])
 
+  const formatCurrency = (n) => {
+    const cur = club?.settings?.currency || 'SAR'
+    try {
+      return new Intl.NumberFormat(language === 'en' ? 'en-US' : 'ar-SA', {
+        style: 'currency',
+        currency: cur,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(Number(n) || 0)
+    } catch {
+      return `${(Number(n) || 0).toFixed(2)} ${cur}`
+    }
+  }
+
   if (!club) return null
 
   return (
     <div className="club-admin-page">
-      <header className="cxp-header">
-        <div className="cxp-header-title-wrap">
-          <h1 className="cxp-title">
-            {club.logo && <img src={club.logo} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'contain' }} />}
-            {c.bookings} — {language === 'ar' ? (club.nameAr || club.name) : club.name}
-          </h1>
-          <p className="cxp-subtitle">{c.pageSubtitle}</p>
-        </div>
-        <div className="cxp-header-actions">
-          <button type="button" className="cxp-btn cxp-btn--secondary" onClick={refreshFromServer}>
-            ↻ {c.refresh}
-          </button>
-        </div>
-      </header>
+      <div className="bookings-hub" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+        <header className="bookings-hub__hero">
+          <div className="bookings-hub__hero-main">
+            <p className="bookings-hub__eyebrow">{c.statEyebrow}</p>
+            <div className="bookings-hub__title-row">
+              {club.logo && (
+                <img src={club.logo} alt="" className="bookings-hub__club-logo" />
+              )}
+              <div>
+                <h1 className="bookings-hub__title">{c.bookings}</h1>
+                <p className="bookings-hub__club-name">{language === 'ar' ? (club.nameAr || club.name) : club.name}</p>
+              </div>
+            </div>
+            <p className="bookings-hub__lead">{c.pageSubtitle}</p>
+          </div>
+          <div className="bookings-hub__hero-aside">
+            <div className="bookings-hub__meter-card">
+              <span className="bookings-hub__meter-label">{c.collectionHealth}</span>
+              <div className="bookings-hub__meter" role="presentation">
+                <div
+                  className="bookings-hub__meter-fill"
+                  style={{ width: `${bookingStats.collectionRate}%` }}
+                />
+              </div>
+              <span className="bookings-hub__meter-cap western-numerals">
+                {bookingStats.booked > 0
+                  ? `${bookingStats.collectionRate.toFixed(1)}%`
+                  : '—'}
+              </span>
+            </div>
+            <button type="button" className="bookings-hub__refresh" onClick={refreshFromServer}>
+              <span aria-hidden>↻</span> {c.refresh}
+            </button>
+          </div>
+        </header>
+
+        <section className="bookings-hub__kpi" aria-label={c.statsAria}>
+          <article className="bookings-kpi bookings-kpi--teal">
+            <span className="bookings-kpi__label">{c.statActive}</span>
+            <strong className="bookings-kpi__value western-numerals">{bookingStats.active}</strong>
+            <span className="bookings-kpi__hint">{c.statActiveHint}</span>
+          </article>
+          <article className="bookings-kpi bookings-kpi--sky">
+            <span className="bookings-kpi__label">{c.statUpcoming}</span>
+            <strong className="bookings-kpi__value western-numerals">{bookingStats.upcomingN}</strong>
+            <span className="bookings-kpi__hint">{c.statUpcomingHint}</span>
+          </article>
+          <article className="bookings-kpi bookings-kpi--indigo">
+            <span className="bookings-kpi__label">{c.statWeek}</span>
+            <strong className="bookings-kpi__value western-numerals">{bookingStats.weekUpcoming}</strong>
+            <span className="bookings-kpi__hint">{c.statWeekHint}</span>
+          </article>
+          <article className="bookings-kpi bookings-kpi--amber">
+            <span className="bookings-kpi__label">{c.statPending}</span>
+            <strong className="bookings-kpi__value western-numerals">{bookingStats.pendingPay}</strong>
+            <span className="bookings-kpi__hint">
+              {c.statPendingHint}
+              {bookingStats.partialCount > 0
+                ? ` · ${bookingStats.partialCount} ${language === 'en' ? 'partial' : 'جزئي'}`
+                : ''}
+            </span>
+          </article>
+          <article className="bookings-kpi bookings-kpi--emerald">
+            <span className="bookings-kpi__label">{c.statCollected}</span>
+            <strong className="bookings-kpi__value western-numerals">{formatCurrency(bookingStats.collected)}</strong>
+            <span className="bookings-kpi__hint">{c.statCollectedHint}</span>
+          </article>
+          <article className="bookings-kpi bookings-kpi--slate">
+            <span className="bookings-kpi__label">{c.statBooked}</span>
+            <strong className="bookings-kpi__value western-numerals">{formatCurrency(bookingStats.booked)}</strong>
+            <span className="bookings-kpi__hint">{c.statBookedHint}</span>
+          </article>
+          <article className="bookings-kpi bookings-kpi--rose">
+            <span className="bookings-kpi__label">{c.statOutstanding}</span>
+            <strong className="bookings-kpi__value western-numerals">{formatCurrency(bookingStats.outstanding)}</strong>
+            <span className="bookings-kpi__hint">{c.statOutstandingHint}</span>
+          </article>
+          <article className="bookings-kpi bookings-kpi--muted">
+            <span className="bookings-kpi__label">{c.statTotalInList}</span>
+            <strong className="bookings-kpi__value western-numerals">{bookingStats.total}</strong>
+            <span className="bookings-kpi__hint">
+              {bookingStats.terminal} {language === 'en' ? 'closed / cancelled rows' : 'صفوف مغلقة أو ملغاة'}
+            </span>
+          </article>
+        </section>
+      </div>
 
       <div className="bookings-management">
         <div className="bookings-toolbar">
-          <div className="bookings-tabs bookings-tabs--time">
+          <div className="bookings-tabs bookings-tabs--time bookings-tabs--hub">
             <button
               type="button"
               className={`bookings-tab ${filter === 'upcoming' ? 'active' : ''}`}
