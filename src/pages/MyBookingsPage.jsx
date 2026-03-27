@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
-import { getMemberBookings, deleteBookingFromClub, getClubById, loadClubs, refreshClubsFromApi, getClubMembersFromStorage, getAllMembersFromStorage, updateTournamentMemberPaymentEntry, withdrawMemberFromTournament } from '../storage/adminStorage'
+import { getMemberBookings, getClubById, loadClubs, refreshClubsFromApi, getClubMembersFromStorage, getAllMembersFromStorage, updateTournamentMemberPaymentEntry } from '../storage/adminStorage'
 import * as bookingApi from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
 import BookingDetailModal from '../components/BookingDetailModal'
@@ -118,7 +118,6 @@ const MyBookingsPage = () => {
   const [bookings, setBookings] = useState([])
   const [filter, setFilter] = useState('upcoming')
   const [language, setLanguage] = useState(() => getAppLanguage())
-  const [cancelling, setCancelling] = useState(null)
   const [markingPayAtClub, setMarkingPayAtClub] = useState(null)
   const [detailRow, setDetailRow] = useState(null)
   const [payMenuOpen, setPayMenuOpen] = useState(null)
@@ -389,63 +388,6 @@ const MyBookingsPage = () => {
     }
   }
 
-  const handleTournamentExit = async (clubId, bookingId, memberId, hadCompletedPayment) => {
-    const msg = hadCompletedPayment
-      ? (language === 'en'
-        ? 'Leave this tournament? Your payment was recorded. Contact the club to arrange a refund if applicable.'
-        : 'مغادرة البطولة؟ تم تسجيل دفعك سابقاً. تواصل مع النادي لترتيب الاسترداد إن كان من حقك.')
-      : (language === 'en'
-        ? 'Leave this tournament? You have not completed payment — you will be removed from the team list.'
-        : 'مغادرة البطولة؟ لم يكتمل دفعك — سيتم إزالتك من قائمة الفريق.')
-    if (!window.confirm(msg)) return
-    setCancelling(bookingId)
-    try {
-      const r = await withdrawMemberFromTournament(clubId, bookingId, memberId)
-      if (r?.ok && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
-      if (r?.ok) {
-        await refreshClubsFromApi()
-        loadClubs()
-        setBookings(getMemberBookings(member.id))
-      }
-    } finally {
-      setCancelling(null)
-    }
-  }
-
-  const handleCancel = async (clubId, bookingId, booking, club) => {
-    if (booking?.isTournament) return
-    const refundDays = club?.settings?.refundDays ?? 3
-    const msg = language === 'en'
-      ? `Cancel this booking? Refund will be processed within ${refundDays} business days.`
-      : `إلغاء هذا الحجز؟ سيتم استرداد المبلغ خلال ${refundDays} أيام عمل.`
-    if (!window.confirm(msg)) return
-    setCancelling(bookingId)
-    try {
-      let ok = false
-      try {
-        await bookingApi.cancelBooking(bookingId)
-        ok = true
-      } catch (_) {
-        try {
-          await deleteBookingFromClub(clubId, bookingId)
-          ok = true
-        } catch {
-          ok = false
-        }
-      }
-      if (ok && typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('clubs-synced'))
-      }
-      if (ok) {
-        await refreshClubsFromApi()
-        loadClubs()
-        setBookings(getMemberBookings(member.id))
-      }
-    } finally {
-      setCancelling(null)
-    }
-  }
-
   const getStatusLabel = (status) => {
     const s = (status || 'confirmed').toString().toLowerCase()
     const labels = {
@@ -557,6 +499,7 @@ const MyBookingsPage = () => {
       walletSubtitle: 'Balance you can use for club fees (credits from refunds appear here).',
       walletAtClub: 'at',
       goToClub: 'View club',
+      edit: 'Edit',
       participants: 'Participants',
       paid: 'Paid',
       pending: 'Pending',
@@ -611,6 +554,7 @@ const MyBookingsPage = () => {
       walletSubtitle: 'رصيد يُستخدم لرسوم الحجز في النادي (تظهر هنا أرصدة الاسترداد إلى المحفظة).',
       walletAtClub: 'في',
       goToClub: 'عرض النادي',
+      edit: 'تعديل',
       participants: 'المشاركون',
       paid: 'دفع',
       pending: 'قيد الانتظار',
@@ -690,7 +634,6 @@ const MyBookingsPage = () => {
     }
     const priceText = priceVal != null ? `${Number(priceVal)} ${currencyStr}` : '—'
     const isUpcoming = filter === 'upcoming'
-    const canCancel = isUpcoming && club && !booking.isTournament && !['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes((booking.status || '').toString())
     const payOptions = getPayOptions(booking, club)
     const visibleShares = (booking.paymentShares || []).filter((s) => {
       if (!s.removedAt && !s.removed_at) return true
@@ -698,8 +641,6 @@ const MyBookingsPage = () => {
     })
     const showAddSplit = canAddSplitParticipants(booking, club, member)
     const isBooker = String(booking.memberId || booking.initiatorMemberId || '') === String(member?.id || '')
-    const canLeaveTournament =
-      isTournament && isUpcoming && club && tournamentEntry && !['cancelled', 'expired'].includes((booking.status || '').toString())
 
     return {
       key: `${club?.id}-${booking.id}-${i}`,
@@ -714,7 +655,6 @@ const MyBookingsPage = () => {
       currencyStr,
       getStatusLabel,
       getStatusClass,
-      canCancel,
       isUpcoming,
       formatDate,
       payOptions,
@@ -728,7 +668,6 @@ const MyBookingsPage = () => {
       isBooker,
       tournamentEntry,
       tournamentAwaitingClub,
-      canLeaveTournament,
       terminalCancelled,
     }
   }
@@ -1187,27 +1126,14 @@ const MyBookingsPage = () => {
                   )}
                   {r.club && (
                     <div className="my-bookings-card-actions" onClick={(e) => e.stopPropagation()}>
-                      <Link to={r.clubLink} className="my-bookings-card-link-btn">{c.goToClub}</Link>
-                      {filter === 'upcoming' && r.canLeaveTournament && (
-                        <button
-                          type="button"
-                          className="my-bookings-cancel-btn"
-                          onClick={() => handleTournamentExit(r.club.id, r.booking.id, member.id, r.isPaid)}
-                          disabled={cancelling === r.booking.id}
-                        >
-                          {cancelling === r.booking.id ? '…' : c.leaveTournament}
-                        </button>
-                      )}
-                      {filter === 'upcoming' && r.canCancel && (
-                        <button
-                          type="button"
-                          className="my-bookings-cancel-btn"
-                          onClick={() => handleCancel(r.club.id, r.booking.id, r.booking, r.club)}
-                          disabled={cancelling === r.booking.id}
-                        >
-                          {cancelling === r.booking.id ? '…' : c.cancel}
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        className="my-bookings-edit-btn"
+                        onClick={() => setDetailRow(r)}
+                      >
+                        <span className="my-bookings-edit-btn-icon" aria-hidden>✏️</span>
+                        {c.edit}
+                      </button>
                     </div>
                   )}
                 </article>

@@ -1387,9 +1387,43 @@
   padding-top: 16px;
   border-top: 1px solid var(--mb-border);
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  flex-direction: column;
+  gap: 0;
+  align-items: stretch;
+}
+
+.my-bookings-edit-btn {
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 50px;
+  padding: 0 22px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: #fff;
+  background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.22);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.my-bookings-edit-btn:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 6px 22px rgba(15, 23, 42, 0.28);
+}
+
+.my-bookings-edit-btn:active {
+  transform: scale(0.99);
+}
+
+.my-bookings-edit-btn-icon {
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
 .my-bookings-card-link-btn {
