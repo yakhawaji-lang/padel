@@ -81,6 +81,9 @@ const PaymentPage = () => {
     date: t('Date', 'التاريخ', language),
     time: t('Time', 'الوقت', language),
     amount: t('Amount', 'المبلغ', language),
+    bookingTotal: t('Booking total', 'إجمالي الحجز', language),
+    paidFromWallet: t('Paid from wallet', 'مدفوع من المحفظة', language),
+    amountDueNow: t('Amount to pay now', 'المبلغ المستحق الآن', language),
     paymentMethod: t('Payment method', 'طريقة الدفع', language),
     creditCard: t('Credit card', 'البطاقة الائتمانية', language),
     mada: t('Mada', 'متاب', language),
@@ -149,6 +152,11 @@ const PaymentPage = () => {
 
   const clubName = language === 'ar' && booking?.clubNameAr ? booking.clubNameAr : booking?.clubName
   const paymentMethodLabel = method === 'mada' ? c.mada : c.creditCard
+  const totalAmt = parseFloat(booking?.totalAmount || 0)
+  const paidAmt = parseFloat(booking?.paidAmount || 0)
+  const amountDue =
+    booking?.amountDue != null ? Math.max(0, parseFloat(booking.amountDue) || 0) : Math.max(0, totalAmt - paidAmt)
+  const showWalletSplit = paidAmt > 0.009 && amountDue > 0.009 && totalAmt > 0.009
 
   return (
     <div className="payment-page" dir={language === 'ar' ? 'rtl' : 'ltr'}>
@@ -169,10 +177,27 @@ const PaymentPage = () => {
             <dt>{c.time}</dt>
             <dd>{booking?.startTime} – {booking?.endTime}</dd>
           </div>
-          <div className="payment-detail-row payment-detail-amount">
-            <dt>{c.amount}</dt>
-            <dd>{parseFloat(booking?.totalAmount || 0).toFixed(2)} {booking?.currency || 'SAR'}</dd>
-          </div>
+          {showWalletSplit ? (
+            <>
+              <div className="payment-detail-row">
+                <dt>{c.bookingTotal}</dt>
+                <dd>{totalAmt.toFixed(2)} {booking?.currency || 'SAR'}</dd>
+              </div>
+              <div className="payment-detail-row">
+                <dt>{c.paidFromWallet}</dt>
+                <dd>{paidAmt.toFixed(2)} {booking?.currency || 'SAR'}</dd>
+              </div>
+              <div className="payment-detail-row payment-detail-amount">
+                <dt>{c.amountDueNow}</dt>
+                <dd>{amountDue.toFixed(2)} {booking?.currency || 'SAR'}</dd>
+              </div>
+            </>
+          ) : (
+            <div className="payment-detail-row payment-detail-amount">
+              <dt>{c.amount}</dt>
+              <dd>{totalAmt.toFixed(2)} {booking?.currency || 'SAR'}</dd>
+            </div>
+          )}
           <div className="payment-detail-row">
             <dt>{c.paymentMethod}</dt>
             <dd>{paymentMethodLabel}</dd>

@@ -125,7 +125,7 @@ router.post('/confirm', async (req, res) => {
     const normalized = await hasNormalizedTables()
     if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
 
-    const { lockId, clubId, courtId, date: dateRaw, startTime, endTime, memberId, memberName, totalAmount, paymentMethod, initiatorPaymentMethod, paymentShares, idempotencyKey } = req.body || {}
+    const { lockId, clubId, courtId, date: dateRaw, startTime, endTime, memberId, memberName, totalAmount, paymentMethod, initiatorPaymentMethod, paymentShares, idempotencyKey, remainderPaymentMethod } = req.body || {}
     if (!lockId || !clubId || !courtId || !dateRaw || !startTime || !endTime || !memberId) {
       return res.status(400).json({ error: 'lockId, clubId, courtId, date, startTime, endTime, memberId required' })
     }
@@ -148,14 +148,34 @@ router.post('/confirm', async (req, res) => {
     if (isWalletPay && hasShares) {
       return res.status(400).json({ error: 'Wallet is only available when you pay the full amount (not split).' })
     }
+    let walletApplied = 0
+    let walletRemainderTotal = 0
+    let remainderPm = ''
+    let walletHybridOnlineMethod = null
     let status
     let paidAmount
     if (isOnlinePayment) {
       status = 'pending_payment'
       paidAmount = 0
-    } else if (isWalletPay) {
-      status = 'confirmed'
-      paidAmount = totalAmount || 0
+    } else if (isWalletPay && !hasShares) {
+      const total = Math.round((parseFloat(totalAmount) || 0) * 100) / 100
+      const balance = await walletService.getWalletBalance(clubId, memberId)
+      walletApplied = Math.min(Math.max(0, balance), total)
+      walletRemainderTotal = Math.round((total - walletApplied) * 100) / 100
+      remainderPm = (remainderPaymentMethod || '').toString().toLowerCase().trim()
+      if (walletRemainderTotal > 0.01) {
+        if (!['at_club', 'credit_card', 'mada'].includes(remainderPm)) {
+          return res.status(400).json({
+            error: 'remainderPaymentMethod required (at_club, credit_card, or mada) when wallet balance does not cover the full amount.',
+          })
+        }
+        paidAmount = walletApplied
+        status = 'pending_payment'
+        if (remainderPm === 'credit_card' || remainderPm === 'mada') walletHybridOnlineMethod = remainderPm
+      } else {
+        status = 'confirmed'
+        paidAmount = total
+      }
     } else if (payAtClubFull) {
       status = 'pending_payment'
       paidAmount = 0
@@ -194,18 +214,29 @@ router.post('/confirm', async (req, res) => {
         return endMin + 1440 - startMin
       })(startTime, endTime),
       paymentShares: paymentShares || [],
-      ...(isOnlinePayment && { paymentMethod }),
-      ...(isWalletPay && { paymentMethod: 'wallet' }),
+      ...(isOnlinePayment && !isWalletPay && { paymentMethod }),
+      ...(isWalletPay &&
+        !hasShares && {
+          paymentMethod: 'wallet',
+          walletPaidAmount: walletApplied,
+          remainderDue: walletRemainderTotal,
+          ...(walletRemainderTotal > 0.01 && remainderPm
+            ? {
+                remainderPaymentMethod: remainderPm,
+                ...(remainderPm === 'at_club' ? { initiatorPaymentMethod: 'at_club' } : {}),
+              }
+            : {}),
+        }),
       ...(payAtClubFull && { initiatorPaymentMethod: 'at_club', paymentMethod: 'at_club' }),
-      ...(hasShares && initiatorPaymentMethod && { initiatorPaymentMethod })
+      ...(hasShares && initiatorPaymentMethod && { initiatorPaymentMethod }),
     }
 
-    if (isWalletPay) {
-      const debit = await walletService.debitWallet(clubId, memberId, totalAmount || 0, { reason: 'court_booking', refType: 'booking', refId: bid })
+    if (isWalletPay && !hasShares && walletApplied > 0) {
+      const debit = await walletService.debitWallet(clubId, memberId, walletApplied, { reason: 'court_booking', refType: 'booking', refId: bid })
       if (!debit.ok) {
         return res.status(400).json({ error: debit.error || 'Wallet payment failed' })
       }
-      walletRollback = { clubId, memberId, amount: totalAmount || 0, bid }
+      walletRollback = { clubId, memberId, amount: walletApplied, bid }
     }
 
     await bookingService.createBooking({
@@ -268,7 +299,11 @@ router.post('/confirm', async (req, res) => {
     const initiatorElectronic = hasShares && (initiatorPaymentMethod === 'credit_card' || initiatorPaymentMethod === 'mada')
     const paymentUrl = isOnlinePayment
       ? `${baseUrl.replace(/\/$/, '')}/pay/${bid}?method=${paymentMethod}`
-      : (initiatorElectronic ? `${baseUrl.replace(/\/$/, '')}/pay-share/booking/${bid}?clubId=${clubId}` : null)
+      : walletHybridOnlineMethod
+        ? `${baseUrl.replace(/\/$/, '')}/pay/${bid}?method=${walletHybridOnlineMethod}`
+        : initiatorElectronic
+          ? `${baseUrl.replace(/\/$/, '')}/pay-share/booking/${bid}?clubId=${clubId}`
+          : null
 
     // Optional: send SMS/WhatsApp confirmation to booker (if phone exists and channel configured)
     try {
@@ -283,7 +318,15 @@ router.post('/confirm', async (req, res) => {
       console.warn('[Bookings] Message send error:', waErr?.message)
     }
 
-    res.json({ ok: true, bookingId: bid, status, paymentShares: createdShares, ...(paymentUrl && { paymentUrl }) })
+    res.json({
+      ok: true,
+      bookingId: bid,
+      status,
+      paidAmount,
+      paymentShares: createdShares,
+      ...(isWalletPay && !hasShares && { walletApplied, remainder: walletRemainderTotal }),
+      ...(paymentUrl && { paymentUrl }),
+    })
   } catch (e) {
     try {
       if (walletRollback && walletRollback.clubId && walletRollback.memberId && walletRollback.amount > 0) {
@@ -1449,6 +1492,18 @@ router.get('/:id', async (req, res) => {
       try { data = JSON.parse(data) } catch { data = {} }
     }
     const dateStr = r.booking_date ? String(r.booking_date).split('T')[0] : null
+    const totalAmt = parseFloat(r.total_amount) || 0
+    const paidAmt = parseFloat(r.paid_amount) || 0
+    const amountDue = Math.max(0, Math.round((totalAmt - paidAmt) * 100) / 100)
+    const remPm = (data && data.remainderPaymentMethod) ? String(data.remainderPaymentMethod).toLowerCase().trim() : ''
+    let paymentMethodOut = (data && data.paymentMethod) || null
+    if (
+      amountDue > 0.01 &&
+      remPm &&
+      (remPm === 'credit_card' || remPm === 'mada')
+    ) {
+      paymentMethodOut = remPm
+    }
     res.json({
       id: r.id,
       clubId: r.club_id,
@@ -1459,9 +1514,10 @@ router.get('/:id', async (req, res) => {
       startTime: r.start_time || r.time_slot,
       endTime: r.end_time || r.time_slot,
       status: r.status,
-      totalAmount: parseFloat(r.total_amount) || 0,
-      paidAmount: parseFloat(r.paid_amount) || 0,
-      paymentMethod: (data && data.paymentMethod) || null,
+      totalAmount: totalAmt,
+      paidAmount: paidAmt,
+      amountDue,
+      paymentMethod: paymentMethodOut,
       clubName: r.club_name,
       clubNameAr: r.club_name_ar,
       currency: r.currency || 'SAR'
