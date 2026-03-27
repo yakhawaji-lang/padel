@@ -24,6 +24,7 @@ const t = {
     submit: 'Login',
     createOwner: 'Create owner',
     backToHome: 'Back to home',
+    goToClubLogin: 'Go to club login',
     error: 'Invalid credentials.'
   },
   ar: {
@@ -38,6 +39,7 @@ const t = {
     submit: 'دخول',
     createOwner: 'إنشاء المالك',
     backToHome: 'العودة للرئيسية',
+    goToClubLogin: 'الانتقال الى تسجيل دخول الأندية',
     error: 'بيانات خاطئة.'
   }
 }
@@ -168,6 +170,11 @@ const PlatformAdminLogin = ({ isSuperAdmin = false }) => {
               <p className="auth-login-hint">
                 <Link to="/forgot-password?type=platform">{language === 'en' ? 'Forgot password?' : 'نسيت كلمة المرور؟'}</Link>
               </p>
+              {!isSetup && (
+                <p className="auth-login-hint auth-login-hint--club-login">
+                  <Link to="/club-login">{c.goToClubLogin}</Link>
+                </p>
+              )}
               </form>
             </>
           )}

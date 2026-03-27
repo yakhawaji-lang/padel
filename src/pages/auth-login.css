@@ -249,3 +249,7 @@
 .auth-login-hint a:hover {
   text-decoration: underline;
 }
+
+.auth-login-hint--club-login {
+  margin-top: 10px;
+}
