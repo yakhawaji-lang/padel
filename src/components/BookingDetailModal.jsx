@@ -30,13 +30,23 @@ function buildWhatsAppMapMessage(clubName, mapUrl, language) {
   return `https://wa.me/?text=${encodeURIComponent(text)}`
 }
 
-export default function BookingDetailModal({ booking, club, platformUser, language, onClose, onUpdated, memberDirectory = [] }) {
+export default function BookingDetailModal({
+  booking,
+  club,
+  platformUser,
+  language,
+  onClose,
+  onUpdated,
+  memberDirectory = [],
+  showBrowseClubLink = true,
+}) {
   const [markingPayAtClub, setMarkingPayAtClub] = useState(false)
   const [copied, setCopied] = useState(false)
   const [payMenuOpen, setPayMenuOpen] = useState(false)
   const [ackRefundBusy, setAckRefundBusy] = useState(false)
   const [tournamentExitBusy, setTournamentExitBusy] = useState(false)
   const [memberActionsOpen, setMemberActionsOpen] = useState(false)
+  const [memberActionsSection, setMemberActionsSection] = useState('reschedule')
 
   const dateStr = booking?.dateStr || booking?.date || (booking?.startDate || '').toString().split('T')[0]
   const startTime = booking?.startTime || booking?.timeSlot || ''
@@ -94,6 +104,15 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
   const clubName = language === 'ar' && club?.nameAr ? club.nameAr : club?.name
   const currency = club?.settings?.currency || 'SAR'
   const totalAmount = booking?.totalAmount ?? booking?.total_amount ?? 0
+  const statusLc = (status || '').toLowerCase()
+  const isBookingTerminal = ['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(statusLc)
+  const canOpenMemberActions =
+    !!club?.id && !isTournamentBooking && isInitiator && !!platformUser?.id && !isBookingTerminal
+
+  const openMemberActions = (section) => {
+    setMemberActionsSection(section === 'cancel' ? 'cancel' : 'reschedule')
+    setMemberActionsOpen(true)
+  }
 
   const handleMarkPayAtClub = useCallback(async () => {
     if (!club?.id || !booking?.id) return
@@ -214,7 +233,15 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
   const t = {
     en: {
       title: 'Booking details',
-      edit: 'Edit booking',
+      subtitle: 'Court booking',
+      statusPendingPayment: 'Awaiting payment',
+      statusConfirmed: 'Confirmed',
+      statusPartiallyPaid: 'Partially paid',
+      statusPendingPayments: 'Pending payments',
+      statusOther: 'Status',
+      edit: 'Reschedule or change',
+      cancelBooking: 'Cancel booking',
+      cancelBookingHint: 'Release the slot; request a refund if you already paid.',
       complete: 'Complete payment',
       share: 'Share booking',
       shareWithMember: 'Send to member',
@@ -226,7 +253,8 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       payAtClubChosen: 'Chosen — pay at club',
       payElectronic: 'Pay electronically',
       switchToElectronic: 'Switch to electronic payment',
-      goToClub: 'View club',
+      goToClub: 'Open club page',
+      secondaryActions: 'Sharing & location',
       paid: 'Paid',
       pending: 'Pending',
       waitingConfirm: 'Waiting for club confirmation',
@@ -247,7 +275,15 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
     },
     ar: {
       title: 'تفاصيل الحجز',
-      edit: 'تعديل الحجز',
+      subtitle: 'حجز ملعب',
+      statusPendingPayment: 'بانتظار الدفع',
+      statusConfirmed: 'مؤكد',
+      statusPartiallyPaid: 'مدفوع جزئياً',
+      statusPendingPayments: 'دفعات معلّقة',
+      statusOther: 'الحالة',
+      edit: 'تغيير الموعد أو التفاصيل',
+      cancelBooking: 'إلغاء الحجز',
+      cancelBookingHint: 'إلغاء الموعد؛ وإن وُجد دفع مكتمل تُفتح مطالبة استعادة المبلغ.',
       complete: 'استكمال الدفع',
       share: 'مشاركة الحجز',
       shareWithMember: 'إرسال لعضو',
@@ -259,7 +295,8 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       payAtClubChosen: 'اخترتها — سأدفع في النادي',
       payElectronic: 'الدفع الإلكتروني',
       switchToElectronic: 'التبديل إلى الدفع الإلكتروني',
-      goToClub: 'عرض النادي',
+      goToClub: 'صفحة النادي',
+      secondaryActions: 'مشاركة والموقع',
       paid: 'مدفوع',
       pending: 'قيد الانتظار',
       waitingConfirm: 'بانتظار التأكيد من النادي',
@@ -281,62 +318,72 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
   }
   const c = t[language] || t.en
 
+  let statusPillLabel = (status || '—').replace(/_/g, ' ')
+  if (statusLc === 'pending_payment') statusPillLabel = c.statusPendingPayment
+  else if (statusLc === 'confirmed') statusPillLabel = c.statusConfirmed
+  else if (statusLc === 'partially_paid') statusPillLabel = c.statusPartiallyPaid
+  else if (statusLc === 'pending_payments') statusPillLabel = c.statusPendingPayments
+
   return (
     <div className="booking-detail-modal-backdrop" onClick={onClose} role="presentation">
-      <div className="booking-detail-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="booking-detail-title">
+      <div
+        className="booking-detail-modal"
+        onClick={e => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="booking-detail-title"
+        aria-describedby="booking-detail-desc"
+      >
         <div className="booking-detail-modal-header">
-          <h3 id="booking-detail-title">{c.title}</h3>
+          <div className="booking-detail-modal-header-text">
+            <h3 id="booking-detail-title">{c.title}</h3>
+            {clubName ? (
+              <p id="booking-detail-desc" className="booking-detail-modal-subtitle">{clubName}</p>
+            ) : (
+              <p id="booking-detail-desc" className="booking-detail-modal-subtitle booking-detail-modal-subtitle--muted">{!isTournamentBooking ? c.subtitle : '\u00a0'}</p>
+            )}
+          </div>
           <button type="button" className="booking-detail-modal-close" onClick={onClose} aria-label={c.close}>×</button>
         </div>
         <div className="booking-detail-modal-body">
-          <div className="booking-detail-summary">
-            <p><strong>{courtName}</strong></p>
-            <p>{dateStr} · {startTime}{endTime ? ` – ${endTime}` : ''}</p>
-            <p className="booking-detail-customer">{memberName}</p>
+          <div className="booking-detail-summary-card">
+            <div className="booking-detail-summary-top">
+              <span className="booking-detail-status-pill" data-status={statusLc || 'unknown'}>{statusPillLabel}</span>
+              {!isTournamentBooking && totalAmount > 0 ? (
+                <span className="booking-detail-price-tag">{totalAmount} {currency}</span>
+              ) : null}
+            </div>
+            <p className="booking-detail-court-name">{courtName}</p>
+            <p className="booking-detail-datetime">
+              <span className="booking-detail-datetime-date">{dateStr}</span>
+              <span className="booking-detail-datetime-sep" aria-hidden>·</span>
+              <span className="booking-detail-datetime-time">{startTime}{endTime ? ` – ${endTime}` : ''}</span>
+            </p>
+            <p className="booking-detail-customer booking-detail-customer--name">{memberName}</p>
             {isTournamentBooking && tournamentEntry && tournamentFee > 0 && (
-              <p className="booking-detail-customer">{c.tournamentYourShare}: {tournamentFee} {currency}</p>
+              <p className="booking-detail-customer">{c.tournamentYourShare}: <strong>{tournamentFee} {currency}</strong></p>
             )}
-            {!isTournamentBooking && totalAmount > 0 && <p>{totalAmount} {currency}</p>}
             {status === 'pending_payment' && initiatorChosePayAtClub && (
-              <p className="booking-detail-atclub-pending-hint" style={{ marginTop: 8, fontSize: '0.9rem', color: '#64748b' }}>
-                {c.payAtClubPendingHint}
-              </p>
+              <p className="booking-detail-atclub-pending-hint">{c.payAtClubPendingHint}</p>
             )}
           </div>
 
-            {needsRefundAck && club?.id && (
-              <div className="booking-detail-refund-ack-banner">
-                <p className="booking-detail-refund-ack-title">{c.refundAckTitle}</p>
-                <p className="booking-detail-refund-ack-hint">{c.refundAckHint}</p>
-                <button
-                  type="button"
-                  className="booking-detail-refund-ack-btn"
-                  disabled={ackRefundBusy}
-                  onClick={handleAcknowledgeRefund}
-                >
-                  {ackRefundBusy ? '…' : c.confirmRefundReceived}
-                </button>
-              </div>
-            )}
-
-          <div className="booking-detail-actions">
-            {club?.id && !isTournamentBooking && isInitiator && platformUser?.id && (
+          {needsRefundAck && club?.id && (
+            <div className="booking-detail-refund-ack-banner">
+              <p className="booking-detail-refund-ack-title">{c.refundAckTitle}</p>
+              <p className="booking-detail-refund-ack-hint">{c.refundAckHint}</p>
               <button
                 type="button"
-                className="booking-detail-action booking-detail-action-btn"
-                onClick={() => setMemberActionsOpen(true)}
+                className="booking-detail-refund-ack-btn"
+                disabled={ackRefundBusy}
+                onClick={handleAcknowledgeRefund}
               >
-                <span className="booking-detail-action-icon">✏️</span>
-                <span>{c.edit}</span>
+                {ackRefundBusy ? '…' : c.confirmRefundReceived}
               </button>
-            )}
-            {club?.id && !isTournamentBooking && !isInitiator && (
-              <Link to={`/clubs/${club.id}#court-booking`} className="booking-detail-action" onClick={onClose}>
-                <span className="booking-detail-action-icon">📅</span>
-                <span>{language === 'ar' ? 'صفحة الحجز' : 'Booking page'}</span>
-              </Link>
-            )}
+            </div>
+          )}
 
+          <div className="booking-detail-actions">
             {tournamentPayPending && club?.id && platformUser?.id && (
               <div className="booking-detail-tournament-pay">
                 <p className="booking-detail-tournament-pay-title">{c.tournamentPayTitle}</p>
@@ -377,18 +424,6 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
                   )}
                 </div>
               </div>
-            )}
-
-            {isTournamentBooking && tournamentEntry && platformUser?.id && !['cancelled', 'expired'].includes(status) && (
-              <button
-                type="button"
-                className="booking-detail-action booking-detail-action-danger"
-                disabled={tournamentExitBusy}
-                onClick={handleTournamentLeave}
-              >
-                <span className="booking-detail-action-icon">🚪</span>
-                <span>{tournamentExitBusy ? '…' : c.tournamentLeave}</span>
-              </button>
             )}
 
             {(isInitiator || isParticipantWithShare) && needsPayment && !userShare?.paidAt && !isTournamentBooking && (
@@ -451,22 +486,71 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
               </div>
             )}
 
-            <button type="button" className="booking-detail-action" onClick={handleCopyLink}>
-              <span className="booking-detail-action-icon">📤</span>
-              <span>{copied ? c.copied : c.share}</span>
-            </button>
-
-            {mapUrl ? (
-              <button type="button" className="booking-detail-action" onClick={handleShareMap}>
-                <span className="booking-detail-action-icon">📍</span>
-                <span>{c.sendMap}</span>
-              </button>
-            ) : (
-              <span className="booking-detail-action booking-detail-action-disabled" title={c.noMap}>
-                <span className="booking-detail-action-icon">📍</span>
-                <span>{c.sendMap}</span>
-              </span>
+            {canOpenMemberActions && (
+              <div className="booking-detail-primary-row">
+                <button
+                  type="button"
+                  className="booking-detail-primary-btn booking-detail-primary-btn--edit"
+                  onClick={() => openMemberActions('reschedule')}
+                >
+                  <span className="booking-detail-primary-icon" aria-hidden>✏️</span>
+                  <span className="booking-detail-primary-text">
+                    <span className="booking-detail-primary-label">{c.edit}</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="booking-detail-primary-btn booking-detail-primary-btn--cancel"
+                  onClick={() => openMemberActions('cancel')}
+                >
+                  <span className="booking-detail-primary-icon" aria-hidden>⛔</span>
+                  <span className="booking-detail-primary-text">
+                    <span className="booking-detail-primary-label">{c.cancelBooking}</span>
+                  </span>
+                </button>
+              </div>
             )}
+            {canOpenMemberActions ? (
+              <p className="booking-detail-primary-hint">{c.cancelBookingHint}</p>
+            ) : null}
+
+            {club?.id && !isTournamentBooking && !isInitiator && (
+              <Link to={`/clubs/${club.id}#court-booking`} className="booking-detail-action booking-detail-action-accent" onClick={onClose}>
+                <span className="booking-detail-action-icon">📅</span>
+                <span>{language === 'ar' ? 'صفحة الحجز في النادي' : 'Open booking at club'}</span>
+              </Link>
+            )}
+
+            {isTournamentBooking && tournamentEntry && platformUser?.id && !['cancelled', 'expired'].includes(statusLc) && (
+              <button
+                type="button"
+                className="booking-detail-action booking-detail-action-danger"
+                disabled={tournamentExitBusy}
+                onClick={handleTournamentLeave}
+              >
+                <span className="booking-detail-action-icon">🚪</span>
+                <span>{tournamentExitBusy ? '…' : c.tournamentLeave}</span>
+              </button>
+            )}
+
+            <p className="booking-detail-section-label">{c.secondaryActions}</p>
+            <div className="booking-detail-secondary-grid">
+              <button type="button" className="booking-detail-tile" onClick={handleCopyLink}>
+                <span className="booking-detail-tile-icon" aria-hidden>📤</span>
+                <span className="booking-detail-tile-label">{copied ? c.copied : c.share}</span>
+              </button>
+              {mapUrl ? (
+                <button type="button" className="booking-detail-tile" onClick={handleShareMap}>
+                  <span className="booking-detail-tile-icon" aria-hidden>📍</span>
+                  <span className="booking-detail-tile-label">{c.sendMap}</span>
+                </button>
+              ) : (
+                <span className="booking-detail-tile booking-detail-tile--disabled" title={c.noMap}>
+                  <span className="booking-detail-tile-icon" aria-hidden>📍</span>
+                  <span className="booking-detail-tile-label">{c.sendMap}</span>
+                </span>
+              )}
+            </div>
 
             {hasShares && (
               <div className="booking-detail-track">
@@ -514,8 +598,8 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
               </div>
             )}
 
-            {club?.id && (
-              <Link to={`/clubs/${club.id}`} className="booking-detail-action booking-detail-action-link" onClick={onClose}>
+            {showBrowseClubLink && club?.id && (
+              <Link to={`/clubs/${club.id}`} className="booking-detail-action booking-detail-action-link booking-detail-action-tertiary" onClick={onClose}>
                 <span className="booking-detail-action-icon">🏟</span>
                 <span>{c.goToClub}</span>
               </Link>
@@ -525,10 +609,12 @@ export default function BookingDetailModal({ booking, club, platformUser, langua
       </div>
       {memberActionsOpen && club && booking && platformUser && (
         <MemberBookingActionsModal
+          key={`${booking.id}-${memberActionsSection}`}
           booking={booking}
           club={club}
           platformUser={platformUser}
           language={language}
+          initialSection={memberActionsSection}
           onClose={() => setMemberActionsOpen(false)}
           onUpdated={() => {
             onUpdated?.()

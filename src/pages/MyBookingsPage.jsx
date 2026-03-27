@@ -1215,6 +1215,7 @@ const MyBookingsPage = () => {
             platformUser={member}
             memberDirectory={shareMemberDirectory}
             language={language}
+            showBrowseClubLink={false}
             onClose={() => setDetailRow(null)}
             onUpdated={async () => {
               await refreshClubsFromApi()

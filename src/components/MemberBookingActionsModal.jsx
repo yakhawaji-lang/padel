@@ -5,7 +5,16 @@ import React, { useState, useEffect, useCallback } from 'react'
 import * as bookingApi from '../api/dbClient'
 import './MemberBookingActionsModal.css'
 
-export default function MemberBookingActionsModal({ booking, club, platformUser, language, onClose, onUpdated }) {
+export default function MemberBookingActionsModal({
+  booking,
+  club,
+  platformUser,
+  language,
+  onClose,
+  onUpdated,
+  initialSection = 'reschedule',
+}) {
+  const [activeTab, setActiveTab] = useState(initialSection === 'cancel' ? 'cancel' : 'reschedule')
   const [quote, setQuote] = useState(null)
   const [loadErr, setLoadErr] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -20,9 +29,16 @@ export default function MemberBookingActionsModal({ booking, club, platformUser,
   const memberId = platformUser?.id
   const currency = club?.settings?.currency || 'SAR'
 
+  useEffect(() => {
+    setActiveTab(initialSection === 'cancel' ? 'cancel' : 'reschedule')
+  }, [initialSection, bookingId])
+
   const t = {
     en: {
       title: 'Change or cancel booking',
+      tabReschedule: 'Reschedule',
+      tabCancel: 'Cancel & refunds',
+      tabCancelHint: 'Refund requests are handled by the club after you submit.',
       loading: 'Loading…',
       wallet: 'Wallet balance',
       rescheduleTitle: 'Reschedule',
@@ -36,6 +52,9 @@ export default function MemberBookingActionsModal({ booking, club, platformUser,
       end: 'End',
       apply: 'Save new time',
       cancelTitle: 'Cancel & refund',
+      cancelUnpaidTitle: 'Cancel unpaid booking',
+      cancelUnpaidHint: 'No completed payment on file. The slot will be released for others.',
+      cancelUnpaidBtn: 'Cancel booking',
       cancelHint: 'Within the club cancellation window. Fees may apply.',
       refundWallet: 'Refund to my club wallet (after club confirms)',
       refundCash: 'Cash refund at club (after staff confirms)',
@@ -48,6 +67,9 @@ export default function MemberBookingActionsModal({ booking, club, platformUser,
     },
     ar: {
       title: 'تعديل أو إلغاء الحجز',
+      tabReschedule: 'تغيير الموعد',
+      tabCancel: 'الإلغاء واستعادة المبلغ',
+      tabCancelHint: 'بعد إرسال الطلب، يعالج النادي مطالبة الاسترداد وفق سياساته.',
       loading: 'جاري التحميل…',
       wallet: 'رصيد المحفظة',
       rescheduleTitle: 'تغيير الموعد',
@@ -61,6 +83,9 @@ export default function MemberBookingActionsModal({ booking, club, platformUser,
       end: 'النهاية',
       apply: 'حفظ الموعد الجديد',
       cancelTitle: 'إلغاء واسترداد',
+      cancelUnpaidTitle: 'إلغاء حجز بدون دفع مكتمل',
+      cancelUnpaidHint: 'لا يوجد مبلغ مدفوع مكتمل. يُحرَّر الموعد لغيرك.',
+      cancelUnpaidBtn: 'إلغاء الحجز',
       cancelHint: 'ضمن المهلة المسموحة من النادي. قد تُطبَّق رسوم.',
       refundWallet: 'استرداد إلى محفظتي (بعد تأكيد النادي)',
       refundCash: 'استرداد نقداً من النادي (بعد تأكيد الموظف)',
@@ -130,7 +155,7 @@ export default function MemberBookingActionsModal({ booking, club, platformUser,
 
   const handleRefund = async (refundRoute) => {
     if (!clubId || !bookingId || !memberId) return
-    if (typeof window !== 'undefined' && !window.confirm(language === 'ar' ? 'تأكيد إلغاء الحجز؟' : 'Cancel this booking?')) return
+    if (typeof window !== 'undefined' && !window.confirm(language === 'ar' ? 'تأكيد إلغاء الحجز وطلب الاسترداد؟' : 'Cancel this booking and request a refund?')) return
     setBusy(true)
     setLoadErr(null)
     try {
@@ -145,119 +170,173 @@ export default function MemberBookingActionsModal({ booking, club, platformUser,
     }
   }
 
+  const handleSimpleCancelUnpaid = async () => {
+    if (!bookingId) return
+    if (typeof window !== 'undefined' && !window.confirm(language === 'ar' ? 'تأكيد إلغاء الحجز؟' : 'Cancel this booking?')) return
+    setBusy(true)
+    setLoadErr(null)
+    try {
+      await bookingApi.cancelBooking(bookingId)
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      onUpdated?.()
+      if (typeof window !== 'undefined' && window.alert) window.alert(c.success)
+      onClose?.()
+    } catch (e) {
+      setLoadErr(e?.message || (language === 'ar' ? 'فشل الإلغاء' : 'Cancellation failed'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   if (!booking || !club || !platformUser) return null
 
   return (
     <div className="member-booking-actions-backdrop" onClick={onClose} role="presentation">
-      <div className="member-booking-actions-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+      <div className="member-booking-actions-modal" role="dialog" aria-modal="true" aria-labelledby="member-booking-actions-title" onClick={(e) => e.stopPropagation()}>
         <div className="member-booking-actions-head">
-          <h3>{c.title}</h3>
+          <h3 id="member-booking-actions-title">{c.title}</h3>
           <button type="button" className="member-booking-actions-close" onClick={onClose} aria-label={c.close}>×</button>
         </div>
         {loadErr && <div className="member-booking-actions-err">{loadErr}</div>}
-        {!quote && !loadErr && <p className="member-booking-actions-muted">{c.loading}</p>}
+        {!quote && !loadErr && <p className="member-booking-actions-muted member-booking-actions-body">{c.loading}</p>}
         {quote && (
           <div className="member-booking-actions-body">
             <p className="member-booking-actions-wallet">
               {c.wallet}: <strong>{quote.walletBalance?.toFixed ? quote.walletBalance.toFixed(2) : quote.walletBalance} {currency}</strong>
             </p>
-            <p className="member-booking-actions-muted">{c.feeHint}</p>
-
-            <section className="member-booking-actions-section">
-              <h4>{c.rescheduleTitle}</h4>
-              {(quote.nextRescheduleFee || 0) > 0 ? (
-                <p className="member-booking-actions-fee">{c.nextFee}: <strong>{quote.nextRescheduleFee} {currency}</strong></p>
-              ) : (
-                <p className="member-booking-actions-ok">{c.freeEdit}</p>
-              )}
-              {(quote.nextRescheduleFee || 0) > 0 && (
-                <label className="member-booking-actions-check">
-                  <input type="checkbox" checked={payFeeFromWallet} onChange={(e) => setPayFeeFromWallet(e.target.checked)} />
-                  {c.payFeeWallet}
-                </label>
-              )}
-              <div className="member-booking-actions-grid">
-                <label>
-                  {c.date}
-                  <input type="date" value={dateStr} onChange={(e) => setDateStr(e.target.value)} className="member-booking-actions-input" />
-                </label>
-                <label>
-                  {c.court}
-                  <select value={courtId} onChange={(e) => setCourtId(e.target.value)} className="member-booking-actions-input">
-                    {courts.map((co) => {
-                      const id = (co.id != null && co.id !== '') ? String(co.id) : String(co.name || '')
-                      const label = language === 'ar' && co.nameAr ? co.nameAr : (co.name || id)
-                      return (
-                        <option key={id} value={id}>{label}</option>
-                      )
-                    })}
-                  </select>
-                </label>
-                <label>
-                  {c.start}
-                  <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="member-booking-actions-input" />
-                </label>
-                <label>
-                  {c.end}
-                  <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="member-booking-actions-input" />
-                </label>
-              </div>
-              <button type="button" className="member-booking-actions-primary" disabled={busy} onClick={handleReschedule}>
-                {busy ? '…' : c.apply}
+            <div className="member-booking-actions-tabs" role="tablist" aria-label={c.title}>
+              <button
+                type="button"
+                role="tab"
+                id="mba-tab-reschedule"
+                aria-selected={activeTab === 'reschedule'}
+                aria-controls="mba-panel-reschedule"
+                className={`member-booking-actions-tab ${activeTab === 'reschedule' ? 'member-booking-actions-tab--active' : ''}`}
+                onClick={() => setActiveTab('reschedule')}
+              >
+                {c.tabReschedule}
               </button>
-            </section>
+              <button
+                type="button"
+                role="tab"
+                id="mba-tab-cancel"
+                aria-selected={activeTab === 'cancel'}
+                aria-controls="mba-panel-cancel"
+                className={`member-booking-actions-tab ${activeTab === 'cancel' ? 'member-booking-actions-tab--active' : ''}`}
+                onClick={() => setActiveTab('cancel')}
+              >
+                {c.tabCancel}
+              </button>
+            </div>
+            <p className="member-booking-actions-tab-hint">
+              {activeTab === 'reschedule' ? c.feeHint : c.tabCancelHint}
+            </p>
 
-            <section className="member-booking-actions-section member-booking-actions-section--danger">
-              <h4>{c.cancelTitle}</h4>
-              <p className="member-booking-actions-muted">{c.cancelHint}</p>
-              {quote.hoursUntilStart != null && (
-                <p className="member-booking-actions-muted">{c.hoursLeft}: {quote.hoursUntilStart.toFixed(1)}</p>
-              )}
-              {(quote.cancelAllowed || quote.canRequestRefundCancel) && (quote.paidAmount || 0) > 0.01 ? (
-                <>
-                  {!quote.cancelAllowed && quote.canRequestRefundCancel ? (
-                    <p className="member-booking-actions-warn" style={{ borderRadius: 8, padding: '10px 12px' }}>
-                      {c.refundOutsideHint}
-                    </p>
-                  ) : null}
-                  <p className="member-booking-actions-fee">
-                    {language === 'ar' ? 'صافي الاسترداد التقريبي' : 'Estimated net refund'}:{' '}
-                    <strong>{quote.estimatedRefundNet} {currency}</strong>
-                    {quote.cancelFee > 0 ? <span> ({language === 'ar' ? 'بعد خصم' : 'after fee'} {quote.cancelFee})</span> : null}
-                  </p>
-                  <p className="member-booking-actions-muted" style={{ fontSize: 12 }}>
-                    {quote.allowElectronicRefundRoute
-                      ? language === 'ar'
-                        ? 'بعد الطلب، يؤكد النادي تسليم المبلغ أو إضافته للمحفظة أو إتمام الاسترداد الإلكتروني.'
-                        : 'After you submit, the club will confirm cash payout, wallet credit, or electronic refund.'
-                      : language === 'ar'
-                        ? 'بعد الطلب، يؤكد النادي تسليم المبلغ نقداً أو إضافته للمحفظة (الدفع كان في النادي).'
-                        : 'After you submit, the club will confirm cash payout or wallet credit (you paid at the club).'}
-                  </p>
-                  <div className="member-booking-actions-refund-btns">
-                    <button type="button" className="member-booking-actions-secondary" disabled={busy} onClick={() => handleRefund('wallet')}>
-                      {c.refundWallet}
+            {activeTab === 'reschedule' && (
+              <section id="mba-panel-reschedule" role="tabpanel" aria-labelledby="mba-tab-reschedule" className="member-booking-actions-panel">
+                <h4 className="member-booking-actions-sr-only">{c.rescheduleTitle}</h4>
+                {(quote.nextRescheduleFee || 0) > 0 ? (
+                  <p className="member-booking-actions-fee">{c.nextFee}: <strong>{quote.nextRescheduleFee} {currency}</strong></p>
+                ) : (
+                  <p className="member-booking-actions-ok">{c.freeEdit}</p>
+                )}
+                {(quote.nextRescheduleFee || 0) > 0 && (
+                  <label className="member-booking-actions-check">
+                    <input type="checkbox" checked={payFeeFromWallet} onChange={(e) => setPayFeeFromWallet(e.target.checked)} />
+                    {c.payFeeWallet}
+                  </label>
+                )}
+                <div className="member-booking-actions-grid">
+                  <label>
+                    {c.date}
+                    <input type="date" value={dateStr} onChange={(e) => setDateStr(e.target.value)} className="member-booking-actions-input" />
+                  </label>
+                  <label>
+                    {c.court}
+                    <select value={courtId} onChange={(e) => setCourtId(e.target.value)} className="member-booking-actions-input">
+                      {courts.map((co) => {
+                        const id = (co.id != null && co.id !== '') ? String(co.id) : String(co.name || '')
+                        const label = language === 'ar' && co.nameAr ? co.nameAr : (co.name || id)
+                        return (
+                          <option key={id} value={id}>{label}</option>
+                        )
+                      })}
+                    </select>
+                  </label>
+                  <label>
+                    {c.start}
+                    <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="member-booking-actions-input" />
+                  </label>
+                  <label>
+                    {c.end}
+                    <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="member-booking-actions-input" />
+                  </label>
+                </div>
+                <button type="button" className="member-booking-actions-primary" disabled={busy} onClick={handleReschedule}>
+                  {busy ? '…' : c.apply}
+                </button>
+              </section>
+            )}
+
+            {activeTab === 'cancel' && (
+              <section id="mba-panel-cancel" role="tabpanel" aria-labelledby="mba-tab-cancel" className="member-booking-actions-panel member-booking-actions-panel--danger">
+                <h4>{c.cancelTitle}</h4>
+                <p className="member-booking-actions-muted">{c.cancelHint}</p>
+                {quote.hoursUntilStart != null && (
+                  <p className="member-booking-actions-muted">{c.hoursLeft}: {quote.hoursUntilStart.toFixed(1)}</p>
+                )}
+                {quote.cancelAllowed && (quote.paidAmount || 0) <= 0.01 ? (
+                  <>
+                    <p className="member-booking-actions-muted">{c.cancelUnpaidHint}</p>
+                    <p className="member-booking-actions-unpaid-note">{c.cancelUnpaidTitle}</p>
+                    <button type="button" className="member-booking-actions-danger" disabled={busy} onClick={handleSimpleCancelUnpaid}>
+                      {busy ? '…' : c.cancelUnpaidBtn}
                     </button>
-                    <button type="button" className="member-booking-actions-secondary" disabled={busy} onClick={() => handleRefund('cash')}>
-                      {c.refundCash}
-                    </button>
-                    {quote.allowElectronicRefundRoute ? (
-                      <button type="button" className="member-booking-actions-secondary" disabled={busy} onClick={() => handleRefund('electronic')}>
-                        {c.refundElectronic}
-                      </button>
+                  </>
+                ) : (quote.cancelAllowed || quote.canRequestRefundCancel) && (quote.paidAmount || 0) > 0.01 ? (
+                  <>
+                    {!quote.cancelAllowed && quote.canRequestRefundCancel ? (
+                      <p className="member-booking-actions-warn">
+                        {c.refundOutsideHint}
+                      </p>
                     ) : null}
-                  </div>
-                </>
-              ) : !quote.canRequestRefundCancel && (quote.paidAmount || 0) > 0.01 ? (
-                <p className="member-booking-actions-warn">{c.notAllowed}</p>
-              ) : (quote.paidAmount || 0) <= 0.01 ? (
-                <p className="member-booking-actions-muted">
-                  {language === 'ar' ? 'لا مبلغ مدفوع — يمكنك إلغاء الحجز من زر الإلغاء في القائمة إن وُجد.' : 'No paid amount — cancel from the list action if available.'}
-                </p>
-              ) : (
-                <p className="member-booking-actions-warn">{c.notAllowed}</p>
-              )}
-            </section>
+                    <p className="member-booking-actions-fee">
+                      {language === 'ar' ? 'صافي الاسترداد التقريبي' : 'Estimated net refund'}:{' '}
+                      <strong>{quote.estimatedRefundNet} {currency}</strong>
+                      {quote.cancelFee > 0 ? <span> ({language === 'ar' ? 'بعد خصم' : 'after fee'} {quote.cancelFee})</span> : null}
+                    </p>
+                    <p className="member-booking-actions-muted member-booking-actions-refund-flow-hint">
+                      {quote.allowElectronicRefundRoute
+                        ? language === 'ar'
+                          ? 'بعد الطلب، يؤكد النادي تسليم المبلغ أو إضافته للمحفظة أو إتمام الاسترداد الإلكتروني.'
+                          : 'After you submit, the club will confirm cash payout, wallet credit, or electronic refund.'
+                        : language === 'ar'
+                          ? 'بعد الطلب، يؤكد النادي تسليم المبلغ نقداً أو إضافته للمحفظة (الدفع كان في النادي).'
+                          : 'After you submit, the club will confirm cash payout or wallet credit (you paid at the club).'}
+                    </p>
+                    <div className="member-booking-actions-refund-btns">
+                      <button type="button" className="member-booking-actions-secondary" disabled={busy} onClick={() => handleRefund('wallet')}>
+                        {c.refundWallet}
+                      </button>
+                      <button type="button" className="member-booking-actions-secondary" disabled={busy} onClick={() => handleRefund('cash')}>
+                        {c.refundCash}
+                      </button>
+                      {quote.allowElectronicRefundRoute ? (
+                        <button type="button" className="member-booking-actions-secondary" disabled={busy} onClick={() => handleRefund('electronic')}>
+                          {c.refundElectronic}
+                        </button>
+                      ) : null}
+                    </div>
+                  </>
+                ) : !quote.canRequestRefundCancel && (quote.paidAmount || 0) > 0.01 ? (
+                  <p className="member-booking-actions-warn">{c.notAllowed}</p>
+                ) : (quote.paidAmount || 0) > 0.01 ? (
+                  <p className="member-booking-actions-warn">{c.notAllowed}</p>
+                ) : !quote.cancelAllowed ? (
+                  <p className="member-booking-actions-warn">{c.notAllowed}</p>
+                ) : null}
+              </section>
+            )}
           </div>
         )}
       </div>
