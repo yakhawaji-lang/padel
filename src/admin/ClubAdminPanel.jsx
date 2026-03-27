@@ -10,7 +10,6 @@ import ClubDashboard from './pages/ClubDashboard'
 import ClubMembersManagement from './pages/ClubMembersManagement'
 import ClubOffersManagement from './pages/ClubOffersManagement'
 import ClubStoreManagement from './pages/ClubStoreManagement'
-import ClubAccountingManagement from './pages/ClubAccountingManagement'
 import ClubSettings from './pages/ClubSettings'
 import ClubUsersManagement from './pages/ClubUsersManagement'
 import ClubBookingPrices from './pages/ClubBookingPrices'
@@ -171,7 +170,6 @@ function ClubAdminPanel() {
           <Route path="bookings" element={<ClubPageGuard permission="dashboard"><ClubBookingsManagement club={club} language={language} onRefresh={() => loadData(true)} /></ClubPageGuard>} />
           <Route path="offers" element={<ClubPageGuard permission="offers"><ClubOffersManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
           <Route path="store" element={<ClubPageGuard permission="store"><ClubStoreManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
-          <Route path="accounting" element={<ClubPageGuard permission="accounting"><ClubAccountingManagement club={club} language={language} onUpdateClub={handleClubUpdate} onRefresh={() => loadData(true)} /></ClubPageGuard>} />
           <Route path="booking-prices" element={<ClubPageGuard permission="settings"><ClubBookingPrices club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
           <Route path="booking-policies" element={<ClubPageGuard permission="settings"><ClubBookingPoliciesPage club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
           <Route path="payment-settings" element={<ClubPageGuard permission="settings"><ClubPaymentSettingsPage club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />

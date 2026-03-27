@@ -19,7 +19,6 @@ const AdminSidebar = ({ currentClub, clubs, onClubChange, language, onLanguageCh
     { path: '/admin/members', icon: '👥', label: { en: 'Members', ar: 'الأعضاء' } },
     { path: '/admin/bookings', icon: '📅', label: { en: 'Bookings', ar: 'الحجوزات' } },
     { path: '/admin/offers', icon: '🎁', label: { en: 'Offers', ar: 'العروض' } },
-    { path: '/admin/accounting', icon: '💰', label: { en: 'Accounting', ar: 'المحاسبة' } },
   ]
 
   return (

@@ -14,7 +14,6 @@ export const CLUB_PERMISSIONS = [
   { id: 'members', label: { en: 'Members', ar: 'الأعضاء' }, icon: '👥' },
   { id: 'offers', label: { en: 'Offers', ar: 'العروض' }, icon: '🎁' },
   { id: 'store', label: { en: 'Store', ar: 'المتجر' }, icon: '🛒' },
-  { id: 'accounting', label: { en: 'Accounting', ar: 'المحاسبة' }, icon: '💰' },
   { id: 'settings', label: { en: 'Settings', ar: 'الإعدادات' }, icon: '⚙️' },
   { id: 'users', label: { en: 'Club Users', ar: 'مدراء النادي' }, icon: '👤' }
 ]

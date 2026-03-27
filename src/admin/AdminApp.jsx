@@ -11,7 +11,6 @@ import TournamentTypesManagement from './pages/TournamentTypesManagement'
 import MembersManagement from './pages/MembersManagement'
 import BookingsManagement from './pages/BookingsManagement'
 import OffersManagement from './pages/OffersManagement'
-import AccountingManagement from './pages/AccountingManagement'
 import ClubDetails from './pages/ClubDetails'
 import { loadClubs, saveClubs } from '../storage/adminStorage'
 import { getAdminCurrentClubId, setAdminCurrentClubId } from '../storage/appSettingsStorage'
@@ -211,16 +210,6 @@ function AdminApp() {
               path="/admin/offers" 
               element={
                 <OffersManagement 
-                  currentClub={currentClub}
-                  clubs={clubs}
-                  onUpdateClub={handleClubUpdate}
-                />
-              } 
-            />
-            <Route 
-              path="/admin/accounting" 
-              element={
-                <AccountingManagement 
                   currentClub={currentClub}
                   clubs={clubs}
                   onUpdateClub={handleClubUpdate}

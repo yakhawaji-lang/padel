@@ -70,7 +70,6 @@ const ClubDashboard = ({ club }) => {
       manageMembers: 'Manage Members',
       manageOffers: 'Manage Offers',
       manageStore: 'Store & Products',
-      viewAccounting: 'View Accounting',
       clubSettings: 'Club Settings',
       noData: 'No data available',
       address: 'Address',
@@ -105,7 +104,6 @@ const ClubDashboard = ({ club }) => {
       manageMembers: 'إدارة الأعضاء',
       manageOffers: 'إدارة العروض',
       manageStore: 'المتجر والمنتجات',
-      viewAccounting: 'عرض المحاسبة',
       clubSettings: 'إعدادات النادي',
       noData: 'لا توجد بيانات',
       address: 'العنوان',
@@ -136,8 +134,6 @@ const ClubDashboard = ({ club }) => {
     const socialTeams = Object.values(socialByTournament).reduce((sum, s) => sum + (s?.teams?.length || 0), 0)
     const totalActiveTeams = kingTeams + socialTeams
     
-    const revenue = club.accounting?.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0) || 0
-    
     const hasPlaytomic = !!(club.playtomicVenueId && club.playtomicApiKey)
     const membersList = getClubMembersFromStorage(club.id)
     const totalMembers = membersList.length || club.members?.length || 0
@@ -147,7 +143,6 @@ const ClubDashboard = ({ club }) => {
       totalMembers,
       membersList,
       totalBookings: club.bookings?.length || 0,
-      totalRevenue: revenue,
       totalCourts: club.courts?.length || 0,
       totalMatches,
       kingMatches,
@@ -265,15 +260,6 @@ const ClubDashboard = ({ club }) => {
               <div className="stat-value">{stats.totalCourts}</div>
               <div className="stat-label">{t.courts}</div>
               <div className="stat-sublabel">Available</div>
-            </div>
-          </div>
-          
-          <div className="stat-card stat-danger">
-            <div className="stat-icon">💰</div>
-            <div className="stat-content">
-              <div className="stat-value">{formatCurrency(stats.totalRevenue)}</div>
-              <div className="stat-label">{t.revenue}</div>
-              <div className="stat-sublabel">Total</div>
             </div>
           </div>
           
@@ -434,13 +420,6 @@ const ClubDashboard = ({ club }) => {
                     <span className="action-label">{t.manageStore}</span>
                   </button>
                 )}
-                <button 
-                  className="quick-action-btn action-secondary"
-                  onClick={() => navigate(`/admin/club/${club.id}/accounting`)}
-                >
-                  <span className="action-icon">💰</span>
-                  <span className="action-label">{t.viewAccounting}</span>
-                </button>
                 <button 
                   className="quick-action-btn action-secondary"
                   onClick={() => navigate(`/admin/club/${club.id}/settings`)}

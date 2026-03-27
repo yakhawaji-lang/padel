@@ -16,14 +16,6 @@ import {
   deleteMatchesByDateAndType
 } from './storage'
 import { loadClubs, getClubById, saveClubs, upsertMember, addMemberToClub, deleteMember, refreshClubsFromApi } from './storage/adminStorage'
-import {
-  fetchClubInvoices,
-  fetchClubInvoiceDetail,
-  confirmPaidAtClubFull,
-  adminPurgeBooking,
-  adminPurgeClubInvoice,
-  cancelBooking as apiCancelBooking,
-} from './api/dbClient'
 import { getClubAdminSession } from './storage/clubAuth'
 import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import LanguageIcon from './components/LanguageIcon'
@@ -62,32 +54,6 @@ function bookingJsonData(booking) {
 
 function accountingBookingTotal(booking) {
   return parseFloat(booking?.totalAmount ?? booking?.total_amount ?? booking?.amount ?? 0) || 0
-}
-
-function accountingPrimaryPaymentMethodRaw(booking) {
-  const shares = Array.isArray(booking?.paymentShares) ? booking.paymentShares : []
-  const jd = bookingJsonData(booking)
-  if (shares.length > 0) {
-    return (
-      booking.initiatorPaymentMethod ||
-      jd.initiatorPaymentMethod ||
-      booking.paymentMethod ||
-      jd.paymentMethod ||
-      shares[0]?.paymentMethod ||
-      'credit_card'
-    ).toString()
-  }
-  return (booking.initiatorPaymentMethod || jd.initiatorPaymentMethod || booking.paymentMethod || jd.paymentMethod || 'at_club').toString()
-}
-
-function accountingPaymentMethodLabel(raw, t) {
-  const k = (raw || '').toString().toLowerCase().replace(/-/g, '_')
-  if (k === 'at_club') return t.atClubPayment
-  if (k === 'credit_card') return t.card
-  if (k === 'mada') return t.mada
-  if (k === 'wallet') return t.wallet
-  if (k === 'electronic') return t.electronicPayment
-  return raw || '—'
 }
 
 /** Booking already has a stable id from DB or client (not a placeholder to remap). */
@@ -144,29 +110,6 @@ function bookingRowMatchesCourt(row, booking) {
     .map(normCourtLabel)
   if (!targets.length) return true
   return targets.some(t => t && (r === t || r.includes(t) || t.includes(r)))
-}
-
-/** Map UI row to real DB booking id (bk_*) when local numeric id was wrong or missing from club.bookings. */
-function resolveClubBookingRowId(booking, clubId) {
-  const bid = booking?.id
-  if (bid == null || !clubId) return bid
-  const clubs = loadClubs()
-  const club = clubs.find(c => c.id === clubId)
-  const list = club?.bookings
-  if (!Array.isArray(list) || !list.length) return bid
-  const sameId = list.find(b => String(b.id) === String(bid))
-  if (sameId?.id != null) return sameId.id
-  const d0 = (booking.date || booking.startDate || '').toString().split('T')[0]
-  const wantEnd = (booking.endTime || '').toString()
-  const slot = list.find(b => {
-    if (b.isTournament) return false
-    const bd = (b.date || b.startDate || '').toString().split('T')[0]
-    if (bd !== d0) return false
-    if (String(b.startTime || '') !== String(booking.startTime || '')) return false
-    if (wantEnd && String(b.endTime || '') !== wantEnd) return false
-    return bookingRowMatchesCourt(b, booking)
-  })
-  return slot?.id ?? bid
 }
 
 /** Per-member row in team.memberTournamentPayments */
@@ -356,7 +299,7 @@ function CalendarBookingTooltip({
 function App({ currentUser }) {
   const { clubId } = useParams()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState('home') // 'home', 'king', 'social', 'members', 'oldTournaments', 'bookings', or 'accounting'
+  const [activeTab, setActiveTab] = useState('home') // 'home', 'king', 'social', 'members', 'oldTournaments', 'bookings'
   const [language, setLanguage] = useState(() => getAppLanguage())
   const [currentClub, setCurrentClub] = useState(null) // Current club data loaded from URL
   const [isLoadingClub, setIsLoadingClub] = useState(true) // Loading state for club data
@@ -451,17 +394,6 @@ function App({ currentUser }) {
   const [selectedDateForCourtView, setSelectedDateForCourtView] = useState(new Date().toISOString().split('T')[0]) // Selected date for court view
   const [weeklyViewDays, setWeeklyViewDays] = useState(7) // Number of days to show in weekly view (7, 6, 5, 4, 3, 2, 1)
   const [selectedDays, setSelectedDays] = useState([0, 1, 2, 3, 4, 5, 6]) // Array of day indices (0-6) to show in weekly view
-  // Accounting state
-  const [accountingDateFrom, setAccountingDateFrom] = useState('') // Filter: from date
-  const [accountingDateTo, setAccountingDateTo] = useState('') // Filter: to date
-  const [accountingStatusFilter, setAccountingStatusFilter] = useState('all') // Filter: 'all', 'paid', 'partially_paid', 'not_paid'
-  const [accountingCourtFilter, setAccountingCourtFilter] = useState('all') // Filter: 'all', 'Court 1', 'Court 2', etc.
-  const [clubInvoices, setClubInvoices] = useState([])
-  const [invoicesPanel, setInvoicesPanel] = useState({ loading: false, error: null, enabled: true })
-  const [invoiceDetail, setInvoiceDetail] = useState(null)
-  const [atClubConfirmBookingId, setAtClubConfirmBookingId] = useState(null)
-  const [accountingDeleteBusy, setAccountingDeleteBusy] = useState(null) // 'cancel:id' | 'purge:id'
-  const [invoicePurgeBusy, setInvoicePurgeBusy] = useState(null) // public_id
   const isInitialMount = useRef(true) // Track if this is the first mount
   const isSavingRef = useRef(false) // Prevent save loops
   
@@ -672,9 +604,10 @@ function App({ currentUser }) {
           setCurrentTournamentId(1)
         }
         
-        const validTabs = ['home', 'king', 'social', 'members', 'oldTournaments', 'bookings', 'accounting']
-        if (savedActiveTab && validTabs.includes(savedActiveTab)) {
-          setActiveTab(savedActiveTab)
+        const validTabs = ['home', 'king', 'social', 'members', 'oldTournaments', 'bookings']
+        let tabToRestore = savedActiveTab === 'accounting' ? 'home' : savedActiveTab
+        if (tabToRestore && validTabs.includes(tabToRestore)) {
+          setActiveTab(tabToRestore)
         }
         
         if (savedContentTab) {
@@ -746,33 +679,6 @@ function App({ currentUser }) {
       setShowCalendar(false)
     }
   }, [oldTournamentTab, activeTab])
-
-  useEffect(() => {
-    if (activeTab !== 'accounting' || !clubId) return
-    let cancelled = false
-    setInvoicesPanel((p) => ({ ...p, loading: true, error: null }))
-    fetchClubInvoices(clubId, {
-      from: accountingDateFrom || undefined,
-      to: accountingDateTo || undefined,
-      limit: 150,
-    })
-      .then((data) => {
-        if (cancelled) return
-        setClubInvoices(data.invoices || [])
-        setInvoicesPanel({
-          loading: false,
-          error: null,
-          enabled: data.invoicingEnabled !== false,
-        })
-      })
-      .catch((e) => {
-        if (cancelled) return
-        setInvoicesPanel({ loading: false, error: e?.message || 'Error', enabled: true })
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [activeTab, clubId, accountingDateFrom, accountingDateTo])
 
   // Update calendar month when selected date changes
   useEffect(() => {
@@ -4185,14 +4091,6 @@ function App({ currentUser }) {
         })
       }
       updatedLocalBookings = localBookings.filter(b => b.id !== bookingId)
-      if (clubId && currentClub?.id) {
-        const clubs = loadClubs()
-        const club = clubs.find(c => c.id === clubId)
-        if (club) {
-          const acc = (club.accounting || []).filter(a => a.bookingId !== bookingId)
-          saveClubs(clubs.map(c => c.id === clubId ? { ...c, accounting: acc } : c)).catch(e => console.error('saveClubs:', e)).catch(e => console.error('saveClubs:', e))
-        }
-      }
     } else {
       // Delete by date and type (legacy: removes all tournaments on that date with that type)
       const tournamentDate = arg1
@@ -4203,15 +4101,6 @@ function App({ currentUser }) {
         }
         return true
       })
-      if (clubId && currentClub?.id && toRemove.length > 0) {
-        const clubs = loadClubs()
-        const club = clubs.find(c => c.id === clubId)
-        if (club) {
-          const removeIds = new Set(toRemove.map(b => b.id).filter(Boolean))
-          const acc = (club.accounting || []).filter(a => !removeIds.has(a.bookingId))
-          saveClubs(clubs.map(c => c.id === clubId ? { ...c, accounting: acc } : c)).catch(e => console.error('saveClubs:', e)).catch(e => console.error('saveClubs:', e))
-        }
-      }
     }
     setLocalBookings(updatedLocalBookings)
     saveBookingsToClub(updatedLocalBookings)
@@ -4878,34 +4767,6 @@ function App({ currentUser }) {
     setLocalBookings(updatedLocalBookings)
     saveBookingsToClub(updatedLocalBookings)
     mergeBookings(updatedLocalBookings, playtomicBookings)
-    // Sync accounting: add/update invoice for this booking
-    if (currentClub?.id && clubId) {
-      const clubs = loadClubs()
-      const club = clubs.find(c => c.id === clubId)
-      if (club) {
-        const savedBooking = updatedLocalBookings.find(b =>
-          (bookingData.id != null && String(b.id) === String(bookingData.id)) ||
-          (b.date === normalizedBooking.date && b.startTime === normalizedBooking.startTime && b.resource === normalizedBooking.resource)
-        )
-        const bookingId = savedBooking?.id || bookingData.id
-        if (bookingId) {
-          const amount = parseFloat(normalizedBooking.amount) || 0
-          const desc = `${normalizedBooking.resource || 'Court'} - ${normalizedBooking.date || ''} ${(normalizedBooking.startTime || '')}-${(effectiveEndTime || '')}`.trim()
-          const acc = club.accounting || []
-          const without = acc.filter(a => a.bookingId !== bookingId)
-          const entry = {
-            id: `acc-${bookingId}`,
-            bookingId,
-            date: bookingData.date || new Date().toISOString().split('T')[0],
-            description: desc || 'Booking',
-            amount,
-            type: 'revenue',
-            status: amount > 0 ? 'pending' : 'n/a'
-          }
-          saveClubs(clubs.map(c => c.id === clubId ? { ...c, accounting: [...without, entry] } : c)).catch(e => console.error('saveClubs:', e))
-        }
-      }
-    }
     setShowBookingModal(false)
     setBookingFormData(null)
   }
@@ -4918,14 +4779,6 @@ function App({ currentUser }) {
     setLocalBookings(updatedLocalBookings)
     saveBookingsToClub(updatedLocalBookings)
     mergeBookings(updatedLocalBookings, playtomicBookings)
-    if (currentClub?.id && clubId) {
-      const clubs = loadClubs()
-      const club = clubs.find(c => c.id === clubId)
-      if (club) {
-        const acc = (club.accounting || []).filter(a => !idStrip.has(String(a.bookingId)))
-        saveClubs(clubs.map(c => c.id === clubId ? { ...c, accounting: acc } : c)).catch(e => console.error('saveClubs:', e))
-      }
-    }
     setShowBookingModal(false)
     setBookingFormData(null)
   }
@@ -4967,314 +4820,6 @@ function App({ currentUser }) {
     if (st === 'partially_paid') return 'partially_paid'
     if (st === 'confirmed') return 'paid'
     return 'not_paid'
-  }
-
-  const reloadAccountingInvoices = () => {
-    if (!clubId) return
-    fetchClubInvoices(clubId, {
-      from: accountingDateFrom || undefined,
-      to: accountingDateTo || undefined,
-      limit: 150,
-    })
-      .then((data) => {
-        setClubInvoices(data.invoices || [])
-        setInvoicesPanel({
-          loading: false,
-          error: null,
-          enabled: data.invoicingEnabled !== false,
-        })
-      })
-      .catch((e) => setInvoicesPanel({ loading: false, error: e?.message || 'Error', enabled: true }))
-  }
-
-  const handleConfirmAtClubFullBooking = async (booking) => {
-    if (!clubId || !booking?.id) return
-    const ok = window.confirm(
-      language === 'en'
-        ? 'Confirm you received the full payment at the club? An invoice will be created if invoicing is enabled.'
-        : 'تأكيد استلام كامل المبلغ في النادي؟ ستُنشأ فاتورة إن كانت الفوترة مفعّلة.'
-    )
-    if (!ok) return
-    const bookingIdForApi = resolveClubBookingRowId(booking, clubId)
-    setAtClubConfirmBookingId(booking.id)
-    try {
-      const res = await confirmPaidAtClubFull({ bookingId: bookingIdForApi, clubId })
-      const confirmedTotal = accountingBookingTotal(booking)
-      const idSet = new Set([String(bookingIdForApi), String(booking.id)].filter((x) => x && x !== 'undefined'))
-      setLocalBookings((prev) =>
-        prev.map((b) =>
-          idSet.has(String(b.id))
-            ? { ...b, paidAmount: confirmedTotal, paid_amount: confirmedTotal, status: 'confirmed' }
-            : b
-        )
-      )
-      await refreshClubsFromApi()
-      window.dispatchEvent(new CustomEvent('clubs-synced'))
-      reloadAccountingInvoices()
-      const invNo = res?.invoice?.invoiceNumber
-      const base =
-        typeof window !== 'undefined'
-          ? `${window.location.origin}${(import.meta.env.BASE_URL || '/').replace(/\/$/, '') || ''}`
-          : ''
-      const myBook = `${base}/my-bookings?from=${encodeURIComponent(String(clubId))}`
-      if (invNo && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        const msg =
-          language === 'en'
-            ? `Invoice ${invNo} is ready for your booking. View it in My bookings: ${myBook}`
-            : `فاتورتك ${invNo} جاهزة للحجز. اطلع عليها من حجوزاتي: ${myBook}`
-        try {
-          await navigator.clipboard.writeText(msg)
-          window.alert(
-            language === 'en'
-              ? `${t.invoiceCreatedShort}: ${invNo}. Message copied — paste in WhatsApp to send to the member.`
-              : `${t.invoiceCreatedShort}: ${invNo}. تم نسخ الرسالة — الصقها في واتساب لإرسالها للعضو.`
-          )
-        } catch {
-          window.alert(
-            language === 'en'
-              ? `${t.invoiceCreatedShort}: ${invNo}`
-              : `${t.invoiceCreatedShort}: ${invNo}`
-          )
-        }
-      } else if (invNo) {
-        window.alert(language === 'en' ? `${t.invoiceCreatedShort}: ${invNo}` : `${t.invoiceCreatedShort}: ${invNo}`)
-      }
-    } catch (e) {
-      window.alert(e?.message || (language === 'en' ? 'Could not confirm payment.' : 'تعذّر تأكيد الدفع.'))
-    } finally {
-      setAtClubConfirmBookingId(null)
-    }
-  }
-
-  const isPlaytomicLocalBooking = (booking) =>
-    booking?.source === 'playtomic' || String(booking?.id ?? '').startsWith('playtomic_')
-
-  const handleAccountingCancelBooking = async (booking) => {
-    if (!clubId || !booking?.id || isPlaytomicLocalBooking(booking)) return
-    if (
-      !window.confirm(
-        language === 'en'
-          ? 'Cancel this booking? It will stay in records as cancelled.'
-          : 'إلغاء هذا الحجز؟ سيبقى مسجّلاً كملغى.'
-      )
-    )
-      return
-    setAccountingDeleteBusy(`cancel:${booking.id}`)
-    try {
-      await apiCancelBooking(resolveClubBookingRowId(booking, clubId))
-      await refreshClubsFromApi()
-      window.dispatchEvent(new CustomEvent('clubs-synced'))
-      reloadAccountingInvoices()
-    } catch (e) {
-      window.alert(e?.message || (language === 'en' ? 'Could not cancel.' : 'تعذّر الإلغاء.'))
-    } finally {
-      setAccountingDeleteBusy(null)
-    }
-  }
-
-  const handleAccountingPurgeBooking = async (booking) => {
-    if (!clubId || !booking?.id || isPlaytomicLocalBooking(booking)) return
-    if (
-      !window.confirm(
-        language === 'en'
-          ? 'Permanently delete this booking from the database? Invoices already issued are not removed. This cannot be undone.'
-          : 'حذف هذا الحجز نهائياً من قاعدة البيانات؟ الفواتير الصادرة لا تُحذف. لا يمكن التراجع.'
-      )
-    )
-      return
-    setAccountingDeleteBusy(`purge:${booking.id}`)
-    try {
-      const purgeId = resolveClubBookingRowId(booking, clubId)
-      const idStrip = new Set(
-        [booking.id, purgeId].filter(x => x != null && x !== '').map(x => String(x))
-      )
-      await adminPurgeBooking({ clubId, bookingId: purgeId })
-      const clubs = loadClubs().map(c => {
-        if (c.id !== clubId) return c
-        const nextBookings = (c.bookings || []).filter(b => !idStrip.has(String(b.id)))
-        const accounting = (c.accounting || []).filter(a => !idStrip.has(String(a.bookingId)))
-        return { ...c, bookings: nextBookings, accounting }
-      })
-      await saveClubs(clubs)
-      deleteBookingAndInvoice([...idStrip])
-      await refreshClubsFromApi()
-      window.dispatchEvent(new CustomEvent('clubs-synced'))
-      reloadAccountingInvoices()
-    } catch (e) {
-      window.alert(e?.message || (language === 'en' ? 'Could not delete.' : 'تعذّر الحذف.'))
-    } finally {
-      setAccountingDeleteBusy(null)
-    }
-  }
-
-  const handlePurgeClubInvoice = async (publicId) => {
-    if (!clubId || !publicId) return
-    if (!window.confirm(t.confirmPurgeInvoice)) return
-    setInvoicePurgeBusy(publicId)
-    try {
-      await adminPurgeClubInvoice({ clubId, publicId })
-      setInvoiceDetail((cur) => (cur?.invoice?.public_id === publicId ? null : cur))
-      reloadAccountingInvoices()
-    } catch (e) {
-      window.alert(e?.message || (language === 'en' ? 'Could not delete invoice.' : 'تعذّر حذف الفاتورة.'))
-    } finally {
-      setInvoicePurgeBusy(null)
-    }
-  }
-
-  // Accounting helper functions
-  const getFilteredBookings = () => {
-    let filtered = [...bookings]
-    
-    // Filter by date range
-    if (accountingDateFrom) {
-      filtered = filtered.filter(b => b.date >= accountingDateFrom)
-    }
-    if (accountingDateTo) {
-      filtered = filtered.filter(b => b.date <= accountingDateTo)
-    }
-    
-    // Filter by payment status
-    if (accountingStatusFilter !== 'all') {
-      filtered = filtered.filter(b => getPaymentStatus(b) === accountingStatusFilter)
-    }
-    
-    // Filter by court
-    if (accountingCourtFilter !== 'all') {
-      filtered = filtered.filter(b => b.resource === accountingCourtFilter)
-    }
-    
-    return filtered
-  }
-
-  const calculateTotalPaid = (booking) => {
-    if (!booking) return 0
-    if (booking.isTournament) return parseFloat(booking.amount) || 0
-    const fromDb = parseFloat(booking.paidAmount ?? booking.paid_amount ?? 0) || 0
-    const shares = Array.isArray(booking.paymentShares) ? booking.paymentShares : []
-    if (shares.length > 0) {
-      const fromShares = shares.reduce((sum, sh) => {
-        if ((sh.paidAt || sh.paid_at) && !(sh.refundedAt || sh.refunded_at)) {
-          return sum + (parseFloat(sh.amount) || 0)
-        }
-        return sum
-      }, 0)
-      return Math.max(fromShares, fromDb)
-    }
-    const partSum = (booking.participants || []).reduce((sum, p) => {
-      const participant = typeof p === 'object' ? p : { amount: '', paid: false }
-      return participant.paid ? sum + (parseFloat(participant.amount) || 0) : sum
-    }, 0)
-    return Math.max(fromDb, partSum)
-  }
-
-  const formatBookingDate = (dateString, lang) => {
-    if (!dateString) return ''
-    const date = new Date(dateString)
-    return date.toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
-    })
-  }
-
-  const formatBookingTime = (timeString) => {
-    if (!timeString) return ''
-    return timeString
-  }
-
-  const getPaymentStatusLabel = (status, lang) => {
-    if (lang === 'ar') {
-      switch (status) {
-        case 'paid': return t.paid
-        case 'partially_paid': return t.partiallyPaid
-        case 'not_paid': return t.notPaid
-        default: return t.notPaid
-      }
-    } else {
-      switch (status) {
-        case 'paid': return t.paid
-        case 'partially_paid': return t.partiallyPaid
-        case 'not_paid': return t.notPaid
-        default: return t.notPaid
-      }
-    }
-  }
-
-  const getAccountingStatistics = () => {
-    const filtered = getFilteredBookings()
-    let totalIncome = 0
-    let totalPaid = 0
-    let totalPending = 0
-    let totalUnpaid = 0
-
-    filtered.forEach(booking => {
-      if (booking.isTournament) {
-        const amount = parseFloat(booking.amount) || 0
-        totalIncome += amount
-        totalPaid += amount
-        return
-      }
-      const amount = accountingBookingTotal(booking)
-      totalIncome += amount
-      const paidAmount = calculateTotalPaid(booking)
-      totalPaid += paidAmount
-      const remaining = Math.max(0, amount - paidAmount)
-      if (amount > 0.01 && paidAmount >= amount - 0.02) {
-        // fully paid
-      } else if (amount > 0.01 && paidAmount > 0.01) {
-        totalPending += remaining
-      } else if (amount > 0.01) {
-        totalUnpaid += amount
-      }
-    })
-
-    return { totalIncome, totalPaid, totalPending, totalUnpaid }
-  }
-
-  const exportAccountingReport = () => {
-    const filtered = getFilteredBookings()
-    const stats = getAccountingStatistics()
-    
-    let csv = `${language === 'en' ? 'Accounting Report' : 'تقرير المحاسبة'}\n`
-    csv += `${language === 'en' ? 'Generated' : 'تم الإنشاء'}: ${new Date().toLocaleString(language === 'en' ? 'en-US' : 'ar-SA')}\n\n`
-    
-    csv += `${language === 'en' ? 'Summary' : 'ملخص'}\n`
-    csv += `${language === 'en' ? 'Total Income' : 'إجمالي الدخل'}: ${stats.totalIncome}\n`
-    csv += `${language === 'en' ? 'Total Paid' : 'إجمالي المدفوع'}: ${stats.totalPaid}\n`
-    csv += `${language === 'en' ? 'Total Pending' : 'إجمالي المعلق'}: ${stats.totalPending}\n`
-    csv += `${language === 'en' ? 'Total Unpaid' : 'إجمالي غير المدفوع'}: ${stats.totalUnpaid}\n\n`
-    
-    csv += `${language === 'en' ? 'Payment Details' : 'تفاصيل المدفوعات'}\n`
-    csv += `${language === 'en' ? 'Date' : 'التاريخ'},${language === 'en' ? 'Time' : 'الوقت'},${language === 'en' ? 'Court' : 'الملعب'},${language === 'en' ? 'Total Amount' : 'المبلغ الإجمالي'},${language === 'en' ? 'Paid Amount' : 'المبلغ المدفوع'},${language === 'en' ? 'Remaining' : 'المتبقي'},${language === 'en' ? 'Status' : 'الحالة'},${language === 'en' ? 'Participants' : 'المشاركون'}\n`
-    
-    filtered.forEach(booking => {
-      const amount = booking.isTournament ? parseFloat(booking.amount) || 0 : accountingBookingTotal(booking)
-      const paidAmount = calculateTotalPaid(booking)
-      const remaining = amount - paidAmount
-      const status = getPaymentStatus(booking)
-      const statusLabel = status === 'paid' ? (language === 'en' ? 'Paid' : 'مدفوع') 
-        : status === 'partially_paid' ? (language === 'en' ? 'Partially Paid' : 'مدفوع جزئياً')
-        : (language === 'en' ? 'Not Paid' : 'غير مدفوع')
-      
-      const participants = (booking.participants || []).map(p => {
-        const participant = typeof p === 'object' ? p : { name: p, id: null }
-        return participant.name || p
-      }).join('; ')
-      
-      csv += `${booking.date},${booking.startTime}-${booking.endTime},${booking.resource},${amount},${paidAmount},${remaining},${statusLabel},"${participants}"\n`
-    })
-    
-    // Create download link
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `accounting-report-${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
   }
 
   // Bookings are loaded from club.bookings (DB) in loadSavedData
@@ -5527,7 +5072,7 @@ function App({ currentUser }) {
           </div>
           <div className="header-center">
             <div className="header-title">
-              {activeTab === 'home' ? t.home : activeTab === 'king' ? t.kingOfCourt : activeTab === 'social' ? t.socialTournament : activeTab === 'members' ? t.members : activeTab === 'bookings' ? t.bookings : activeTab === 'accounting' ? t.accounting : t.oldTournaments}
+              {activeTab === 'home' ? t.home : activeTab === 'king' ? t.kingOfCourt : activeTab === 'social' ? t.socialTournament : activeTab === 'members' ? t.members : activeTab === 'bookings' ? t.bookings : t.oldTournaments}
             </div>
           </div>
           <div className="header-right">
@@ -5774,13 +5319,6 @@ function App({ currentUser }) {
               <span className="app-top-tab-icon">📆</span>
               <span>{t.bookings}</span>
             </button>
-            <button
-              className={`app-top-tab ${activeTab === 'accounting' ? 'active' : ''}`}
-              onClick={() => switchTab('accounting')}
-            >
-              <span className="app-top-tab-icon">💰</span>
-              <span>{t.accounting}</span>
-            </button>
           </div>
         </div>
         <Link
@@ -5839,18 +5377,6 @@ function App({ currentUser }) {
                     }).length}
                   </span>
                   <span className="app-home-card-label">{t.socialTournament}</span>
-                  <span className="app-home-card-action">{t.goToSection} →</span>
-                </button>
-                <button type="button" className="app-home-card app-home-card--wide" onClick={() => switchTab('accounting')}>
-                  <span className="app-home-card-icon">💰</span>
-                  <div className="app-home-card-accounting">
-                    <span className="app-home-card-label">{t.accountingSummary}</span>
-                    <div className="app-home-card-stats">
-                      <span>{t.totalPaid}: <strong>{typeof getAccountingStatistics === 'function' ? getAccountingStatistics().totalPaid.toFixed(0) : '0'}</strong></span>
-                      <span>{t.totalPending}: <strong>{typeof getAccountingStatistics === 'function' ? getAccountingStatistics().totalPending.toFixed(0) : '0'}</strong></span>
-                      <span>{t.totalUnpaid}: <strong>{typeof getAccountingStatistics === 'function' ? getAccountingStatistics().totalUnpaid.toFixed(0) : '0'}</strong></span>
-                    </div>
-                  </div>
                   <span className="app-home-card-action">{t.goToSection} →</span>
                 </button>
               </div>
@@ -7471,423 +6997,6 @@ function App({ currentUser }) {
 
               {/* Tournament Booking Modal removed from here - now in main component at the end */}
 
-            </>
-          ) : activeTab === 'accounting' ? (
-            <>
-              <div className="section">
-                <h2>{t.accounting}</h2>
-                
-                {/* Summary Cards */}
-                {(() => {
-                  const stats = getAccountingStatistics()
-                  return (
-                    <div className="accounting-summary-cards">
-                      <div className="summary-card income">
-                        <h3>{t.totalIncome}</h3>
-                        <p>{stats.totalIncome.toFixed(2)}</p>
-                      </div>
-                      <div className="summary-card paid">
-                        <h3>{t.totalPaid}</h3>
-                        <p>{stats.totalPaid.toFixed(2)}</p>
-                      </div>
-                      <div className="summary-card pending">
-                        <h3>{t.totalPending}</h3>
-                        <p>{stats.totalPending.toFixed(2)}</p>
-                      </div>
-                      <div className="summary-card unpaid">
-                        <h3>{t.totalUnpaid}</h3>
-                        <p>{stats.totalUnpaid.toFixed(2)}</p>
-                      </div>
-                    </div>
-                  )
-                })()}
-
-                {/* Filters */}
-                <div className="accounting-filters">
-                  <div className="filter-group">
-                    <label>{t.filterByDate}</label>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <input
-                        type="date"
-                        value={accountingDateFrom}
-                        onChange={(e) => setAccountingDateFrom(e.target.value)}
-                        className="search-input"
-                        placeholder={t.fromDate}
-                      />
-                      <input
-                        type="date"
-                        value={accountingDateTo}
-                        onChange={(e) => setAccountingDateTo(e.target.value)}
-                        className="search-input"
-                        placeholder={t.toDate}
-                      />
-                    </div>
-                  </div>
-                  <div className="filter-group">
-                    <label>{t.filterByStatus}</label>
-                    <select
-                      value={accountingStatusFilter}
-                      onChange={(e) => setAccountingStatusFilter(e.target.value)}
-                      className="search-input"
-                    >
-                      <option value="all">{t.all}</option>
-                      <option value="paid">{t.paid}</option>
-                      <option value="partially_paid">{t.partiallyPaid}</option>
-                      <option value="not_paid">{t.notPaid}</option>
-                    </select>
-                  </div>
-                  <div className="filter-group">
-                    <label>{t.filterByCourt}</label>
-                    <select
-                      value={accountingCourtFilter}
-                      onChange={(e) => setAccountingCourtFilter(e.target.value)}
-                      className="search-input"
-                    >
-                      <option value="all">{t.all}</option>
-                      {getCourts().map(court => (
-                        <option key={court} value={court}>{court}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="club-invoices-section">
-                  <h3 className="club-invoices-section__title">{t.clubInvoicesSection}</h3>
-                  {invoicesPanel.loading && <p className="club-invoices-section__hint">{t.invoicesLoading}</p>}
-                  {invoicesPanel.error && <p className="club-invoices-section__err">{invoicesPanel.error}</p>}
-                  {!invoicesPanel.enabled && !invoicesPanel.loading && (
-                    <p className="club-invoices-section__hint">{t.invoicesNotInstalled}</p>
-                  )}
-                  {invoicesPanel.enabled && !invoicesPanel.loading && clubInvoices.length === 0 && (
-                    <div className="club-invoices-empty">
-                      <p className="club-invoices-empty__title">{t.noInvoicesLedgerTitle}</p>
-                      <p className="club-invoices-empty__hint">{t.noInvoicesLedgerHint}</p>
-                    </div>
-                  )}
-                  {invoicesPanel.enabled && clubInvoices.length > 0 && (
-                    <div className="accounting-table-container">
-                      <table className="accounting-table club-invoices-table">
-                        <thead>
-                          <tr>
-                            <th>{t.invoiceNumber}</th>
-                            <th>{t.invoiceIssuedAt}</th>
-                            <th>{t.amount}</th>
-                            <th>{t.invoiceCustomer}</th>
-                            <th>{t.invoiceSource}</th>
-                            <th>{t.actions}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {clubInvoices.map((inv) => (
-                            <tr key={inv.public_id}>
-                              <td>{inv.invoice_number}</td>
-                              <td>
-                                {inv.issued_at
-                                  ? String(inv.issued_at).replace('T', ' ').slice(0, 16)
-                                  : '—'}
-                              </td>
-                              <td>
-                                {parseFloat(inv.total || 0).toFixed(2)} {inv.currency || 'SAR'}
-                              </td>
-                              <td>{[inv.customer_name, inv.customer_phone].filter(Boolean).join(' · ') || '—'}</td>
-                              <td>{inv.source_type ? `${inv.source_type}${inv.source_ref ? ` (${inv.source_ref})` : ''}` : '—'}</td>
-                              <td className="club-invoice-actions">
-                                <button
-                                  type="button"
-                                  className="btn-secondary btn-small"
-                                  disabled={!!invoicePurgeBusy}
-                                  onClick={() => {
-                                    fetchClubInvoiceDetail(clubId, inv.public_id)
-                                      .then(setInvoiceDetail)
-                                      .catch((err) => console.error(err))
-                                  }}
-                                >
-                                  {t.viewDetails}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="btn-danger btn-small"
-                                  disabled={!!invoicePurgeBusy}
-                                  onClick={() => handlePurgeClubInvoice(inv.public_id)}
-                                >
-                                  {invoicePurgeBusy === inv.public_id
-                                    ? '…'
-                                    : t.permanentDeleteInvoice}
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-                {invoiceDetail && (
-                  <div
-                    className="invoice-detail-backdrop"
-                    role="presentation"
-                    onClick={() => setInvoiceDetail(null)}
-                  >
-                    <div
-                      className="invoice-detail-modal"
-                      role="dialog"
-                      aria-modal="true"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="invoice-detail-modal__head">
-                        <h4>{invoiceDetail.invoice?.invoice_number}</h4>
-                        <div className="invoice-detail-modal__head-actions">
-                          <button
-                            type="button"
-                            className="accounting-action accounting-action--danger"
-                            disabled={!!invoicePurgeBusy}
-                            onClick={() =>
-                              handlePurgeClubInvoice(invoiceDetail.invoice?.public_id)
-                            }
-                          >
-                            {invoicePurgeBusy === invoiceDetail.invoice?.public_id
-                              ? '…'
-                              : t.permanentDeleteInvoice}
-                          </button>
-                          <button
-                            type="button"
-                            className="accounting-action accounting-action--ghost"
-                            onClick={() => setInvoiceDetail(null)}
-                          >
-                            {t.cancel}
-                          </button>
-                        </div>
-                      </div>
-                      <p className="invoice-detail-modal__meta">
-                        {t.totalAmount}:{' '}
-                        <strong>
-                          {parseFloat(invoiceDetail.invoice?.total || 0).toFixed(2)}{' '}
-                          {invoiceDetail.invoice?.currency || 'SAR'}
-                        </strong>
-                        {' · '}
-                        {invoiceDetail.invoice?.status}
-                      </p>
-                      <h5 className="invoice-detail-modal__sub">{t.invoiceLines}</h5>
-                      <table className="accounting-table invoice-detail-modal__table">
-                        <thead>
-                          <tr>
-                            <th>#</th>
-                            <th>{language === 'ar' ? 'عر' : 'EN'}</th>
-                            <th>{t.amount}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(invoiceDetail.lines || []).map((line) => (
-                            <tr key={line.line_no}>
-                              <td>{line.line_no}</td>
-                              <td>
-                                {language === 'ar' && line.description_ar
-                                  ? line.description_ar
-                                  : line.description}
-                              </td>
-                              <td>{parseFloat(line.line_total || 0).toFixed(2)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      <h5 className="invoice-detail-modal__sub">{t.invoicePayments}</h5>
-                      <table className="accounting-table invoice-detail-modal__table">
-                        <thead>
-                          <tr>
-                            <th>{t.amount}</th>
-                            <th>{t.paymentMethod}</th>
-                            <th>{t.bookingDate}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(invoiceDetail.payments || []).map((p, idx) => (
-                            <tr key={idx}>
-                              <td>
-                                {parseFloat(p.amount || 0).toFixed(2)} {p.currency || ''}
-                              </td>
-                              <td>{p.method || '—'}</td>
-                              <td>
-                                {p.recorded_at
-                                  ? String(p.recorded_at).replace('T', ' ').slice(0, 19)
-                                  : '—'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* Accounting Table */}
-                {(() => {
-                  const filtered = getFilteredBookings()
-                  
-                  if (filtered.length > 0) {
-                    return (
-                      <div className="accounting-table-container">
-                        <table className="accounting-table">
-                          <thead>
-                            <tr>
-                              <th>{t.bookingId}</th>
-                              <th>{t.bookingDate}</th>
-                              <th>{t.bookingTime}</th>
-                              <th>{t.court}</th>
-                              <th>{t.amount}</th>
-                              <th>{t.paidAmount}</th>
-                              <th>{t.remainingAmount}</th>
-                              <th>{t.paymentMethod}</th>
-                              <th>{t.status}</th>
-                              <th>{t.actions}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filtered.map(booking => {
-                              const totalAmount = booking.isTournament
-                                ? parseFloat(booking.amount || 0)
-                                : accountingBookingTotal(booking)
-                              const paidAmount = calculateTotalPaid(booking)
-                              const remainingAmount = Math.max(0, totalAmount - paidAmount)
-                              const status = getPaymentStatus(booking)
-                              const shares = Array.isArray(booking.paymentShares) ? booking.paymentShares : []
-                              const pmRaw = accountingPrimaryPaymentMethodRaw(booking)
-                              const stLow = (booking.status || '').toString().toLowerCase()
-                              const canConfirmAtClubFull =
-                                !booking.isTournament &&
-                                shares.length === 0 &&
-                                stLow === 'pending_payment' &&
-                                (pmRaw || '').toString().toLowerCase() === 'at_club'
-                              const playtomicRow = isPlaytomicLocalBooking(booking)
-                              const canCancelAccountingRow =
-                                !!booking.id && !playtomicRow && !['cancelled', 'expired'].includes(stLow)
-                              const canPurgeAccountingRow = !!booking.id && !playtomicRow
-
-                              return (
-                                <tr key={booking.id}>
-                                  <td>{booking.id}</td>
-                                  <td>{formatBookingDate(booking.date, language)}</td>
-                                  <td>{formatBookingTime(booking.startTime)} - {formatBookingTime(booking.endTime)}</td>
-                                  <td>{booking.resource}</td>
-                                  <td>{totalAmount.toFixed(2)}</td>
-                                  <td>{paidAmount.toFixed(2)}</td>
-                                  <td>{remainingAmount.toFixed(2)}</td>
-                                  <td>
-                                    <span className="payment-method-tag">{accountingPaymentMethodLabel(pmRaw, t)}</span>
-                                  </td>
-                                  <td>
-                                    <span className={`status-badge ${status}`}>
-                                      {getPaymentStatusLabel(status, language)}
-                                    </span>
-                                  </td>
-                                  <td className="accounting-actions-cell">
-                                    <div
-                                      className="accounting-actions-toolbar"
-                                      role="group"
-                                      aria-label={t.actions}
-                                    >
-                                      <button
-                                        type="button"
-                                        className="accounting-action accounting-action--ghost"
-                                        onClick={() => {
-                                          setBookingFormData(booking)
-                                          setShowBookingModal(true)
-                                        }}
-                                      >
-                                        {t.viewDetails}
-                                      </button>
-                                      {canConfirmAtClubFull && (
-                                        <button
-                                          type="button"
-                                          className="accounting-action accounting-action--primary"
-                                          disabled={atClubConfirmBookingId === booking.id}
-                                          onClick={() => handleConfirmAtClubFullBooking(booking)}
-                                        >
-                                          {atClubConfirmBookingId === booking.id
-                                            ? '…'
-                                            : t.confirmCashReceived}
-                                        </button>
-                                      )}
-                                      {canCancelAccountingRow && (
-                                        <button
-                                          type="button"
-                                          className="accounting-action accounting-action--warning"
-                                          disabled={!!accountingDeleteBusy}
-                                          onClick={() => handleAccountingCancelBooking(booking)}
-                                        >
-                                          {accountingDeleteBusy === `cancel:${booking.id}`
-                                            ? '…'
-                                            : t.cancelBookingRow}
-                                        </button>
-                                      )}
-                                      {canPurgeAccountingRow && (
-                                        <button
-                                          type="button"
-                                          className="accounting-action accounting-action--danger"
-                                          disabled={!!accountingDeleteBusy}
-                                          onClick={() => handleAccountingPurgeBooking(booking)}
-                                        >
-                                          {accountingDeleteBusy === `purge:${booking.id}`
-                                            ? '…'
-                                            : t.permanentDeleteBooking}
-                                        </button>
-                                      )}
-                                    </div>
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )
-                  } else {
-                    return (
-                      <p style={{ textAlign: 'center', color: '#95a5a6', padding: '40px' }}>
-                        {t.noAccountingRecords}
-                      </p>
-                    )
-                  }
-                })()}
-
-                <div style={{ marginTop: '20px', textAlign: 'right' }}>
-                  <button className="btn-primary" onClick={exportAccountingReport}>
-                    {t.exportReport}
-                  </button>
-                </div>
-              </div>
-
-              {/* Booking Form Modal for Editing */}
-              {showBookingModal && bookingFormData && activeTab === 'accounting' && (
-                <BookingFormModal
-                  bookingData={bookingFormData}
-                  members={members}
-                  courts={courtsListStable}
-                  clubOpeningTime={clubLegacyHours.openingTime}
-                  clubClosingTime={clubLegacyHours.closingTime}
-                  clubId={clubId}
-                  clubName={currentClub?.nameAr || currentClub?.name || ''}
-                  currency={currentClub?.settings?.currency || 'SAR'}
-                  onSave={(bookingData) => {
-                    saveBooking(bookingData)
-                    setShowBookingModal(false)
-                    setBookingFormData(null)
-                  }}
-                  onDelete={(bookingId) => {
-                    if (!bookingId || bookingId === null || bookingId === undefined) {
-                      console.error('Cannot delete: bookingId is invalid', bookingId)
-                      return
-                    }
-                    deleteBookingAndInvoice(bookingId)
-                  }}
-                  onCancel={() => {
-                    setShowBookingModal(false)
-                    setBookingFormData(null)
-                  }}
-                  translations={t}
-                  language={language}
-                />
-              )}
             </>
           ) : (
             <>
