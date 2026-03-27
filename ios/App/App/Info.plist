@@ -53,6 +53,6 @@
 		<true/>
 	</dict>
 	<key>NSContactsUsageDescription</key>
-	<string>PlayTix uses contacts only to fill phone numbers when you choose a participant for payment sharing or favorites.</string>
+	<string>PlayTix uses your contacts only to fill phone numbers when you pick a participant. / يستخدم PlayTix جهات اتصالك فقط لملء أرقام الجوال عند اختيار مشارك.</string>
 </dict>
 </plist>

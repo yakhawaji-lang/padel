@@ -9,6 +9,18 @@ function isAbortError(e) {
   return name === 'AbortError' || name === 'NotAllowedError' || String(e?.message || '').toLowerCase().includes('abort')
 }
 
+/** Capacitor plugin reject (e.g. iOS contact picker closed without selection) */
+function isNativeContactPickCancelled(e) {
+  const code = String(e?.code || '')
+  const msg = String(e?.message || '').toLowerCase()
+  return code === 'CANCELLED' || msg.includes('cancel') || msg.includes('user cancelled')
+}
+
+function contactsAccessAllowed(perm) {
+  const s = perm?.contacts
+  return s === 'granted' || s === 'limited'
+}
+
 function dedupeNormalizedPhones(list) {
   const out = []
   const seen = new Set()
@@ -45,7 +57,7 @@ export async function pickPhoneNumbersFromContacts({ multiple = false, max = 20 
     if (Capacitor.isNativePlatform()) {
       const { Contacts } = await import('@capacitor-community/contacts')
       const perm = await Contacts.requestPermissions()
-      if (perm.contacts === 'denied') {
+      if (!contactsAccessAllowed(perm)) {
         return { phones: [], error: 'PERMISSION_DENIED' }
       }
       const { contact } = await Contacts.pickContact({
@@ -59,7 +71,9 @@ export async function pickPhoneNumbersFromContacts({ multiple = false, max = 20 
       return { phones: unique }
     }
   } catch (e) {
-    if (isAbortError(e)) return { phones: [], error: 'USER_CANCELLED' }
+    if (isAbortError(e) || isNativeContactPickCancelled(e)) {
+      return { phones: [], error: 'USER_CANCELLED' }
+    }
     return { phones: [], error: 'NATIVE_PICK_FAILED' }
   }
 
