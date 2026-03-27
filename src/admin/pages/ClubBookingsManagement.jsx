@@ -494,6 +494,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       upcoming: 'Upcoming',
       past: 'Past',
       memberCancelled: 'Cancelled by member',
+      filterTimeRange: 'Time range',
+      filtersCardHint: 'Choose which bookings appear in the table below.',
       filterByType: 'Booking type',
       filterAll: 'All',
       filterCourts: 'Courts',
@@ -576,6 +578,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       upcoming: 'القادمة',
       past: 'السابقة',
       memberCancelled: 'ملغاة من العضو',
+      filterTimeRange: 'نطاق الوقت',
+      filtersCardHint: 'حدّد أي الحجوزات تظهر في الجدول أدناه.',
       filterByType: 'نوع الحجز',
       filterAll: 'الكل',
       filterCourts: 'ملاعب',
@@ -777,52 +781,71 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       </div>
 
       <div className="bookings-management">
-        <div className="bookings-toolbar">
-          <div className="bookings-tabs bookings-tabs--time bookings-tabs--hub">
-            <button
-              type="button"
-              className={`bookings-tab ${filter === 'upcoming' ? 'active' : ''}`}
-              onClick={() => setFilter('upcoming')}
-            >
-              {c.upcoming} ({upcoming.length})
-            </button>
-            <button
-              type="button"
-              className={`bookings-tab ${filter === 'past' ? 'active' : ''}`}
-              onClick={() => setFilter('past')}
-            >
-              {c.past} ({past.length})
-            </button>
-            <button
-              type="button"
-              className={`bookings-tab ${filter === 'member_cancelled' ? 'active' : ''}`}
-              onClick={() => setFilter('member_cancelled')}
-            >
-              {c.memberCancelled} ({memberCancelled.length})
-            </button>
-          </div>
-          <div className="bookings-type-strip" role="group" aria-label={c.filterByType}>
-            <span className="bookings-type-strip-label">{c.filterByType}</span>
-            {[
-              { id: 'all', label: c.filterAll, count: typeCounts.all },
-              { id: 'court', label: c.filterCourts, count: typeCounts.court },
-              { id: 'training', label: c.filterTraining, count: typeCounts.training },
-              { id: 'tournament', label: c.filterTournaments, count: typeCounts.tournament }
-            ].map(chip => (
-              <button
-                key={chip.id}
-                type="button"
-                className={`bookings-type-chip ${typeFilter === chip.id ? 'active' : ''}`}
-                onClick={() => setTypeFilter(chip.id)}
-              >
-                <span className="bookings-type-chip-label">{chip.label}</span>
-                <span className="bookings-type-chip-count">{chip.count}</span>
-              </button>
-            ))}
+        <div className="bookings-toolbar bookings-toolbar--hub" role="region" aria-label={c.filterTimeRange}>
+          <div className="bookings-filters-card">
+            <p className="bookings-filters-intro">{c.filtersCardHint}</p>
+            <div className="bookings-filter-block">
+              <div className="bookings-filter-block-head">
+                <span className="bookings-filter-block-label">{c.filterTimeRange}</span>
+              </div>
+              <div className="bookings-tabs bookings-tabs--time bookings-tabs--hub" role="tablist" aria-label={c.filterTimeRange}>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === 'upcoming'}
+                  className={`bookings-tab ${filter === 'upcoming' ? 'active' : ''}`}
+                  onClick={() => setFilter('upcoming')}
+                >
+                  <span className="bookings-tab-title">{c.upcoming}</span>
+                  <span className="bookings-tab-count western-numerals">{upcoming.length}</span>
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === 'past'}
+                  className={`bookings-tab ${filter === 'past' ? 'active' : ''}`}
+                  onClick={() => setFilter('past')}
+                >
+                  <span className="bookings-tab-title">{c.past}</span>
+                  <span className="bookings-tab-count western-numerals">{past.length}</span>
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === 'member_cancelled'}
+                  className={`bookings-tab ${filter === 'member_cancelled' ? 'active' : ''}`}
+                  onClick={() => setFilter('member_cancelled')}
+                >
+                  <span className="bookings-tab-title">{c.memberCancelled}</span>
+                  <span className="bookings-tab-count western-numerals">{memberCancelled.length}</span>
+                </button>
+              </div>
+            </div>
+            <div className="bookings-filter-block bookings-filter-block--type">
+              <div className="bookings-type-strip" role="group" aria-label={c.filterByType}>
+                <span className="bookings-type-strip-label">{c.filterByType}</span>
+                {[
+                  { id: 'all', label: c.filterAll, count: typeCounts.all },
+                  { id: 'court', label: c.filterCourts, count: typeCounts.court },
+                  { id: 'training', label: c.filterTraining, count: typeCounts.training },
+                  { id: 'tournament', label: c.filterTournaments, count: typeCounts.tournament }
+                ].map(chip => (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    className={`bookings-type-chip ${typeFilter === chip.id ? 'active' : ''}`}
+                    onClick={() => setTypeFilter(chip.id)}
+                  >
+                    <span className="bookings-type-chip-label">{chip.label}</span>
+                    <span className="bookings-type-chip-count western-numerals">{chip.count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="bookings-table cxp-card bookings-table--redesign" style={{ overflow: 'hidden', padding: 0 }}>
+        <div className="bookings-table cxp-card bookings-table--redesign bookings-table--hub-wrap">
           <table>
             <thead>
               <tr>
