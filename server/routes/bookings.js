@@ -1985,12 +1985,28 @@ router.post('/admin-fulfill-member-refund', async (req, res) => {
     const b = rows[0]
     const st = (b.status || '').toLowerCase()
     const prevData = parseBookingJsonData(b.data)
-    const hasMemberRefundIntent = !!(prevData.memberRefundPreference || prevData.memberSelfCancel)
+
+    let pendingRefundRow = null
+    try {
+      const pr = await query(
+        `SELECT id, member_id, net_amount, amount, fee_amount, refund_route, status
+         FROM booking_refunds WHERE booking_id = ? AND club_id = ? AND status = 'pending'
+         ORDER BY id DESC LIMIT 1`,
+        [bookingId, clubId]
+      )
+      pendingRefundRow = pr.rows?.[0] || null
+    } catch (brReadErr) {
+      console.warn('[admin-fulfill-member-refund] booking_refunds read:', brReadErr?.message)
+    }
+
+    const hasMemberRefundIntent =
+      !!(prevData.memberRefundPreference || prevData.memberSelfCancel) || !!pendingRefundRow
     if (!hasMemberRefundIntent) {
       return res.status(400).json({ error: 'No member refund request on this booking' })
     }
     const awaitingAck = st === 'cancelled_awaiting_refund_ack'
-    const repairIncompleteFulfillment = st === 'cancelled' && !prevData.clubRefundFulfilledAt
+    const repairIncompleteFulfillment =
+      st === 'cancelled' && (!prevData.clubRefundFulfilledAt || !!pendingRefundRow)
     if (!awaitingAck && !repairIncompleteFulfillment) {
       return res.status(400).json({ error: 'Booking is not awaiting refund fulfillment' })
     }
@@ -1998,10 +2014,24 @@ router.post('/admin-fulfill-member-refund', async (req, res) => {
     let net = parseFloat(prevData.memberRefundNet)
     if (!Number.isFinite(net) || net < 0) net = parseFloat(b.paid_amount) || 0
     if (net < 0.01) net = parseFloat(b.total_amount) || 0
+    if (net < 0.01 && pendingRefundRow) {
+      const n = parseFloat(pendingRefundRow.net_amount)
+      if (Number.isFinite(n) && n >= 0.01) net = n
+      else {
+        const gross = parseFloat(pendingRefundRow.amount) || 0
+        const fee = parseFloat(pendingRefundRow.fee_amount) || 0
+        net = Math.max(0, Math.round((gross - fee) * 100) / 100)
+        if (net < 0.01 && gross >= 0.01) net = Math.round(gross * 100) / 100
+      }
+    }
     net = Math.round(net * 100) / 100
 
-    const mid = resolveBookingMemberIdForWallet(b, prevData)
+    let mid = resolveBookingMemberIdForWallet(b, prevData)
+    if (!mid && pendingRefundRow?.member_id != null && String(pendingRefundRow.member_id).trim()) {
+      mid = String(pendingRefundRow.member_id).trim()
+    }
 
+    let walletBalanceAfter = null
     if (f === 'wallet') {
       if (!Number.isFinite(net) || net < 0.01) {
         return res.status(400).json({ error: 'Refund amount is zero or invalid for wallet credit' })
@@ -2017,6 +2047,9 @@ router.post('/admin-fulfill-member-refund', async (req, res) => {
           refId: bookingId,
         })
         if (!cr.ok) return res.status(400).json({ error: cr.error || 'Wallet credit failed' })
+        walletBalanceAfter = cr.balanceAfter ?? null
+      } else {
+        walletBalanceAfter = await walletService.getWalletBalance(clubId, mid)
       }
     }
 
@@ -2027,8 +2060,17 @@ router.post('/admin-fulfill-member-refund', async (req, res) => {
       clubId: String(clubId),
       ipAddress: actor.ipAddress,
     }
+    const mergedBase = { ...prevData }
+    if (pendingRefundRow) {
+      if (!mergedBase.memberRefundPreference && pendingRefundRow.refund_route) {
+        mergedBase.memberRefundPreference = String(pendingRefundRow.refund_route).toLowerCase()
+      }
+      if (!mergedBase.memberSelfCancel) mergedBase.memberSelfCancel = true
+      const prevNet = parseFloat(mergedBase.memberRefundNet)
+      if (!Number.isFinite(prevNet) || prevNet < 0.01) mergedBase.memberRefundNet = net
+    }
     const merged = {
-      ...prevData,
+      ...mergedBase,
       clubRefundFulfilledAt: new Date().toISOString(),
       clubRefundFulfillment: f,
       clubRefundAmount: net,
@@ -2066,7 +2108,12 @@ router.post('/admin-fulfill-member-refund', async (req, res) => {
     const dateStr = bookingService.normalizeBookingDateYmd(dr[0]?.booking_date)
     if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
 
-    res.json({ ok: true, fulfillment: f, netAmount: net })
+    res.json({
+      ok: true,
+      fulfillment: f,
+      netAmount: net,
+      ...(f === 'wallet' && walletBalanceAfter != null ? { walletBalanceAfter } : {}),
+    })
   } catch (e) {
     console.error('admin-fulfill-member-refund:', e)
     res.status(500).json({ error: dbError(e) })

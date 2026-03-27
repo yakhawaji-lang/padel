@@ -69,3 +69,29 @@ export function bookingHasCollectedPayment(booking) {
   if (st === 'partially_paid') return true
   return false
 }
+
+/**
+ * Club admin still owes a member-initiated refund (cash / wallet / bank) until marked fulfilled.
+ * Keeps the booking row from showing "cancelled before payment — no refund" when payment was
+ * collected and a refund path was chosen, even if paid_amount was zeroed on cancel.
+ */
+export function bookingNeedsClubRefundFollowUp(booking) {
+  const d = bookingJsonData(booking)
+  const st = (booking?.status || '')
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, '_')
+    .replace(/\s+/g, '_')
+  if (st === 'cancelled_awaiting_refund_ack') return true
+  if (d.clubRefundFulfilledAt) return false
+  const hasIntent = !!(
+    d.memberRefundPreference ||
+    d.memberSelfCancel ||
+    d.member_refund_preference ||
+    d.member_self_cancel
+  )
+  if (!hasIntent) return false
+  if (!isTerminalBookingStatus(booking?.status)) return false
+  return true
+}

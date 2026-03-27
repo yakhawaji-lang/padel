@@ -8,6 +8,7 @@ import {
   isTerminalBookingStatus,
   isMemberCancelledBooking,
   bookingHasCollectedPayment,
+  bookingNeedsClubRefundFollowUp,
 } from '../../utils/bookingMemberCancel'
 import './club-pages-common.css'
 import './BookingsManagement.css'
@@ -352,8 +353,16 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     if (!window.confirm(msg)) return
     setActionLoading(`fulfill-refund-${b.id}`)
     try {
-      await bookingApi.adminFulfillMemberRefund({ bookingId: b.id, clubId: club.id, fulfillment: ful })
+      const out = await bookingApi.adminFulfillMemberRefund({ bookingId: b.id, clubId: club.id, fulfillment: ful })
       refreshFromServer()
+      if (ful === 'wallet' && out?.walletBalanceAfter != null) {
+        const cur = club?.settings?.currency || 'SAR'
+        window.alert(
+          language === 'en'
+            ? `Wallet credited. New balance: ${out.walletBalanceAfter} ${cur}.`
+            : `تم إضافة المبلغ للمحفظة. الرصيد الحالي: ${out.walletBalanceAfter} ${cur}.`
+        )
+      }
     } catch (e) {
       window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
     } finally {
@@ -884,7 +893,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                     isTerminalBookingStatus(status) &&
                     ['cancelled', 'expired', 'canceled'].includes(statusLc.replace(/-/g, '_')) &&
                     !bookingHasCollectedPayment(b) &&
-                    statusLc !== 'cancelled_awaiting_refund_ack'
+                    statusLc !== 'cancelled_awaiting_refund_ack' &&
+                    !bookingNeedsClubRefundFollowUp(b)
                   const isLoading = actionLoading === b.id || actionLoading === 'perm-' + b.id
                   const isPendingPayment = ['pending_payments', 'partially_paid'].includes(status)
                   const paymentShares = Array.isArray(b.paymentShares) ? b.paymentShares : []
