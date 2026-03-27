@@ -1399,6 +1399,34 @@ router.get('/invite/:token', async (req, res) => {
   }
 })
 
+/** GET /api/bookings/wallet-balance?clubId=&memberId= — MUST register before /:id or Express treats path as booking id */
+router.get('/wallet-balance', async (req, res) => {
+  try {
+    const { clubId, memberId } = req.query
+    if (!clubId || !memberId) return res.status(400).json({ error: 'clubId and memberId required' })
+    const { balance, repaired } = await walletService.getWalletBalanceWithRepair(clubId, memberId)
+    res.json({ ok: true, balance, repaired })
+  } catch (e) {
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/**
+ * GET /api/bookings/wallet — alias for wallet-balance (older clients / minified paths).
+ * Query: clubId & memberId (or club_id / member_id). Optional: rid or cid as clubId alias.
+ */
+router.get('/wallet', async (req, res) => {
+  try {
+    const clubId = req.query.clubId || req.query.club_id || req.query.cid || req.query.rid
+    const memberId = req.query.memberId || req.query.member_id || req.query.mid
+    if (!clubId || !memberId) return res.status(400).json({ error: 'clubId and memberId required' })
+    const { balance, repaired } = await walletService.getWalletBalanceWithRepair(clubId, memberId)
+    res.json({ ok: true, balance, repaired })
+  } catch (e) {
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
 /** GET /api/bookings/:id - Get booking by ID (for payment page) */
 router.get('/:id', async (req, res) => {
   try {
@@ -1720,18 +1748,6 @@ function initiatorUsedElectronicCard(data) {
   if (!m || m === 'at_club' || m === 'pay_at_club' || m === 'cash') return false
   return ['credit_card', 'mada', 'electronic', 'card', 'online', 'stripe', 'apple_pay', 'google_pay', 'tap', 'hyperpay'].includes(m)
 }
-
-/** GET /api/bookings/wallet-balance?clubId=&memberId= */
-router.get('/wallet-balance', async (req, res) => {
-  try {
-    const { clubId, memberId } = req.query
-    if (!clubId || !memberId) return res.status(400).json({ error: 'clubId and memberId required' })
-    const { balance, repaired } = await walletService.getWalletBalanceWithRepair(clubId, memberId)
-    res.json({ ok: true, balance, repaired })
-  } catch (e) {
-    res.status(500).json({ error: dbError(e) })
-  }
-})
 
 /** POST /api/bookings/member-self-service-quote */
 router.post('/member-self-service-quote', async (req, res) => {
