@@ -371,6 +371,7 @@ function App({ currentUser }) {
   const [matchToEdit, setMatchToEdit] = useState(null) // Match being edited
   // Booking state
   const [bookings, setBookings] = useState([]) // Array of booking objects (merged local + Playtomic)
+  const [calendarDetailBooking, setCalendarDetailBooking] = useState(null)
   const calendarBookings = useMemo(
     () => bookings.filter((b) => !isTerminalBookingStatus(b?.status)),
     [bookings]
@@ -392,7 +393,6 @@ function App({ currentUser }) {
   const [hoveredBooking, setHoveredBooking] = useState(null) // Booking ID being hovered for tooltip
   const [bookingTooltipRect, setBookingTooltipRect] = useState(null)
   const bookingTooltipAnchorRef = useRef(null)
-  const [calendarDetailBooking, setCalendarDetailBooking] = useState(null)
   const [currentWeek, setCurrentWeek] = useState(new Date()) // Current week being displayed
   const [bookingView, setBookingView] = useState('weekly') // 'weekly' or 'courts' for booking calendar view
   const [selectedDateForCourtView, setSelectedDateForCourtView] = useState(new Date().toISOString().split('T')[0]) // Selected date for court view
