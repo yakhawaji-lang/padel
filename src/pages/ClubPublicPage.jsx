@@ -261,7 +261,9 @@ const ClubPublicPage = () => {
   const [bookingModal, setBookingModal] = useState(null)
   const [paymentShares, setPaymentShares] = useState([])
   const [paymentStyle, setPaymentStyle] = useState('single') // 'single' | 'split' — أسلوب الدفع
-  const [paymentMethod, setPaymentMethod] = useState('at_club') // 'at_club' | 'credit_card' | 'mada' — طرق الدفع
+  const [paymentMethod, setPaymentMethod] = useState('at_club') // 'at_club' | 'wallet' | 'credit_card' | 'mada'
+  const [bookingWalletBalance, setBookingWalletBalance] = useState(null)
+  const [bookingWalletLoading, setBookingWalletLoading] = useState(false)
   const [paymentGateways, setPaymentGateways] = useState(null) // platform_payment_gateways
   const [bookingFlowStep, setBookingFlowStep] = useState(1)
   // single: 1 duration → 2 style → 3 pay + confirm | split: 1 → 2 → 3 shares → 4 your pay method + confirm
@@ -306,14 +308,19 @@ const ClubPublicPage = () => {
   useEffect(() => {
     getStore('platform_payment_gateways').then(val => {
       if (val && typeof val === 'object') setPaymentGateways(val)
-      else setPaymentGateways({ enabledChannels: { at_club: true, credit_card: false, mada: false, split: true } })
-    }).catch(() => setPaymentGateways({ enabledChannels: { at_club: true, credit_card: false, mada: false, split: true } }))
+      else setPaymentGateways({ enabledChannels: { at_club: true, wallet: true, credit_card: false, mada: false, split: true } })
+    }).catch(() => setPaymentGateways({ enabledChannels: { at_club: true, wallet: true, credit_card: false, mada: false, split: true } }))
   }, [])
 
   const effectivePaymentChannels = useMemo(
     () => getEffectivePaymentChannels(paymentGateways?.enabledChannels, club?.settings?.paymentEnabledChannels),
     [paymentGateways?.enabledChannels, club?.settings?.paymentEnabledChannels]
   )
+
+  const bookingModalTotalPrice = useMemo(() => {
+    if (!bookingModal || !club) return 0
+    return calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price
+  }, [bookingModal, club, bookingModal?.dateStr, bookingModal?.startTime, bookingDuration])
 
   const bookingStepCount = paymentStyle === 'split' ? 4 : 3
 
@@ -323,6 +330,7 @@ const ClubPublicPage = () => {
     setPaymentStyle('single')
     setPaymentShares([])
     setPaymentMethod('at_club')
+    setBookingWalletBalance(null)
   }, [bookingModal?.court, bookingModal?.dateStr, bookingModal?.startTime, bookingModal?.fromRange])
 
   useEffect(() => {
@@ -347,7 +355,8 @@ const ClubPublicPage = () => {
   useEffect(() => {
     const ch = effectivePaymentChannels
     if (!ch) return
-    const isCurrentEnabled = paymentMethod === 'at_club' ? ch.at_club !== false : !!ch[paymentMethod]
+    const isCurrentEnabled =
+      paymentMethod === 'at_club' ? ch.at_club !== false : paymentMethod === 'wallet' ? !!ch.wallet : !!ch[paymentMethod]
     if (!isCurrentEnabled) {
       setPaymentMethod(pickFirstPaymentMethod(ch))
     }
@@ -360,9 +369,33 @@ const ClubPublicPage = () => {
     if (!onPaymentPickStep) return
     const ch = effectivePaymentChannels
     if (!ch) return
-    const ok = paymentMethod === 'at_club' ? ch.at_club !== false : !!ch[paymentMethod]
+    const ok =
+      paymentMethod === 'at_club' ? ch.at_club !== false : paymentMethod === 'wallet' ? !!ch.wallet : !!ch[paymentMethod]
     if (!ok) setPaymentMethod(pickFirstPaymentMethod(ch))
   }, [bookingFlowStep, paymentStyle, effectivePaymentChannels, paymentMethod])
+
+  useEffect(() => {
+    if (bookingFlowStep !== 3 || paymentStyle !== 'single' || !clubId || !platformUser?.id) return
+    let cancelled = false
+    setBookingWalletLoading(true)
+    bookingApi
+      .getWalletBalance(clubId, platformUser.id)
+      .then((r) => {
+        if (cancelled) return
+        const raw = r?.balance
+        const n = typeof raw === 'number' ? raw : parseFloat(raw)
+        setBookingWalletBalance(Number.isFinite(n) ? n : 0)
+      })
+      .catch(() => {
+        if (!cancelled) setBookingWalletBalance(null)
+      })
+      .finally(() => {
+        if (!cancelled) setBookingWalletLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [bookingFlowStep, paymentStyle, clubId, platformUser?.id])
 
   useEffect(() => {
     if (paymentStyle === 'single' && bookingFlowStep === 4) {
@@ -979,7 +1012,11 @@ const ClubPublicPage = () => {
       creditCard: 'Credit card (pay now)',
       mada: 'Mada (pay now)',
       electronicPayment: 'Electronic payment',
-      payFromWallet: 'Club wallet',
+      payFromWallet: 'Pay from my wallet',
+      walletAvailable: 'Available balance',
+      walletBalanceLoading: 'Loading balance…',
+      walletBalanceError: 'Could not load balance.',
+      walletInsufficient: 'Insufficient wallet balance for this booking.',
       viewMyBookings: 'View my bookings',
       loginToBook: 'Login to book courts',
       courtPrices: 'Court booking prices',
@@ -1083,7 +1120,11 @@ const ClubPublicPage = () => {
       creditCard: 'البطاقة الائتمانية (ادفع الآن)',
       mada: 'متاب (ادفع الآن)',
       electronicPayment: 'الدفع الإلكتروني',
-      payFromWallet: 'المحفظة (رصيد النادي)',
+      payFromWallet: 'الدفع من محفظتي',
+      walletAvailable: 'الرصيد المتاح',
+      walletBalanceLoading: 'جاري تحميل الرصيد…',
+      walletBalanceError: 'تعذّر تحميل الرصيد.',
+      walletInsufficient: 'رصيد المحفظة غير كافٍ لهذا الحجز.',
       viewMyBookings: 'عرض حجوزاتي',
       loginToBook: 'سجّل الدخول لحجز الملاعب',
       courtPrices: 'أسعار حجوزات الملاعب',
@@ -1267,6 +1308,7 @@ const ClubPublicPage = () => {
           paidAmount: (isSplit || isPendingPayment) ? 0 : priceResult.price,
           ...(isSplit && { initiatorPaymentMethod: paymentMethod || 'at_club' }),
           ...(!isSplit && payAtClub ? { paymentMethod: 'at_club', initiatorPaymentMethod: 'at_club' } : {}),
+          ...(!isSplit && !payAtClub && paymentMethod === 'wallet' ? { paymentMethod: 'wallet', initiatorPaymentMethod: 'wallet' } : {}),
           ...(isSplit && { paymentDeadlineAt: new Date(Date.now() + mins * 60 * 1000).toISOString() })
         }
         const existing = Array.isArray(prev.bookings) ? prev.bookings : []
@@ -1803,12 +1845,31 @@ const ClubPublicPage = () => {
                         </label>
                       )}
                       {effectivePaymentChannels?.wallet && (
-                        <label className="club-public-booking-payment-radio">
+                        <label className="club-public-booking-payment-radio club-public-booking-payment-radio--stacked">
                           <input type="radio" name="paymentMethod" checked={paymentMethod === 'wallet'} onChange={() => setPaymentMethod('wallet')} />
-                          <span>{c.payFromWallet}</span>
+                          <span className="club-public-booking-payment-radio-body">
+                            <span className="club-public-booking-payment-radio-title">{c.payFromWallet}</span>
+                            {bookingWalletLoading ? (
+                              <span className="club-public-booking-wallet-hint muted">{c.walletBalanceLoading}</span>
+                            ) : bookingWalletBalance !== null ? (
+                              <span className="club-public-booking-wallet-hint">
+                                {c.walletAvailable}: {(Number(bookingWalletBalance) || 0).toFixed(2)} {currency}
+                              </span>
+                            ) : (
+                              <span className="club-public-booking-wallet-hint error">{c.walletBalanceError}</span>
+                            )}
+                          </span>
                         </label>
                       )}
                     </div>
+                    {paymentMethod === 'wallet' &&
+                      !bookingWalletLoading &&
+                      bookingWalletBalance !== null &&
+                      bookingModalTotalPrice > (Number(bookingWalletBalance) || 0) && (
+                        <p className="club-public-booking-wallet-error-banner" role="alert">
+                          {c.walletInsufficient}
+                        </p>
+                      )}
                   </div>
                 )}
                 {bookingFlowStep === 3 && paymentStyle === 'split' && (
@@ -1908,7 +1969,13 @@ const ClubPublicPage = () => {
                       type="button"
                       className="club-public-booking-modal-confirm"
                       onClick={handleConfirmBooking}
-                      disabled={bookingSubmitting}
+                      disabled={
+                        bookingSubmitting ||
+                        (paymentMethod === 'wallet' &&
+                          (bookingWalletLoading ||
+                            bookingWalletBalance === null ||
+                            bookingModalTotalPrice > (Number(bookingWalletBalance) || 0)))
+                      }
                     >
                       {bookingSubmitting ? (language === 'en' ? 'Booking...' : 'جاري الحجز...') : c.confirmBooking}
                     </button>

@@ -1900,6 +1900,35 @@
   height: 18px;
   accent-color: #1e3a5f;
 }
+.club-public-booking-payment-radio--stacked {
+  align-items: flex-start;
+}
+.club-public-booking-payment-radio-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.club-public-booking-payment-radio-title {
+  font-weight: 500;
+}
+.club-public-booking-wallet-hint {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+.club-public-booking-wallet-hint.muted {
+  color: #94a3b8;
+}
+.club-public-booking-wallet-hint.error {
+  color: #b45309;
+}
+.club-public-booking-wallet-error-banner {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.9rem;
+}
 
 .club-public-booking-success-banner {
   flex-shrink: 0;

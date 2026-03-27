@@ -12,12 +12,14 @@ const DEFAULT_PLATFORM = {
 }
 
 export function getEffectivePaymentChannels(platformEnabledChannels, clubPaymentEnabledChannels) {
+  const plat = platformEnabledChannels && typeof platformEnabledChannels === 'object' ? platformEnabledChannels : {}
   const p = {
-    at_club: platformEnabledChannels?.at_club !== false,
-    wallet: !!platformEnabledChannels?.wallet,
-    credit_card: !!platformEnabledChannels?.credit_card,
-    mada: !!platformEnabledChannels?.mada,
-    split: platformEnabledChannels?.split !== false
+    at_club: plat.at_club !== false,
+    /** مفعّل افتراضياً ما لم يعطّله مدير المنصة صراحةً (false) */
+    wallet: plat.wallet !== false,
+    credit_card: !!plat.credit_card,
+    mada: !!plat.mada,
+    split: plat.split !== false
   }
   const c =
     clubPaymentEnabledChannels && typeof clubPaymentEnabledChannels === 'object' && !Array.isArray(clubPaymentEnabledChannels)
@@ -26,7 +28,8 @@ export function getEffectivePaymentChannels(platformEnabledChannels, clubPayment
   if (!c) return { ...p }
   return {
     at_club: p.at_club && c.at_club !== false,
-    wallet: p.wallet && !!c.wallet,
+    /** يظهر الدفع بالمحفظة ما لم يعطّله النادي صراحةً (false). غياب المفتاح = مسموح إن سمحت المنصة. */
+    wallet: p.wallet && c.wallet !== false,
     credit_card: p.credit_card && !!c.credit_card,
     mada: p.mada && !!c.mada,
     split: p.split && c.split !== false
