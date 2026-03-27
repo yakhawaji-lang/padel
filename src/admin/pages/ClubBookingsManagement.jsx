@@ -63,7 +63,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       b => !isTerminalBookingStatus(b.status) && (b.dateStr || '') >= today
     )
     const pastL = withDate.filter(b => (b.dateStr || '') < today)
-    const memberCancelled = [...withDate.filter(b => isMemberCancelledBooking(b))].sort((a, b) =>
+    const memberCancelled = [...withDate.filter(b => isTerminalBookingStatus(b.status))].sort((a, b) =>
       String(b.dateStr || '').localeCompare(String(a.dateStr || ''))
     )
     const timeList =
@@ -873,8 +873,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                   const blockActions = rowEnded || rowAwaitingRefundAck
                   const statusLc = (status || '').toString().toLowerCase()
                   const noFinancialFollowUp =
-                    isMemberCancelledBooking(b) &&
-                    ['cancelled', 'expired'].includes(statusLc) &&
+                    isTerminalBookingStatus(status) &&
+                    ['cancelled', 'expired', 'canceled'].includes(statusLc.replace(/-/g, '_')) &&
                     !bookingHasCollectedPayment(b) &&
                     statusLc !== 'cancelled_awaiting_refund_ack'
                   const isLoading = actionLoading === b.id || actionLoading === 'perm-' + b.id

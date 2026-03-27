@@ -27,7 +27,7 @@ import {
   getLegacyOpenCloseBounds,
   isSameDayIntervalWithinClubHours
 } from './utils/clubWorkingHours'
-import { shouldHideMemberCancelledFromClubCalendar, isMemberCancelledBooking } from './utils/bookingMemberCancel'
+import { isTerminalBookingStatus, isMemberCancelledBooking } from './utils/bookingMemberCancel'
 
 /** Court rental vs training vs tournament blocks on the bookings calendar */
 function getBookingCalendarKind(booking) {
@@ -381,7 +381,7 @@ function App({ currentUser }) {
   // Booking state
   const [bookings, setBookings] = useState([]) // Array of booking objects (merged local + Playtomic)
   const calendarBookings = useMemo(
-    () => bookings.filter((b) => !shouldHideMemberCancelledFromClubCalendar(b)),
+    () => bookings.filter((b) => !isTerminalBookingStatus(b?.status)),
     [bookings]
   )
   const [localBookings, setLocalBookings] = useState([]) // Local bookings only
@@ -5356,7 +5356,7 @@ function App({ currentUser }) {
                     {bookings.filter(b => {
                       const today = new Date().toISOString().split('T')[0]
                       const d = (b.date || b.startDate || '').toString().split('T')[0]
-                      return !b.isTournament && d >= today && !isMemberCancelledBooking(b)
+                      return !b.isTournament && d >= today && !isTerminalBookingStatus(b?.status)
                     }).length}
                   </span>
                   <span className="app-home-card-label">{t.upcomingBookings}</span>
