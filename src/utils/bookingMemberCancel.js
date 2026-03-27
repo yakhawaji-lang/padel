@@ -4,8 +4,18 @@
 
 export const TERMINAL_BOOKING_STATUSES = ['cancelled', 'expired', 'cancelled_awaiting_refund_ack']
 
+/**
+ * True when a booking no longer counts as an active reservation on calendars / KPIs.
+ * Accepts US spelling, mixed case from APIs, and prefixed variants e.g. cancelled_awaiting_...
+ */
 export function isTerminalBookingStatus(status) {
-  return TERMINAL_BOOKING_STATUSES.includes((status || '').toString().toLowerCase())
+  const s = (status || '').toString().trim().toLowerCase().replace(/\s+/g, '_').replace(/-+/g, '_')
+  if (!s) return false
+  if (TERMINAL_BOOKING_STATUSES.includes(s)) return true
+  if (s === 'canceled' || s === 'cancelled') return true
+  if (s === 'expired') return true
+  if (s.startsWith('cancelled_') || s.startsWith('canceled_')) return true
+  return false
 }
 
 export function bookingJsonData(booking) {
@@ -39,9 +49,9 @@ export function isMemberCancelledBooking(booking) {
   return !!(mid && db && db === mid)
 }
 
-/** Staff / public weekly grid: hide member-cancelled slots so the court shows free. */
+/** Active calendars (club app weekly / court view): never show ended / cancelled rows. */
 export function shouldHideMemberCancelledFromClubCalendar(booking) {
-  return isMemberCancelledBooking(booking)
+  return isTerminalBookingStatus(booking?.status)
 }
 
 /** Any collected payment still on the booking (DB paid_amount or split shares). */
