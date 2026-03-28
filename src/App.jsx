@@ -4919,9 +4919,11 @@ function App({ currentUser }) {
     const row = bookings.find((x) => String(x.id) === String(bookingId))
     const sh = row?.paymentShares?.[shareIndex]
 
-    if (clubId && row && isLikelyServerBookingId(bookingId) && sh?.id) {
+    if (clubId && row && isLikelyServerBookingId(bookingId) && (sh?.id || sh?.inviteToken)) {
       try {
-        await bookingApi.markSharePaidAtClub({ shareId: sh.id, clubId })
+        await bookingApi.markSharePaidAtClub(
+          sh?.id ? { shareId: sh.id, clubId } : { inviteToken: sh.inviteToken, clubId }
+        )
         await syncBookingsAfterApi()
         return
       } catch {

@@ -3,6 +3,7 @@
  */
 import { query } from '../db/pool.js'
 import * as bookingService from './bookingService.js'
+import * as invoiceService from './invoiceService.js'
 
 export function shareRowCountsAsPaid(row) {
   if (!row) return false
@@ -78,6 +79,14 @@ export async function recalculateBookingPaymentAfterShareChange(bookingId, clubI
   }
 
   await bookingService.updateBookingPayment(bookingId, clubId, paidAmount, status)
+
+  if (shares.length > 0 && paidAmount > 0.01 && !['cancelled', 'expired'].includes(status)) {
+    try {
+      await invoiceService.syncInvoicesForAllPaidSharesOnBooking({ clubId, bookingId })
+    } catch (e) {
+      console.warn('[paymentShareRecalc] sync share invoices:', e?.message)
+    }
+  }
 
   // بعد استرداد جزئي قد يصبح الحجز pending/partially_paid مع payment_deadline_at قديم فيقرر job الانتهاء فوراً
   const stillAwaitingPayment =

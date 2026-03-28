@@ -162,6 +162,66 @@ export async function issueInvoiceForPaidShare({
   })
 }
 
+/**
+ * أنشئ فواتير الحصص المدفوعة الناقصة (آمن للاستدعاء المتكرر — مفاتيح idempotency لكل حصة).
+ * يُستدعى بعد إعادة حساب الدفع لضمان ظهور الفواتير في المحاسبة حتى لو فُات الإصدار سابقاً.
+ */
+export async function syncInvoicesForAllPaidSharesOnBooking({ clubId, bookingId }) {
+  if (!(await invoicingTablesExist())) return { ok: true, skipped: true, primaryForUi: null }
+  if (!clubId || bookingId == null || bookingId === '') return { ok: false, primaryForUi: null }
+  let rows
+  try {
+    const res = await query(
+      `SELECT bps.id, bps.amount, bps.member_id, bps.member_name, bps.phone,
+              bps.payment_method, bps.payment_reference,
+              COALESCE(cs.currency, 'SAR') AS currency
+       FROM booking_payment_shares bps
+       LEFT JOIN club_settings cs ON cs.club_id = bps.club_id
+       WHERE bps.booking_id = ? AND bps.club_id = ?
+         AND bps.paid_at IS NOT NULL
+         AND (bps.refunded_at IS NULL)
+         AND (bps.removed_at IS NULL)`,
+      [bookingId, clubId]
+    )
+    rows = res?.rows || []
+  } catch (e) {
+    if (!e?.message?.includes('refunded_at') && !e?.message?.includes('removed_at')) throw e
+    const res = await query(
+      `SELECT bps.id, bps.amount, bps.member_id, bps.member_name, bps.phone,
+              bps.payment_method, bps.payment_reference,
+              COALESCE(cs.currency, 'SAR') AS currency
+       FROM booking_payment_shares bps
+       LEFT JOIN club_settings cs ON cs.club_id = bps.club_id
+       WHERE bps.booking_id = ? AND bps.club_id = ?
+         AND bps.paid_at IS NOT NULL`,
+      [bookingId, clubId]
+    )
+    rows = (res?.rows || []).filter((r) => r)
+  }
+
+  let primaryForUi = null
+  for (const r of rows) {
+    try {
+      const inv = await issueInvoiceForPaidShare({
+        clubId,
+        bookingId,
+        shareId: r.id,
+        amount: r.amount,
+        currency: r.currency,
+        memberId: r.member_id,
+        memberName: r.member_name,
+        phone: r.phone,
+        paymentMethod: r.payment_method || 'at_club',
+        paymentReference: r.payment_reference || null,
+      })
+      if (inv?.invoiceNumber && !primaryForUi) primaryForUi = inv
+    } catch (err) {
+      console.warn('[invoiceService] syncInvoicesForAllPaidSharesOnBooking share', r?.id, err?.message)
+    }
+  }
+  return { ok: true, primaryForUi: primaryForUi || null, shareCount: rows.length }
+}
+
 /** Mark paid booking_full invoices as void after member refund is fulfilled at the club. */
 export async function voidClubInvoicesForBookingRefund(clubId, bookingId) {
   if (!(await invoicingTablesExist())) return { ok: true, skipped: true }

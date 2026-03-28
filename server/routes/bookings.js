@@ -1933,15 +1933,25 @@ router.post('/confirm-paid-at-club-full', async (req, res) => {
       }
     } else if ((st === 'confirmed' || st === 'partially_paid') && isFullPaid) {
       try {
-        invoice = await invoiceService.issueInvoiceForFullBookingPayment({
-          clubId,
-          bookingId,
-          amount: totalAmount,
-          currency: b.currency,
-          memberId: b.member_id,
-          memberName,
-          paymentMethod: 'at_club',
-        })
+        const { rows: scRows } = await query(
+          'SELECT COUNT(*) AS c FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
+          [bookingId, clubId]
+        )
+        const shareCount = Number(scRows?.[0]?.c) || 0
+        if (shareCount > 0) {
+          const sync = await invoiceService.syncInvoicesForAllPaidSharesOnBooking({ clubId, bookingId })
+          invoice = sync?.primaryForUi || null
+        } else {
+          invoice = await invoiceService.issueInvoiceForFullBookingPayment({
+            clubId,
+            bookingId,
+            amount: totalAmount,
+            currency: b.currency,
+            memberId: b.member_id,
+            memberName,
+            paymentMethod: 'at_club',
+          })
+        }
       } catch (invErr) {
         console.warn('[confirm-paid-at-club-full] invoice-only:', invErr?.message)
       }
