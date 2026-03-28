@@ -5,9 +5,8 @@
  * - Split: equal or custom amounts (must not exceed total price)
  * - Favorites: show favorite members first, add/remove from favorites
  */
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import * as bookingApi from '../api/dbClient'
-import { getImageUrl } from '../api/dbClient'
 import { normalizePhone, phoneDigits } from '../utils/phoneNormalize'
 import { isContactsPickSupported, pickPhoneNumbersFromContacts } from '../utils/contactPicker'
 
@@ -88,9 +87,9 @@ export default function BookingPaymentShare({
   const shares = value || []
   const [isExpanded, setIsExpanded] = useState(hideHeaderToggle || shares.length > 0)
   const [splitMode, setSplitMode] = useState('equal')
-  const [addType, setAddType] = useState('registered')
-  const [manualPhone, setManualPhone] = useState('')
   const [memberSearchQuery, setMemberSearchQuery] = useState('')
+  /** When false, only the "Add participant" header + [+] are shown (after at least one share exists). */
+  const [addFormOpen, setAddFormOpen] = useState(true)
   const [customAmounts, setCustomAmounts] = useState({})
   const [contactError, setContactError] = useState('')
   const [contactsBusy, setContactsBusy] = useState(false)
@@ -137,9 +136,6 @@ export default function BookingPaymentShare({
         return mPhone && mPhone.includes(searchDigits)
       })
     : []
-  const favoriteMembers = searchableMembers.filter(m =>
-    favoriteIds.has(String(m?.id)) && !addedMemberIds.has(String(m?.id))
-  )
   const favoritesFirst = [...filteredBySearch].sort((a, b) => {
     const aFav = favoriteIds.has(String(a?.id))
     const bFav = favoriteIds.has(String(b?.id))
@@ -151,6 +147,20 @@ export default function BookingPaymentShare({
   const totalShared = shares.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
   const remaining = Math.max(0, totalPrice - totalShared)
   const equalAmount = shares.length > 0 ? Math.round((totalPrice / (shares.length + 1)) * 100) / 100 : 0
+
+  const nextShareAmount = useMemo(() => {
+    const raw =
+      splitMode === 'equal'
+        ? shares.length === 0
+          ? totalPrice / 2
+          : equalAmount
+        : remaining / 2
+    return Math.round((parseFloat(raw) || 0) * 100) / 100
+  }, [splitMode, shares.length, totalPrice, equalAmount, remaining])
+
+  useEffect(() => {
+    if (shares.length === 0) setAddFormOpen(true)
+  }, [shares.length])
 
   useEffect(() => {
     if (hideHeaderToggle) setIsExpanded(true)
@@ -175,7 +185,8 @@ export default function BookingPaymentShare({
     if (!checked) {
       onChange([])
       setContactError('')
-      setManualPhone('')
+      setMemberSearchQuery('')
+      setAddFormOpen(true)
     }
   }
 
@@ -200,11 +211,14 @@ export default function BookingPaymentShare({
       amount,
       whatsappLink: whatsappLink || undefined
     }])
+    setMemberSearchQuery('')
+    setContactError('')
+    setAddFormOpen(false)
   }
 
   const addUnregistered = (phoneVal) => {
     if (maxShareCount != null && shares.length >= maxShareCount) return
-    const p = normalizePhone(phoneVal || manualPhone)
+    const p = normalizePhone(phoneVal || memberSearchQuery)
     if (!p || p.length < 8) {
       setContactError(t('Enter a valid phone number', 'أدخل رقم جوال صحيح'))
       return
@@ -218,7 +232,8 @@ export default function BookingPaymentShare({
       amount,
       whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, amount, currency, clubId)
     }])
-    setManualPhone('')
+    setMemberSearchQuery('')
+    setAddFormOpen(false)
   }
 
   const pickFromContacts = async () => {
@@ -250,6 +265,7 @@ export default function BookingPaymentShare({
           whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, amt, currency, clubId)
         }))
         onChange([...shares, ...newShares])
+        setAddFormOpen(false)
       } else if (error === 'NATIVE_PICK_FAILED' || error === 'WEB_PICK_FAILED') {
         setContactError(t('Could not read contacts. Try again or enter the number manually.', 'تعذر قراءة جهات الاتصال. أعد المحاولة أو أدخل الرقم يدوياً.'))
       } else {
@@ -403,156 +419,206 @@ export default function BookingPaymentShare({
           ) : null}
 
           {!atShareCap ? (
-          <div className="booking-payment-share-add">
-            <p className="booking-payment-share-add-title">{t('Add participant', 'إضافة مشارك')}</p>
-            <div className="booking-payment-share-add-type">
-              <label className="booking-payment-share-radio">
-                <input type="radio" name="addType" checked={addType === 'registered'} onChange={() => { setAddType('registered'); setContactError('') }} />
-                <span>{t('Registered member', 'عضو مسجل')}</span>
-              </label>
-              <label className="booking-payment-share-radio">
-                <input type="radio" name="addType" checked={addType === 'unregistered'} onChange={() => { setAddType('unregistered'); setContactError('') }} />
-                <span>{t('Not on platform', 'غير مسجل')}</span>
-              </label>
-            </div>
+            <div className="booking-payment-share-add">
+              <div className="booking-payment-share-add-header">
+                <p className="booking-payment-share-add-title">{t('Add participant', 'إضافة مشارك')}</p>
+                {shares.length > 0 ? (
+                  <button
+                    type="button"
+                    className="booking-payment-share-add-expand-btn"
+                    aria-expanded={addFormOpen}
+                    onClick={() => setAddFormOpen((open) => !open)}
+                    title={
+                      addFormOpen
+                        ? t('Hide add participant', 'إخفاء إضافة مشارك')
+                        : t('Add another participant', 'إضافة مشارك آخر')
+                    }
+                  >
+                    <span className="booking-payment-share-add-expand-icon" aria-hidden>{addFormOpen ? '−' : '+'}</span>
+                  </button>
+                ) : null}
+              </div>
 
-            {addType === 'registered' && (
-              <div className="booking-payment-share-members">
-                {favoriteMembers.length > 0 && (
-                  <div className="booking-payment-share-favorites-section">
-                    <p className="booking-payment-share-favorites-title">
-                      ★ {t('My favorites', 'المفضلة')}
-                    </p>
-                    <div className="booking-payment-share-favorites-grid">
-                      {favoriteMembers.map(m => {
-                        const isAdded = shares.some(s => s.memberId === m.id)
-                        return (
-                          <button
-                            key={m.id}
-                            type="button"
-                            className={`booking-payment-share-favorite-card ${isAdded ? 'is-added' : ''}`}
-                            onClick={() => addRegistered(m)}
-                            disabled={isAdded || atShareCap}
-                          >
-                            <span className="booking-payment-share-favorite-avatar">
-                              {m.avatar ? (
-                                <img src={getImageUrl(m.avatar)} alt="" />
-                              ) : (
-                                <span className="booking-payment-share-favorite-initial">{(m.name || m.email || '?')[0].toUpperCase()}</span>
-                              )}
-                            </span>
-                            <span className="booking-payment-share-favorite-name">{m.name || m.email || m.id}</span>
-                            {!favoritesLoading && (
-                              <button
-                                type="button"
-                                className={`booking-payment-share-favorite-star ${favoriteIds.has(String(m.id)) ? 'is-favorite' : ''}`}
-                                onClick={e => { e.stopPropagation(); toggleFavorite(m.id, true) }}
-                                title={t('Remove from favorites', 'إزالة من المفضلة')}
-                                aria-label={t('Remove from favorites', 'إزالة من المفضلة')}
-                              >
-                                ★
-                              </button>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
+              {addFormOpen ? (
+                <>
+                  <p className="booking-payment-share-unified-hint">
+                    {t(
+                      'Enter the participant mobile number. If they are registered, their name appears — use the star for favorites and WhatsApp to send the booking. If not registered, use WhatsApp to invite them, then add them to the split to continue.',
+                      'أدخل رقم جوال المشارك. إن وُجد كعضو مسجّل يظهر اسمه — استخدم النجمة للمفضلة وواتساب لإرسال الحجز. إن لم يكن مسجّلاً استخدم واتساب للدعوة، ثم أضفه للمشاركة لمتابعة الحجز.'
+                    )}
+                  </p>
+                  <p className="booking-payment-share-search-label">{t('Participant mobile number', 'رقم جوال المشارك')}</p>
+                  <div className="booking-payment-share-search-row">
+                    <input
+                      type="tel"
+                      className="booking-payment-share-search"
+                      placeholder={t('Search by phone (9+ digits)', 'البحث برقم الجوال (9+ أرقام)')}
+                      value={memberSearchQuery}
+                      onChange={(e) => {
+                        setMemberSearchQuery(e.target.value)
+                        setContactError('')
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter') return
+                        e.preventDefault()
+                        if (atShareCap || !hasFullPhone) return
+                        if (filteredBySearch.length === 1) {
+                          addRegistered(filteredBySearch[0])
+                        } else if (filteredBySearch.length === 0) {
+                          addUnregistered(memberSearchQuery)
+                        }
+                      }}
+                      inputMode="tel"
+                      autoComplete="tel"
+                      enterKeyHint="search"
+                    />
+                    {isContactsPickSupported() ? (
+                      <button
+                        type="button"
+                        className="booking-payment-share-contact-icon-btn"
+                        onClick={fillSearchFromContacts}
+                        disabled={atShareCap || contactsBusy}
+                        title={t('Pick from contacts', 'اختر من جهات الاتصال')}
+                        aria-label={t('Pick from contacts', 'اختر من جهات الاتصال')}
+                      >
+                        <span className="booking-payment-share-contact-icon" aria-hidden>📇</span>
+                      </button>
+                    ) : null}
                   </div>
-                )}
-                <p className="booking-payment-share-search-label">
-                  {favoriteMembers.length > 0 ? t('Or search by phone', 'أو ابحث برقم الجوال') : t('Search by phone', 'البحث برقم الجوال')}
-                </p>
-                <div className="booking-payment-share-search-row">
-                  <input
-                    type="tel"
-                    className="booking-payment-share-search"
-                    placeholder={t('Search by phone (9+ digits)', 'البحث برقم الجوال (9+ أرقام)')}
-                    value={memberSearchQuery}
-                    onChange={e => { setMemberSearchQuery(e.target.value); setContactError('') }}
-                    inputMode="tel"
-                    autoComplete="tel"
-                    enterKeyHint="search"
-                  />
+
                   {isContactsPickSupported() ? (
                     <button
                       type="button"
-                      className="booking-payment-share-contact-icon-btn"
-                      onClick={fillSearchFromContacts}
+                      className="booking-payment-share-contact-btn booking-payment-share-contact-btn--block"
+                      onClick={pickFromContacts}
                       disabled={atShareCap || contactsBusy}
-                      title={t('Pick from contacts', 'اختر من جهات الاتصال')}
-                      aria-label={t('Pick from contacts', 'اختر من جهات الاتصال')}
                     >
-                      <span className="booking-payment-share-contact-icon" aria-hidden>📇</span>
+                      {contactsBusy ? '…' : t('Select from contacts', 'اختر من جهات الاتصال')}
                     </button>
                   ) : null}
-                </div>
-                {favoritesFirst.length > 0 ? (
-                  favoritesFirst.map(m => {
-                    const isFavorite = favoriteIds.has(String(m.id))
-                    const isAdded = shares.some(s => s.memberId === m.id)
-                    return (
-                      <div key={m.id} className="booking-payment-share-member-row">
-                        <button
-                          type="button"
-                          className={`booking-payment-share-member-btn ${isFavorite ? 'is-favorite' : ''}`}
-                          onClick={() => addRegistered(m)}
-                          disabled={isAdded || atShareCap}
-                        >
-                          {m.name || m.email || m.id}
-                        </button>
-                        {!favoritesLoading && (
+
+                  {hasFullPhone ? (
+                    filteredBySearch.length > 0 ? (
+                      <ul className="booking-payment-share-unified-match-list" role="list">
+                        {favoritesFirst.map((m) => {
+                          const phone = m?.mobile || m?.phone || ''
+                          const waLink = buildWhatsAppLinkForRegistered(
+                            phone,
+                            clubName,
+                            dateStr,
+                            startTime,
+                            nextShareAmount,
+                            currency,
+                            language
+                          )
+                          const isFav = favoriteIds.has(String(m.id))
+                          return (
+                            <li key={m.id} className="booking-payment-share-unified-match">
+                              <div className="booking-payment-share-unified-match-info">
+                                <span className="booking-payment-share-unified-match-name">{m.name || m.email || m.id}</span>
+                                {!favoritesLoading ? (
+                                  <button
+                                    type="button"
+                                    className={`booking-payment-share-unified-fav ${isFav ? 'is-favorite' : ''}`}
+                                    onClick={() => toggleFavorite(m.id, isFav)}
+                                    title={
+                                      isFav
+                                        ? t('Remove from favorites', 'إزالة من المفضلة')
+                                        : t('Add to favorites', 'إضافة للمفضلة')
+                                    }
+                                    aria-label={
+                                      isFav ? t('Remove from favorites', 'إزالة من المفضلة') : t('Add to favorites', 'إضافة للمفضلة')
+                                    }
+                                  >
+                                    {isFav ? '★' : '☆'}
+                                  </button>
+                                ) : null}
+                              </div>
+                              <div className="booking-payment-share-unified-match-actions">
+                                {waLink ? (
+                                  <a
+                                    href={waLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="booking-payment-share-whatsapp booking-payment-share-whatsapp--icon-only"
+                                    title={t('Send via WhatsApp', 'إرسال عبر واتساب')}
+                                    aria-label={t('WhatsApp', 'واتساب')}
+                                  >
+                                    <span className="booking-payment-share-wa-icon">💬</span>
+                                  </a>
+                                ) : (
+                                  <span className="booking-payment-share-no-phone" title={t('No phone number to send', 'لا يوجد رقم لإرسال الرابط')}>
+                                    —
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  className="booking-payment-share-unified-add-btn"
+                                  onClick={() => addRegistered(m)}
+                                  disabled={atShareCap}
+                                >
+                                  {t('Add to split', 'إضافة للمشاركة')}
+                                </button>
+                              </div>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    ) : (
+                      <div className="booking-payment-share-unified-match booking-payment-share-unified-match--guest">
+                        <div className="booking-payment-share-unified-match-info">
+                          <span className="booking-payment-share-unified-match-name">
+                            {t('Not on PlayTix yet', 'غير مسجّل في المنصة')}
+                          </span>
+                          <span className="booking-payment-share-unified-match-phone">{normalizePhone(memberSearchQuery)}</span>
+                        </div>
+                        <div className="booking-payment-share-unified-match-actions">
+                          <a
+                            href={buildWhatsAppLink(
+                              normalizePhone(memberSearchQuery),
+                              clubName,
+                              dateStr,
+                              startTime,
+                              nextShareAmount,
+                              currency,
+                              clubId
+                            )}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="booking-payment-share-whatsapp booking-payment-share-whatsapp--icon-only"
+                            title={t('Send invite via WhatsApp', 'إرسال الدعوة عبر واتساب')}
+                            aria-label={t('WhatsApp', 'واتساب')}
+                          >
+                            <span className="booking-payment-share-wa-icon">💬</span>
+                          </a>
                           <button
                             type="button"
-                            className={`booking-payment-share-favorite-btn ${isFavorite ? 'is-favorite' : ''}`}
-                            onClick={e => { e.preventDefault(); toggleFavorite(m.id, isFavorite) }}
-                            title={isFavorite ? t('Remove from favorites', 'إزالة من المفضلة') : t('Add to favorites', 'إضافة للمفضلة')}
-                            aria-label={isFavorite ? t('Remove from favorites', 'إزالة من المفضلة') : t('Add to favorites', 'إضافة للمفضلة')}
+                            className="booking-payment-share-unified-add-btn"
+                            onClick={() => addUnregistered(memberSearchQuery)}
+                            disabled={atShareCap}
                           >
-                            {isFavorite ? '★' : '☆'}
+                            {t('Add to split', 'إضافة للمشاركة')}
                           </button>
-                        )}
+                        </div>
                       </div>
                     )
-                  })
-                ) : (
-                  <p className="booking-payment-share-empty">
-                    {hasFullPhone
-                      ? t('No members found for this phone number', 'لا توجد نتائج لهذا الرقم')
-                      : t('Enter full phone number (9+ digits) to search — names shown only after match for privacy', 'أدخل رقم الجوال كاملاً (9+ أرقام) للبحث — الأسماء تظهر بعد المطابقة فقط للخصوصية')}
-                  </p>
-                )}
-              </div>
-            )}
+                  ) : (
+                    <p className="booking-payment-share-empty booking-payment-share-empty--unified">
+                      {t(
+                        'Enter full phone number (9+ digits) to search — names shown only after match for privacy',
+                        'أدخل رقم الجوال كاملاً (9+ أرقام) للبحث — الأسماء تظهر بعد المطابقة فقط للخصوصية'
+                      )}
+                    </p>
+                  )}
 
-            {addType === 'unregistered' && (
-              <div className="booking-payment-share-phone">
-                <p className="booking-payment-share-phone-hint">{t('Enter phone number to send WhatsApp link for registration, club join, and payment share', 'أدخل رقم الجوال لإرسال رابط واتساب للتسجيل في النادي والمنصة والمشاركة بالدفع')}</p>
-                {isContactsPickSupported() && (
-                  <button type="button" className="booking-payment-share-contact-btn" onClick={pickFromContacts} disabled={atShareCap || contactsBusy}>
-                    {contactsBusy ? '…' : t('Select from contacts', 'اختر من جهات الاتصال')}
-                  </button>
-                )}
-                <div className="booking-payment-share-phone-row">
-                  <input
-                    type="tel"
-                    placeholder={t('Enter phone number', 'أدخل رقم الجوال')}
-                    value={manualPhone}
-                    onChange={e => { setManualPhone(e.target.value); setContactError('') }}
-                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addUnregistered())}
-                    inputMode="tel"
-                    autoComplete="tel"
-                    enterKeyHint="done"
-                  />
-                  <button type="button" className="booking-payment-share-add-phone" onClick={() => addUnregistered()} disabled={atShareCap}>
-                    {t('Add', 'إضافة')}
-                  </button>
-                </div>
-              </div>
-            )}
-            {contactError ? (
-              <p className="booking-payment-share-error booking-payment-share-error--add-block" role="alert">{contactError}</p>
-            ) : null}
-          </div>
+                  {contactError ? (
+                    <p className="booking-payment-share-error booking-payment-share-error--add-block" role="alert">
+                      {contactError}
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
           ) : null}
         </div>
       )}
