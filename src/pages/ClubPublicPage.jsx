@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { loadClubs, getClubById, getClubMembersFromStorage, getAllMembersFromStorage, addMemberToClub, addBookingToClub, refreshClubsFromApi, upsertMember } from '../storage/adminStorage'
 import { calculateBookingPrice } from '../utils/bookingPricing'
+import { normalizePhone } from '../utils/phoneNormalize'
+import { buildPayShareAbsoluteUrl, buildWhatsAppHrefForSplitInvite } from '../utils/splitInviteLinks'
 import * as bookingApi from '../api/dbClient'
 import { getStore } from '../api/dbClient'
 import { getImageUrl, sendWelcomeClubJoinEmail } from '../api/dbClient'
@@ -272,6 +274,11 @@ const ClubPublicPage = () => {
   const [bookingSuccessId, setBookingSuccessId] = useState(null) // show success and link to my-bookings
   /** Unregistered split rows with payInviteUrl after confirm — for WhatsApp to real invite links */
   const [splitPaymentInviteRows, setSplitPaymentInviteRows] = useState([])
+  /** Booker context for edit/remove invite APIs right after confirm */
+  const [splitInviteMeta, setSplitInviteMeta] = useState(null)
+  const [splitInviteEditingToken, setSplitInviteEditingToken] = useState(null)
+  const [splitInviteEditDraft, setSplitInviteEditDraft] = useState('')
+  const [splitInviteActionBusy, setSplitInviteActionBusy] = useState(false)
   const bookingsSectionRef = React.useRef(null)
   const [activeLock, setActiveLock] = useState(null)
   const [activeLocks, setActiveLocks] = useState([])
@@ -1107,6 +1114,8 @@ const ClubPublicPage = () => {
       setActiveLock(null)
       if (paymentUrl && bookingId) {
         setSplitPaymentInviteRows([])
+        setSplitInviteMeta(null)
+        setSplitInviteEditingToken(null)
         setBookingModal(null)
         setPaymentShares([])
         setPaymentStyle('single')
@@ -1122,6 +1131,8 @@ const ClubPublicPage = () => {
         return
       }
       setBookingSuccessId(bookingId || true)
+      setSplitInviteMeta(bookingId ? { bookingId, clubId } : null)
+      setSplitInviteEditingToken(null)
       setSplitPaymentInviteRows(unregShares)
       setBookingModal(null)
       setPaymentShares([])
@@ -1177,6 +1188,67 @@ const ClubPublicPage = () => {
     }
   }
 
+  const handleSplitInviteSavePhone = async (row) => {
+    if (!splitInviteMeta?.bookingId || !platformUser?.id || !splitInviteMeta?.clubId) return
+    setSplitInviteActionBusy(true)
+    try {
+      const res = await bookingApi.bookerUpdateSharePhone({
+        bookingId: splitInviteMeta.bookingId,
+        clubId: splitInviteMeta.clubId,
+        memberId: platformUser.id,
+        inviteToken: row.inviteToken,
+        phone: splitInviteEditDraft
+      })
+      const ps = res?.paymentShare
+      if (ps) {
+        setSplitPaymentInviteRows((prev) =>
+          prev.map((r) =>
+            r.inviteToken === row.inviteToken
+              ? { ...r, phone: ps.phone, inviteToken: ps.inviteToken, payInviteUrl: ps.payInviteUrl, type: ps.type || r.type }
+              : r
+          )
+        )
+      }
+      setSplitInviteEditingToken(null)
+      await refreshClubsFromApi()
+      loadClubs()
+      refreshClub()
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+    } catch (err) {
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(c.splitInviteUpdateError || err?.message)
+      }
+    } finally {
+      setSplitInviteActionBusy(false)
+    }
+  }
+
+  const handleSplitInviteRemove = async (row) => {
+    if (!splitInviteMeta?.bookingId || !platformUser?.id || !splitInviteMeta?.clubId) return
+    if (typeof window !== 'undefined' && !window.confirm(c.splitInviteConfirmRemove)) return
+    setSplitInviteActionBusy(true)
+    try {
+      await bookingApi.bookerRemovePendingShare({
+        bookingId: splitInviteMeta.bookingId,
+        clubId: splitInviteMeta.clubId,
+        memberId: platformUser.id,
+        inviteToken: row.inviteToken
+      })
+      setSplitPaymentInviteRows((prev) => prev.filter((r) => r.inviteToken !== row.inviteToken))
+      setSplitInviteEditingToken(null)
+      await refreshClubsFromApi()
+      loadClubs()
+      refreshClub()
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+    } catch (err) {
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(c.splitInviteRemoveError || err?.message)
+      }
+    } finally {
+      setSplitInviteActionBusy(false)
+    }
+  }
+
   return (
     <div className="club-public-page commercial">
       {bookingSuccessId && (
@@ -1195,29 +1267,86 @@ const ClubPublicPage = () => {
             <p className="club-public-split-invites-intro">{c.splitInviteBannerIntro}</p>
             <ul className="club-public-split-invites-list">
               {splitPaymentInviteRows.map((row, idx) => {
-                const payUrl = row.payInviteUrl || ''
-                const digits = String(row.phone || '').replace(/\D/g, '')
-                const waBase = digits.length >= 8 ? (digits.startsWith('966') ? `966${digits.slice(3)}` : digits) : ''
-                const msg =
-                  language === 'ar'
-                    ? `سجّل في PlayTix وادفع حصتك: ${payUrl}`
-                    : `Complete your share on PlayTix: ${payUrl}`
-                const waHref = waBase
-                  ? `https://wa.me/${waBase}?text=${encodeURIComponent(msg)}`
-                  : `https://wa.me/?text=${encodeURIComponent(msg)}`
+                const payUrl = row.payInviteUrl || (row.inviteToken ? buildPayShareAbsoluteUrl(row.inviteToken, row.type) : '')
+                const waHref = payUrl ? buildWhatsAppHrefForSplitInvite(row.phone, payUrl, language) : ''
+                const isEditing = splitInviteEditingToken === row.inviteToken
+                const canManage = !!(splitInviteMeta?.bookingId && platformUser?.id)
                 return (
                   <li key={row.inviteToken || idx} className="club-public-split-invites-item">
+                    {isEditing ? (
+                      <div className="club-public-split-invites-edit">
+                        <label className="club-public-split-invites-edit-label">{c.splitInvitePhoneLabel}</label>
+                        <input
+                          type="tel"
+                          className="club-public-split-invites-edit-input"
+                          value={splitInviteEditDraft}
+                          onChange={(e) => setSplitInviteEditDraft(e.target.value)}
+                          inputMode="tel"
+                          autoComplete="tel"
+                        />
+                        <div className="club-public-split-invites-edit-actions">
+                          <button
+                            type="button"
+                            className="club-public-split-invites-btn club-public-split-invites-btn--primary"
+                            disabled={splitInviteActionBusy}
+                            onClick={() => handleSplitInviteSavePhone(row)}
+                          >
+                            {splitInviteActionBusy ? '…' : c.splitInviteSave}
+                          </button>
+                          <button
+                            type="button"
+                            className="club-public-split-invites-btn"
+                            disabled={splitInviteActionBusy}
+                            onClick={() => { setSplitInviteEditingToken(null) }}
+                          >
+                            {c.splitInviteCancel}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
                     <div className="club-public-split-invites-meta">
                       <span className="club-public-split-invites-phone">{row.phone || `${c.splitInviteGuest} ${idx + 1}`}</span>
                       <span className="club-public-split-invites-amount">
                         {parseFloat(row.amount || 0).toFixed(2)} {club?.settings?.currency || 'SAR'}
                       </span>
                     </div>
-                    {payUrl ? (
+                    <div className="club-public-split-invites-row-actions">
+                      {payUrl && waHref ? (
                       <a href={waHref} target="_blank" rel="noopener noreferrer" className="club-public-split-invites-wa">
                         {c.splitInviteShare}
                       </a>
-                    ) : null}
+                      ) : null}
+                      {canManage ? (
+                        <>
+                          <button
+                            type="button"
+                            className="club-public-split-invites-icon-btn"
+                            disabled={splitInviteActionBusy}
+                            title={c.splitInviteEditPhone}
+                            aria-label={c.splitInviteEditPhone}
+                            onClick={() => {
+                              setSplitInviteEditingToken(row.inviteToken)
+                              setSplitInviteEditDraft(normalizePhone(row.phone || ''))
+                            }}
+                          >
+                            ✎
+                          </button>
+                          <button
+                            type="button"
+                            className="club-public-split-invites-icon-btn club-public-split-invites-icon-btn--danger"
+                            disabled={splitInviteActionBusy}
+                            title={c.splitInviteRemoveGuest}
+                            aria-label={c.splitInviteRemoveGuest}
+                            onClick={() => handleSplitInviteRemove(row)}
+                          >
+                            🗑
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                      </>
+                    )}
                   </li>
                 )
               })}
@@ -1225,7 +1354,11 @@ const ClubPublicPage = () => {
             <button
               type="button"
               className="club-public-split-invites-dismiss"
-              onClick={() => setSplitPaymentInviteRows([])}
+              onClick={() => {
+                setSplitPaymentInviteRows([])
+                setSplitInviteMeta(null)
+                setSplitInviteEditingToken(null)
+              }}
             >
               {c.splitInviteDismiss}
             </button>

@@ -611,6 +611,22 @@ export async function addSplitParticipants({ bookingId, clubId, memberId, paymen
   })
 }
 
+/** Booker: correct guest phone — new invite token and pay URL (unpaid shares only) */
+export async function bookerUpdateSharePhone({ bookingId, clubId, memberId, shareId, inviteToken, phone }) {
+  return fetchJson('/api/bookings/booker-update-share-phone', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId, memberId, shareId, inviteToken, phone })
+  })
+}
+
+/** Booker: remove a participant share before they pay */
+export async function bookerRemovePendingShare({ bookingId, clubId, memberId, shareId, inviteToken }) {
+  return fetchJson('/api/bookings/booker-remove-pending-share', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId, memberId, shareId, inviteToken })
+  })
+}
+
 /** بعد حفظ تعديل حجز من الأدمن: إعادة مهلة الدفع حسب إعداد النادي */
 export async function adminExtendSplitPaymentDeadline({ bookingId, clubId }) {
   return fetchJson('/api/bookings/admin-extend-split-deadline', {

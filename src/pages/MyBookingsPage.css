@@ -984,6 +984,72 @@
   text-decoration: underline;
 }
 
+.my-bookings-share-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.my-bookings-share-edit-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 0.9375rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+.my-bookings-share-edit-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.my-bookings-share-edit-save {
+  padding: 8px 14px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #fff;
+  background: #1e3a5f;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.my-bookings-share-edit-save:disabled {
+  opacity: 0.6;
+}
+.my-bookings-share-edit-cancel {
+  padding: 8px 14px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.my-bookings-share-action-icon {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0 8px;
+  font-size: 0.95rem;
+  line-height: 1;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.my-bookings-share-action-icon:hover:not(:disabled) {
+  background: #f8fafc;
+}
+.my-bookings-share-action-icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.my-bookings-share-action-icon--danger {
+  border-color: #fecaca;
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
 .my-bookings-share-more {
   font-size: 0.8rem;
   color: var(--mb-text-muted);

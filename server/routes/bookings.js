@@ -35,6 +35,26 @@ function normalizeInviteTokenParamExpress(raw) {
   return noFrag
 }
 
+function getPayBaseUrlFromRequest(req) {
+  const basePath = (process.env.BASE_PATH || '/app').replace(/\/$/, '')
+  const ref = req.headers.origin || req.headers.referer || ''
+  const origin = ref
+    ? (() => {
+        try {
+          return new URL(ref).origin
+        } catch (_) {
+          return String(ref).replace(/\/$/, '')
+        }
+      })()
+    : ''
+  return process.env.BASE_URL || process.env.PUBLIC_BASE_URL || (origin ? `${origin}${basePath}` : 'https://playtix.app/app')
+}
+
+function normalizePhoneForBookingShare(raw) {
+  if (raw == null || raw === '') return ''
+  return String(raw).replace(/\s/g, '').replace(/^00/, '+').replace(/^0/, '+966')
+}
+
 /**
  * فاتورة حجز ملعب — دافع واحد، المبلغ المدفوع = الإجمالي، بدون صفوف booking_payment_shares.
  * idempotent عبر issueInvoiceForFullBookingPayment.
@@ -1494,6 +1514,147 @@ router.post('/add-split-participants', async (req, res) => {
     res.json({ ok: true, paymentShares: created, ...rec })
   } catch (e) {
     console.error('bookings add-split-participants error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** POST /api/bookings/booker-update-share-phone — الحاجز يصحح رقم ضيف ويُحدَّث رمز الدعوة والرابط */
+router.post('/booker-update-share-phone', async (req, res) => {
+  try {
+    const { bookingId, clubId, memberId, shareId, inviteToken, phone: rawPhone } = req.body || {}
+    if (!bookingId || !clubId || !memberId) {
+      return res.status(400).json({ error: 'bookingId, clubId, memberId required' })
+    }
+    const phone = normalizePhoneForBookingShare(rawPhone)
+    const digits = phone.replace(/\D/g, '')
+    if (digits.length < 8) return res.status(400).json({ error: 'Valid phone required' })
+
+    const { rows: bRows } = await query(
+      `SELECT member_id, initiator_member_id, status FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
+      [bookingId, clubId]
+    )
+    if (!bRows?.length) return res.status(404).json({ error: 'Booking not found' })
+    const initiator = String(bRows[0].initiator_member_id || bRows[0].member_id || '')
+    if (String(memberId) !== initiator) return res.status(403).json({ error: 'Only booker can update shares' })
+    const st = (bRows[0].status || '').toString()
+    if (['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st)) {
+      return res.status(400).json({ error: 'Cannot modify this booking' })
+    }
+
+    let row
+    if (shareId) {
+      const r = await query(
+        `SELECT id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, invite_token, paid_at, removed_at
+         FROM booking_payment_shares WHERE id = ? AND booking_id = ? AND club_id = ?`,
+        [shareId, bookingId, clubId]
+      )
+      row = r.rows?.[0]
+    } else if (inviteToken) {
+      const t = normalizeInviteTokenParamExpress(inviteToken)
+      const r = await query(
+        `SELECT id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, invite_token, paid_at, removed_at
+         FROM booking_payment_shares WHERE invite_token = ? AND booking_id = ? AND club_id = ?`,
+        [t, bookingId, clubId]
+      )
+      row = r.rows?.[0]
+    } else {
+      return res.status(400).json({ error: 'shareId or inviteToken required' })
+    }
+    if (!row) return res.status(404).json({ error: 'Share not found' })
+    if (!row.invite_token) return res.status(400).json({ error: 'This share has no payment invite link' })
+    if (row.paid_at) return res.status(400).json({ error: 'Share already paid' })
+    if (row.removed_at) return res.status(400).json({ error: 'Share removed' })
+
+    const newToken = `inv_${crypto.randomBytes(16).toString('hex')}`
+    const baseUrl = getPayBaseUrlFromRequest(req)
+    const payPath = String(row.participant_type || '').toLowerCase() === 'unregistered' ? 'pay-invite' : 'pay-share'
+    const payUrl = `${baseUrl.replace(/\/$/, '')}/${payPath}/${newToken}`
+    const waLink = payUrl ? `https://wa.me/?text=${encodeURIComponent(payUrl)}` : null
+
+    await query(
+      `UPDATE booking_payment_shares SET phone = ?, invite_token = ?, whatsapp_link = ? WHERE id = ? AND club_id = ?`,
+      [phone, newToken, waLink, row.id, clubId]
+    )
+
+    const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bookingId, clubId)
+    if (clubId && rec?.bookingDate) slotCache.invalidateLocks(clubId, rec.bookingDate)
+
+    res.json({
+      ok: true,
+      paymentShare: {
+        id: row.id,
+        inviteToken: newToken,
+        payInviteUrl: payUrl,
+        phone,
+        whatsappLink: waLink,
+        type: row.participant_type || 'registered',
+        amount: parseFloat(row.amount) || 0
+      },
+      ...rec
+    })
+  } catch (e) {
+    console.error('bookings booker-update-share-phone error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** POST /api/bookings/booker-remove-pending-share — الحاجز يحذف مشاركاً لم يدفع بعد */
+router.post('/booker-remove-pending-share', async (req, res) => {
+  try {
+    const { bookingId, clubId, memberId, shareId, inviteToken } = req.body || {}
+    if (!bookingId || !clubId || !memberId) {
+      return res.status(400).json({ error: 'bookingId, clubId, memberId required' })
+    }
+
+    const { rows: bRows } = await query(
+      `SELECT member_id, initiator_member_id, status FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
+      [bookingId, clubId]
+    )
+    if (!bRows?.length) return res.status(404).json({ error: 'Booking not found' })
+    const initiator = String(bRows[0].initiator_member_id || bRows[0].member_id || '')
+    if (String(memberId) !== initiator) return res.status(403).json({ error: 'Only booker can remove shares' })
+    const st = (bRows[0].status || '').toString()
+    if (['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st)) {
+      return res.status(400).json({ error: 'Cannot modify this booking' })
+    }
+
+    let row
+    if (shareId) {
+      const r = await query(
+        `SELECT id, booking_id, club_id, invite_token, paid_at, removed_at FROM booking_payment_shares WHERE id = ? AND booking_id = ? AND club_id = ?`,
+        [shareId, bookingId, clubId]
+      )
+      row = r.rows?.[0]
+    } else if (inviteToken) {
+      const t = normalizeInviteTokenParamExpress(inviteToken)
+      const r = await query(
+        `SELECT id, booking_id, club_id, invite_token, paid_at, removed_at FROM booking_payment_shares WHERE invite_token = ? AND booking_id = ? AND club_id = ?`,
+        [t, bookingId, clubId]
+      )
+      row = r.rows?.[0]
+    } else {
+      return res.status(400).json({ error: 'shareId or inviteToken required' })
+    }
+    if (!row) return res.status(404).json({ error: 'Share not found' })
+    if (!row.invite_token) {
+      return res.status(400).json({ error: 'Cannot remove this allocation from here' })
+    }
+    if (row.paid_at) return res.status(400).json({ error: 'Share already paid — cannot remove' })
+    if (row.removed_at) return res.status(400).json({ error: 'Share already removed' })
+
+    try {
+      await query(`UPDATE booking_payment_shares SET removed_at = NOW() WHERE id = ? AND club_id = ?`, [row.id, clubId])
+    } catch (e) {
+      if (!e?.message?.includes('removed_at')) throw e
+      return res.status(503).json({ error: 'Database migration required (removed_at)' })
+    }
+
+    await mergeClubBookingDataJson(bookingId, clubId, { splitInviteReopen: true })
+    const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bookingId, clubId)
+    if (clubId && rec?.bookingDate) slotCache.invalidateLocks(clubId, rec.bookingDate)
+    res.json({ ok: true, removedShareId: row.id, ...rec })
+  } catch (e) {
+    console.error('bookings booker-remove-pending-share error:', e)
     res.status(500).json({ error: dbError(e) })
   }
 })

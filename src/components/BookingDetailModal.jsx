@@ -6,6 +6,8 @@ import { Link } from 'react-router-dom'
 import * as bookingApi from '../api/dbClient'
 import MemberBookingActionsModal from './MemberBookingActionsModal'
 import { resolvePaymentShareDisplayName, shareNeedsRefundAcknowledgment } from '../utils/paymentShareMemberMatch'
+import { normalizePhone } from '../utils/phoneNormalize'
+import { buildPayShareAbsoluteUrl, buildWhatsAppHrefForSplitInvite } from '../utils/splitInviteLinks'
 import { getTournamentMemberPaymentEntry } from '../utils/tournamentHelpers'
 import { updateTournamentMemberPaymentEntry, withdrawMemberFromTournament } from '../storage/adminStorage'
 import './BookingDetailModal.css'
@@ -47,6 +49,9 @@ export default function BookingDetailModal({
   const [tournamentExitBusy, setTournamentExitBusy] = useState(false)
   const [memberActionsOpen, setMemberActionsOpen] = useState(false)
   const [memberActionsSection, setMemberActionsSection] = useState('reschedule')
+  const [bookerShareEditKey, setBookerShareEditKey] = useState(null)
+  const [bookerSharePhoneDraft, setBookerSharePhoneDraft] = useState('')
+  const [bookerShareBusy, setBookerShareBusy] = useState(false)
 
   const dateStr = booking?.dateStr || booking?.date || (booking?.startDate || '').toString().split('T')[0]
   const startTime = booking?.startTime || booking?.timeSlot || ''
@@ -272,6 +277,12 @@ export default function BookingDetailModal({
       tournamentLeave: 'Leave tournament',
       tournamentPayTitle: 'Complete your tournament payment',
       tournamentPayHint: 'Choose pay at the club (staff will confirm) or pay electronically.',
+      editGuestPhone: 'Edit number',
+      savePhone: 'Save',
+      removeShare: 'Remove',
+      confirmRemoveShare: 'Remove this participant? They have not paid yet.',
+      shareManageError: 'Something went wrong. Try again.',
+      cancelEdit: 'Cancel',
     },
     ar: {
       title: 'تفاصيل الحجز',
@@ -314,9 +325,58 @@ export default function BookingDetailModal({
       tournamentLeave: 'مغادرة البطولة',
       tournamentPayTitle: 'إتمام دفع البطولة',
       tournamentPayHint: 'اختر الدفع في النادي (يؤكد الاستقبال) أو الدفع الإلكتروني.',
+      editGuestPhone: 'تعديل الرقم',
+      savePhone: 'حفظ',
+      removeShare: 'حذف المشاركة',
+      confirmRemoveShare: 'إزالة هذا المشارك؟ لم يكمل الدفع بعد.',
+      shareManageError: 'تعذر التنفيذ. حاول مرة أخرى.',
+      cancelEdit: 'إلغاء',
     }
   }
   const c = t[language] || t.en
+
+  const handleBookerUpdateSharePhone = async (s) => {
+    if (!club?.id || !booking?.id || !platformUser?.id) return
+    setBookerShareBusy(true)
+    try {
+      await bookingApi.bookerUpdateSharePhone({
+        bookingId: booking.id,
+        clubId: club.id,
+        memberId: platformUser.id,
+        shareId: s.id || undefined,
+        inviteToken: s.inviteToken || undefined,
+        phone: bookerSharePhoneDraft
+      })
+      setBookerShareEditKey(null)
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      await onUpdated?.()
+    } catch (e) {
+      if (typeof window !== 'undefined' && window.alert) window.alert(c.shareManageError)
+    } finally {
+      setBookerShareBusy(false)
+    }
+  }
+
+  const handleBookerRemoveShare = async (s) => {
+    if (!club?.id || !booking?.id || !platformUser?.id) return
+    if (typeof window !== 'undefined' && !window.confirm(c.confirmRemoveShare)) return
+    setBookerShareBusy(true)
+    try {
+      await bookingApi.bookerRemovePendingShare({
+        bookingId: booking.id,
+        clubId: club.id,
+        memberId: platformUser.id,
+        shareId: s.id || undefined,
+        inviteToken: s.inviteToken || undefined
+      })
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      await onUpdated?.()
+    } catch (e) {
+      if (typeof window !== 'undefined' && window.alert) window.alert(c.shareManageError)
+    } finally {
+      setBookerShareBusy(false)
+    }
+  }
 
   let statusPillLabel = (status || '—').replace(/_/g, ' ')
   if (statusLc === 'pending_payment') statusPillLabel = c.statusPendingPayment
@@ -557,11 +617,54 @@ export default function BookingDetailModal({
                 <p className="booking-detail-track-title">{c.trackPayment}</p>
                 <p>{paidCount} {c.paid} · {pendingCount} {c.pending}</p>
                 <div className="booking-detail-shares">
-                  {paymentShares.slice(0, 5).map((s, idx) => {
+                  {paymentShares.filter((s) => !(s.removedAt || s.removed_at)).slice(0, 5).map((s, idx) => {
                     const isMyShare = userShare && (s.id === userShare.id || (s.memberId === userShare.memberId && s.memberName === userShare.memberName))
                     const shareAmt = parseFloat(s.amount)
+                    const rowKey = String(s.id || s.inviteToken || idx)
+                    const canBookerManageShare =
+                      canOpenMemberActions &&
+                      !!(s.inviteToken) &&
+                      !s.paidAt &&
+                      !(s.refundedAt || s.refunded_at)
+                    const payAbs =
+                      (s.payInviteUrl || s.pay_invite_url || '') ||
+                      (s.inviteToken ? buildPayShareAbsoluteUrl(s.inviteToken, s.type) : '')
+                    const waTarget = payAbs ? buildWhatsAppHrefForSplitInvite(s.phone, payAbs, language) : (s.whatsappLink || '')
+                    const isEditingShare = bookerShareEditKey === rowKey
                     return (
-                      <div key={s.id || idx} className="booking-detail-share-row">
+                      <div key={rowKey} className="booking-detail-share-row">
+                        {isEditingShare ? (
+                          <div className="booking-detail-share-edit">
+                            <input
+                              type="tel"
+                              className="booking-detail-share-edit-input"
+                              value={bookerSharePhoneDraft}
+                              onChange={(e) => setBookerSharePhoneDraft(e.target.value)}
+                              inputMode="tel"
+                              autoComplete="tel"
+                              aria-label={c.editGuestPhone}
+                            />
+                            <div className="booking-detail-share-edit-btns">
+                              <button
+                                type="button"
+                                className="booking-detail-share-edit-save"
+                                disabled={bookerShareBusy}
+                                onClick={() => handleBookerUpdateSharePhone(s)}
+                              >
+                                {bookerShareBusy ? '…' : c.savePhone}
+                              </button>
+                              <button
+                                type="button"
+                                className="booking-detail-share-edit-cancel"
+                                disabled={bookerShareBusy}
+                                onClick={() => setBookerShareEditKey(null)}
+                              >
+                                {c.cancelEdit}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
                         <span className="booking-detail-share-name">
                           {resolvePaymentShareDisplayName(s, memberDirectory)}
                           {isInitiator && Number.isFinite(shareAmt) ? (
@@ -579,6 +682,7 @@ export default function BookingDetailModal({
                                   ? '◐ ' + c.waitingConfirm
                                   : '○ ' + c.pending}
                         </span>
+                        <span className="booking-detail-share-actions">
                         {isMyShare && !s.paidAt && needsPayment && (
                           <button
                             type="button"
@@ -588,8 +692,38 @@ export default function BookingDetailModal({
                             {c.payNow}
                           </button>
                         )}
-                        {!isMyShare && s.whatsappLink && !s.paidAt && (
-                          <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="booking-detail-resend" title="Resend">💬</a>
+                        {!isMyShare && waTarget && !s.paidAt && (
+                          <a href={waTarget} target="_blank" rel="noopener noreferrer" className="booking-detail-resend" title="WhatsApp">💬</a>
+                        )}
+                        {canBookerManageShare ? (
+                          <>
+                            <button
+                              type="button"
+                              className="booking-detail-share-icon-btn"
+                              title={c.editGuestPhone}
+                              aria-label={c.editGuestPhone}
+                              disabled={bookerShareBusy}
+                              onClick={() => {
+                                setBookerShareEditKey(rowKey)
+                                setBookerSharePhoneDraft(normalizePhone(s.phone || ''))
+                              }}
+                            >
+                              ✎
+                            </button>
+                            <button
+                              type="button"
+                              className="booking-detail-share-icon-btn booking-detail-share-icon-btn--danger"
+                              title={c.removeShare}
+                              aria-label={c.removeShare}
+                              disabled={bookerShareBusy}
+                              onClick={() => handleBookerRemoveShare(s)}
+                            >
+                              🗑
+                            </button>
+                          </>
+                        ) : null}
+                        </span>
+                          </>
                         )}
                       </div>
                     )

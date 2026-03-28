@@ -2077,6 +2077,81 @@
   background: #fff;
 }
 
+.club-public-split-invites-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.club-public-split-invites-icon-btn {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 10px;
+  font-size: 1rem;
+  line-height: 1;
+  border-radius: 10px;
+  border: 1px solid #fcd34d;
+  background: rgba(255, 255, 255, 0.95);
+  color: #78350f;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.club-public-split-invites-icon-btn:hover:not(:disabled) {
+  background: #fff8e7;
+}
+.club-public-split-invites-icon-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.club-public-split-invites-icon-btn--danger {
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+.club-public-split-invites-icon-btn--danger:hover:not(:disabled) {
+  background: #fef2f2;
+}
+.club-public-split-invites-edit {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.club-public-split-invites-edit-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #78350f;
+}
+.club-public-split-invites-edit-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 1rem;
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+}
+.club-public-split-invites-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.club-public-split-invites-btn {
+  padding: 8px 14px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid #fcd34d;
+  background: rgba(255, 255, 255, 0.95);
+  color: #78350f;
+  cursor: pointer;
+}
+.club-public-split-invites-btn--primary {
+  background: #1e3a5f;
+  border-color: #1e3a5f;
+  color: #fff;
+}
+.club-public-split-invites-btn--primary:disabled {
+  opacity: 0.6;
+}
+
 /* Court prices section — تصميم احترافي ومتجاوب */
 .section-heading-icon {
   margin-inline-end: 8px;

@@ -8,6 +8,8 @@ import BookingDetailModal from '../components/BookingDetailModal'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './MyBookingsPage.css'
 import { findPaymentShareForMember, resolvePaymentShareDisplayName, shareNeedsRefundAcknowledgment } from '../utils/paymentShareMemberMatch.js'
+import { normalizePhone } from '../utils/phoneNormalize'
+import { buildPayShareAbsoluteUrl, buildWhatsAppHrefForSplitInvite } from '../utils/splitInviteLinks'
 import { getTournamentMemberPaymentEntry } from '../utils/tournamentHelpers.js'
 import { isContactsPickSupported, pickPhoneNumbersFromContacts } from '../utils/contactPicker'
 
@@ -131,6 +133,9 @@ const MyBookingsPage = () => {
   const [trainingInvites, setTrainingInvites] = useState([])
   const [dismissingInviteId, setDismissingInviteId] = useState(null)
   const [walletByClub, setWalletByClub] = useState({})
+  const [shareRowEditKey, setShareRowEditKey] = useState(null)
+  const [shareRowEditPhone, setShareRowEditPhone] = useState('')
+  const [shareRowBusyKey, setShareRowBusyKey] = useState(null)
 
   useEffect(() => {
     setAppLanguage(language)
@@ -628,6 +633,11 @@ const MyBookingsPage = () => {
       openClubToJoin: 'Open club page to join',
       tournamentAwaitingClub: 'Pay at club — awaiting club confirmation',
       leaveTournament: 'Leave tournament',
+      bookerEditPhone: 'Edit number',
+      bookerSavePhone: 'Save',
+      bookerRemoveShare: 'Remove',
+      bookerShareConfirmRemove: 'Remove this participant? They have not paid yet.',
+      bookerShareError: 'Something went wrong. Try again.',
     },
     ar: {
       myBookings: 'حجوزاتي',
@@ -684,6 +694,11 @@ const MyBookingsPage = () => {
       openClubToJoin: 'فتح صفحة النادي للانضمام',
       tournamentAwaitingClub: 'الدفع في النادي — بانتظار تأكيد الاستقبال',
       leaveTournament: 'مغادرة البطولة',
+      bookerEditPhone: 'تعديل الرقم',
+      bookerSavePhone: 'حفظ',
+      bookerRemoveShare: 'حذف',
+      bookerShareConfirmRemove: 'إزالة هذا المشارك؟ لم يكمل الدفع بعد.',
+      bookerShareError: 'حدث خطأ. حاول مرة أخرى.',
     }
   }
   const c = t[language] || t.en
@@ -697,6 +712,55 @@ const MyBookingsPage = () => {
         </div>
       </div>
     )
+  }
+
+  const refetchBookings = React.useCallback(async () => {
+    await refreshClubsFromApi()
+    loadClubs()
+    setBookings(getMemberBookings(member.id))
+  }, [member.id])
+
+  const saveInlineSharePhone = async (booking, club, share, compositeKey) => {
+    if (!shareRowEditPhone.trim()) return
+    setShareRowBusyKey(compositeKey)
+    try {
+      await bookingApi.bookerUpdateSharePhone({
+        bookingId: booking.id,
+        clubId: club.id,
+        memberId: member.id,
+        shareId: share.id || undefined,
+        inviteToken: share.inviteToken || undefined,
+        phone: shareRowEditPhone
+      })
+      setShareRowEditKey(null)
+      await refetchBookings()
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+    } catch (e) {
+      if (typeof window !== 'undefined' && window.alert) window.alert(c.bookerShareError)
+    } finally {
+      setShareRowBusyKey(null)
+    }
+  }
+
+  const removeInlineShare = async (booking, club, share, compositeKey) => {
+    if (typeof window !== 'undefined' && !window.confirm(c.bookerShareConfirmRemove)) return
+    setShareRowBusyKey(compositeKey)
+    try {
+      await bookingApi.bookerRemovePendingShare({
+        bookingId: booking.id,
+        clubId: club.id,
+        memberId: member.id,
+        shareId: share.id || undefined,
+        inviteToken: share.inviteToken || undefined
+      })
+      setShareRowEditKey(null)
+      await refetchBookings()
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+    } catch (e) {
+      if (typeof window !== 'undefined' && window.alert) window.alert(c.bookerShareError)
+    } finally {
+      setShareRowBusyKey(null)
+    }
   }
 
   const getPayOptions = (booking, club) => {
@@ -1017,8 +1081,56 @@ const MyBookingsPage = () => {
                           const pd = s.paidAt || s.paid_at
                           const shareAmt = parseFloat(s.amount)
                           const amtText = Number.isFinite(shareAmt) ? `${shareAmt} ${r.currencyStr}` : '—'
+                          const compositeKey = `${r.key}|${s.inviteToken || idx}`
+                          const canBookerManageShare =
+                            r.isBooker &&
+                            !!(s.inviteToken) &&
+                            !pd &&
+                            !rf &&
+                            filter === 'upcoming' &&
+                            !(s.removedAt || s.removed_at)
+                          const payAbs =
+                            (s.payInviteUrl || s.pay_invite_url || '') ||
+                            (s.inviteToken ? buildPayShareAbsoluteUrl(s.inviteToken, s.type) : '')
+                          const waHrefList =
+                            payAbs && !pd && !rf
+                              ? buildWhatsAppHrefForSplitInvite(s.phone, payAbs, language)
+                              : (s.whatsappLink || '')
+                          const showWa = waHrefList && !pd && !rf && filter === 'upcoming'
+                          const isEditingList = shareRowEditKey === compositeKey
                           return (
-                            <li key={s.id || idx} className="my-bookings-share-item">
+                            <li key={s.id || s.inviteToken || idx} className="my-bookings-share-item">
+                              {isEditingList ? (
+                                <div className="my-bookings-share-edit" onClick={(e) => e.stopPropagation()}>
+                                  <input
+                                    type="tel"
+                                    className="my-bookings-share-edit-input"
+                                    value={shareRowEditPhone}
+                                    onChange={(e) => setShareRowEditPhone(e.target.value)}
+                                    inputMode="tel"
+                                    autoComplete="tel"
+                                  />
+                                  <div className="my-bookings-share-edit-btns">
+                                    <button
+                                      type="button"
+                                      className="my-bookings-share-edit-save"
+                                      disabled={shareRowBusyKey === compositeKey}
+                                      onClick={(e) => { e.stopPropagation(); saveInlineSharePhone(r.booking, r.club, s, compositeKey) }}
+                                    >
+                                      {shareRowBusyKey === compositeKey ? '…' : c.bookerSavePhone}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="my-bookings-share-edit-cancel"
+                                      disabled={shareRowBusyKey === compositeKey}
+                                      onClick={(e) => { e.stopPropagation(); setShareRowEditKey(null) }}
+                                    >
+                                      {c.cancel}
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
                               <div className="my-bookings-share-item-main">
                                 <span className="my-bookings-share-item-name">{name}</span>
                                 {r.isBooker ? (
@@ -1039,10 +1151,40 @@ const MyBookingsPage = () => {
                                     {language === 'en' ? 'I received refund' : 'استلمت الاسترداد'}
                                   </button>
                                 )}
-                                {s.whatsappLink && !pd && !rf && filter === 'upcoming' && (
-                                  <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="my-bookings-resend" title={c.resendInvite} onClick={(e) => e.stopPropagation()}>💬</a>
-                                )}
+                                {showWa ? (
+                                  <a href={waHrefList} target="_blank" rel="noopener noreferrer" className="my-bookings-resend" title={c.resendInvite} onClick={(e) => e.stopPropagation()}>💬</a>
+                                ) : null}
+                                {canBookerManageShare ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="my-bookings-share-action-icon"
+                                      title={c.bookerEditPhone}
+                                      aria-label={c.bookerEditPhone}
+                                      disabled={!!shareRowBusyKey}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setShareRowEditKey(compositeKey)
+                                        setShareRowEditPhone(normalizePhone(s.phone || ''))
+                                      }}
+                                    >
+                                      ✎
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="my-bookings-share-action-icon my-bookings-share-action-icon--danger"
+                                      title={c.bookerRemoveShare}
+                                      aria-label={c.bookerRemoveShare}
+                                      disabled={!!shareRowBusyKey}
+                                      onClick={(e) => { e.stopPropagation(); removeInlineShare(r.booking, r.club, s, compositeKey) }}
+                                    >
+                                      🗑
+                                    </button>
+                                  </>
+                                ) : null}
                               </div>
+                                </>
+                              )}
                             </li>
                           )
                         })}
