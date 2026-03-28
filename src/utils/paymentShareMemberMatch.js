@@ -4,6 +4,25 @@ export function phoneTailKey(s) {
   return d.length >= 9 ? d.slice(-9) : d
 }
 
+/** Minimum tail length for confident Saudi-style mobile match (aligns with booking payment share search). */
+const PHONE_TAIL_MATCH_MIN = 8
+
+/**
+ * Members in directory whose mobile/phone matches the given number by last 9 digits.
+ * Multiple results = ambiguous (rare); caller should treat as guest unless length === 1.
+ * @param {string} phone
+ * @param {Array<{id?:string,mobile?:string,phone?:string}>} memberDirectory
+ */
+export function findMembersByPhoneTail(phone, memberDirectory) {
+  const list = Array.isArray(memberDirectory) ? memberDirectory : []
+  const tail = phoneTailKey(phone || '')
+  if (tail.length < PHONE_TAIL_MATCH_MIN) return []
+  return list.filter((x) => {
+    const xt = phoneTailKey(x?.mobile || x?.phone || '')
+    return xt.length >= PHONE_TAIL_MATCH_MIN && xt === tail
+  })
+}
+
 /** Payment share row belonging to this member (by id or phone tail) */
 export function findPaymentShareForMember(booking, member) {
   if (!member?.id || !Array.isArray(booking?.paymentShares)) return null

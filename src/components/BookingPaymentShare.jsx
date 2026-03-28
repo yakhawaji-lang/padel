@@ -8,7 +8,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import * as bookingApi from '../api/dbClient'
 import { normalizePhone, phoneDigits } from '../utils/phoneNormalize'
-import { phoneTailKey } from '../utils/paymentShareMemberMatch'
+import { phoneTailKey, findMembersByPhoneTail, resolvePaymentShareDisplayName } from '../utils/paymentShareMemberMatch'
 import { isContactsPickSupported, pickPhoneNumbersFromContacts } from '../utils/contactPicker'
 
 export { normalizePhone } from '../utils/phoneNormalize'
@@ -256,20 +256,94 @@ export default function BookingPaymentShare({
         return
       }
       let validPhones = validPhonesRaw.filter(p => phoneDigits(p).length >= 8)
+      const byTail = []
+      const seenTail = new Set()
+      for (const p of validPhones) {
+        const tail = phoneTailKey(p)
+        if (tail.length < 8 || seenTail.has(tail)) continue
+        seenTail.add(tail)
+        byTail.push(p)
+      }
+      validPhones = byTail
       if (maxShareCount != null) validPhones = validPhones.slice(0, room)
       if (validPhones.length > 0) {
-        const totalParticipants = shares.length + validPhones.length + 1
-        const amt = splitMode === 'equal'
-          ? Math.round((totalPrice / totalParticipants) * 100) / 100
-          : Math.round((remaining / validPhones.length) * 100) / 100
-        const newShares = validPhones.map(p => ({
-          phone: p,
-          type: 'unregistered',
-          amount: amt,
-          whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, amt, currency, clubId)
-        }))
-        onChange([...shares, ...newShares])
-        setAddFormOpen(false)
+        const takenTails = new Set()
+        const takenMemberIds = new Set(addedMemberIds)
+        for (const s of shares) {
+          const ph = s.phone
+          if (ph) {
+            const tt = phoneTailKey(ph)
+            if (tt.length >= 8) takenTails.add(tt)
+          }
+          if (s.memberId) {
+            takenMemberIds.add(String(s.memberId))
+            const m = searchableMembers.find((x) => String(x?.id) === String(s.memberId))
+            const mph = m?.mobile || m?.phone
+            if (mph) {
+              const tt = phoneTailKey(mph)
+              if (tt.length >= 8) takenTails.add(tt)
+            }
+          }
+        }
+        const planned = []
+        for (const p of validPhones) {
+          if (maxShareCount != null && shares.length + planned.length >= maxShareCount) break
+          const tail = phoneTailKey(p)
+          if (tail.length >= 8 && takenTails.has(tail)) continue
+
+          const candidates = findMembersByPhoneTail(p, searchableMembers).filter(
+            (m) => m?.id && !takenMemberIds.has(String(m.id))
+          )
+          if (candidates.length === 1) {
+            const member = candidates[0]
+            takenMemberIds.add(String(member.id))
+            if (tail.length >= 8) takenTails.add(tail)
+            planned.push({ kind: 'registered', p, member })
+          } else {
+            if (tail.length >= 8) takenTails.add(tail)
+            planned.push({ kind: 'unregistered', p })
+          }
+        }
+
+        const newCount = planned.length
+        if (newCount === 0) {
+          setContactError(t('Those contacts are already added or duplicate', 'هذه الأرقام مضافة مسبقاً أو مكررة'))
+        } else {
+          const amtEqual = Math.round((totalPrice / (shares.length + newCount + 1)) * 100) / 100
+          const amtCustom = Math.round((remaining / newCount) * 100) / 100
+          const amt = splitMode === 'equal' ? amtEqual : amtCustom
+          const newShares = planned.map((row) => {
+            if (row.kind === 'registered') {
+              const { member, p } = row
+              const regPhone = member.mobile || member.phone || p
+              const waReg = buildWhatsAppLinkForRegistered(regPhone, clubName, dateStr, startTime, amt, currency, language)
+              return {
+                memberId: member.id,
+                memberName: member.name || member.email,
+                phone: regPhone || undefined,
+                type: 'registered',
+                amount: amt,
+                whatsappLink: waReg || undefined
+              }
+            }
+            const p = row.p
+            return {
+              phone: p,
+              type: 'unregistered',
+              amount: amt,
+              whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, amt, currency, clubId)
+            }
+          })
+
+          const recomputeEqualAmounts = (list) => {
+            if (splitMode !== 'equal' || list.length === 0) return list
+            const per = Math.round((totalPrice / (list.length + 1)) * 100) / 100
+            return list.map((s) => ({ ...s, amount: per }))
+          }
+
+          onChange(recomputeEqualAmounts([...shares, ...newShares]))
+          setAddFormOpen(false)
+        }
       } else if (error === 'NATIVE_PICK_FAILED' || error === 'WEB_PICK_FAILED') {
         setContactError(t('Could not read contacts. Try again or enter the number manually.', 'تعذر قراءة جهات الاتصال. أعد المحاولة أو أدخل الرقم يدوياً.'))
       } else {
@@ -368,10 +442,13 @@ export default function BookingPaymentShare({
               </div>
 
               <ul className="booking-payment-share-list" role="list">
-                {shares.map((s, idx) => (
+                {shares.map((s, idx) => {
+                  const resolvedLabel = resolvePaymentShareDisplayName(s, searchableMembers)
+                  const rowLabel = resolvedLabel === '—' ? (s.phone || t('Unregistered', 'غير مسجل')) : resolvedLabel
+                  return (
                   <li key={idx} className="booking-payment-share-item">
                     <span className="booking-payment-share-item-label">
-                      {s.type === 'registered' ? (s.memberName || s.memberId) : (s.phone || t('Unregistered', 'غير مسجل'))}
+                      {rowLabel}
                     </span>
                     <div className="booking-payment-share-item-amount">
                       <input
@@ -401,7 +478,8 @@ export default function BookingPaymentShare({
                       ×
                     </button>
                   </li>
-                ))}
+                  )
+                })}
               </ul>
 
               {totalShared > totalPrice && (
