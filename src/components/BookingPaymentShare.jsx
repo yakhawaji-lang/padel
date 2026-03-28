@@ -8,6 +8,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import * as bookingApi from '../api/dbClient'
 import { normalizePhone, phoneDigits } from '../utils/phoneNormalize'
+import { phoneTailKey } from '../utils/paymentShareMemberMatch'
 import { isContactsPickSupported, pickPhoneNumbersFromContacts } from '../utils/contactPicker'
 
 export { normalizePhone } from '../utils/phoneNormalize'
@@ -127,13 +128,16 @@ export default function BookingPaymentShare({
   const searchableMembers = [...otherMembers, ...platformNotInClub]
   const addedMemberIds = new Set((shares || []).filter(s => s.memberId).map(s => String(s.memberId)))
   const searchDigits = phoneDigits(memberSearchQuery)
+  const searchTail = phoneTailKey(memberSearchQuery)
   const FULL_PHONE_MIN = 9
-  const hasFullPhone = searchDigits.length >= FULL_PHONE_MIN
+  /** Enough digits for a confident match (national 9 or longer intl / local). */
+  const hasFullPhone = searchTail.length >= FULL_PHONE_MIN
   const filteredBySearch = hasFullPhone
-    ? searchableMembers.filter(m => {
+    ? searchableMembers.filter((m) => {
         if (addedMemberIds.has(String(m?.id))) return false
-        const mPhone = phoneDigits(m?.mobile || m?.phone || '')
-        return mPhone && mPhone.includes(searchDigits)
+        const mTail = phoneTailKey(m?.mobile || m?.phone || '')
+        if (mTail.length < FULL_PHONE_MIN || searchTail.length < FULL_PHONE_MIN) return false
+        return mTail === searchTail
       })
     : []
   const favoritesFirst = [...filteredBySearch].sort((a, b) => {
