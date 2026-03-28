@@ -21,6 +21,21 @@
   border: 1px solid rgba(226, 232, 240, 0.8);
 }
 
+.pay-invite-profile-banner {
+  margin: -8px 0 20px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fef9c3;
+  border: 1px solid #eab308;
+}
+.pay-invite-profile-banner-text {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #713f12;
+  font-weight: 500;
+}
+
 .pay-invite-loading,
 .pay-invite-error {
   text-align: center;

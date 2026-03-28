@@ -15,6 +15,7 @@ import { getCurrentPlatformUser, setCurrentPlatformUser } from '../storage/platf
 import { upsertMember, getMergedMembersRaw, addMemberToClub } from '../storage/adminStorage'
 import { sendRegistrationWelcome, sendEmailVerificationCode, verifyEmailCode, sendWelcomeMemberEmail } from '../api/dbClient'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
+import { isPaymentShareRegistrationReturn, parsePaymentShareInviteToken } from '../utils/paymentShareDeepLink'
 import './Register.css'
 
 /** Normalize phone to digits for comparison */
@@ -28,9 +29,9 @@ const Register = () => {
   const joinClubId = searchParams.get('join')
   const phoneFromUrl = searchParams.get('phone')
   const returnTo = searchParams.get('returnTo') || ''
-  const isPayInviteFlow = typeof returnTo === 'string' && returnTo.startsWith('/pay-invite/')
+  const isPaymentShareRegReturn = isPaymentShareRegistrationReturn(returnTo)
   const isPhoneOnlyFlow =
-    !isPayInviteFlow && !!(joinClubId && phoneFromUrl && phoneDigits(phoneFromUrl).length >= 8)
+    !isPaymentShareRegReturn && !!(joinClubId && phoneFromUrl && phoneDigits(phoneFromUrl).length >= 8)
   const [language, setLanguage] = useState(getAppLanguage())
   const [formData, setFormData] = useState({
     name: '',
@@ -51,24 +52,55 @@ const Register = () => {
 
   useEffect(() => {
     const user = getCurrentPlatformUser()
-    if (user) {
+    if (!user) return
+    let cancelled = false
+    ;(async () => {
+      const inviteTok = parsePaymentShareInviteToken(returnTo)
+      const bookingApi = await import('../api/dbClient')
+      let effectiveClubId = joinClubId || null
+      if (inviteTok && !effectiveClubId) {
+        const inv = await bookingApi.getInviteByToken(inviteTok).catch(() => null)
+        effectiveClubId = inv?.clubId || null
+      }
+      if (effectiveClubId) {
+        try {
+          await bookingApi.joinClub(effectiveClubId, user.id)
+          await addMemberToClub(user.id, effectiveClubId)
+        } catch (_) {}
+      }
+      if (inviteTok && effectiveClubId) {
+        try {
+          await bookingApi.claimInviteShare({
+            inviteToken: inviteTok,
+            clubId: effectiveClubId,
+            memberId: user.id,
+            phone: user.phone || user.mobile,
+            memberName: user.name
+          })
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('clubs-synced'))
+          }
+        } catch (_) {}
+      }
+      if (cancelled) return
       if (returnTo && returnTo.startsWith('/')) {
         navigate(returnTo, { replace: true })
         return
       }
       if (joinClubId) navigate(`/clubs/${joinClubId}`, { replace: true })
       else navigate('/', { replace: true })
-    }
+    })()
+    return () => { cancelled = true }
   }, [joinClubId, returnTo, navigate])
 
   const t = {
     en: {
-      title: isPayInviteFlow
+      title: isPaymentShareRegReturn
         ? 'Register — pay your share'
         : isPhoneOnlyFlow
           ? 'Quick register — payment share'
           : 'Register on PlayTix',
-      subtitle: isPayInviteFlow
+      subtitle: isPaymentShareRegReturn
         ? 'Enter your email first — we will send a verification code. Then complete your name, phone, and password. You will continue to pay your share (at the club or online).'
         : isPhoneOnlyFlow
           ? 'Register with your phone number to participate in the booking. Temporary password = your phone number.'
@@ -103,12 +135,12 @@ const Register = () => {
       backToEmail: 'Change email'
     },
     ar: {
-      title: isPayInviteFlow
+      title: isPaymentShareRegReturn
         ? 'التسجيل — دفع حصتك'
         : isPhoneOnlyFlow
           ? 'تسجيل سريع — مشاركة بالدفع'
           : 'التسجيل في PlayTix',
-      subtitle: isPayInviteFlow
+      subtitle: isPaymentShareRegReturn
         ? 'أدخل بريدك أولاً — سنرسل كود تحقق. ثم أكمل الاسم والجوال وكلمة المرور. ستنتقل مباشرة لدفع حصتك (في النادي أو إلكترونياً).'
         : isPhoneOnlyFlow
           ? 'سجّل برقم جوالك للمشاركة في الحجز. كلمة المرور المؤقتة = رقم جوالك.'
@@ -208,7 +240,7 @@ const Register = () => {
       setError(language === 'en' ? 'Please fill all required fields.' : 'يرجى تعبئة جميع الحقول المطلوبة.')
       return
     }
-    if (isPayInviteFlow && (!formData.phone || phoneDigits(formData.phone).length < 8)) {
+    if (isPaymentShareRegReturn && (!formData.phone || phoneDigits(formData.phone).length < 8)) {
       setError(language === 'en' ? 'Mobile number is required to match your payment invite.' : 'رقم الجوال مطلوب لمطابقة دعوة الدفع.')
       return
     }
@@ -238,18 +270,14 @@ const Register = () => {
       clubIds: joinClubId ? [joinClubId] : [],
       role: 'member',
       createdAt: new Date().toISOString(),
-      ...(isPayInviteFlow ? { profileIncomplete: true } : {})
+      ...(isPaymentShareRegReturn ? { profileIncomplete: true } : {})
     }
     const ok = await upsertMember(newMember)
     if (!ok) {
       setError(language === 'en' ? 'Registration failed.' : 'فشل التسجيل.')
       return
     }
-    let inviteTokenFromReturn = null
-    if (returnTo && typeof returnTo === 'string') {
-      const m = returnTo.match(/^\/pay-invite\/([^/?#]+)/)
-      if (m) inviteTokenFromReturn = decodeURIComponent(m[1])
-    }
+    const inviteTokenFromReturn = parsePaymentShareInviteToken(returnTo)
     const bookingApi = inviteTokenFromReturn || joinClubId ? await import('../api/dbClient') : null
     if (joinClubId) {
       try {
@@ -313,7 +341,7 @@ const Register = () => {
         <div className="register-card">
           <h1 className="register-title">{c.title}</h1>
           <p className="register-subtitle">{c.subtitle}</p>
-          {!isPhoneOnlyFlow && !isPayInviteFlow && <p className="register-or">{c.or}</p>}
+          {!isPhoneOnlyFlow && !isPaymentShareRegReturn && <p className="register-or">{c.or}</p>}
           <form
             onSubmit={
               isPhoneOnlyFlow || regStep === 'form'
@@ -406,14 +434,14 @@ const Register = () => {
             )}
             {(isPhoneOnlyFlow || regStep === 'form') && (
             <div className="form-group">
-              <label htmlFor="phone">{c.phone} {(isPhoneOnlyFlow || isPayInviteFlow) ? '*' : ''}</label>
+              <label htmlFor="phone">{c.phone} {(isPhoneOnlyFlow || isPaymentShareRegReturn) ? '*' : ''}</label>
               <input
                 id="phone"
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 placeholder={c.phonePlaceholder}
-                required={isPhoneOnlyFlow || isPayInviteFlow}
+                required={isPhoneOnlyFlow || isPaymentShareRegReturn}
                 autoComplete="tel"
               />
             </div>
@@ -454,7 +482,18 @@ const Register = () => {
             )}
           </form>
           <p className="register-login-hint">
-            {c.alreadyHave} <Link to="/login">{c.login}</Link>
+            {c.alreadyHave}{' '}
+            <Link
+              to={(() => {
+                const q = new URLSearchParams()
+                if (joinClubId) q.set('join', joinClubId)
+                if (returnTo) q.set('return', returnTo)
+                const s = q.toString()
+                return s ? `/login?${s}` : '/login'
+              })()}
+            >
+              {c.login}
+            </Link>
           </p>
         </div>
       </main>

@@ -321,6 +321,10 @@ export default function BookingPaymentShare({
               <div className="booking-payment-share-followup">
                 <h4 className="booking-payment-share-followup-title">{t('Booking follow-up', 'متابعة الحجز')}</h4>
                 <p className="booking-payment-share-followup-hint">{t('Send payment share link to each participant via WhatsApp', 'أرسل رابط المشاركة بالدفع لكل مشارك عبر واتساب')}</p>
+                <p className="booking-payment-share-pending-invite-note">{t(
+                  'After you confirm the booking, use the yellow banner on this page to send each guest their final personal link (with payment).',
+                  'بعد تأكيد الحجز، استخدم الشريط الأصفر في الصفحة لإرسال الرابط الشخصي النهائي لكل ضيف (يتضمن الدفع).'
+                )}</p>
               </div>
               <div className="booking-payment-share-mode">
                 <label className="booking-payment-share-radio">

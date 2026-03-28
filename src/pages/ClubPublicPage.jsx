@@ -270,6 +270,8 @@ const ClubPublicPage = () => {
   const [bookingFlowStep, setBookingFlowStep] = useState(1)
   // single: 1 duration → 2 style → 3 pay + confirm | split: 1 → 2 → 3 shares → 4 your pay method + confirm
   const [bookingSuccessId, setBookingSuccessId] = useState(null) // show success and link to my-bookings
+  /** Unregistered split rows with payInviteUrl after confirm — for WhatsApp to real invite links */
+  const [splitPaymentInviteRows, setSplitPaymentInviteRows] = useState([])
   const bookingsSectionRef = React.useRef(null)
   const [activeLock, setActiveLock] = useState(null)
   const [activeLocks, setActiveLocks] = useState([])
@@ -1099,8 +1101,12 @@ const ClubPublicPage = () => {
       })
       const bookingId = res?.bookingId
       const paymentUrl = res?.paymentUrl
+      const unregShares = Array.isArray(res?.paymentShares)
+        ? res.paymentShares.filter((s) => s.type === 'unregistered' && (s.payInviteUrl || s.inviteToken))
+        : []
       setActiveLock(null)
       if (paymentUrl && bookingId) {
+        setSplitPaymentInviteRows([])
         setBookingModal(null)
         setPaymentShares([])
         setPaymentStyle('single')
@@ -1116,6 +1122,7 @@ const ClubPublicPage = () => {
         return
       }
       setBookingSuccessId(bookingId || true)
+      setSplitPaymentInviteRows(unregShares)
       setBookingModal(null)
       setPaymentShares([])
       setPaymentStyle('single')
@@ -1179,6 +1186,50 @@ const ClubPublicPage = () => {
             {c.viewMyBookings}
           </Link>
           <button type="button" className="club-public-booking-success-dismiss" onClick={() => setBookingSuccessId(null)} aria-label="Close">×</button>
+        </div>
+      )}
+      {splitPaymentInviteRows.length > 0 && (
+        <div className="club-public-split-invites-banner" role="region" aria-labelledby="split-invites-title">
+          <div className="club-public-split-invites-inner">
+            <h2 id="split-invites-title" className="club-public-split-invites-title">{c.splitInviteBannerTitle}</h2>
+            <p className="club-public-split-invites-intro">{c.splitInviteBannerIntro}</p>
+            <ul className="club-public-split-invites-list">
+              {splitPaymentInviteRows.map((row, idx) => {
+                const payUrl = row.payInviteUrl || ''
+                const digits = String(row.phone || '').replace(/\D/g, '')
+                const waBase = digits.length >= 8 ? (digits.startsWith('966') ? `966${digits.slice(3)}` : digits) : ''
+                const msg =
+                  language === 'ar'
+                    ? `سجّل في PlayTix وادفع حصتك: ${payUrl}`
+                    : `Complete your share on PlayTix: ${payUrl}`
+                const waHref = waBase
+                  ? `https://wa.me/${waBase}?text=${encodeURIComponent(msg)}`
+                  : `https://wa.me/?text=${encodeURIComponent(msg)}`
+                return (
+                  <li key={row.inviteToken || idx} className="club-public-split-invites-item">
+                    <div className="club-public-split-invites-meta">
+                      <span className="club-public-split-invites-phone">{row.phone || `${c.splitInviteGuest} ${idx + 1}`}</span>
+                      <span className="club-public-split-invites-amount">
+                        {parseFloat(row.amount || 0).toFixed(2)} {club?.settings?.currency || 'SAR'}
+                      </span>
+                    </div>
+                    {payUrl ? (
+                      <a href={waHref} target="_blank" rel="noopener noreferrer" className="club-public-split-invites-wa">
+                        {c.splitInviteShare}
+                      </a>
+                    ) : null}
+                  </li>
+                )
+              })}
+            </ul>
+            <button
+              type="button"
+              className="club-public-split-invites-dismiss"
+              onClick={() => setSplitPaymentInviteRows([])}
+            >
+              {c.splitInviteDismiss}
+            </button>
+          </div>
         </div>
       )}
       <header

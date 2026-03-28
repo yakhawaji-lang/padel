@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom'
 import LanguageIcon from '../components/LanguageIcon'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import './Login.css'
-import { getMergedMembersRaw } from '../storage/adminStorage'
+import { getMergedMembersRaw, addMemberToClub } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import { setCurrentPlatformUser } from '../storage/platformAuth'
+import { parsePaymentShareInviteToken } from '../utils/paymentShareDeepLink'
 
 /** Normalize for comparison: trim, lowercase emails and names, digits-only for phones */
 function norm(s) {
@@ -58,6 +59,45 @@ const Login = () => {
       })
       if (member) {
         await setCurrentPlatformUser(member.id)
+        const inviteTok =
+          returnUrl && returnUrl.startsWith('/') ? parsePaymentShareInviteToken(returnUrl) : null
+        if (inviteTok) {
+          try {
+            const bookingApi = await import('../api/dbClient')
+            let claimClubId = joinClubId || null
+            if (!claimClubId) {
+              const inv = await bookingApi.getInviteByToken(inviteTok).catch(() => null)
+              claimClubId = inv?.clubId || null
+            }
+            if (claimClubId) {
+              try {
+                await bookingApi.joinClub(claimClubId, member.id)
+                await addMemberToClub(member.id, claimClubId)
+              } catch (_) {}
+              try {
+                await bookingApi.claimInviteShare({
+                  inviteToken: inviteTok,
+                  clubId: claimClubId,
+                  memberId: member.id,
+                  phone: member.mobile || member.phone,
+                  memberName: member.name
+                })
+              } catch (_) {}
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('clubs-synced'))
+              }
+            }
+          } catch (_) {}
+        } else if (joinClubId) {
+          try {
+            const bookingApi = await import('../api/dbClient')
+            await bookingApi.joinClub(joinClubId, member.id)
+            await addMemberToClub(member.id, joinClubId)
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('clubs-synced'))
+            }
+          } catch (_) {}
+        }
         if (returnUrl && returnUrl.startsWith('/')) {
           navigate(returnUrl)
         } else if (joinClubId) {
@@ -152,7 +192,15 @@ const Login = () => {
           </p>
           <p className="login-register-hint">
             {c.noAccount}
-            <Link to={joinClubId ? `/register?join=${joinClubId}` : (returnUrl ? `/register?returnTo=${encodeURIComponent(returnUrl)}` : '/register')}>
+            <Link
+              to={(() => {
+                const q = new URLSearchParams()
+                if (joinClubId) q.set('join', joinClubId)
+                if (returnUrl) q.set('returnTo', returnUrl)
+                const s = q.toString()
+                return s ? `/register?${s}` : '/register'
+              })()}
+            >
               {c.register}
             </Link>
           </p>

@@ -21,6 +21,35 @@
   border: 1px solid rgba(226, 232, 240, 0.8);
 }
 
+.payment-profile-banner {
+  margin: -8px 0 20px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fef9c3;
+  border: 1px solid #eab308;
+}
+.payment-profile-banner-text {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #713f12;
+  font-weight: 500;
+}
+
+.payment-share-guest-hint {
+  margin: 20px 0 8px;
+  font-size: 0.8125rem;
+  color: #64748b;
+  text-align: center;
+}
+.payment-share-register-link {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+  box-sizing: border-box;
+}
+
 .payment-loading,
 .payment-error {
   text-align: center;

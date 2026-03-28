@@ -8,6 +8,7 @@ import { useParams, Link } from 'react-router-dom'
 import { getInviteByToken, recordPayment } from '../api/dbClient'
 import { getAppLanguage } from '../storage/languageStorage'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
+import { addMemberToClub } from '../storage/adminStorage'
 import './PayInvitePage.css'
 
 /** Base URL of the app (origin + base path) — works locally and on deployed domain */
@@ -62,6 +63,40 @@ const PayInvitePage = () => {
   }, [loadInvite])
 
   const platformUser = getCurrentPlatformUser()
+  const inviteAutoSyncRef = React.useRef(false)
+  useEffect(() => {
+    inviteAutoSyncRef.current = false
+  }, [token])
+
+  useEffect(() => {
+    if (!platformUser?.id || !data?.clubId || !token || inviteAutoSyncRef.current) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const bookingApi = await import('../api/dbClient')
+        try {
+          await bookingApi.joinClub(data.clubId, platformUser.id)
+          await addMemberToClub(platformUser.id, data.clubId)
+        } catch (_) {}
+        try {
+          await bookingApi.claimInviteShare({
+            inviteToken: token,
+            clubId: data.clubId,
+            memberId: platformUser.id,
+            phone: platformUser.mobile || platformUser.phone,
+            memberName: platformUser.name
+          })
+        } catch (_) {}
+        if (cancelled) return
+        inviteAutoSyncRef.current = true
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('clubs-synced'))
+        }
+        loadInvite()
+      } catch (_) {}
+    })()
+    return () => { cancelled = true }
+  }, [platformUser?.id, data?.clubId, token, loadInvite])
 
   const t = (en, ar) => (language === 'ar' ? ar : en)
 
@@ -143,6 +178,16 @@ const PayInvitePage = () => {
   return (
     <div className="pay-invite-page">
       <div className="pay-invite-card">
+        {platformUser?.profileIncomplete ? (
+          <div className="pay-invite-profile-banner" role="region" aria-live="polite">
+            <p className="pay-invite-profile-banner-text">
+              {t(
+                'Please complete your member profile from the account menu when you can.',
+                'يرجى استكمال بيانات العضوية من قائمة الحساب عندما تتاح لك الفرصة.'
+              )}
+            </p>
+          </div>
+        ) : null}
         <div className="pay-invite-badge">{t('Payment share', 'مشاركة في الدفع')}</div>
         <h1 className="pay-invite-title">
           {t("You're invited to participate", 'تمت دعوتك للمشاركة')}
@@ -180,7 +225,10 @@ const PayInvitePage = () => {
                 'نطلب بريدك أولاً ونرسل كود تحقق، ثم الاسم والجوال وكلمة المرور. بعد ذلك تختار طريقة دفع حصتك.'
               )}
             </p>
-            <a href={`${baseUrl}/login?return=${encodeURIComponent(returnTo)}`} className="pay-invite-link-secondary">
+            <a
+              href={`${baseUrl}/login?join=${encodeURIComponent(data.clubId || '')}&return=${encodeURIComponent(returnTo)}`}
+              className="pay-invite-link-secondary"
+            >
               {t('Already registered? Log in', 'مسجل مسبقاً؟ سجّل الدخول')}
             </a>
           </div>
@@ -188,7 +236,7 @@ const PayInvitePage = () => {
           <div className="pay-invite-actions">
             {isPending && !markedPaid && (
               <div className="pay-invite-payment-section">
-                <p className="pay-invite-payment-options-label">{t('Choose how to pay your share', 'اختر طريقة دفع حصتك', language)}</p>
+                <p className="pay-invite-payment-options-label">{t('Choose how to pay your share', 'اختر طريقة دفع حصتك')}</p>
                 <div className="pay-invite-payment-cards">
                   <button
                     type="button"
@@ -199,14 +247,14 @@ const PayInvitePage = () => {
                   >
                     <span className="pay-invite-payment-card-icon" aria-hidden>🏢</span>
                     {chosePayAtClub ? <span className="pay-invite-payment-card-check" aria-hidden>✓ </span> : null}
-                    <span className="pay-invite-payment-card-title">{chosePayAtClub ? t('Chosen — pay at club', 'اخترتها — سأدفع في النادي', language) : t('Pay at club', 'الدفع في النادي', language)}</span>
-                    <span className="pay-invite-payment-card-desc">{chosePayAtClub ? (language === 'ar' ? 'لا يمكن تغييرها إلا بالدفع الإلكتروني' : 'Cannot change except via electronic payment') : t('Cash or card at the club', 'كاش أو بطاقة في النادي', language)}</span>
+                    <span className="pay-invite-payment-card-title">{chosePayAtClub ? t('Chosen — pay at club', 'اخترتها — سأدفع في النادي') : t('Pay at club', 'الدفع في النادي')}</span>
+                    <span className="pay-invite-payment-card-desc">{chosePayAtClub ? (language === 'ar' ? 'لا يمكن تغييرها إلا بالدفع الإلكتروني' : 'Cannot change except via electronic payment') : t('Cash or card at the club', 'كاش أو بطاقة في النادي')}</span>
                     {markingPaid && !chosePayAtClub && <span className="pay-invite-payment-card-loading">{t('Saving...', 'جاري الحفظ...')}</span>}
                   </button>
                   <Link to={`/pay-share/${token}`} className="pay-invite-payment-card pay-invite-payment-card-electronic">
                     <span className="pay-invite-payment-card-icon" aria-hidden>💳</span>
-                    <span className="pay-invite-payment-card-title">{t('Pay electronically', 'الدفع الإلكتروني', language)}</span>
-                    <span className="pay-invite-payment-card-desc">{t('Card or Mada online', 'بطاقة أو متاب أونلاين', language)}</span>
+                    <span className="pay-invite-payment-card-title">{t('Pay electronically', 'الدفع الإلكتروني')}</span>
+                    <span className="pay-invite-payment-card-desc">{t('Card or Mada online', 'بطاقة أو متاب أونلاين')}</span>
                   </Link>
                 </div>
               </div>

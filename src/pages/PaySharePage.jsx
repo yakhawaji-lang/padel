@@ -3,11 +3,12 @@
  * /pay-share/:token
  * يسمح للمشارك بدفع حصته إما في النادي أو إلكترونياً
  */
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { getInviteByToken, recordPayment } from '../api/dbClient'
 import { getAppLanguage } from '../storage/languageStorage'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
+import { addMemberToClub } from '../storage/adminStorage'
 import './PaymentPage.css'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
@@ -33,6 +34,23 @@ const PaySharePage = () => {
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const platformUser = getCurrentPlatformUser()
+  const shareSyncRef = React.useRef(false)
+
+  const loadInvite = useCallback(() => {
+    if (!token) return Promise.resolve()
+    return getInviteByToken(token)
+      .then((d) => {
+        setData(d)
+        setError(null)
+      })
+      .catch((e) => {
+        setError(e?.message || 'Failed to load invite')
+      })
+  }, [token])
+
+  useEffect(() => {
+    shareSyncRef.current = false
+  }, [token])
 
   useEffect(() => {
     if (!token) {
@@ -40,16 +58,39 @@ const PaySharePage = () => {
       setError('Token required')
       return
     }
-    getInviteByToken(token)
-      .then(d => {
-        setData(d)
-        setError(null)
-      })
-      .catch(e => {
-        setError(e?.message || 'Failed to load invite')
-      })
-      .finally(() => setLoading(false))
-  }, [token])
+    setLoading(true)
+    loadInvite().finally(() => setLoading(false))
+  }, [token, loadInvite])
+
+  useEffect(() => {
+    if (!platformUser?.id || !data?.clubId || !token || shareSyncRef.current) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const bookingApi = await import('../api/dbClient')
+        try {
+          await bookingApi.joinClub(data.clubId, platformUser.id)
+          await addMemberToClub(platformUser.id, data.clubId)
+        } catch (_) {}
+        try {
+          await bookingApi.claimInviteShare({
+            inviteToken: token,
+            clubId: data.clubId,
+            memberId: platformUser.id,
+            phone: platformUser.mobile || platformUser.phone,
+            memberName: platformUser.name
+          })
+        } catch (_) {}
+        if (cancelled) return
+        shareSyncRef.current = true
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('clubs-synced'))
+        }
+        await loadInvite()
+      } catch (_) {}
+    })()
+    return () => { cancelled = true }
+  }, [platformUser?.id, data?.clubId, token, loadInvite])
 
   const handlePayAtClub = async () => {
     if (!token || !data?.clubId) return
@@ -100,6 +141,8 @@ const PaySharePage = () => {
     processing: t('Processing...', 'جاري المعالجة...', language),
     chosenPayAtClub: t('Chosen — pay at club', 'اخترتها — سأدفع في النادي', language),
     switchToElectronic: t('Switch to electronic payment', 'التبديل إلى الدفع الإلكتروني', language),
+    newHere: t('New to PlayTix?', 'جديد على PlayTix؟', language),
+    startWithInvite: t('Open the invite page to register with email', 'افتح صفحة الدعوة للتسجيل بالبريد', language),
   }
 
   if (loading) {
@@ -125,15 +168,39 @@ const PaySharePage = () => {
     )
   }
 
-  if (!platformUser) {
+  if (!data) {
     return (
       <div className="payment-page">
         <div className="payment-card payment-error">
+          <h1 className="payment-title">{c.notFound}</h1>
+          <Link to="/" className="payment-btn payment-btn-secondary">{c.backToHome}</Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (!platformUser) {
+    const loginQs = new URLSearchParams()
+    if (data.clubId) loginQs.set('join', data.clubId)
+    loginQs.set('return', `/pay-share/${token}`)
+    const loginTo = `/login?${loginQs.toString()}`
+    return (
+      <div className="payment-page" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+        <div className="payment-card">
           <h1 className="payment-title">{c.loginRequired}</h1>
-          <Link to={`/login?returnTo=/pay-share/${token}`} className="payment-btn payment-btn-primary">
+          <p className="payment-message" style={{ marginBottom: 20 }}>
+            {formatDate(data.bookingDate, language)} · {data.startTime || '—'} – {data.endTime || '—'}
+            <br />
+            <strong>{c.amount}: {parseFloat(data.amount || 0).toFixed(2)} {t('SAR', 'ر.س')}</strong>
+          </p>
+          <Link to={loginTo} className="payment-btn payment-btn-primary">
             {language === 'ar' ? 'تسجيل الدخول' : 'Log in'}
           </Link>
-          <Link to="/" className="payment-btn payment-btn-secondary">{c.backToHome}</Link>
+          <p className="payment-share-guest-hint">{c.newHere}</p>
+          <Link to={`/pay-invite/${token}`} className="payment-btn payment-btn-secondary payment-share-register-link">
+            {c.startWithInvite}
+          </Link>
+          <Link to="/" className="payment-link-secondary" style={{ display: 'block', marginTop: 16 }}>{c.backToHome}</Link>
         </div>
       </div>
     )
@@ -171,6 +238,15 @@ const PaySharePage = () => {
   return (
     <div className="payment-page" dir={language === 'ar' ? 'rtl' : 'ltr'}>
       <div className="payment-card">
+        {platformUser?.profileIncomplete ? (
+          <div className="payment-profile-banner" role="region" aria-live="polite">
+            <p className="payment-profile-banner-text">
+              {language === 'ar'
+                ? 'يرجى استكمال بيانات العضوية من قائمة الحساب عندما تتاح لك الفرصة.'
+                : 'Please complete your member profile from the account menu when you can.'}
+            </p>
+          </div>
+        ) : null}
         <h1 className="payment-title">{c.title}</h1>
 
         <dl className="payment-details">
