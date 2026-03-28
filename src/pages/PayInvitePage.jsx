@@ -30,6 +30,12 @@ function phoneToDigits(phone) {
   return phone.replace(/\D/g, '')
 }
 
+/** Public club booking page path (matches React Router /clubs/:clubId) */
+function clubPublicPath(clubId) {
+  if (clubId == null || String(clubId).trim() === '') return '/'
+  return `/clubs/${encodeURIComponent(String(clubId))}`
+}
+
 const PayInvitePage = () => {
   const navigate = useNavigate()
   const { token: tokenParam } = useParams()
@@ -307,7 +313,9 @@ const PayInvitePage = () => {
       </div>
 
       <p className="pay-invite-footer-link">
-        <Link to="/">{t('Back to home', 'العودة للرئيسية')}</Link>
+        <Link to={clubPublicPath(data.clubId)}>
+          {data.clubId ? t('Open club page', 'صفحة النادي') : t('Back to home', 'العودة للرئيسية')}
+        </Link>
       </p>
     </div>
   )

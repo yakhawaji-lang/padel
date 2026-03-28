@@ -13,6 +13,11 @@ import './PaymentPage.css'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
+function clubPublicPath(clubId) {
+  if (clubId == null || String(clubId).trim() === '') return '/'
+  return `/clubs/${encodeURIComponent(String(clubId))}`
+}
+
 const formatDate = (dateStr, lang) => {
   if (!dateStr) return '—'
   try {
@@ -133,6 +138,7 @@ const PaySharePage = () => {
     amount: t('Your share', 'حصتك', language),
     success: t('Payment recorded! Redirecting...', 'تم تسجيل الدفع! جاري التحويل...', language),
     backToHome: t('Back to home', 'العودة للرئيسية', language),
+    openClubPage: t('Open club page', 'صفحة النادي', language),
     myBookings: t('My bookings', 'حجوزاتي', language),
     loading: t('Loading...', 'جاري التحميل...', language),
     notFound: t('Invite not found', 'الدعوة غير موجودة', language),
@@ -200,7 +206,9 @@ const PaySharePage = () => {
           <Link to={`/pay-invite/${token}`} className="payment-btn payment-btn-secondary payment-share-register-link">
             {c.startWithInvite}
           </Link>
-          <Link to="/" className="payment-link-secondary" style={{ display: 'block', marginTop: 16 }}>{c.backToHome}</Link>
+          <Link to={clubPublicPath(data?.clubId)} className="payment-link-secondary" style={{ display: 'block', marginTop: 16 }}>
+            {data?.clubId ? c.openClubPage : c.backToHome}
+          </Link>
         </div>
       </div>
     )
