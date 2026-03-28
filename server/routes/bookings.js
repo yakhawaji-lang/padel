@@ -21,6 +21,20 @@ import { hasNormalizedTables, purgeClubBookingFromDb } from '../db/normalizedDat
 import * as slotCache from '../lib/slotCache.js'
 import { sendPlatformMessage } from '../services/messageSend.js'
 
+function normalizeInviteTokenParamExpress(raw) {
+  if (raw == null || raw === '') return ''
+  let s = String(raw).trim()
+  try {
+    s = decodeURIComponent(s)
+  } catch (_) {}
+  s = s.replace(/[\s\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, '')
+  if (!s) return ''
+  const noFrag = s.split(/[?#]/)[0]
+  const m = noFrag.match(/^inv_([a-f0-9]{32})$/i)
+  if (m) return `inv_${m[1].toLowerCase()}`
+  return noFrag
+}
+
 /**
  * فاتورة حجز ملعب — دافع واحد، المبلغ المدفوع = الإجمالي، بدون صفوف booking_payment_shares.
  * idempotent عبر issueInvoiceForFullBookingPayment.
@@ -1112,7 +1126,9 @@ router.post('/claim-invite-share', async (req, res) => {
   try {
     const normalized = await hasNormalizedTables()
     if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
-    const { inviteToken, clubId, memberId, phone, memberName } = req.body || {}
+    const body = req.body || {}
+    const inviteToken = normalizeInviteTokenParamExpress(body.inviteToken)
+    const { clubId, memberId, phone, memberName } = body
     if (!inviteToken || !clubId || !memberId) {
       return res.status(400).json({ error: 'inviteToken, clubId, memberId required' })
     }
@@ -1485,32 +1501,68 @@ router.post('/add-split-participants', async (req, res) => {
 /** GET /api/bookings/invite/:token - Get invite/share data by token (must be before /:id) */
 router.get('/invite/:token', async (req, res) => {
   try {
-    const { token } = req.params
+    const token = normalizeInviteTokenParamExpress(req.params.token)
     if (!token) return res.status(400).json({ error: 'Token required' })
     let rows
-    try {
-      const q = await query(
-        `SELECT bps.id, bps.booking_id, bps.club_id, bps.participant_type, bps.member_id, bps.member_name, bps.phone, bps.amount, bps.invite_token, bps.paid_at, bps.payment_method,
-                bps.removed_at, bps.refunded_at,
-                cb.court_id, cb.booking_date, cb.start_time, cb.end_time, cb.status AS booking_status, cb.total_amount
-         FROM booking_payment_shares bps
-         JOIN club_bookings cb ON cb.id = bps.booking_id AND cb.club_id = bps.club_id AND cb.deleted_at IS NULL
-         WHERE bps.invite_token = ?`,
-        [token]
-      )
-      rows = q.rows
-    } catch (_) {
-      const q = await query(
-        `SELECT bps.id, bps.booking_id, bps.club_id, bps.participant_type, bps.member_id, bps.member_name, bps.phone, bps.amount, bps.invite_token, bps.paid_at, bps.payment_method,
-                cb.court_id, cb.booking_date, cb.start_time, cb.end_time, cb.status AS booking_status, cb.total_amount
-         FROM booking_payment_shares bps
-         JOIN club_bookings cb ON cb.id = bps.booking_id AND cb.club_id = bps.club_id AND cb.deleted_at IS NULL
-         WHERE bps.invite_token = ?`,
-        [token]
-      )
+    const innerJoinSql = (removedFilter) =>
+      `SELECT bps.id, bps.booking_id, bps.club_id, bps.participant_type, bps.member_id, bps.member_name, bps.phone, bps.amount, bps.invite_token, bps.paid_at, bps.payment_method,
+              bps.removed_at, bps.refunded_at,
+              cb.court_id, cb.booking_date, cb.start_time, cb.end_time, cb.status AS booking_status, cb.total_amount
+       FROM booking_payment_shares bps
+       JOIN club_bookings cb ON cb.id = bps.booking_id AND cb.club_id = bps.club_id AND cb.deleted_at IS NULL
+       WHERE bps.invite_token = ?${removedFilter}`
+    let q = await query(innerJoinSql(' AND (bps.removed_at IS NULL)'), [token])
+    rows = q.rows
+    if (!rows?.length) {
+      q = await query(innerJoinSql(''), [token])
       rows = q.rows
     }
-    if (!rows?.length) return res.status(404).json({ error: 'Invite not found' })
+    if (!rows?.length) {
+      let bpsOnly
+      try {
+        const r = await query(
+          `SELECT id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, invite_token, paid_at, payment_method, removed_at, refunded_at
+           FROM booking_payment_shares WHERE invite_token = ? LIMIT 1`,
+          [token]
+        )
+        bpsOnly = r.rows?.[0]
+      } catch (_) {
+        bpsOnly = null
+      }
+      if (!bpsOnly) return res.status(404).json({ error: 'Invite not found' })
+      let cb
+      try {
+        const r2 = await query(
+          `SELECT court_id, booking_date, start_time, end_time, status AS booking_status, total_amount
+           FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL LIMIT 1`,
+          [bpsOnly.booking_id, bpsOnly.club_id]
+        )
+        cb = r2.rows?.[0]
+      } catch (_) {
+        cb = null
+      }
+      if (!cb) return res.status(410).json({ error: 'Booking no longer available for this invite' })
+      const r = { ...bpsOnly, ...cb }
+      if (r.removed_at) return res.status(410).json({ error: 'Invite is no longer valid' })
+      return res.json({
+        inviteToken: r.invite_token,
+        bookingId: r.booking_id,
+        clubId: r.club_id,
+        participantType: r.participant_type,
+        memberId: r.member_id,
+        memberName: r.member_name,
+        phone: r.phone,
+        amount: parseFloat(r.amount) || 0,
+        paidAt: r.paid_at || undefined,
+        paymentMethod: r.payment_method || undefined,
+        courtId: r.court_id,
+        bookingDate: r.booking_date ? String(r.booking_date).split('T')[0] : null,
+        startTime: r.start_time,
+        endTime: r.end_time,
+        bookingStatus: r.booking_status,
+        totalAmount: parseFloat(r.total_amount) || 0
+      })
+    }
     const r = rows[0]
     if (r.removed_at) return res.status(410).json({ error: 'Invite is no longer valid' })
     res.json({

@@ -4,11 +4,16 @@
  * المدعو يسجّل بالبريد (كود تحقق) ثم يكمل البيانات ويُوجَّه لدفع الحصة (نادي / إلكتروني)
  */
 import React, { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { getInviteByToken, recordPayment } from '../api/dbClient'
 import { getAppLanguage } from '../storage/languageStorage'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { addMemberToClub } from '../storage/adminStorage'
+import {
+  normalizeInviteTokenParam,
+  persistResumeInviteToken,
+  readResumeInviteToken,
+} from '../utils/paymentShareDeepLink'
 import './PayInvitePage.css'
 
 /** Base URL of the app (origin + base path) — works locally and on deployed domain */
@@ -26,7 +31,9 @@ function phoneToDigits(phone) {
 }
 
 const PayInvitePage = () => {
-  const { token } = useParams()
+  const navigate = useNavigate()
+  const { token: tokenParam } = useParams()
+  const tokenNorm = React.useMemo(() => normalizeInviteTokenParam(tokenParam), [tokenParam])
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -35,28 +42,43 @@ const PayInvitePage = () => {
   const [markedPaid, setMarkedPaid] = useState(false)
   const language = getAppLanguage() || 'en'
 
-  const loadInvite = React.useCallback(() => {
-    if (!token) {
+  const loadInvite = React.useCallback(async () => {
+    const stored = readResumeInviteToken()
+    const candidates = [...new Set([tokenNorm, stored].filter(Boolean))]
+    if (!candidates.length) {
       setLoading(false)
       setError('Token required')
       setErrorStatus(null)
+      setData(null)
       return
     }
     setError(null)
     setErrorStatus(null)
     setLoading(true)
-    getInviteByToken(token)
-      .then(d => {
+    let lastErr = null
+    for (const t of candidates) {
+      try {
+        const d = await getInviteByToken(t)
         setData(d)
         setError(null)
         setErrorStatus(null)
-      })
-      .catch(e => {
-        setError(e?.message || 'Failed to load invite')
-        setErrorStatus(e?.status ?? (e?.message && /fetch|network|failed to load/i.test(e.message) ? 'network' : null))
-      })
-      .finally(() => setLoading(false))
-  }, [token])
+        persistResumeInviteToken(d?.inviteToken || t)
+        if (t !== tokenNorm) {
+          navigate(`/pay-invite/${d?.inviteToken || t}`, { replace: true })
+        }
+        setLoading(false)
+        return
+      } catch (e) {
+        lastErr = e
+      }
+    }
+    setData(null)
+    setError(lastErr?.message || 'Failed to load invite')
+    setErrorStatus(
+      lastErr?.status ?? (lastErr?.message && /fetch|network|failed to load/i.test(lastErr.message) ? 'network' : null)
+    )
+    setLoading(false)
+  }, [tokenNorm, navigate])
 
   useEffect(() => {
     loadInvite()
@@ -66,10 +88,11 @@ const PayInvitePage = () => {
   const inviteAutoSyncRef = React.useRef(false)
   useEffect(() => {
     inviteAutoSyncRef.current = false
-  }, [token])
+  }, [tokenNorm])
 
   useEffect(() => {
-    if (!platformUser?.id || !data?.clubId || !token || inviteAutoSyncRef.current) return
+    const inviteTok = data?.inviteToken || tokenNorm
+    if (!platformUser?.id || !data?.clubId || !inviteTok || inviteAutoSyncRef.current) return
     let cancelled = false
     ;(async () => {
       try {
@@ -80,7 +103,7 @@ const PayInvitePage = () => {
         } catch (_) {}
         try {
           await bookingApi.claimInviteShare({
-            inviteToken: token,
+            inviteToken: inviteTok,
             clubId: data.clubId,
             memberId: platformUser.id,
             phone: platformUser.mobile || platformUser.phone,
@@ -96,7 +119,7 @@ const PayInvitePage = () => {
       } catch (_) {}
     })()
     return () => { cancelled = true }
-  }, [platformUser?.id, data?.clubId, token, loadInvite])
+  }, [platformUser?.id, data?.clubId, data?.inviteToken, tokenNorm, loadInvite])
 
   const t = (en, ar) => (language === 'ar' ? ar : en)
 
@@ -140,7 +163,8 @@ const PayInvitePage = () => {
 
   const baseUrl = getAppBaseUrl()
   const digits = phoneToDigits(data.phone || '')
-  const returnTo = `/pay-invite/${token}`
+  const canonicalInviteToken = data?.inviteToken || tokenNorm
+  const returnTo = `/pay-invite/${canonicalInviteToken}`
   const registerQuery = new URLSearchParams()
   registerQuery.set('join', data.clubId || '')
   if (digits.length >= 8) registerQuery.set('phone', digits)
@@ -149,10 +173,11 @@ const PayInvitePage = () => {
   const clubsUrl = `${baseUrl}/clubs/${encodeURIComponent(data.clubId || '')}`
 
   const handleMarkPaid = async () => {
-    if (!token || !data?.clubId) return
+    const inviteTok = data?.inviteToken || tokenNorm
+    if (!inviteTok || !data?.clubId) return
     setMarkingPaid(true)
     try {
-      await recordPayment({ inviteToken: token, clubId: data.clubId, paymentMethod: 'at_club' })
+      await recordPayment({ inviteToken: inviteTok, clubId: data.clubId, paymentMethod: 'at_club' })
       setMarkedPaid(true)
     } catch (e) {
       if (typeof window !== 'undefined' && window.alert) {
@@ -251,7 +276,7 @@ const PayInvitePage = () => {
                     <span className="pay-invite-payment-card-desc">{chosePayAtClub ? (language === 'ar' ? 'لا يمكن تغييرها إلا بالدفع الإلكتروني' : 'Cannot change except via electronic payment') : t('Cash or card at the club', 'كاش أو بطاقة في النادي')}</span>
                     {markingPaid && !chosePayAtClub && <span className="pay-invite-payment-card-loading">{t('Saving...', 'جاري الحفظ...')}</span>}
                   </button>
-                  <Link to={`/pay-share/${token}`} className="pay-invite-payment-card pay-invite-payment-card-electronic">
+                  <Link to={`/pay-share/${canonicalInviteToken}`} className="pay-invite-payment-card pay-invite-payment-card-electronic">
                     <span className="pay-invite-payment-card-icon" aria-hidden>💳</span>
                     <span className="pay-invite-payment-card-title">{t('Pay electronically', 'الدفع الإلكتروني')}</span>
                     <span className="pay-invite-payment-card-desc">{t('Card or Mada online', 'بطاقة أو متاب أونلاين')}</span>

@@ -621,7 +621,14 @@ export async function adminExtendSplitPaymentDeadline({ bookingId, clubId }) {
 
 // ---- Invite ----
 export async function getInviteByToken(token) {
-  return fetchJson(`/api/bookings/invite/${encodeURIComponent(token)}`)
+  const { normalizeInviteTokenParam } = await import('../utils/paymentShareDeepLink.js')
+  const t = normalizeInviteTokenParam(token)
+  if (!t) {
+    const e = new Error('Token required')
+    e.status = 400
+    throw e
+  }
+  return fetchJson(`/api/bookings/invite/${encodeURIComponent(t)}`)
 }
 
 /** After pay-invite quick register: link booking_payment_shares row to the new member */

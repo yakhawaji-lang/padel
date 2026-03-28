@@ -15,7 +15,12 @@ import { getCurrentPlatformUser, setCurrentPlatformUser } from '../storage/platf
 import { upsertMember, getMergedMembersRaw, addMemberToClub } from '../storage/adminStorage'
 import { sendRegistrationWelcome, sendEmailVerificationCode, verifyEmailCode, sendWelcomeMemberEmail } from '../api/dbClient'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
-import { isPaymentShareRegistrationReturn, parsePaymentShareInviteToken } from '../utils/paymentShareDeepLink'
+import {
+  isPaymentShareRegistrationReturn,
+  normalizePayReturnPath,
+  parsePaymentShareInviteToken,
+  persistResumeInviteToken,
+} from '../utils/paymentShareDeepLink'
 import './Register.css'
 
 /** Normalize phone to digits for comparison */
@@ -28,8 +33,9 @@ const Register = () => {
   const [searchParams] = useSearchParams()
   const joinClubId = searchParams.get('join')
   const phoneFromUrl = searchParams.get('phone')
-  const returnTo = searchParams.get('returnTo') || ''
-  const isPaymentShareRegReturn = isPaymentShareRegistrationReturn(returnTo)
+  const returnToRaw = searchParams.get('returnTo') || ''
+  const returnPath = normalizePayReturnPath(returnToRaw)
+  const isPaymentShareRegReturn = isPaymentShareRegistrationReturn(returnPath)
   const isPhoneOnlyFlow =
     !isPaymentShareRegReturn && !!(joinClubId && phoneFromUrl && phoneDigits(phoneFromUrl).length >= 8)
   const [language, setLanguage] = useState(getAppLanguage())
@@ -55,7 +61,7 @@ const Register = () => {
     if (!user) return
     let cancelled = false
     ;(async () => {
-      const inviteTok = parsePaymentShareInviteToken(returnTo)
+      const inviteTok = parsePaymentShareInviteToken(returnPath)
       const bookingApi = await import('../api/dbClient')
       let effectiveClubId = joinClubId || null
       if (inviteTok && !effectiveClubId) {
@@ -83,15 +89,15 @@ const Register = () => {
         } catch (_) {}
       }
       if (cancelled) return
-      if (returnTo && returnTo.startsWith('/')) {
-        navigate(returnTo, { replace: true })
+      if (returnPath && returnPath.startsWith('/')) {
+        navigate(returnPath, { replace: true })
         return
       }
       if (joinClubId) navigate(`/clubs/${joinClubId}`, { replace: true })
       else navigate('/', { replace: true })
     })()
     return () => { cancelled = true }
-  }, [joinClubId, returnTo, navigate])
+  }, [joinClubId, returnPath, navigate])
 
   const t = {
     en: {
@@ -277,7 +283,7 @@ const Register = () => {
       setError(language === 'en' ? 'Registration failed.' : 'فشل التسجيل.')
       return
     }
-    const inviteTokenFromReturn = parsePaymentShareInviteToken(returnTo)
+    const inviteTokenFromReturn = parsePaymentShareInviteToken(returnPath)
     const bookingApi = inviteTokenFromReturn || joinClubId ? await import('../api/dbClient') : null
     if (joinClubId) {
       try {
@@ -293,6 +299,14 @@ const Register = () => {
         if (!claimClubId) {
           const inv = await bookingApi.getInviteByToken(inviteTokenFromReturn).catch(() => null)
           claimClubId = inv?.clubId || null
+        }
+        if (claimClubId && !joinClubId) {
+          try {
+            await bookingApi.joinClub(claimClubId, newMember.id)
+            await addMemberToClub(newMember.id, claimClubId)
+          } catch (e) {
+            console.warn('Auto-join club from invite after register:', e)
+          }
         }
         if (claimClubId) {
           await bookingApi.claimInviteShare({
@@ -318,8 +332,11 @@ const Register = () => {
     if (email && email.includes('@')) {
       sendWelcomeMemberEmail(email, newMember.name).catch(() => {})
     }
-    if (returnTo && returnTo.startsWith('/')) {
-      navigate(returnTo, { replace: true })
+    if (inviteTokenFromReturn) {
+      persistResumeInviteToken(inviteTokenFromReturn)
+    }
+    if (returnPath && returnPath.startsWith('/')) {
+      navigate(returnPath, { replace: true })
       return
     }
     if (joinClubId) navigate(`/clubs/${joinClubId}`, { replace: true })
@@ -487,7 +504,7 @@ const Register = () => {
               to={(() => {
                 const q = new URLSearchParams()
                 if (joinClubId) q.set('join', joinClubId)
-                if (returnTo) q.set('return', returnTo)
+                if (returnPath) q.set('return', returnPath)
                 const s = q.toString()
                 return s ? `/login?${s}` : '/login'
               })()}

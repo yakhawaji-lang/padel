@@ -6,7 +6,7 @@ import './Login.css'
 import { getMergedMembersRaw, addMemberToClub } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import { setCurrentPlatformUser } from '../storage/platformAuth'
-import { parsePaymentShareInviteToken } from '../utils/paymentShareDeepLink'
+import { normalizePayReturnPath, parsePaymentShareInviteToken, persistResumeInviteToken } from '../utils/paymentShareDeepLink'
 
 /** Normalize for comparison: trim, lowercase emails and names, digits-only for phones */
 function norm(s) {
@@ -23,6 +23,7 @@ const Login = () => {
   const [searchParams] = useSearchParams()
   const joinClubId = searchParams.get('join')
   const returnUrl = searchParams.get('return')
+  const returnPath = normalizePayReturnPath(returnUrl || '')
   const [language, setLanguage] = useState(getAppLanguage())
   const [formData, setFormData] = useState({
     email: '',
@@ -59,9 +60,9 @@ const Login = () => {
       })
       if (member) {
         await setCurrentPlatformUser(member.id)
-        const inviteTok =
-          returnUrl && returnUrl.startsWith('/') ? parsePaymentShareInviteToken(returnUrl) : null
+        const inviteTok = returnPath.startsWith('/') ? parsePaymentShareInviteToken(returnPath) : null
         if (inviteTok) {
+          persistResumeInviteToken(inviteTok)
           try {
             const bookingApi = await import('../api/dbClient')
             let claimClubId = joinClubId || null
@@ -98,8 +99,8 @@ const Login = () => {
             }
           } catch (_) {}
         }
-        if (returnUrl && returnUrl.startsWith('/')) {
-          navigate(returnUrl)
+        if (returnPath && returnPath.startsWith('/')) {
+          navigate(returnPath)
         } else if (joinClubId) {
           navigate(`/clubs/${joinClubId}`)
         } else {
@@ -139,7 +140,7 @@ const Login = () => {
           <img src={`${import.meta.env.BASE_URL}logo-playtix.png`} alt="PlayTix" className="login-logo" />
         </Link>
         <Link
-          to={joinClubId ? `/clubs/${joinClubId}` : (returnUrl && returnUrl.startsWith('/') ? returnUrl : '/')}
+          to={joinClubId ? `/clubs/${joinClubId}` : (returnPath && returnPath.startsWith('/') ? returnPath : '/')}
           className="login-back"
         >
           {joinClubId ? c.backToClub : c.backToHome}
@@ -196,7 +197,7 @@ const Login = () => {
               to={(() => {
                 const q = new URLSearchParams()
                 if (joinClubId) q.set('join', joinClubId)
-                if (returnUrl) q.set('returnTo', returnUrl)
+                if (returnPath) q.set('returnTo', returnPath)
                 const s = q.toString()
                 return s ? `/register?${s}` : '/register'
               })()}
