@@ -703,6 +703,13 @@ const MyBookingsPage = () => {
   }
   const c = t[language] || t.en
 
+  const refetchBookings = React.useCallback(async () => {
+    await refreshClubsFromApi()
+    loadClubs()
+    const mid = member?.id
+    if (mid) setBookings(getMemberBookings(mid))
+  }, [member?.id])
+
   if (!member) {
     return (
       <div className="my-bookings-page">
@@ -713,12 +720,6 @@ const MyBookingsPage = () => {
       </div>
     )
   }
-
-  const refetchBookings = React.useCallback(async () => {
-    await refreshClubsFromApi()
-    loadClubs()
-    setBookings(getMemberBookings(member.id))
-  }, [member.id])
 
   const saveInlineSharePhone = async (booking, club, share, compositeKey) => {
     if (!shareRowEditPhone.trim()) return
