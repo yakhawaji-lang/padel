@@ -1,7 +1,7 @@
 /**
  * Member: reschedule court booking (fees + wallet) or request cancel/refund per club policy.
  */
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import * as bookingApi from '../api/dbClient'
 import './MemberBookingActionsModal.css'
 
@@ -75,6 +75,10 @@ export default function MemberBookingActionsModal({
       splitParticipantTitle: 'Your share — booking details & refund',
       splitRefundNetHint: 'Estimated refund applies to your paid share only.',
       splitRefundPending: 'A refund for your share is already requested. The club will complete it.',
+      errSyncTitle: 'Sync in progress',
+      errSyncHint:
+        'Your booking data is being updated on the server. Wait a few seconds, then tap Try again. If it persists, close this window and open the booking again.',
+      retry: 'Try again',
     },
     ar: {
       title: 'تعديل أو إلغاء الحجز',
@@ -109,9 +113,29 @@ export default function MemberBookingActionsModal({
       splitParticipantTitle: 'حصتك — تفاصيل الحجز واسترداد المبلغ',
       splitRefundNetHint: 'التقدير يخص حصتك المدفوعة فقط.',
       splitRefundPending: 'سبق أن طلبت استرداد حصتك. سيُكمِل النادي الإجراء.',
+      errSyncTitle: 'جاري المزامنة',
+      errSyncHint:
+        'يتم تحديث بيانات الحجز على الخادم. انتظر ثوانٍ ثم اضغط «إعادة المحاولة». إن استمرّت المشكلة، أغلق النافذة وأعد فتح الحجز.',
+      retry: 'إعادة المحاولة',
     },
   }
   const c = t[language] || t.en
+
+  const loadErrPresentation = useMemo(() => {
+    if (!loadErr) return null
+    const m = String(loadErr).toLowerCase()
+    if (
+      m.includes('unknown column') ||
+      m.includes('member_refund') ||
+      m.includes('schema is updating') ||
+      m.includes('database migration required') ||
+      m.includes('er_bad_field_error') ||
+      m.includes('er_bad_field')
+    ) {
+      return { variant: 'schema', title: c.errSyncTitle, hint: c.errSyncHint }
+    }
+    return { variant: 'generic', title: null, hint: loadErr }
+  }, [loadErr, c.errSyncTitle, c.errSyncHint])
 
   const loadQuote = useCallback(async () => {
     if (!clubId || !bookingId || !memberId) return
@@ -242,7 +266,36 @@ export default function MemberBookingActionsModal({
           <h3 id="member-booking-actions-title">{splitShare ? c.splitParticipantTitle : c.title}</h3>
           <button type="button" className="member-booking-actions-close" onClick={onClose} aria-label={c.close}>×</button>
         </div>
-        {loadErr && <div className="member-booking-actions-err">{loadErr}</div>}
+        {loadErrPresentation && (
+          <div
+            className={`member-booking-actions-err member-booking-actions-err--${loadErrPresentation.variant}`}
+            role="alert"
+          >
+            <div className="member-booking-actions-err-inner">
+              <span className="member-booking-actions-err-ico" aria-hidden>
+                {loadErrPresentation.variant === 'schema' ? '⏳' : '⚠️'}
+              </span>
+              <div className="member-booking-actions-err-copy">
+                {loadErrPresentation.variant === 'schema' ? (
+                  <>
+                    <strong className="member-booking-actions-err-title">{loadErrPresentation.title}</strong>
+                    <p className="member-booking-actions-err-desc">{loadErrPresentation.hint}</p>
+                  </>
+                ) : (
+                  <p className="member-booking-actions-err-desc">{loadErrPresentation.hint}</p>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="member-booking-actions-err-retry"
+              onClick={() => loadQuote()}
+              disabled={busy}
+            >
+              {c.retry}
+            </button>
+          </div>
+        )}
         {!quote && !loadErr && <p className="member-booking-actions-muted member-booking-actions-body">{c.loading}</p>}
         {quote && (
           <div className="member-booking-actions-body">

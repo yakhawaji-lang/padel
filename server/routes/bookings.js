@@ -75,6 +75,42 @@ function shareAllowsElectronicRefundFromPaymentRow(row) {
   return ['credit_card', 'mada', 'electronic', 'card', 'online', 'stripe', 'apple_pay', 'google_pay', 'tap', 'hyperpay'].includes(pm)
 }
 
+const SHARE_ROW_MEMBER_REFUND_SELECT = `id, booking_id, club_id, invite_token, member_id, phone, amount, paid_at, removed_at, refunded_at, payment_method, member_refund_requested_at`
+
+/** Ensures bookingMigration member_refund_* columns exist if an old DB returns ER_BAD_FIELD_ERROR */
+async function selectPaymentShareRowForMemberRefund(bookingId, clubId, { shareId, inviteToken }) {
+  const run = async () => {
+    if (shareId) {
+      const r = await query(
+        `SELECT ${SHARE_ROW_MEMBER_REFUND_SELECT} FROM booking_payment_shares WHERE id = ? AND booking_id = ? AND club_id = ?`,
+        [shareId, bookingId, clubId]
+      )
+      return r.rows?.[0]
+    }
+    const t = normalizeInviteTokenParamExpress(inviteToken)
+    const r = await query(
+      `SELECT ${SHARE_ROW_MEMBER_REFUND_SELECT} FROM booking_payment_shares WHERE invite_token = ? AND booking_id = ? AND club_id = ?`,
+      [t, bookingId, clubId]
+    )
+    return r.rows?.[0]
+  }
+  try {
+    return await run()
+  } catch (e) {
+    const msg = e?.message || ''
+    if (
+      msg.includes('member_refund_requested_at') ||
+      msg.includes('member_refund_route') ||
+      msg.includes('member_refund_net')
+    ) {
+      const { runMigration } = await import('../db/bookingMigration.js')
+      await runMigration()
+      return await run()
+    }
+    throw e
+  }
+}
+
 /**
  * فاتورة حجز ملعب — دافع واحد، المبلغ المدفوع = الإجمالي، بدون صفوف booking_payment_shares.
  * idempotent عبر issueInvoiceForFullBookingPayment.
@@ -137,7 +173,11 @@ const bookingRateLimit = rateLimit({
 router.use(bookingRateLimit)
 
 function dbError(e) {
-  return e?.message || 'Database error'
+  const msg = e?.message || 'Database error'
+  if (/unknown column.*member_refund|member_refund.*unknown column/i.test(msg)) {
+    return 'Database schema is updating. Please try again in a few seconds.'
+  }
+  return msg
 }
 
 function addDaysBooking(isoDateStr, deltaDays) {
@@ -1768,23 +1808,8 @@ router.post('/member-share-self-service-quote', async (req, res) => {
     if (data.type === 'training') return res.status(400).json({ error: 'Not available for training' })
 
     let row
-    if (shareId) {
-      const r = await query(
-        `SELECT id, booking_id, club_id, invite_token, member_id, phone, amount, paid_at, removed_at, refunded_at, payment_method,
-                member_refund_requested_at
-         FROM booking_payment_shares WHERE id = ? AND booking_id = ? AND club_id = ?`,
-        [shareId, bookingId, clubId]
-      )
-      row = r.rows?.[0]
-    } else if (inviteToken) {
-      const t = normalizeInviteTokenParamExpress(inviteToken)
-      const r = await query(
-        `SELECT id, booking_id, club_id, invite_token, member_id, phone, amount, paid_at, removed_at, refunded_at, payment_method,
-                member_refund_requested_at
-         FROM booking_payment_shares WHERE invite_token = ? AND booking_id = ? AND club_id = ?`,
-        [t, bookingId, clubId]
-      )
-      row = r.rows?.[0]
+    if (shareId || inviteToken) {
+      row = await selectPaymentShareRowForMemberRefund(bookingId, clubId, { shareId, inviteToken })
     } else {
       return res.status(400).json({ error: 'shareId or inviteToken required' })
     }
@@ -1874,23 +1899,8 @@ router.post('/member-request-share-refund', async (req, res) => {
     if (data.type === 'training') return res.status(400).json({ error: 'Not available for training' })
 
     let row
-    if (shareId) {
-      const r = await query(
-        `SELECT id, booking_id, club_id, invite_token, member_id, phone, amount, paid_at, removed_at, refunded_at, payment_method,
-                member_refund_requested_at
-         FROM booking_payment_shares WHERE id = ? AND booking_id = ? AND club_id = ?`,
-        [shareId, bookingId, clubId]
-      )
-      row = r.rows?.[0]
-    } else if (inviteToken) {
-      const t = normalizeInviteTokenParamExpress(inviteToken)
-      const r = await query(
-        `SELECT id, booking_id, club_id, invite_token, member_id, phone, amount, paid_at, removed_at, refunded_at, payment_method,
-                member_refund_requested_at
-         FROM booking_payment_shares WHERE invite_token = ? AND booking_id = ? AND club_id = ?`,
-        [t, bookingId, clubId]
-      )
-      row = r.rows?.[0]
+    if (shareId || inviteToken) {
+      row = await selectPaymentShareRowForMemberRefund(bookingId, clubId, { shareId, inviteToken })
     } else {
       return res.status(400).json({ error: 'shareId or inviteToken required' })
     }

@@ -736,15 +736,23 @@ export async function getClubsFromNormalized() {
       }
     })(),
     (async () => {
-      try {
-        return await query(
-          `SELECT id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, paid_at, payment_reference, payment_method,
+      const fullSharesSql = `SELECT id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, paid_at, payment_reference, payment_method,
            refunded_at, refund_method, refund_reference, refund_notes, refund_acknowledged_at, removed_at,
            member_refund_route, member_refund_requested_at, member_refund_net
-           FROM booking_payment_shares WHERE club_id IN (${placeholders})`,
-          clubIds
-        )
-      } catch (_) {
+           FROM booking_payment_shares WHERE club_id IN (${placeholders})`
+      try {
+        return await query(fullSharesSql, clubIds)
+      } catch (e) {
+        const msg = e?.message || ''
+        if (msg.includes('member_refund_requested_at') || msg.includes('member_refund_route') || msg.includes('member_refund_net')) {
+          try {
+            const { runMigration } = await import('./bookingMigration.js')
+            await runMigration()
+            return await query(fullSharesSql, clubIds)
+          } catch (_) {
+            /* fall through to partial SELECT */
+          }
+        }
         try {
           return await query(`SELECT id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, paid_at, payment_reference, payment_method FROM booking_payment_shares WHERE club_id IN (${placeholders})`, clubIds)
         } catch {
