@@ -806,6 +806,127 @@
   line-height: 1.45;
 }
 
+/* Gather participants step (split Phase 1) */
+.booking-payment-share-gather-intro {
+  margin-bottom: 16px;
+}
+
+.booking-payment-share-gather-title {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.booking-payment-share-gather-hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.booking-payment-share-gather-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+}
+
+.booking-payment-share-gather-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.booking-payment-share-gather-item-name {
+  font-weight: 600;
+  color: #334155;
+  flex: 1;
+  min-width: 120px;
+}
+
+.booking-payment-share-gather-item-phone {
+  font-size: 0.875rem;
+  color: #64748b;
+  direction: ltr;
+}
+
+.booking-payment-share-favorites-pick {
+  margin-bottom: 16px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.booking-payment-share-favorites-pick-label {
+  margin: 0 0 10px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.booking-payment-share-favorites-pick-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.booking-payment-share-favorites-pick-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.booking-payment-share-favorites-pick-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.booking-payment-share-favorites-pick-name {
+  font-weight: 500;
+  color: #334155;
+}
+
+.booking-payment-share-unified-add-btn--compact {
+  padding: 8px 14px;
+  font-size: 0.8125rem;
+}
+
+.booking-payment-share-add--gather {
+  margin-top: 8px;
+}
+
+.booking-payment-share-unified-match--already {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.booking-payment-share-already-msg {
+  margin: 0;
+  flex: 1;
+  font-size: 0.875rem;
+  color: #b45309;
+  font-weight: 500;
+}
+
+.booking-payment-share-back-add-hint {
+  margin: 12px 0 0;
+  font-size: 0.8125rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
 /* RTL support */
 [dir="rtl"] .booking-payment-share-item-amount {
   direction: ltr;

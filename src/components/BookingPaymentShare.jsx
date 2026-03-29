@@ -7,8 +7,8 @@
  */
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import * as bookingApi from '../api/dbClient'
-import { normalizePhone, phoneDigits } from '../utils/phoneNormalize'
-import { phoneTailKey, findMembersByPhoneTail, resolvePaymentShareDisplayName } from '../utils/paymentShareMemberMatch'
+import { normalizePhone } from '../utils/phoneNormalize'
+import { phoneTailKey, resolvePaymentShareDisplayName } from '../utils/paymentShareMemberMatch'
 import { isContactsPickSupported, pickPhoneNumbersFromContacts } from '../utils/contactPicker'
 
 export { normalizePhone } from '../utils/phoneNormalize'
@@ -65,6 +65,9 @@ export function buildWhatsAppLinkForRegistered(phone, clubName, dateStr, timeStr
   return `https://wa.me/${base}?text=${encodeURIComponent(msg)}`
 }
 
+/**
+ * splitPhase `participants` (club booking): add everyone first; `amounts`: split money + WhatsApp. Default `amounts` for training join.
+ */
 export default function BookingPaymentShare({
   totalPrice,
   currency,
@@ -84,8 +87,10 @@ export default function BookingPaymentShare({
   hideHeaderToggle = false,
   /** Optional hint when cap reached */
   maxShareHint = '',
+  splitPhase = 'amounts',
 }) {
   const shares = value || []
+  const isGatherPhase = splitPhase === 'participants'
   const [isExpanded, setIsExpanded] = useState(hideHeaderToggle || shares.length > 0)
   const [splitMode, setSplitMode] = useState('equal')
   const [memberSearchQuery, setMemberSearchQuery] = useState('')
@@ -127,14 +132,29 @@ export default function BookingPaymentShare({
   )
   const searchableMembers = [...otherMembers, ...platformNotInClub]
   const addedMemberIds = new Set((shares || []).filter(s => s.memberId).map(s => String(s.memberId)))
-  const searchDigits = phoneDigits(memberSearchQuery)
+  const phoneTailAlreadyInShares = useCallback(
+    (tail) => {
+      if (!tail || tail.length < 8) return false
+      return (shares || []).some((s) => {
+        const st = phoneTailKey(s.phone || '')
+        if (st.length >= 8 && st === tail) return true
+        if (s.memberId) {
+          const m = searchableMembers.find((x) => String(x?.id) === String(s.memberId))
+          const mt = phoneTailKey(m?.mobile || m?.phone || '')
+          if (mt.length >= 8 && mt === tail) return true
+        }
+        return false
+      })
+    },
+    [shares, searchableMembers]
+  )
   const searchTail = phoneTailKey(memberSearchQuery)
   const FULL_PHONE_MIN = 9
   /** Enough digits for a confident match (national 9 or longer intl / local). */
   const hasFullPhone = searchTail.length >= FULL_PHONE_MIN
   const filteredBySearch = hasFullPhone
     ? searchableMembers.filter((m) => {
-        if (addedMemberIds.has(String(m?.id))) return false
+        if (!isGatherPhase && addedMemberIds.has(String(m?.id))) return false
         const mTail = phoneTailKey(m?.mobile || m?.phone || '')
         if (mTail.length < FULL_PHONE_MIN || searchTail.length < FULL_PHONE_MIN) return false
         return mTail === searchTail
@@ -162,6 +182,11 @@ export default function BookingPaymentShare({
     return Math.round((parseFloat(raw) || 0) * 100) / 100
   }, [splitMode, shares.length, totalPrice, equalAmount, remaining])
 
+  const previewShareForGather = useMemo(() => {
+    const n = (shares?.length || 0) + 2
+    return Math.round(((parseFloat(totalPrice) || 0) / n) * 100) / 100
+  }, [totalPrice, shares.length])
+
   useEffect(() => {
     if (shares.length === 0) setAddFormOpen(true)
   }, [shares.length])
@@ -177,12 +202,31 @@ export default function BookingPaymentShare({
   const atShareCap = maxShareCount != null && shares.length >= maxShareCount
 
   useEffect(() => {
+    if (isGatherPhase) return
     if (splitMode === 'equal' && shares.length > 0) {
       const amt = Math.round((totalPrice / (shares.length + 1)) * 100) / 100
       const needsUpdate = shares.some(s => Math.abs((s.amount || 0) - amt) > 0.01)
-      if (needsUpdate) onChange(shares.map(s => ({ ...s, amount: amt })))
+      if (needsUpdate) {
+        onChange(
+          shares.map((s) => {
+            const next = { ...s, amount: amt }
+            if (s.type === 'registered') {
+              const phone =
+                s.phone ||
+                searchableMembers.find((x) => String(x?.id) === String(s.memberId))?.mobile ||
+                searchableMembers.find((x) => String(x?.id) === String(s.memberId))?.phone ||
+                ''
+              next.whatsappLink =
+                buildWhatsAppLinkForRegistered(phone, clubName, dateStr, startTime, amt, currency, language) || undefined
+            } else if (s.phone) {
+              next.whatsappLink = buildWhatsAppLink(s.phone, clubName, dateStr, startTime, amt, currency, clubId)
+            }
+            return next
+          })
+        )
+      }
     }
-  }, [splitMode, totalPrice, shares.length])
+  }, [splitMode, totalPrice, shares.length, splitPhase, clubName, dateStr, startTime, currency, language, clubId, searchableMembers])
 
   const handleToggle = (checked) => {
     setIsExpanded(checked)
@@ -203,10 +247,15 @@ export default function BookingPaymentShare({
   const addRegistered = (member) => {
     if (!member?.id) return
     if (maxShareCount != null && shares.length >= maxShareCount) return
+    if (isGatherPhase && addedMemberIds.has(String(member.id))) {
+      setContactError(t('This participant is already in the split.', 'هذا المشارك مضاف مسبقاً في المشاركة.'))
+      return
+    }
     const amt = splitMode === 'equal' ? (shares.length === 0 ? totalPrice / 2 : equalAmount) : remaining / 2
-    const amount = Math.round(amt * 100) / 100
+    const amount = isGatherPhase ? 0 : Math.round(amt * 100) / 100
+    const waAmt = isGatherPhase ? previewShareForGather : amount
     const phone = member?.mobile || member?.phone || ''
-    const whatsappLink = buildWhatsAppLinkForRegistered(phone, clubName, dateStr, startTime, amount, currency, language)
+    const whatsappLink = buildWhatsAppLinkForRegistered(phone, clubName, dateStr, startTime, waAmt, currency, language)
     onChange([...shares, {
       memberId: member.id,
       memberName: member.name || member.email,
@@ -217,7 +266,7 @@ export default function BookingPaymentShare({
     }])
     setMemberSearchQuery('')
     setContactError('')
-    setAddFormOpen(false)
+    if (!isGatherPhase) setAddFormOpen(false)
   }
 
   const addUnregistered = (phoneVal) => {
@@ -227,137 +276,23 @@ export default function BookingPaymentShare({
       setContactError(t('Enter a valid phone number', 'أدخل رقم جوال صحيح'))
       return
     }
+    const tail = phoneTailKey(p)
+    if (isGatherPhase && phoneTailAlreadyInShares(tail)) {
+      setContactError(t('This participant is already in the split.', 'هذا المشارك مضاف مسبقاً في المشاركة.'))
+      return
+    }
     setContactError('')
     const amt = splitMode === 'equal' ? (shares.length === 0 ? totalPrice / 2 : equalAmount) : remaining / 2
-    const amount = Math.round(amt * 100) / 100
+    const amount = isGatherPhase ? 0 : Math.round(amt * 100) / 100
+    const waAmt = isGatherPhase ? previewShareForGather : amount
     onChange([...shares, {
       phone: p,
       type: 'unregistered',
       amount,
-      whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, amount, currency, clubId)
+      whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, waAmt, currency, clubId)
     }])
     setMemberSearchQuery('')
-    setAddFormOpen(false)
-  }
-
-  const pickFromContacts = async () => {
-    setContactError('')
-    setContactsBusy(true)
-    try {
-      const room = maxShareCount != null ? Math.max(0, maxShareCount - shares.length) : 20
-      const { phones: validPhonesRaw, error } = await pickPhoneNumbersFromContacts({ multiple: true, max: room })
-      if (error === 'USER_CANCELLED') return
-      if (error === 'PERMISSION_DENIED') {
-        setContactError(t('Allow contacts access in settings to pick numbers', 'اسمح بالوصول لجهات الاتصال من إعدادات الجهاز أو التطبيق'))
-        return
-      }
-      if (error === 'NOT_SUPPORTED') {
-        setContactError(t('Contacts are not available in this browser. Type the number or use keyboard suggestions.', 'جهات الاتصال غير متاحة في هذا المتصفح. أدخل الرقم يدوياً أو من اقتراحات لوحة المفاتيح.'))
-        return
-      }
-      let validPhones = validPhonesRaw.filter(p => phoneDigits(p).length >= 8)
-      const byTail = []
-      const seenTail = new Set()
-      for (const p of validPhones) {
-        const tail = phoneTailKey(p)
-        if (tail.length < 8 || seenTail.has(tail)) continue
-        seenTail.add(tail)
-        byTail.push(p)
-      }
-      validPhones = byTail
-      if (maxShareCount != null) validPhones = validPhones.slice(0, room)
-      if (validPhones.length > 0) {
-        const takenTails = new Set()
-        const takenMemberIds = new Set(addedMemberIds)
-        for (const s of shares) {
-          const ph = s.phone
-          if (ph) {
-            const tt = phoneTailKey(ph)
-            if (tt.length >= 8) takenTails.add(tt)
-          }
-          if (s.memberId) {
-            takenMemberIds.add(String(s.memberId))
-            const m = searchableMembers.find((x) => String(x?.id) === String(s.memberId))
-            const mph = m?.mobile || m?.phone
-            if (mph) {
-              const tt = phoneTailKey(mph)
-              if (tt.length >= 8) takenTails.add(tt)
-            }
-          }
-        }
-        const planned = []
-        for (const p of validPhones) {
-          if (maxShareCount != null && shares.length + planned.length >= maxShareCount) break
-          const tail = phoneTailKey(p)
-          if (tail.length >= 8 && takenTails.has(tail)) continue
-
-          const candidates = findMembersByPhoneTail(p, searchableMembers).filter(
-            (m) => m?.id && !takenMemberIds.has(String(m.id))
-          )
-          if (candidates.length === 1) {
-            const member = candidates[0]
-            takenMemberIds.add(String(member.id))
-            if (tail.length >= 8) takenTails.add(tail)
-            planned.push({ kind: 'registered', p, member })
-          } else {
-            if (tail.length >= 8) takenTails.add(tail)
-            planned.push({ kind: 'unregistered', p })
-          }
-        }
-
-        const newCount = planned.length
-        if (newCount === 0) {
-          setContactError(t('Those contacts are already added or duplicate', 'هذه الأرقام مضافة مسبقاً أو مكررة'))
-        } else {
-          const amtEqual = Math.round((totalPrice / (shares.length + newCount + 1)) * 100) / 100
-          const amtCustom = Math.round((remaining / newCount) * 100) / 100
-          const amt = splitMode === 'equal' ? amtEqual : amtCustom
-          const newShares = planned.map((row) => {
-            if (row.kind === 'registered') {
-              const { member, p } = row
-              const regPhone = member.mobile || member.phone || p
-              const waReg = buildWhatsAppLinkForRegistered(regPhone, clubName, dateStr, startTime, amt, currency, language)
-              return {
-                memberId: member.id,
-                memberName: member.name || member.email,
-                phone: regPhone || undefined,
-                type: 'registered',
-                amount: amt,
-                whatsappLink: waReg || undefined
-              }
-            }
-            const p = row.p
-            return {
-              phone: p,
-              type: 'unregistered',
-              amount: amt,
-              whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, amt, currency, clubId)
-            }
-          })
-
-          const recomputeEqualAmounts = (list) => {
-            if (splitMode !== 'equal' || list.length === 0) return list
-            const per = Math.round((totalPrice / (list.length + 1)) * 100) / 100
-            return list.map((s) => ({ ...s, amount: per }))
-          }
-
-          onChange(recomputeEqualAmounts([...shares, ...newShares]))
-          setAddFormOpen(false)
-        }
-      } else if (error === 'NATIVE_PICK_FAILED' || error === 'WEB_PICK_FAILED') {
-        setContactError(t('Could not read contacts. Try again or enter the number manually.', 'تعذر قراءة جهات الاتصال. أعد المحاولة أو أدخل الرقم يدوياً.'))
-      } else {
-        setContactError(t('No valid phone in selected contacts', 'لا يوجد رقم صالح في جهات الاتصال المختارة'))
-      }
-    } catch (e) {
-      if (e?.name === 'SecurityError' || e?.message?.includes?.('gesture')) {
-        setContactError(t('Please tap the button again to open contacts', 'انقر الزر مرة أخرى لفتح جهات الاتصال'))
-      } else {
-        setContactError(t('Could not access contacts. Enter phone manually.', 'تعذر الوصول لجهات الاتصال. أدخل الرقم يدوياً.'))
-      }
-    } finally {
-      setContactsBusy(false)
-    }
+    if (!isGatherPhase) setAddFormOpen(false)
   }
 
   const fillSearchFromContacts = async () => {
@@ -388,6 +323,10 @@ export default function BookingPaymentShare({
     }
   }
 
+  const pickFromContacts = async () => {
+    await fillSearchFromContacts()
+  }
+
   const removeShare = (idx) => {
     onChange(shares.filter((_, i) => i !== idx))
   }
@@ -410,123 +349,72 @@ export default function BookingPaymentShare({
 
       {isExpanded && (
         <div className="booking-payment-share-panel">
-          {shares.length > 0 ? (
+          {isGatherPhase ? (
             <>
-              <div className="booking-payment-share-followup">
-                <h4 className="booking-payment-share-followup-title">{t('Booking follow-up', 'متابعة الحجز')}</h4>
-                <p className="booking-payment-share-followup-hint">{t('Send payment share link to each participant via WhatsApp', 'أرسل رابط المشاركة بالدفع لكل مشارك عبر واتساب')}</p>
-                <p className="booking-payment-share-pending-invite-note">{t(
-                  'After you confirm the booking, use the yellow banner on this page to send each guest their final personal link (with payment).',
-                  'بعد تأكيد الحجز، استخدم الشريط الأصفر في الصفحة لإرسال الرابط الشخصي النهائي لكل ضيف (يتضمن الدفع).'
-                )}</p>
-              </div>
-              <div className="booking-payment-share-mode">
-                <label className="booking-payment-share-radio">
-                  <input
-                    type="radio"
-                    name="splitMode"
-                    checked={splitMode === 'equal'}
-                    onChange={() => setSplitMode('equal')}
-                  />
-                  <span>{t('Split equally', 'تقسيم بالتساوي')}</span>
-                </label>
-                <label className="booking-payment-share-radio">
-                  <input
-                    type="radio"
-                    name="splitMode"
-                    checked={splitMode === 'custom'}
-                    onChange={() => setSplitMode('custom')}
-                  />
-                  <span>{t('Custom amounts', 'مبالغ محددة')}</span>
-                </label>
-              </div>
-
-              <ul className="booking-payment-share-list" role="list">
-                {shares.map((s, idx) => {
-                  const resolvedLabel = resolvePaymentShareDisplayName(s, searchableMembers)
-                  const rowLabel = resolvedLabel === '—' ? (s.phone || t('Unregistered', 'غير مسجل')) : resolvedLabel
-                  return (
-                  <li key={idx} className="booking-payment-share-item">
-                    <span className="booking-payment-share-item-label">
-                      {rowLabel}
-                    </span>
-                    <div className="booking-payment-share-item-amount">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={splitMode === 'equal' ? equalAmount : (customAmounts[idx] ?? s.amount)}
-                        onChange={e => {
-                          const v = parseFloat(e.target.value) || 0
-                          setCustomAmounts(prev => ({ ...prev, [idx]: v }))
-                          updateShareAmount(idx, v)
-                        }}
-                        disabled={splitMode === 'equal'}
-                        aria-label={t('Amount', 'المبلغ')}
-                      />
-                      <span className="booking-payment-share-currency">{currency}</span>
-                    </div>
-                    {s.whatsappLink ? (
-                      <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="booking-payment-share-whatsapp" title={t('Send via WhatsApp', 'إرسال عبر واتساب')} aria-label="WhatsApp">
-                        <span className="booking-payment-share-wa-icon">💬</span>
-                        <span className="booking-payment-share-wa-label">{t('Send', 'إرسال')}</span>
-                      </a>
-                    ) : s.type === 'registered' ? (
-                      <span className="booking-payment-share-no-phone" title={t('No phone number to send', 'لا يوجد رقم لإرسال الرابط')}>—</span>
-                    ) : null}
-                    <button type="button" className="booking-payment-share-remove" onClick={() => removeShare(idx)} aria-label={t('Remove', 'إزالة')}>
-                      ×
-                    </button>
-                  </li>
-                  )
-                })}
-              </ul>
-
-              {totalShared > totalPrice && (
-                <p className="booking-payment-share-error" role="alert">
-                  {t('Total shared amount cannot exceed booking price', 'مجموع المبالغ المشاركة لا يمكن أن يتجاوز سعر الحجز')}
+              <div className="booking-payment-share-gather-intro">
+                <h4 className="booking-payment-share-gather-title">{t('Add participants', 'إضافة المشاركين')}</h4>
+                <p className="booking-payment-share-gather-hint">
+                  {t(
+                    'Add everyone who will share this booking. Type a number or pick one contact at a time — the name appears when matched. Then continue to split amounts.',
+                    'أضف كل من سيشارك في هذا الحجز. اكتب الرقم أو اختر جهة اتصال واحدة في المرة — يظهر الاسم عند المطابقة. ثم تابع إلى تقسيم المبالغ.'
+                  )}
                 </p>
-              )}
-
-              <p className="booking-payment-share-remaining">
-                {t('Your share', 'حصتك')}: <strong>{remaining.toFixed(2)} {currency}</strong>
-              </p>
-            </>
-          ) : null}
-
-          {atShareCap ? (
-            <p className="booking-payment-share-cap-notice" role="status">
-              {maxShareHint || t('Maximum number of participants for this split has been reached.', 'تم الوصول للحد الأقصى من المشاركين في التقسيم لهذه الحصة.')}
-            </p>
-          ) : null}
-
-          {!atShareCap ? (
-            <div className="booking-payment-share-add">
-              <div className="booking-payment-share-add-header">
-                <p className="booking-payment-share-add-title">{t('Add participant', 'إضافة مشارك')}</p>
-                {shares.length > 0 ? (
-                  <button
-                    type="button"
-                    className="booking-payment-share-add-expand-btn"
-                    aria-expanded={addFormOpen}
-                    onClick={() => setAddFormOpen((open) => !open)}
-                    title={
-                      addFormOpen
-                        ? t('Hide add participant', 'إخفاء إضافة مشارك')
-                        : t('Add another participant', 'إضافة مشارك آخر')
-                    }
-                  >
-                    <span className="booking-payment-share-add-expand-icon" aria-hidden>{addFormOpen ? '−' : '+'}</span>
-                  </button>
-                ) : null}
               </div>
 
-              {addFormOpen ? (
-                <>
+              {shares.length > 0 ? (
+                <ul className="booking-payment-share-gather-list" role="list">
+                  {shares.map((s, idx) => {
+                    const resolvedLabel = resolvePaymentShareDisplayName(s, searchableMembers)
+                    const rowLabel = resolvedLabel === '—' ? (s.phone || t('Unregistered', 'غير مسجل')) : resolvedLabel
+                    return (
+                      <li key={idx} className="booking-payment-share-gather-item">
+                        <span className="booking-payment-share-gather-item-name">{rowLabel}</span>
+                        {s.phone ? <span className="booking-payment-share-gather-item-phone">{normalizePhone(s.phone)}</span> : null}
+                        <button type="button" className="booking-payment-share-remove" onClick={() => removeShare(idx)} aria-label={t('Remove', 'إزالة')}>
+                          ×
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : null}
+
+              {otherMembers.some((m) => favoriteIds.has(String(m.id)) && !addedMemberIds.has(String(m.id))) ? (
+                <div className="booking-payment-share-favorites-pick">
+                  <p className="booking-payment-share-favorites-pick-label">{t('From favorites', 'من المفضلة')}</p>
+                  <ul className="booking-payment-share-favorites-pick-list" role="list">
+                    {otherMembers
+                      .filter((m) => favoriteIds.has(String(m.id)) && !addedMemberIds.has(String(m.id)))
+                      .map((m) => (
+                        <li key={m.id} className="booking-payment-share-favorites-pick-row">
+                          <span className="booking-payment-share-favorites-pick-name">{m.name || m.email || m.id}</span>
+                          <button
+                            type="button"
+                            className="booking-payment-share-unified-add-btn booking-payment-share-unified-add-btn--compact"
+                            disabled={atShareCap}
+                            onClick={() => addRegistered(m)}
+                          >
+                            {t('Add to split', 'إضافة للمشاركة')}
+                          </button>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {atShareCap ? (
+                <p className="booking-payment-share-cap-notice" role="status">
+                  {maxShareHint || t('Maximum number of participants for this split has been reached.', 'تم الوصول للحد الأقصى من المشاركين في التقسيم لهذه الحصة.')}
+                </p>
+              ) : null}
+
+              {!atShareCap ? (
+                <div className="booking-payment-share-add booking-payment-share-add--gather">
+                  <p className="booking-payment-share-add-title">{t('Add participant', 'إضافة مشارك')}</p>
                   <p className="booking-payment-share-unified-hint">
                     {t(
-                      'Enter the participant mobile number. If they are registered, their name appears — use the star for favorites and WhatsApp to send the booking. If not registered, use WhatsApp to invite them, then add them to the split to continue.',
-                      'أدخل رقم جوال المشارك. إن وُجد كعضو مسجّل يظهر اسمه — استخدم النجمة للمفضلة وواتساب لإرسال الحجز. إن لم يكن مسجّلاً استخدم واتساب للدعوة، ثم أضفه للمشاركة لمتابعة الحجز.'
+                      'Same flow for typed numbers and contacts: pick one number, confirm the name, then tap Add.',
+                      'نفس الخطوة للرقم المكتوب أو المختار من جهات الاتصال: رقم واحد، تأكيد الاسم، ثم إضافة للمشاركة.'
                     )}
                   </p>
                   <p className="booking-payment-share-search-label">{t('Participant mobile number', 'رقم جوال المشارك')}</p>
@@ -545,7 +433,12 @@ export default function BookingPaymentShare({
                         e.preventDefault()
                         if (atShareCap || !hasFullPhone) return
                         if (filteredBySearch.length === 1) {
-                          addRegistered(filteredBySearch[0])
+                          const m0 = filteredBySearch[0]
+                          if (addedMemberIds.has(String(m0.id))) {
+                            setContactError(t('This participant is already in the split.', 'هذا المشارك مضاف مسبقاً في المشاركة.'))
+                            return
+                          }
+                          addRegistered(m0)
                         } else if (filteredBySearch.length === 0) {
                           addUnregistered(memberSearchQuery)
                         }
@@ -584,18 +477,12 @@ export default function BookingPaymentShare({
                       <ul className="booking-payment-share-unified-match-list" role="list">
                         {favoritesFirst.map((m) => {
                           const phone = m?.mobile || m?.phone || ''
-                          const waLink = buildWhatsAppLinkForRegistered(
-                            phone,
-                            clubName,
-                            dateStr,
-                            startTime,
-                            nextShareAmount,
-                            currency,
-                            language
-                          )
+                          const waAmt = previewShareForGather
+                          const waLink = buildWhatsAppLinkForRegistered(phone, clubName, dateStr, startTime, waAmt, currency, language)
                           const isFav = favoriteIds.has(String(m.id))
+                          const already = addedMemberIds.has(String(m.id))
                           return (
-                            <li key={m.id} className="booking-payment-share-unified-match">
+                            <li key={m.id} className={`booking-payment-share-unified-match${already ? ' booking-payment-share-unified-match--already' : ''}`}>
                               <div className="booking-payment-share-unified-match-info">
                                 <span className="booking-payment-share-unified-match-name">{m.name || m.email || m.id}</span>
                                 {!favoritesLoading ? (
@@ -617,41 +504,56 @@ export default function BookingPaymentShare({
                                 ) : null}
                               </div>
                               <div className="booking-payment-share-unified-match-actions">
-                                {waLink ? (
-                                  <a
-                                    href={waLink}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="booking-payment-share-whatsapp booking-payment-share-whatsapp--icon-only"
-                                    title={t('Send via WhatsApp', 'إرسال عبر واتساب')}
-                                    aria-label={t('WhatsApp', 'واتساب')}
-                                  >
-                                    <span className="booking-payment-share-wa-icon">💬</span>
-                                  </a>
+                                {already ? (
+                                  <p className="booking-payment-share-already-msg" role="status">
+                                    {t('This participant is already in the split.', 'هذا المشارك مضاف مسبقاً في المشاركة.')}
+                                  </p>
                                 ) : (
-                                  <span className="booking-payment-share-no-phone" title={t('No phone number to send', 'لا يوجد رقم لإرسال الرابط')}>
-                                    —
-                                  </span>
+                                  <>
+                                    {waLink ? (
+                                      <a
+                                        href={waLink}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="booking-payment-share-whatsapp booking-payment-share-whatsapp--icon-only"
+                                        title={t('Send via WhatsApp', 'إرسال عبر واتساب')}
+                                        aria-label={t('WhatsApp', 'واتساب')}
+                                      >
+                                        <span className="booking-payment-share-wa-icon">💬</span>
+                                      </a>
+                                    ) : (
+                                      <span className="booking-payment-share-no-phone" title={t('No phone number to send', 'لا يوجد رقم لإرسال الرابط')}>
+                                        —
+                                      </span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      className="booking-payment-share-unified-add-btn"
+                                      onClick={() => addRegistered(m)}
+                                      disabled={atShareCap}
+                                    >
+                                      {t('Add to split', 'إضافة للمشاركة')}
+                                    </button>
+                                  </>
                                 )}
-                                <button
-                                  type="button"
-                                  className="booking-payment-share-unified-add-btn"
-                                  onClick={() => addRegistered(m)}
-                                  disabled={atShareCap}
-                                >
-                                  {t('Add to split', 'إضافة للمشاركة')}
-                                </button>
                               </div>
                             </li>
                           )
                         })}
                       </ul>
+                    ) : phoneTailAlreadyInShares(searchTail) ? (
+                      <div className="booking-payment-share-unified-match booking-payment-share-unified-match--already booking-payment-share-unified-match--guest">
+                        <div className="booking-payment-share-unified-match-info">
+                          <span className="booking-payment-share-unified-match-name">{normalizePhone(memberSearchQuery)}</span>
+                        </div>
+                        <p className="booking-payment-share-already-msg" role="status">
+                          {t('This participant is already in the split.', 'هذا المشارك مضاف مسبقاً في المشاركة.')}
+                        </p>
+                      </div>
                     ) : (
                       <div className="booking-payment-share-unified-match booking-payment-share-unified-match--guest">
                         <div className="booking-payment-share-unified-match-info">
-                          <span className="booking-payment-share-unified-match-name">
-                            {t('Not on PlayTix yet', 'غير مسجّل في المنصة')}
-                          </span>
+                          <span className="booking-payment-share-unified-match-name">{t('Not on PlayTix yet', 'غير مسجّل في المنصة')}</span>
                           <span className="booking-payment-share-unified-match-phone">{normalizePhone(memberSearchQuery)}</span>
                         </div>
                         <div className="booking-payment-share-unified-match-actions">
@@ -661,7 +563,7 @@ export default function BookingPaymentShare({
                               clubName,
                               dateStr,
                               startTime,
-                              nextShareAmount,
+                              previewShareForGather,
                               currency,
                               clubId
                             )}
@@ -698,10 +600,103 @@ export default function BookingPaymentShare({
                       {contactError}
                     </p>
                   ) : null}
-                </>
+                </div>
               ) : null}
-            </div>
-          ) : null}
+            </>
+          ) : (
+            <>
+              {shares.length > 0 ? (
+                <>
+                  <div className="booking-payment-share-followup">
+                    <h4 className="booking-payment-share-followup-title">{t('Booking follow-up', 'متابعة الحجز')}</h4>
+                    <p className="booking-payment-share-followup-hint">{t('Send payment share link to each participant via WhatsApp', 'أرسل رابط المشاركة بالدفع لكل مشارك عبر واتساب')}</p>
+                    <p className="booking-payment-share-pending-invite-note">{t(
+                      'After you confirm the booking, use the yellow banner on this page to send each guest their final personal link (with payment).',
+                      'بعد تأكيد الحجز، استخدم الشريط الأصفر في الصفحة لإرسال الرابط الشخصي النهائي لكل ضيف (يتضمن الدفع).'
+                    )}</p>
+                  </div>
+                  <div className="booking-payment-share-mode">
+                    <label className="booking-payment-share-radio">
+                      <input
+                        type="radio"
+                        name="splitMode"
+                        checked={splitMode === 'equal'}
+                        onChange={() => setSplitMode('equal')}
+                      />
+                      <span>{t('Split equally', 'تقسيم بالتساوي')}</span>
+                    </label>
+                    <label className="booking-payment-share-radio">
+                      <input
+                        type="radio"
+                        name="splitMode"
+                        checked={splitMode === 'custom'}
+                        onChange={() => setSplitMode('custom')}
+                      />
+                      <span>{t('Custom amounts', 'مبالغ محددة')}</span>
+                    </label>
+                  </div>
+
+                  <ul className="booking-payment-share-list" role="list">
+                    {shares.map((s, idx) => {
+                      const resolvedLabel = resolvePaymentShareDisplayName(s, searchableMembers)
+                      const rowLabel = resolvedLabel === '—' ? (s.phone || t('Unregistered', 'غير مسجل')) : resolvedLabel
+                      return (
+                        <li key={idx} className="booking-payment-share-item">
+                          <span className="booking-payment-share-item-label">
+                            {rowLabel}
+                          </span>
+                          <div className="booking-payment-share-item-amount">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={splitMode === 'equal' ? equalAmount : (customAmounts[idx] ?? s.amount)}
+                              onChange={e => {
+                                const v = parseFloat(e.target.value) || 0
+                                setCustomAmounts(prev => ({ ...prev, [idx]: v }))
+                                updateShareAmount(idx, v)
+                              }}
+                              disabled={splitMode === 'equal'}
+                              aria-label={t('Amount', 'المبلغ')}
+                            />
+                            <span className="booking-payment-share-currency">{currency}</span>
+                          </div>
+                          {s.whatsappLink ? (
+                            <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="booking-payment-share-whatsapp" title={t('Send via WhatsApp', 'إرسال عبر واتساب')} aria-label="WhatsApp">
+                              <span className="booking-payment-share-wa-icon">💬</span>
+                              <span className="booking-payment-share-wa-label">{t('Send', 'إرسال')}</span>
+                            </a>
+                          ) : s.type === 'registered' ? (
+                            <span className="booking-payment-share-no-phone" title={t('No phone number to send', 'لا يوجد رقم لإرسال الرابط')}>—</span>
+                          ) : null}
+                          <button type="button" className="booking-payment-share-remove" onClick={() => removeShare(idx)} aria-label={t('Remove', 'إزالة')}>
+                            ×
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+
+                  {totalShared > totalPrice && (
+                    <p className="booking-payment-share-error" role="alert">
+                      {t('Total shared amount cannot exceed booking price', 'مجموع المبالغ المشاركة لا يمكن أن يتجاوز سعر الحجز')}
+                    </p>
+                  )}
+
+                  <p className="booking-payment-share-remaining">
+                    {t('Your share', 'حصتك')}: <strong>{remaining.toFixed(2)} {currency}</strong>
+                  </p>
+                  <p className="booking-payment-share-back-add-hint">
+                    {t('Need to add or remove someone? Use Back to return to participants.', 'لإضافة أو إزالة أحد استخدم «رجوع» للعودة إلى خطوة المشاركين.')}
+                  </p>
+                </>
+              ) : (
+                <p className="booking-payment-share-empty booking-payment-share-empty--unified" role="status">
+                  {t('Add participants in the previous step first.', 'أضف المشاركين في الخطوة السابقة أولاً.')}
+                </p>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>

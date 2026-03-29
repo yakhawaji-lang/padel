@@ -270,7 +270,7 @@ const ClubPublicPage = () => {
   const [walletRemainderMethod, setWalletRemainderMethod] = useState('at_club')
   const [paymentGateways, setPaymentGateways] = useState(null) // platform_payment_gateways
   const [bookingFlowStep, setBookingFlowStep] = useState(1)
-  // single: 1 duration → 2 style → 3 pay + confirm | split: 1 → 2 → 3 shares → 4 your pay method + confirm
+  // single: 1 duration → 2 style → 3 pay + confirm | split: 1 → 2 → 3 add participants → 4 split amounts → 5 your pay + confirm
   const [bookingSuccessId, setBookingSuccessId] = useState(null) // show success and link to my-bookings
   /** Unregistered split rows with payInviteUrl after confirm — for WhatsApp to real invite links */
   const [splitPaymentInviteRows, setSplitPaymentInviteRows] = useState([])
@@ -360,7 +360,7 @@ const ClubPublicPage = () => {
     return ch.at_club !== false || !!ch.credit_card || !!ch.mada
   }, [effectivePaymentChannels])
 
-  const bookingStepCount = paymentStyle === 'split' ? 4 : 3
+  const bookingStepCount = paymentStyle === 'split' ? 5 : 3
 
   useEffect(() => {
     if (!bookingModal) return
@@ -423,7 +423,7 @@ const ClubPublicPage = () => {
   useEffect(() => {
     const onPaymentPickStep =
       (paymentStyle === 'single' && bookingFlowStep === 3) ||
-      (paymentStyle === 'split' && bookingFlowStep === 4)
+      (paymentStyle === 'split' && bookingFlowStep === 5)
     if (!onPaymentPickStep) return
     const ch = effectivePaymentChannels
     if (!ch) return
@@ -1946,9 +1946,11 @@ const ClubPublicPage = () => {
                 )}
                 {bookingFlowStep === 3 && paymentStyle === 'split' && (
                   <div className="club-public-booking-payment-section">
-                    <p className="club-public-booking-payment-section-title">{c.splitWithOthers}</p>
-                    <p className="club-public-booking-payment-section-desc">{c.splitWithOthersDesc}</p>
+                    <p className="club-public-booking-payment-section-title">{c.splitStepParticipantsTitle}</p>
+                    <p className="club-public-booking-payment-section-desc">{c.splitStepParticipantsDesc}</p>
                     <BookingPaymentShare
+                      hideHeaderToggle
+                      splitPhase="participants"
                       totalPrice={calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price}
                       currency={currency}
                       clubName={language === 'ar' && club?.nameAr ? club.nameAr : club?.name}
@@ -1965,6 +1967,28 @@ const ClubPublicPage = () => {
                   </div>
                 )}
                 {bookingFlowStep === 4 && paymentStyle === 'split' && (
+                  <div className="club-public-booking-payment-section">
+                    <p className="club-public-booking-payment-section-title">{c.splitStepAmountsTitle}</p>
+                    <p className="club-public-booking-payment-section-desc">{c.splitStepAmountsDesc}</p>
+                    <BookingPaymentShare
+                      hideHeaderToggle
+                      splitPhase="amounts"
+                      totalPrice={calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price}
+                      currency={currency}
+                      clubName={language === 'ar' && club?.nameAr ? club.nameAr : club?.name}
+                      clubId={clubId}
+                      dateStr={bookingModal.dateStr}
+                      startTime={bookingModal.startTime}
+                      clubMembers={clubMembersList}
+                      allPlatformMembers={allPlatformMembersList}
+                      currentMemberId={platformUser?.id}
+                      language={language}
+                      value={paymentShares}
+                      onChange={setPaymentShares}
+                    />
+                  </div>
+                )}
+                {bookingFlowStep === 5 && paymentStyle === 'split' && (
                   <div className="club-public-booking-payment-method">
                     <p className="club-public-booking-payment-method-label">{language === 'en' ? 'Your payment method' : 'طريقة دفعتك'}</p>
                     <p className="club-public-booking-payment-section-desc">{language === 'en' ? 'How will you pay your share?' : 'كيف ستدفع حصتك؟'}</p>
@@ -2061,6 +2085,23 @@ const ClubPublicPage = () => {
                       className="club-public-booking-gating-primary-btn"
                       onClick={() => {
                         setBookingFlowStep(4)
+                      }}
+                      disabled={bookingSubmitting || (paymentShares || []).length === 0}
+                    >
+                      {c.continueBooking}
+                    </button>
+                  </>
+                )}
+                {bookingFlowStep === 4 && paymentStyle === 'split' && (
+                  <>
+                    <button type="button" className="club-public-booking-modal-back" onClick={() => setBookingFlowStep(3)} disabled={bookingSubmitting}>
+                      {c.back}
+                    </button>
+                    <button
+                      type="button"
+                      className="club-public-booking-gating-primary-btn"
+                      onClick={() => {
+                        setBookingFlowStep(5)
                         setPaymentMethod(pickFirstPaymentMethod(effectivePaymentChannels))
                       }}
                       disabled={
@@ -2073,9 +2114,9 @@ const ClubPublicPage = () => {
                     </button>
                   </>
                 )}
-                {bookingFlowStep === 4 && paymentStyle === 'split' && (
+                {bookingFlowStep === 5 && paymentStyle === 'split' && (
                   <>
-                    <button type="button" className="club-public-booking-modal-back" onClick={() => setBookingFlowStep(3)} disabled={bookingSubmitting}>
+                    <button type="button" className="club-public-booking-modal-back" onClick={() => setBookingFlowStep(4)} disabled={bookingSubmitting}>
                       {c.back}
                     </button>
                     <button
