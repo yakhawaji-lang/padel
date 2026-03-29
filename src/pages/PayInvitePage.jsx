@@ -15,6 +15,7 @@ import {
   readResumeInviteToken,
 } from '../utils/paymentShareDeepLink'
 import './PayInvitePage.css'
+import { UnifiedPaymentActionGrid } from '../components/UnifiedPaymentOptions'
 
 /** Base URL of the app (origin + base path) — works locally and on deployed domain */
 function getAppBaseUrl() {
@@ -268,26 +269,19 @@ const PayInvitePage = () => {
             {isPending && !markedPaid && (
               <div className="pay-invite-payment-section">
                 <p className="pay-invite-payment-options-label">{t('Choose how to pay your share', 'اختر طريقة دفع حصتك')}</p>
-                <div className="pay-invite-payment-cards">
-                  <button
-                    type="button"
-                    className={`pay-invite-payment-card pay-invite-payment-card-at-club ${chosePayAtClub ? 'pay-invite-payment-card-chosen' : ''}`}
-                    onClick={handleMarkPaid}
-                    disabled={markingPaid || chosePayAtClub}
-                    aria-pressed={chosePayAtClub}
-                  >
-                    <span className="pay-invite-payment-card-icon" aria-hidden>🏢</span>
-                    {chosePayAtClub ? <span className="pay-invite-payment-card-check" aria-hidden>✓ </span> : null}
-                    <span className="pay-invite-payment-card-title">{chosePayAtClub ? t('Chosen — pay at club', 'اخترتها — سأدفع في النادي') : t('Pay at club', 'الدفع في النادي')}</span>
-                    <span className="pay-invite-payment-card-desc">{chosePayAtClub ? (language === 'ar' ? 'لا يمكن تغييرها إلا بالدفع الإلكتروني' : 'Cannot change except via electronic payment') : t('Cash or card at the club', 'كاش أو بطاقة في النادي')}</span>
-                    {markingPaid && !chosePayAtClub && <span className="pay-invite-payment-card-loading">{t('Saving...', 'جاري الحفظ...')}</span>}
-                  </button>
-                  <Link to={`/pay-share/${canonicalInviteToken}`} className="pay-invite-payment-card pay-invite-payment-card-electronic">
-                    <span className="pay-invite-payment-card-icon" aria-hidden>💳</span>
-                    <span className="pay-invite-payment-card-title">{t('Pay electronically', 'الدفع الإلكتروني')}</span>
-                    <span className="pay-invite-payment-card-desc">{t('Card or Mada online', 'بطاقة أو متاب أونلاين')}</span>
-                  </Link>
-                </div>
+                <UnifiedPaymentActionGrid
+                  language={language}
+                  layoutRow
+                  atClubChosen={chosePayAtClub}
+                  atClubTitle={chosePayAtClub ? t('Chosen — pay at club', 'اخترتها — سأدفع في النادي') : t('Pay at club', 'الدفع في النادي')}
+                  atClubDesc={t('Cash or card at the club', 'كاش أو بطاقة في النادي')}
+                  onPayAtClub={handleMarkPaid}
+                  atClubDisabled={markingPaid}
+                  atClubBusy={markingPaid}
+                  electronicHref={`/pay-share/${canonicalInviteToken}`}
+                  electronicTitle={t('Pay electronically', 'الدفع الإلكتروني')}
+                  electronicDesc={t('Card or Mada online', 'بطاقة أو متاب أونلاين')}
+                />
               </div>
             )}
             {markedPaid && (

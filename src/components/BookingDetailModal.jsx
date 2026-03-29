@@ -16,6 +16,7 @@ import { buildPayShareAbsoluteUrl, buildWhatsAppHrefForSplitInvite } from '../ut
 import { getTournamentMemberPaymentEntry } from '../utils/tournamentHelpers'
 import { updateTournamentMemberPaymentEntry, withdrawMemberFromTournament } from '../storage/adminStorage'
 import { shareHasMemberRefundPending } from '../utils/bookingMemberCancel'
+import { UnifiedPaymentMenu } from './UnifiedPaymentOptions'
 import './BookingDetailModal.css'
 
 function getMapUrl(club) {
@@ -553,25 +554,15 @@ export default function BookingDetailModal({
                   </button>
                   {payMenuOpen && (
                     <div className="booking-detail-pay-options">
-                      <button
-                        type="button"
-                        className={`booking-detail-pay-opt ${tournamentChosePayAtClub ? 'booking-detail-pay-opt-chosen' : ''}`}
-                        onClick={handleTournamentPayAtClub}
-                        disabled={markingPayAtClub || tournamentChosePayAtClub}
-                        aria-pressed={tournamentChosePayAtClub}
-                      >
-                        <span className="booking-detail-pay-opt-icon">🏢</span>
-                        {tournamentChosePayAtClub ? <span className="booking-detail-pay-opt-check" aria-hidden>✓ </span> : null}
-                        {tournamentChosePayAtClub ? c.payAtClubChosen : c.payAtClub}
-                      </button>
-                      <Link
-                        to={`/pay/tournament-member/${club.id}/${booking.id}?memberId=${encodeURIComponent(String(platformUser.id))}`}
-                        className="booking-detail-pay-opt booking-detail-pay-opt-link"
-                        onClick={onClose}
-                      >
-                        <span className="booking-detail-pay-opt-icon">💳</span>
-                        {tournamentChosePayAtClub ? c.switchToElectronic : c.payElectronic}
-                      </Link>
+                      <UnifiedPaymentMenu
+                        language={language}
+                        variant="tournament"
+                        chosePayAtClub={tournamentChosePayAtClub}
+                        onPayAtClub={handleTournamentPayAtClub}
+                        payAtClubDisabled={!!markingPayAtClub}
+                        electronicHref={`/pay/tournament-member/${club.id}/${booking.id}?memberId=${encodeURIComponent(String(platformUser.id))}`}
+                        onElectronicNavigate={onClose}
+                      />
                     </div>
                   )}
                 </div>
@@ -593,45 +584,26 @@ export default function BookingDetailModal({
                 {payMenuOpen && (
                   <div className="booking-detail-pay-options">
                     {(inviteToken || isParticipantWithShare) ? (
-                      <>
-                        <button
-                          type="button"
-                          className={`booking-detail-pay-opt ${chosePayAtClub ? 'booking-detail-pay-opt-chosen' : ''}`}
-                          onClick={handleRecordPayment}
-                          disabled={markingPayAtClub || chosePayAtClub}
-                          aria-pressed={chosePayAtClub}
-                        >
-                          <span className="booking-detail-pay-opt-icon">🏢</span>
-                          {chosePayAtClub ? <span className="booking-detail-pay-opt-check" aria-hidden>✓ </span> : null}
-                          {chosePayAtClub ? c.payAtClubChosen : c.payAtClub}
-                        </button>
-                        <Link
-                          to={inviteToken ? `/pay-share/${inviteToken}` : `/pay-share/booking/${booking.id}?clubId=${club.id}`}
-                          className="booking-detail-pay-opt booking-detail-pay-opt-link"
-                          onClick={onClose}
-                        >
-                          <span className="booking-detail-pay-opt-icon">💳</span>
-                          {chosePayAtClub ? c.switchToElectronic : c.payElectronic}
-                        </Link>
-                      </>
+                      <UnifiedPaymentMenu
+                        language={language}
+                        variant="share"
+                        chosePayAtClub={chosePayAtClub}
+                        onPayAtClub={handleRecordPayment}
+                        payAtClubDisabled={!!markingPayAtClub}
+                        electronicHref={inviteToken ? `/pay-share/${inviteToken}` : `/pay-share/booking/${booking.id}?clubId=${club.id}`}
+                        onElectronicNavigate={onClose}
+                      />
                     ) : (
-                      <>
-                        <button
-                          type="button"
-                          className={`booking-detail-pay-opt ${initiatorChosePayAtClub ? 'booking-detail-pay-opt-chosen' : ''}`}
-                          onClick={handleMarkPayAtClub}
-                          disabled={markingPayAtClub || initiatorChosePayAtClub}
-                          aria-pressed={initiatorChosePayAtClub}
-                        >
-                          <span className="booking-detail-pay-opt-icon">🏢</span>
-                          {initiatorChosePayAtClub ? <span className="booking-detail-pay-opt-check" aria-hidden>✓ </span> : null}
-                          {initiatorChosePayAtClub ? c.payAtClubChosen : c.payAtClub}
-                        </button>
-                        <Link to={`/pay/${booking.id}?method=credit_card`} className="booking-detail-pay-opt booking-detail-pay-opt-link" onClick={onClose}>
-                          <span className="booking-detail-pay-opt-icon">💳</span>
-                          {c.payElectronic}
-                        </Link>
-                      </>
+                      <UnifiedPaymentMenu
+                        language={language}
+                        variant="share"
+                        chosePayAtClub={initiatorChosePayAtClub}
+                        onPayAtClub={handleMarkPayAtClub}
+                        payAtClubDisabled={!!markingPayAtClub}
+                        electronicHref={`/pay/${booking.id}?method=credit_card`}
+                        electronicSubtitle={language === 'ar' ? 'بطاقة أو مدى — اختر من صفحة الدفع' : 'Card or Mada — choose on the payment page'}
+                        onElectronicNavigate={onClose}
+                      />
                     )}
                   </div>
                 )}

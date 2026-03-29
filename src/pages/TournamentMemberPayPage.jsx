@@ -4,11 +4,12 @@
  */
 import React, { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { getClubById, updateTournamentMemberPaymentEntry } from '../storage/adminStorage'
+import { getClubById, updateTournamentMemberPaymentEntry, loadClubs, refreshClubsFromApi } from '../storage/adminStorage'
 import { getTournamentMemberPaymentEntry } from '../utils/tournamentHelpers'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { getAppLanguage } from '../storage/languageStorage'
 import './PaymentPage.css'
+import { UnifiedPaymentActionGrid, getUnifiedPaymentCopy } from '../components/UnifiedPaymentOptions'
 
 export default function TournamentMemberPayPage() {
   const { clubId, bookingId } = useParams()
@@ -52,6 +53,32 @@ export default function TournamentMemberPayPage() {
 
   const amount = parseFloat(String(resolved.entry?.fee || '').replace(',', '.')) || 0
   const currency = resolved.club?.settings?.currency || 'SAR'
+
+  const electronicHashHref =
+    `/pay/tournament-member/${clubId}/${bookingId}?memberId=${encodeURIComponent(String(effectiveMemberId || ''))}#tournament-pay-electronic`
+
+  const handlePayAtClubTournament = async () => {
+    if (!clubId || !bookingId || !effectiveMemberId || submitting) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const ok = await updateTournamentMemberPaymentEntry(clubId, bookingId, effectiveMemberId, { paymentMethod: 'at_club' })
+      if (!ok) {
+        setError(language === 'ar' ? 'فشل التحديث.' : 'Update failed.')
+        return
+      }
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      try {
+        await refreshClubsFromApi()
+        loadClubs()
+      } catch (_) {}
+      navigate('/my-bookings')
+    } catch (err) {
+      setError(err?.message || (language === 'ar' ? 'فشل' : 'Failed'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const c = {
     title: language === 'ar' ? 'دفع حصة البطولة' : 'Tournament share payment',
@@ -156,8 +183,19 @@ export default function TournamentMemberPayPage() {
             <dd>{amount > 0 ? `${amount.toFixed(2)} ${currency}` : '—'}</dd>
           </div>
         </dl>
+        {!alreadyDoneMsg && (
+          <UnifiedPaymentActionGrid
+            language={language}
+            layoutRow
+            onPayAtClub={handlePayAtClubTournament}
+            atClubDisabled={submitting}
+            atClubBusy={submitting}
+            electronicHref={electronicHashHref}
+            walletHint={getUnifiedPaymentCopy(language).walletUnavailableTournament}
+          />
+        )}
         {alreadyDoneMsg ? <p className="payment-message">{resolved.error}</p> : null}
-        <form onSubmit={handleSubmit} className="payment-form">
+        <form id="tournament-pay-electronic" onSubmit={handleSubmit} className="payment-form">
           {error && <p className="payment-error-msg">{error}</p>}
           <button type="submit" className="payment-btn payment-btn-primary payment-btn-submit" disabled={submitting || amount <= 0 || alreadyDoneMsg}>
             {submitting ? '…' : c.payNow}

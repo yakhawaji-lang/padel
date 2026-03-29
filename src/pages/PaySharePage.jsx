@@ -10,6 +10,7 @@ import { getAppLanguage } from '../storage/languageStorage'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { addMemberToClub } from '../storage/adminStorage'
 import './PaymentPage.css'
+import { UnifiedPaymentActionGrid } from '../components/UnifiedPaymentOptions'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
@@ -274,32 +275,20 @@ const PaySharePage = () => {
 
         <p className="payment-options-label">{t('Choose payment method', 'اختر طريقة الدفع', language)}</p>
 
-        <div className="payment-share-options">
-          <button
-            type="button"
-            className={`payment-share-option ${chosePayAtClub ? 'payment-share-option-chosen' : ''}`}
-            onClick={handlePayAtClub}
-            disabled={submitting || chosePayAtClub}
-            title={chosePayAtClub ? c.chosenPayAtClub : undefined}
-            aria-pressed={chosePayAtClub}
-          >
-            <span className="payment-share-option-icon">🏢</span>
-            {chosePayAtClub ? <span className="payment-share-option-check" aria-hidden>✓ </span> : null}
-            <span className="payment-share-option-title">{chosePayAtClub ? c.chosenPayAtClub : c.payAtClub}</span>
-            <span className="payment-share-option-desc">{chosePayAtClub ? (language === 'ar' ? 'لا يمكن تغييرها إلا بالدفع الإلكتروني' : 'Cannot change except via electronic payment') : c.payAtClubDesc}</span>
-          </button>
-
-          <button
-            type="button"
-            className="payment-share-option"
-            onClick={handlePayElectronically}
-            disabled={submitting}
-          >
-            <span className="payment-share-option-icon">💳</span>
-            <span className="payment-share-option-title">{chosePayAtClub ? c.switchToElectronic : c.payElectronic}</span>
-            <span className="payment-share-option-desc">{c.payElectronicDesc}</span>
-          </button>
-        </div>
+        <UnifiedPaymentActionGrid
+          language={language}
+          layoutRow
+          atClubChosen={chosePayAtClub}
+          atClubTitle={chosePayAtClub ? c.chosenPayAtClub : c.payAtClub}
+          atClubDesc={c.payAtClubDesc}
+          onPayAtClub={handlePayAtClub}
+          atClubDisabled={submitting}
+          atClubBusy={submitting}
+          electronicOnClick={handlePayElectronically}
+          electronicDisabled={submitting}
+          electronicTitle={chosePayAtClub ? c.switchToElectronic : c.payElectronic}
+          electronicDesc={c.payElectronicDesc}
+        />
 
         {error && <p className="payment-error-msg">{error}</p>}
 

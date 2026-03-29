@@ -1,0 +1,354 @@
+/* Unified payment options — used across club booking, pay flows, and my bookings */
+
+.unified-pay-section-title {
+  margin: 0 0 6px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.unified-pay-section-desc {
+  margin: 0 0 16px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.unified-pay-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
+.unified-pay-grid--compact {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 480px) {
+  .unified-pay-grid:not(.unified-pay-grid--compact) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.unified-pay-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 100%;
+  padding: 14px 14px 12px;
+  margin: 0;
+  border-radius: 14px;
+  border: 2px solid #e2e8f0;
+  background: #fafbfc;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  text-align: start;
+  font: inherit;
+  color: inherit;
+  box-sizing: border-box;
+}
+
+.unified-pay-card:hover:not(.unified-pay-card--disabled):not(:disabled) {
+  border-color: #cbd5e1;
+  background: #fff;
+}
+
+.unified-pay-card--active {
+  border-color: #2563eb;
+  background: linear-gradient(180deg, #eff6ff 0%, #fff 55%);
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);
+}
+
+.unified-pay-card--disabled,
+.unified-pay-card:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+  background: #f1f5f9;
+}
+
+.unified-pay-card__icon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.unified-pay-card__title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.unified-pay-card__desc {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+.unified-pay-card__hint {
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: #94a3b8;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.unified-pay-card__hint--warn {
+  color: #b45309;
+}
+
+.unified-pay-card__check {
+  position: absolute;
+  top: 10px;
+  inset-inline-end: 10px;
+  font-size: 0.875rem;
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.unified-pay-card input[type='radio'] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.unified-pay-electronic-subs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+  width: 100%;
+}
+
+.unified-pay-electronic-subs label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+}
+
+.unified-pay-electronic-subs input[type='radio'] {
+  position: static;
+  opacity: 1;
+  width: auto;
+  height: auto;
+  pointer-events: auto;
+  accent-color: #2563eb;
+}
+
+.unified-pay-remainder {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.unified-pay-remainder-title {
+  margin: 0 0 10px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.unified-pay-remainder .unified-pay-grid {
+  gap: 8px;
+}
+
+.unified-pay-remainder .unified-pay-card {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border-width: 1px;
+}
+
+.unified-pay-remainder .unified-pay-card__title {
+  font-size: 0.8125rem;
+}
+
+/* Action grid (buttons + links) for pay-share / pay-invite */
+.unified-pay-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 520px) {
+  .unified-pay-actions--row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.unified-pay-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px 16px 14px;
+  border-radius: 14px;
+  border: 2px solid #e2e8f0;
+  background: #fff;
+  text-decoration: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.unified-pay-action:hover:not(.unified-pay-action--disabled) {
+  border-color: #93c5fd;
+  background: #f8fafc;
+}
+
+.unified-pay-action--chosen {
+  border-color: #2563eb;
+  background: linear-gradient(180deg, #eff6ff 0%, #fff 50%);
+}
+
+.unified-pay-action--disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+  background: #f1f5f9;
+}
+
+.unified-pay-action__icon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.unified-pay-action__title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.unified-pay-action__desc {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+/* Vertical menu (my-bookings / modal dropdown) */
+.unified-pay-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.unified-pay-menu-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fff;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  color: #0f172a;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.unified-pay-menu-item:last-child {
+  border-bottom: none;
+}
+
+.unified-pay-menu-item:hover:not(:disabled):not(.unified-pay-menu-item--static) {
+  background: #f8fafc;
+}
+
+.unified-pay-menu-item:disabled {
+  opacity: 0.85;
+  cursor: default;
+}
+
+.unified-pay-menu-item--static {
+  cursor: default;
+  background: #f8fafc;
+}
+
+.unified-pay-menu-item--chosen {
+  background: #eff6ff;
+}
+
+.unified-pay-menu-item__icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.unified-pay-menu-item__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.unified-pay-menu-item__title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  display: block;
+}
+
+.unified-pay-menu-item__desc {
+  font-size: 0.6875rem;
+  color: #64748b;
+  margin-top: 4px;
+  line-height: 1.35;
+  display: block;
+}
+
+.unified-pay-method-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.unified-pay-method-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 2px solid #e2e8f0;
+  background: #fff;
+  color: #334155;
+}
+
+.unified-pay-method-pill:hover {
+  border-color: #93c5fd;
+}
+
+.unified-pay-method-pill--active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.unified-pay-method-pill--disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: #f1f5f9;
+}
+
+.payment-card .unified-pay-actions {
+  margin: 0 0 1.25rem;
+}

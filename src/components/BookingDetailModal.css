@@ -481,6 +481,13 @@
   animation: booking-detail-pay-options-in 0.2s ease-out;
 }
 
+.booking-detail-pay-options .unified-pay-menu {
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
 @keyframes booking-detail-pay-options-in {
   from { opacity: 0; }
   to { opacity: 1; }

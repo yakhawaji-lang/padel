@@ -8,6 +8,7 @@ import { getBookingById, completePayment } from '../api/dbClient'
 import { getAppLanguage } from '../storage/languageStorage'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import './PaymentPage.css'
+import { UnifiedPaymentPageMethodStrip } from '../components/UnifiedPaymentOptions'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
@@ -163,6 +164,13 @@ const PaymentPage = () => {
       <div className="payment-card">
         <h1 className="payment-title">{c.title}</h1>
         <p className="payment-club-name">{clubName}</p>
+
+        <UnifiedPaymentPageMethodStrip
+          language={language}
+          bookingId={bookingId}
+          currentMethod={method === 'mada' ? 'mada' : 'credit_card'}
+          showWalletSplit={showWalletSplit}
+        />
 
         <dl className="payment-details">
           <div className="payment-detail-row">

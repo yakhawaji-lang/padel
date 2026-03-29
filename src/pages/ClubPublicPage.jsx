@@ -19,6 +19,7 @@ import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import { isTournamentWithoutMembers, kingTournamentReservesCourt, kingTournamentReservesCourtIds, getTournamentTeamsDetail } from '../utils/tournamentHelpers'
 import { getMergedWindowsForDate, getPublicBookingTimeSlots, coversBookingInterval } from '../utils/clubWorkingHours'
 import { getEffectivePaymentChannels, pickFirstPaymentMethod } from '../utils/paymentChannels'
+import { UnifiedPaymentMethodPicker, UnifiedWalletRemainderPicker } from '../components/UnifiedPaymentOptions'
 import './ClubPublicPage.css'
 import { memberRelatesToCourtBooking } from '../utils/paymentShareMemberMatch.js'
 import { isTerminalBookingStatus } from '../utils/bookingMemberCancel'
@@ -1851,43 +1852,17 @@ const ClubPublicPage = () => {
                   <div className="club-public-booking-payment-method">
                     <p className="club-public-booking-payment-method-label">{c.paymentMethod}</p>
                     <p className="club-public-booking-payment-section-desc">{c.paymentMethodDesc}</p>
-                    <div className="club-public-booking-payment-method-options">
-                      {effectivePaymentChannels?.at_club !== false && (
-                        <label className="club-public-booking-payment-radio">
-                          <input type="radio" name="paymentMethod" checked={paymentMethod === 'at_club'} onChange={() => setPaymentMethod('at_club')} />
-                          <span>{c.payAtClub}</span>
-                        </label>
-                      )}
-                      {effectivePaymentChannels?.credit_card && (
-                        <label className="club-public-booking-payment-radio">
-                          <input type="radio" name="paymentMethod" checked={paymentMethod === 'credit_card'} onChange={() => setPaymentMethod('credit_card')} />
-                          <span>{c.creditCard}</span>
-                        </label>
-                      )}
-                      {effectivePaymentChannels?.mada && (
-                        <label className="club-public-booking-payment-radio">
-                          <input type="radio" name="paymentMethod" checked={paymentMethod === 'mada'} onChange={() => setPaymentMethod('mada')} />
-                          <span>{c.mada}</span>
-                        </label>
-                      )}
-                      {effectivePaymentChannels?.wallet && (
-                        <label className="club-public-booking-payment-radio club-public-booking-payment-radio--stacked">
-                          <input type="radio" name="paymentMethod" checked={paymentMethod === 'wallet'} onChange={() => setPaymentMethod('wallet')} />
-                          <span className="club-public-booking-payment-radio-body">
-                            <span className="club-public-booking-payment-radio-title">{c.payFromWallet}</span>
-                            {bookingWalletLoading ? (
-                              <span className="club-public-booking-wallet-hint muted">{c.walletBalanceLoading}</span>
-                            ) : bookingWalletBalance !== null ? (
-                              <span className="club-public-booking-wallet-hint">
-                                {c.walletAvailable}: {(Number(bookingWalletBalance) || 0).toFixed(2)} {currency}
-                              </span>
-                            ) : (
-                              <span className="club-public-booking-wallet-hint error">{c.walletBalanceError}</span>
-                            )}
-                          </span>
-                        </label>
-                      )}
-                    </div>
+                    <UnifiedPaymentMethodPicker
+                      language={language}
+                      channels={effectivePaymentChannels}
+                      name="paymentMethod"
+                      value={paymentMethod}
+                      onChange={setPaymentMethod}
+                      walletBalance={bookingWalletBalance}
+                      walletLoading={bookingWalletLoading}
+                      walletCurrency={currency}
+                      walletUnavailable={false}
+                    />
                     {paymentMethod === 'wallet' && bookingWalletLoading && (
                       <p className="club-public-booking-wallet-info-banner">{c.walletRemainderWhileLoading}</p>
                     )}
@@ -1904,42 +1879,13 @@ const ClubPublicPage = () => {
                             {c.walletRemainderUnknownBalance}
                           </p>
                         )}
-                        <p className="club-public-booking-wallet-remainder-title">{c.walletRemainderTitle}</p>
-                        <div className="club-public-booking-payment-method-options">
-                          {effectivePaymentChannels?.at_club !== false && (
-                            <label className="club-public-booking-payment-radio">
-                              <input
-                                type="radio"
-                                name="walletRemainderMethod"
-                                checked={walletRemainderMethod === 'at_club'}
-                                onChange={() => setWalletRemainderMethod('at_club')}
-                              />
-                              <span>{c.payAtClub}</span>
-                            </label>
-                          )}
-                          {effectivePaymentChannels?.credit_card && (
-                            <label className="club-public-booking-payment-radio">
-                              <input
-                                type="radio"
-                                name="walletRemainderMethod"
-                                checked={walletRemainderMethod === 'credit_card'}
-                                onChange={() => setWalletRemainderMethod('credit_card')}
-                              />
-                              <span>{c.creditCard}</span>
-                            </label>
-                          )}
-                          {effectivePaymentChannels?.mada && (
-                            <label className="club-public-booking-payment-radio">
-                              <input
-                                type="radio"
-                                name="walletRemainderMethod"
-                                checked={walletRemainderMethod === 'mada'}
-                                onChange={() => setWalletRemainderMethod('mada')}
-                              />
-                              <span>{c.mada}</span>
-                            </label>
-                          )}
-                        </div>
+                        <UnifiedWalletRemainderPicker
+                          language={language}
+                          channels={effectivePaymentChannels}
+                          name="walletRemainderMethod"
+                          value={walletRemainderMethod}
+                          onChange={setWalletRemainderMethod}
+                        />
                       </div>
                     )}
                   </div>
@@ -1992,26 +1938,17 @@ const ClubPublicPage = () => {
                   <div className="club-public-booking-payment-method">
                     <p className="club-public-booking-payment-method-label">{language === 'en' ? 'Your payment method' : 'طريقة دفعتك'}</p>
                     <p className="club-public-booking-payment-section-desc">{language === 'en' ? 'How will you pay your share?' : 'كيف ستدفع حصتك؟'}</p>
-                    <div className="club-public-booking-payment-method-options">
-                      {effectivePaymentChannels?.at_club !== false && (
-                        <label className="club-public-booking-payment-radio">
-                          <input type="radio" name="paymentMethod" checked={paymentMethod === 'at_club'} onChange={() => setPaymentMethod('at_club')} />
-                          <span>{c.payAtClub}</span>
-                        </label>
-                      )}
-                      {effectivePaymentChannels?.credit_card && (
-                        <label className="club-public-booking-payment-radio">
-                          <input type="radio" name="paymentMethod" checked={paymentMethod === 'credit_card'} onChange={() => setPaymentMethod('credit_card')} />
-                          <span>{c.creditCard}</span>
-                        </label>
-                      )}
-                      {effectivePaymentChannels?.mada && (
-                        <label className="club-public-booking-payment-radio">
-                          <input type="radio" name="paymentMethod" checked={paymentMethod === 'mada'} onChange={() => setPaymentMethod('mada')} />
-                          <span>{c.mada}</span>
-                        </label>
-                      )}
-                    </div>
+                    <UnifiedPaymentMethodPicker
+                      language={language}
+                      channels={effectivePaymentChannels}
+                      name="paymentMethod"
+                      value={paymentMethod}
+                      onChange={setPaymentMethod}
+                      walletBalance={null}
+                      walletLoading={false}
+                      walletCurrency={currency}
+                      walletUnavailable="split"
+                    />
                   </div>
                 )}
               </div>
@@ -2266,26 +2203,17 @@ const ClubPublicPage = () => {
                     <div className="club-public-booking-payment-method club-public-training-join-final-pay">
                       <p className="club-public-booking-payment-method-label">{c.trainingJoinCompletePayment}</p>
                       <p className="club-public-booking-payment-section-desc">{c.trainingJoinPaymentMethodStep}</p>
-                      <div className="club-public-booking-payment-method-options">
-                        {effectivePaymentChannels?.at_club !== false && (
-                          <label className="club-public-booking-payment-radio">
-                            <input type="radio" name="trainingPaymentMethod" checked={trainingJoinPaymentMethod === 'at_club'} onChange={() => setTrainingJoinPaymentMethod('at_club')} />
-                            <span>{c.payAtClub}</span>
-                          </label>
-                        )}
-                        {effectivePaymentChannels?.credit_card && (
-                          <label className="club-public-booking-payment-radio">
-                            <input type="radio" name="trainingPaymentMethod" checked={trainingJoinPaymentMethod === 'credit_card'} onChange={() => setTrainingJoinPaymentMethod('credit_card')} />
-                            <span>{c.creditCard}</span>
-                          </label>
-                        )}
-                        {effectivePaymentChannels?.mada && (
-                          <label className="club-public-booking-payment-radio">
-                            <input type="radio" name="trainingPaymentMethod" checked={trainingJoinPaymentMethod === 'mada'} onChange={() => setTrainingJoinPaymentMethod('mada')} />
-                            <span>{c.mada}</span>
-                          </label>
-                        )}
-                      </div>
+                      <UnifiedPaymentMethodPicker
+                        language={language}
+                        channels={effectivePaymentChannels}
+                        name="trainingPaymentMethod"
+                        value={trainingJoinPaymentMethod}
+                        onChange={setTrainingJoinPaymentMethod}
+                        walletBalance={null}
+                        walletLoading={false}
+                        walletCurrency={currency}
+                        walletUnavailable="training"
+                      />
                     </div>
                   </>
                 )}

@@ -2184,6 +2184,11 @@
   font-size: 1.25rem;
 }
 
+.my-bookings-card-pay-menu .unified-pay-menu {
+  width: 100%;
+  border-radius: 10px;
+}
+
 .my-bookings-card-actions {
   margin-top: 16px;
   padding-top: 16px;
