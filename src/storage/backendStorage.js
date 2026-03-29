@@ -29,6 +29,10 @@ export async function bootstrap() {
       if (pa?.id) return { actorType: 'platform_admin', actorId: pa.id, actorName: pa.email }
       const ca = cache.get('club_admin_session')
       if (ca?.userId) return { actorType: 'club_admin', actorId: ca.userId, actorName: ca.email, clubId: ca.clubId }
+      const memberId = cache.get('current_member_id')
+      if (memberId != null && String(memberId).trim() !== '') {
+        return { actorType: 'member', actorId: String(memberId), actorName: null }
+      }
       return null
     })
     const keys = [

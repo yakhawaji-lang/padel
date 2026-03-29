@@ -45,6 +45,7 @@ function needsDataActorHeaders(path, method) {
   if (m === 'POST' && path === '/api/bookings/admin-fulfill-member-refund') return true
   if (m === 'POST' && path === '/api/bookings/admin-fulfill-member-share-refund') return true
   if (m === 'POST' && path === '/api/bookings/admin-extend-split-deadline') return true
+  if (m === 'POST' && path === '/api/bookings/record-payment') return true
   return false
 }
 
