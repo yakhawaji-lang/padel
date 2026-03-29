@@ -48,6 +48,13 @@ export function shareHasMemberRefundPending(share, booking) {
   return false
 }
 
+/** Any active split share is awaiting club fulfillment of a member refund request. */
+export function bookingHasPendingMemberShareRefund(booking) {
+  const shares = Array.isArray(booking?.paymentShares) ? booking.paymentShares : []
+  if (!shares.length) return false
+  return shares.some((s) => shareHasMemberRefundPending(s, booking))
+}
+
 /** True when booking `data` or top-level marks member self-cancel (from API / local). */
 export function hasMemberSelfCancelFlag(booking) {
   const d = bookingJsonData(booking)
