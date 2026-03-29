@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { loadClubs, getClubById, getClubMembersFromStorage, getAllMembersFromStorage, addMemberToClub, addBookingToClub, refreshClubsFromApi, upsertMember } from '../storage/adminStorage'
 import { calculateBookingPrice } from '../utils/bookingPricing'
 import { normalizePhone } from '../utils/phoneNormalize'
-import { buildPayShareAbsoluteUrl, buildWhatsAppHrefForSplitInvite } from '../utils/splitInviteLinks'
+import { buildPayShareAbsoluteUrl, buildWhatsAppHrefForSplitInvite, buildClubPublicAbsoluteUrl } from '../utils/splitInviteLinks'
 import * as bookingApi from '../api/dbClient'
 import { getStore } from '../api/dbClient'
 import { getImageUrl, sendWelcomeClubJoinEmail } from '../api/dbClient'
@@ -280,6 +280,8 @@ const ClubPublicPage = () => {
   const [splitInviteEditingToken, setSplitInviteEditingToken] = useState(null)
   const [splitInviteEditDraft, setSplitInviteEditDraft] = useState('')
   const [splitInviteActionBusy, setSplitInviteActionBusy] = useState(false)
+  /** Booking date/time for split-invite WhatsApp text after modal closes */
+  const [splitInviteSchedule, setSplitInviteSchedule] = useState(null)
   const bookingsSectionRef = React.useRef(null)
   const [activeLock, setActiveLock] = useState(null)
   const [activeLocks, setActiveLocks] = useState([])
@@ -1164,6 +1166,7 @@ const ClubPublicPage = () => {
       setActiveLock(null)
       if (paymentUrl && bookingId) {
         setSplitPaymentInviteRows([])
+        setSplitInviteSchedule(null)
         setSplitInviteMeta(null)
         setSplitInviteEditingToken(null)
         setBookingModal(null)
@@ -1184,6 +1187,11 @@ const ClubPublicPage = () => {
       setSplitInviteMeta(bookingId ? { bookingId, clubId } : null)
       setSplitInviteEditingToken(null)
       setSplitPaymentInviteRows(unregShares)
+      setSplitInviteSchedule(
+        unregShares.length > 0
+          ? { dateStr: bookingDate, startTime: bookingModal.startTime, endTime }
+          : null
+      )
       setBookingModal(null)
       setPaymentShares([])
       setPaymentStyle('single')
@@ -1318,7 +1326,21 @@ const ClubPublicPage = () => {
             <ul className="club-public-split-invites-list">
               {splitPaymentInviteRows.map((row, idx) => {
                 const payUrl = row.payInviteUrl || (row.inviteToken ? buildPayShareAbsoluteUrl(row.inviteToken, row.type) : '')
-                const waHref = payUrl ? buildWhatsAppHrefForSplitInvite(row.phone, payUrl, language) : ''
+                const clubDisp = language === 'ar' && club?.nameAr ? club.nameAr : club?.name
+                const sch = splitInviteSchedule || {}
+                const waHref = payUrl
+                  ? buildWhatsAppHrefForSplitInvite(row.phone, payUrl, language, {
+                      participantType: row.type || 'unregistered',
+                      clubName: clubDisp || 'Club',
+                      bookingDate: sch.dateStr || '—',
+                      startTime: sch.startTime || '—',
+                      endTime: sch.endTime || '',
+                      shareAmount: parseFloat(row.amount) || 0,
+                      currency: club?.settings?.currency || 'SAR',
+                      clubPageUrl: clubId ? buildClubPublicAbsoluteUrl(clubId) : '',
+                      externalWebsite: club?.website || '',
+                    })
+                  : ''
                 const isEditing = splitInviteEditingToken === row.inviteToken
                 const canManage = !!(splitInviteMeta?.bookingId && platformUser?.id)
                 return (
@@ -1406,6 +1428,7 @@ const ClubPublicPage = () => {
               className="club-public-split-invites-dismiss"
               onClick={() => {
                 setSplitPaymentInviteRows([])
+                setSplitInviteSchedule(null)
                 setSplitInviteMeta(null)
                 setSplitInviteEditingToken(null)
               }}

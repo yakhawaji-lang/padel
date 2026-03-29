@@ -10,6 +10,8 @@ import * as bookingApi from '../api/dbClient'
 import { normalizePhone } from '../utils/phoneNormalize'
 import { phoneTailKey, resolvePaymentShareDisplayName } from '../utils/paymentShareMemberMatch'
 import { isContactsPickSupported, pickPhoneNumbersFromContacts } from '../utils/contactPicker'
+import { buildPaymentShareWhatsAppPlainText } from '../utils/sharePaymentInviteMessage'
+import { buildClubPublicAbsoluteUrl } from '../utils/splitInviteLinks'
 
 export { normalizePhone } from '../utils/phoneNormalize'
 
@@ -34,35 +36,55 @@ export function getRegisterUrl(clubId, phone) {
   return url
 }
 
-/** Build WhatsApp share link with registration URL (includes phone for pre-fill) — for unregistered */
+/**
+ * Unregistered guest — before booking is confirmed there is no pay-invite token.
+ * Message explains next steps and links to the club page on PlayTix (not register?join).
+ */
 export function buildWhatsAppLink(phone, clubName, dateStr, timeStr, amount, currency, clubId) {
   const p = normalizePhone(phone)
   const num = p.replace(/\D/g, '')
   const base = num.startsWith('966') ? `966${num.slice(3)}` : num
-  const registerUrl = getRegisterUrl(clubId, phone)
-  const registerText = registerUrl
-    ? `سجّل في PlayTix للمشاركة: ${registerUrl}`
-    : 'سجّل في PlayTix للمشاركة'
-  const text = encodeURIComponent(
-    `مرحباً! أنا أشاركك في دفع حجز ملعب في ${clubName || 'النادي'}\nالتاريخ: ${dateStr}\nالوقت: ${timeStr}\nمبلغ مشاركتك: ${amount} ${currency}\n${registerText}`
-  )
-  return `https://wa.me/${base}?text=${text}`
+  const clubPage = clubId ? buildClubPublicAbsoluteUrl(clubId) : ''
+  const plain = buildPaymentShareWhatsAppPlainText({
+    clubName: clubName || 'Club',
+    bookingDate: dateStr,
+    startTime: timeStr,
+    endTime: '',
+    shareAmount: amount,
+    currency,
+    paymentUrl: '',
+    clubPageUrl: clubPage,
+    externalWebsite: '',
+    mode: 'pre_confirm_guest',
+  })
+  return `https://wa.me/${base}?text=${encodeURIComponent(plain)}`
 }
 
-/** Build WhatsApp link for registered members — payment share + my-bookings follow-up */
-export function buildWhatsAppLinkForRegistered(phone, clubName, dateStr, timeStr, amount, currency, language) {
+/** Registered members — bilingual message; payment flow via My Bookings until pay-share link exists */
+export function buildWhatsAppLinkForRegistered(phone, clubName, dateStr, timeStr, amount, currency, language, clubId) {
   if (!phone || String(phone).replace(/\D/g, '').length < 8) return null
   const p = normalizePhone(phone)
   const num = p.replace(/\D/g, '')
   const base = num.startsWith('966') ? `966${num.slice(3)}` : num
   const basePath = getAppBasePath()
-  const myBookingsUrl = typeof window !== 'undefined'
-    ? window.location.origin + (basePath ? basePath + '/' : '') + 'my-bookings'
-    : ''
-  const msg = language === 'ar'
-    ? `مرحباً! تمت إضافتك لمشاركة في دفع حجز ملعب في ${clubName || 'النادي'}\nالتاريخ: ${dateStr}\nالوقت: ${timeStr}\nمبلغ مشاركتك: ${amount} ${currency}\nادخل إلى حجوزاتي لاستكمال الدفع ومتابعة الحجز:\n${myBookingsUrl}`
-    : `Hi! You've been added to a shared court booking at ${clubName || 'the club'}\nDate: ${dateStr}\nTime: ${timeStr}\nYour share: ${amount} ${currency}\nComplete payment and track your booking:\n${myBookingsUrl}`
-  return `https://wa.me/${base}?text=${encodeURIComponent(msg)}`
+  const myBookingsUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}${basePath ? `${basePath}/` : '/'}my-bookings`
+      : ''
+  const clubPage = clubId ? buildClubPublicAbsoluteUrl(clubId) : myBookingsUrl
+  const plain = buildPaymentShareWhatsAppPlainText({
+    clubName: clubName || 'Club',
+    bookingDate: dateStr,
+    startTime: timeStr,
+    endTime: '',
+    shareAmount: amount,
+    currency,
+    paymentUrl: myBookingsUrl,
+    clubPageUrl: clubPage || myBookingsUrl,
+    externalWebsite: '',
+    mode: 'pay_share',
+  })
+  return `https://wa.me/${base}?text=${encodeURIComponent(plain)}`
 }
 
 /**
@@ -217,7 +239,8 @@ export default function BookingPaymentShare({
                 searchableMembers.find((x) => String(x?.id) === String(s.memberId))?.phone ||
                 ''
               next.whatsappLink =
-                buildWhatsAppLinkForRegistered(phone, clubName, dateStr, startTime, amt, currency, language) || undefined
+                buildWhatsAppLinkForRegistered(phone, clubName, dateStr, startTime, amt, currency, language, clubId) ||
+                undefined
             } else if (s.phone) {
               next.whatsappLink = buildWhatsAppLink(s.phone, clubName, dateStr, startTime, amt, currency, clubId)
             }
@@ -255,7 +278,7 @@ export default function BookingPaymentShare({
     const amount = isGatherPhase ? 0 : Math.round(amt * 100) / 100
     const waAmt = isGatherPhase ? previewShareForGather : amount
     const phone = member?.mobile || member?.phone || ''
-    const whatsappLink = buildWhatsAppLinkForRegistered(phone, clubName, dateStr, startTime, waAmt, currency, language)
+    const whatsappLink = buildWhatsAppLinkForRegistered(phone, clubName, dateStr, startTime, waAmt, currency, language, clubId)
     onChange([...shares, {
       memberId: member.id,
       memberName: member.name || member.email,
@@ -478,7 +501,7 @@ export default function BookingPaymentShare({
                         {favoritesFirst.map((m) => {
                           const phone = m?.mobile || m?.phone || ''
                           const waAmt = previewShareForGather
-                          const waLink = buildWhatsAppLinkForRegistered(phone, clubName, dateStr, startTime, waAmt, currency, language)
+                          const waLink = buildWhatsAppLinkForRegistered(phone, clubName, dateStr, startTime, waAmt, currency, language, clubId)
                           const isFav = favoriteIds.has(String(m.id))
                           const already = addedMemberIds.has(String(m.id))
                           return (

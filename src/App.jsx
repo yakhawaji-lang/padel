@@ -8787,7 +8787,8 @@ function App({ currentUser }) {
                             tournamentTimeLabel,
                             amt,
                             clubCurrency,
-                            language
+                            language,
+                            clubId || ''
                           )
                         }
                         return (
@@ -9183,7 +9184,7 @@ function BookingFormModal({
     if (digits.length < 8) return null
     const amt = parseFloat(po.amount) || 0
     if (po.id) {
-      return buildWhatsAppLinkForRegistered(phone, clubName || '', dateStr, timeRangeLabel, amt, currency, language)
+      return buildWhatsAppLinkForRegistered(phone, clubName || '', dateStr, timeRangeLabel, amt, currency, language, clubId || '')
     }
     return buildWhatsAppLink(phone, clubName || '', dateStr, timeRangeLabel, amt, currency, clubId || '')
   }

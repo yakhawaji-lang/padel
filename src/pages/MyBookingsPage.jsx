@@ -15,7 +15,7 @@ import {
   isSamePaymentShare,
 } from '../utils/paymentShareMemberMatch.js'
 import { normalizePhone } from '../utils/phoneNormalize'
-import { buildPayShareAbsoluteUrl, buildWhatsAppHrefForSplitInvite } from '../utils/splitInviteLinks'
+import { buildPayShareAbsoluteUrl, buildWhatsAppHrefForSplitInvite, buildClubPublicAbsoluteUrl } from '../utils/splitInviteLinks'
 import { getTournamentMemberPaymentEntry } from '../utils/tournamentHelpers.js'
 import { isContactsPickSupported, pickPhoneNumbersFromContacts } from '../utils/contactPicker'
 
@@ -1445,9 +1445,22 @@ const MyBookingsPage = () => {
                           const payAbs =
                             (s.payInviteUrl || s.pay_invite_url || '') ||
                             (s.inviteToken ? buildPayShareAbsoluteUrl(s.inviteToken, s.type) : '')
+                          const startT = r.booking?.startTime || r.booking?.timeSlot || '—'
+                          const endT = r.booking?.endTime || ''
+                          const clubPageAbs = r.club?.id ? buildClubPublicAbsoluteUrl(r.club.id) : ''
                           const waHrefList =
                             payAbs && !pd && !rf
-                              ? buildWhatsAppHrefForSplitInvite(s.phone, payAbs, language)
+                              ? buildWhatsAppHrefForSplitInvite(s.phone, payAbs, language, {
+                                  participantType: s.type,
+                                  clubName: r.clubName,
+                                  bookingDate: r.dateStr,
+                                  startTime: startT,
+                                  endTime: endT,
+                                  shareAmount: shareAmt,
+                                  currency: r.currencyStr,
+                                  clubPageUrl: clubPageAbs,
+                                  externalWebsite: r.club?.website || '',
+                                })
                               : (s.whatsappLink || '')
                           const showWa = waHrefList && !pd && !rf && filter === 'upcoming'
                           const isEditingList = shareRowEditKey === compositeKey

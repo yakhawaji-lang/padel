@@ -12,7 +12,7 @@ import {
   isSamePaymentShare,
 } from '../utils/paymentShareMemberMatch'
 import { normalizePhone } from '../utils/phoneNormalize'
-import { buildPayShareAbsoluteUrl, buildWhatsAppHrefForSplitInvite } from '../utils/splitInviteLinks'
+import { buildPayShareAbsoluteUrl, buildWhatsAppHrefForSplitInvite, buildClubPublicAbsoluteUrl } from '../utils/splitInviteLinks'
 import { getTournamentMemberPaymentEntry } from '../utils/tournamentHelpers'
 import { updateTournamentMemberPaymentEntry, withdrawMemberFromTournament } from '../storage/adminStorage'
 import { shareHasMemberRefundPending } from '../utils/bookingMemberCancel'
@@ -781,7 +781,20 @@ export default function BookingDetailModal({
                     const payAbs =
                       (s.payInviteUrl || s.pay_invite_url || '') ||
                       (s.inviteToken ? buildPayShareAbsoluteUrl(s.inviteToken, s.type) : '')
-                    const waTarget = payAbs ? buildWhatsAppHrefForSplitInvite(s.phone, payAbs, language) : (s.whatsappLink || '')
+                    const clubPageAbs = club?.id ? buildClubPublicAbsoluteUrl(club.id) : ''
+                    const waTarget = payAbs
+                      ? buildWhatsAppHrefForSplitInvite(s.phone, payAbs, language, {
+                          participantType: s.type,
+                          clubName: clubName || 'Club',
+                          bookingDate: dateStr,
+                          startTime: startTime || '—',
+                          endTime: endTime || '',
+                          shareAmount: shareAmt,
+                          currency,
+                          clubPageUrl: clubPageAbs,
+                          externalWebsite: club?.website || '',
+                        })
+                      : (s.whatsappLink || '')
                     const isEditingShare = bookerShareEditKey === rowKey
                     const shareRefundPendingClub = shareHasMemberRefundPending(s, booking)
                     return (
