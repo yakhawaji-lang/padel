@@ -227,11 +227,16 @@ export default function BookingPaymentShare({
     if (isGatherPhase) return
     if (splitMode === 'equal' && shares.length > 0) {
       const amt = Math.round((totalPrice / (shares.length + 1)) * 100) / 100
-      const needsUpdate = shares.some(s => Math.abs((s.amount || 0) - amt) > 0.01)
-      if (needsUpdate) {
+      const needsAmountFix = shares.some((s) => Math.abs((s.amount || 0) - amt) > 0.01)
+      const needsStripWa = splitPhase === 'amounts' && shares.some((s) => s.whatsappLink)
+      if (needsAmountFix || needsStripWa) {
         onChange(
           shares.map((s) => {
             const next = { ...s, amount: amt }
+            if (splitPhase === 'amounts') {
+              delete next.whatsappLink
+              return next
+            }
             if (s.type === 'registered') {
               const phone =
                 s.phone ||
@@ -278,14 +283,17 @@ export default function BookingPaymentShare({
     const amount = isGatherPhase ? 0 : Math.round(amt * 100) / 100
     const waAmt = isGatherPhase ? previewShareForGather : amount
     const phone = member?.mobile || member?.phone || ''
-    const whatsappLink = buildWhatsAppLinkForRegistered(phone, clubName, dateStr, startTime, waAmt, currency, language, clubId)
+    const whatsappLink =
+      splitPhase === 'amounts'
+        ? undefined
+        : buildWhatsAppLinkForRegistered(phone, clubName, dateStr, startTime, waAmt, currency, language, clubId) || undefined
     onChange([...shares, {
       memberId: member.id,
       memberName: member.name || member.email,
       phone: phone || undefined,
       type: 'registered',
       amount,
-      whatsappLink: whatsappLink || undefined
+      ...(whatsappLink ? { whatsappLink } : {}),
     }])
     setMemberSearchQuery('')
     setContactError('')
@@ -312,7 +320,9 @@ export default function BookingPaymentShare({
       phone: p,
       type: 'unregistered',
       amount,
-      whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, waAmt, currency, clubId)
+      ...(splitPhase === 'amounts'
+        ? {}
+        : { whatsappLink: buildWhatsAppLink(p, clubName, dateStr, startTime, waAmt, currency, clubId) }),
     }])
     setMemberSearchQuery('')
     if (!isGatherPhase) setAddFormOpen(false)
@@ -632,11 +642,20 @@ export default function BookingPaymentShare({
                 <>
                   <div className="booking-payment-share-followup">
                     <h4 className="booking-payment-share-followup-title">{t('Booking follow-up', 'متابعة الحجز')}</h4>
-                    <p className="booking-payment-share-followup-hint">{t('Send payment share link to each participant via WhatsApp', 'أرسل رابط المشاركة بالدفع لكل مشارك عبر واتساب')}</p>
-                    <p className="booking-payment-share-pending-invite-note">{t(
-                      'After you confirm the booking, use the yellow banner on this page to send each guest their final personal link (with payment).',
-                      'بعد تأكيد الحجز، استخدم الشريط الأصفر في الصفحة لإرسال الرابط الشخصي النهائي لكل ضيف (يتضمن الدفع).'
-                    )}</p>
+                    <p className="booking-payment-share-followup-hint">
+                      {splitPhase === 'amounts'
+                        ? t(
+                            'Confirm the booking next — then use the banner on this page to send each guest their payment link by WhatsApp.',
+                            'أكّد الحجز في الخطوة التالية — ثم استخدم الشريط في الصفحة لإرسال رابط الدفع لكل ضيف عبر واتساب.'
+                          )
+                        : t('Send payment share link to each participant via WhatsApp', 'أرسل رابط المشاركة بالدفع لكل مشارك عبر واتساب')}
+                    </p>
+                    {splitPhase === 'amounts' ? null : (
+                      <p className="booking-payment-share-pending-invite-note">{t(
+                        'After you confirm the booking, use the yellow banner on this page to send each guest their final personal link (with payment).',
+                        'بعد تأكيد الحجز، استخدم الشريط الأصفر في الصفحة لإرسال الرابط الشخصي النهائي لكل ضيف (يتضمن الدفع).'
+                      )}</p>
+                    )}
                   </div>
                   <div className="booking-payment-share-mode">
                     <label className="booking-payment-share-radio">
@@ -684,7 +703,7 @@ export default function BookingPaymentShare({
                             />
                             <span className="booking-payment-share-currency">{currency}</span>
                           </div>
-                          {s.whatsappLink ? (
+                          {splitPhase === 'amounts' ? null : s.whatsappLink ? (
                             <a href={s.whatsappLink} target="_blank" rel="noopener noreferrer" className="booking-payment-share-whatsapp" title={t('Send via WhatsApp', 'إرسال عبر واتساب')} aria-label="WhatsApp">
                               <span className="booking-payment-share-wa-icon">💬</span>
                               <span className="booking-payment-share-wa-label">{t('Send', 'إرسال')}</span>
