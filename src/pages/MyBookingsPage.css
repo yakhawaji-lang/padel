@@ -774,6 +774,37 @@
   cursor: not-allowed;
 }
 
+.my-bookings-participant-modify-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: #fff;
+  background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
+}
+
+.my-bookings-participant-modify-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.my-bookings-participant-modify-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.my-bookings-participant-modify-btn-icon {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
 .my-bookings-participant-refund-dropdown {
   position: relative;
   width: 100%;

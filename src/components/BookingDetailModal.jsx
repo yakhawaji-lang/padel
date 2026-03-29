@@ -10,7 +10,6 @@ import {
   shareNeedsRefundAcknowledgment,
   findPaymentShareForMember,
   isSamePaymentShare,
-  sharePaymentAllowsElectronicRefund,
 } from '../utils/paymentShareMemberMatch'
 import { normalizePhone } from '../utils/phoneNormalize'
 import { buildPayShareAbsoluteUrl, buildWhatsAppHrefForSplitInvite } from '../utils/splitInviteLinks'
@@ -47,6 +46,9 @@ export default function BookingDetailModal({
   onUpdated,
   memberDirectory = [],
   showBrowseClubLink = true,
+  /** When true once: open split-participant refund flow (same modal as booker cancel/refund). */
+  bootOpenSplitParticipantActions = false,
+  onBootOpenSplitParticipantActionsDone,
 }) {
   const [markingPayAtClub, setMarkingPayAtClub] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -58,7 +60,7 @@ export default function BookingDetailModal({
   const [bookerShareEditKey, setBookerShareEditKey] = useState(null)
   const [bookerSharePhoneDraft, setBookerSharePhoneDraft] = useState('')
   const [bookerShareBusy, setBookerShareBusy] = useState(false)
-  const [participantRefundMenuRowKey, setParticipantRefundMenuRowKey] = useState(null)
+  const [splitShareForActions, setSplitShareForActions] = useState(null)
 
   const dateStr = booking?.dateStr || booking?.date || (booking?.startDate || '').toString().split('T')[0]
   const startTime = booking?.startTime || booking?.timeSlot || ''
@@ -111,6 +113,40 @@ export default function BookingDetailModal({
   const isBookingTerminal = ['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(statusLc)
   const canOpenMemberActions =
     !!club?.id && !isTournamentBooking && isInitiator && !!platformUser?.id && !isBookingTerminal
+  const shareMemberRefundPending = !!(userShare?.memberRefundRequestedAt || userShare?.member_refund_requested_at)
+  const shareRefunded = !!(userShare?.refundedAt || userShare?.refunded_at)
+  const canOpenSplitShareMemberActions =
+    !!club?.id &&
+    !isTournamentBooking &&
+    !isInitiator &&
+    !!userShare?.inviteToken &&
+    userSharePaid &&
+    !needsRefundAck &&
+    !shareMemberRefundPending &&
+    !shareRefunded &&
+    !!platformUser?.id &&
+    !isBookingTerminal
+
+  useEffect(() => {
+    if (!bootOpenSplitParticipantActions || !platformUser || !booking || !club) return
+    const us = findPaymentShareForMember(booking, platformUser)
+    if (!us?.inviteToken) {
+      onBootOpenSplitParticipantActionsDone?.()
+      return
+    }
+    const paid = !!(us.paidAt || us.paid_at)
+    const pending = !!(us.memberRefundRequestedAt || us.member_refund_requested_at)
+    const rf = !!(us.refundedAt || us.refunded_at)
+    const term = ['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes((booking?.status || '').toString().toLowerCase())
+    if (!paid || pending || rf || term) {
+      onBootOpenSplitParticipantActionsDone?.()
+      return
+    }
+    setSplitShareForActions(us)
+    setMemberActionsOpen(true)
+    setMemberActionsSection('cancel')
+    onBootOpenSplitParticipantActionsDone?.()
+  }, [bootOpenSplitParticipantActions, booking, club, platformUser, onBootOpenSplitParticipantActionsDone])
 
   const openMemberActions = (section) => {
     setMemberActionsSection(section === 'cancel' ? 'cancel' : 'reschedule')
@@ -288,6 +324,8 @@ export default function BookingDetailModal({
       participantRefundCash: 'Cash at club',
       participantRefundCard: 'Back to card (online)',
       participantRefundAwaiting: 'Refund requested — club will process it',
+      modifyShort: 'Edit',
+      splitParticipantModifyHint: 'Change how you receive a refund for your share (wallet, at the club, or card if you paid online).',
     },
     ar: {
       title: 'تفاصيل الحجز',
@@ -343,6 +381,8 @@ export default function BookingDetailModal({
       participantRefundCash: 'كاش في النادي',
       participantRefundCard: 'إرجاع للبطاقة (دفع إلكتروني)',
       participantRefundAwaiting: 'تم طلب الاسترداد — بانتظار تنفيذ النادي',
+      modifyShort: 'تعديل',
+      splitParticipantModifyHint: 'تعديل طريقة استرداد حصتك: محفظة النادي، نقداً في النادي، أو للبطاقة إن دفعت إلكترونياً.',
     }
   }
   const c = t[language] || t.en
@@ -403,30 +443,6 @@ export default function BookingDetailModal({
         inviteToken: s.inviteToken || undefined,
         phone: platformUser.mobile || platformUser.phone
       })
-      setParticipantRefundMenuRowKey(null)
-      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
-      await onUpdated?.()
-    } catch (e) {
-      if (typeof window !== 'undefined' && window.alert) window.alert(e?.message || c.shareManageError)
-    } finally {
-      setBookerShareBusy(false)
-    }
-  }
-
-  const handleParticipantRequestRefund = async (s, refundRoute) => {
-    if (!club?.id || !booking?.id || !platformUser?.id) return
-    setBookerShareBusy(true)
-    try {
-      await bookingApi.memberRequestShareRefund({
-        bookingId: booking.id,
-        clubId: club.id,
-        memberId: platformUser.id,
-        shareId: s.id || undefined,
-        inviteToken: s.inviteToken || undefined,
-        refundRoute,
-        phone: platformUser.mobile || platformUser.phone
-      })
-      setParticipantRefundMenuRowKey(null)
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
       await onUpdated?.()
     } catch (e) {
@@ -632,6 +648,28 @@ export default function BookingDetailModal({
               <p className="booking-detail-primary-hint">{c.cancelBookingHint}</p>
             ) : null}
 
+            {canOpenSplitShareMemberActions && (
+              <div className="booking-detail-primary-row">
+                <button
+                  type="button"
+                  className="booking-detail-primary-btn booking-detail-primary-btn--edit"
+                  onClick={() => {
+                    setSplitShareForActions(userShare)
+                    setMemberActionsOpen(true)
+                    setMemberActionsSection('cancel')
+                  }}
+                >
+                  <span className="booking-detail-primary-icon" aria-hidden>✏️</span>
+                  <span className="booking-detail-primary-text">
+                    <span className="booking-detail-primary-label">{c.modifyShort}</span>
+                  </span>
+                </button>
+              </div>
+            )}
+            {canOpenSplitShareMemberActions ? (
+              <p className="booking-detail-primary-hint">{c.splitParticipantModifyHint}</p>
+            ) : null}
+
             {club?.id && !isTournamentBooking && !isInitiator && (
               <Link to={`/clubs/${club.id}#court-booking`} className="booking-detail-action booking-detail-action-accent" onClick={onClose}>
                 <span className="booking-detail-action-icon">📅</span>
@@ -692,8 +730,6 @@ export default function BookingDetailModal({
                     const waTarget = payAbs ? buildWhatsAppHrefForSplitInvite(s.phone, payAbs, language) : (s.whatsappLink || '')
                     const isEditingShare = bookerShareEditKey === rowKey
                     const memberReqAt = s.memberRefundRequestedAt || s.member_refund_requested_at
-                    const refundMenuOpen = participantRefundMenuRowKey === rowKey
-                    const allowElRefund = sharePaymentAllowsElectronicRefund(s)
                     return (
                       <div key={rowKey} className="booking-detail-share-row">
                         {isEditingShare ? (
@@ -795,17 +831,9 @@ export default function BookingDetailModal({
                             !memberReqAt &&
                             !removed &&
                             !isBookingTerminal
-                          const showRefund =
-                            isMyShare &&
-                            !!s.inviteToken &&
-                            !!pd &&
-                            !rf &&
-                            !memberReqAt &&
-                            !removed &&
-                            !isBookingTerminal
                           const showRefundPending =
                             isMyShare && !!memberReqAt && !rf && !removed
-                          if (!showLeave && !showRefund && !showRefundPending) return null
+                          if (!showLeave && !showRefundPending) return null
                           return (
                             <span className="booking-detail-participant-self-wrap">
                               {showRefundPending ? (
@@ -820,48 +848,6 @@ export default function BookingDetailModal({
                                 >
                                   {c.participantLeaveShare}
                                 </button>
-                              ) : null}
-                              {showRefund ? (
-                                <span className="booking-detail-participant-refund">
-                                  <button
-                                    type="button"
-                                    className="booking-detail-participant-refund-toggle"
-                                    disabled={bookerShareBusy}
-                                    onClick={() => setParticipantRefundMenuRowKey(refundMenuOpen ? null : rowKey)}
-                                  >
-                                    {c.participantRefundTitle} ▾
-                                  </button>
-                                  {refundMenuOpen ? (
-                                    <span className="booking-detail-participant-refund-menu">
-                                      <button
-                                        type="button"
-                                        className="booking-detail-participant-refund-item"
-                                        disabled={bookerShareBusy}
-                                        onClick={() => handleParticipantRequestRefund(s, 'wallet')}
-                                      >
-                                        {c.participantRefundWallet}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="booking-detail-participant-refund-item"
-                                        disabled={bookerShareBusy}
-                                        onClick={() => handleParticipantRequestRefund(s, 'cash')}
-                                      >
-                                        {c.participantRefundCash}
-                                      </button>
-                                      {allowElRefund ? (
-                                        <button
-                                          type="button"
-                                          className="booking-detail-participant-refund-item"
-                                          disabled={bookerShareBusy}
-                                          onClick={() => handleParticipantRequestRefund(s, 'electronic')}
-                                        >
-                                          {c.participantRefundCard}
-                                        </button>
-                                      ) : null}
-                                    </span>
-                                  ) : null}
-                                </span>
                               ) : null}
                             </span>
                           )
@@ -887,16 +873,21 @@ export default function BookingDetailModal({
       </div>
       {memberActionsOpen && club && booking && platformUser && (
         <MemberBookingActionsModal
-          key={`${booking.id}-${memberActionsSection}`}
+          key={`${booking.id}-${memberActionsSection}-${splitShareForActions ? 'split' : 'full'}`}
           booking={booking}
           club={club}
           platformUser={platformUser}
           language={language}
           initialSection={memberActionsSection}
-          onClose={() => setMemberActionsOpen(false)}
+          splitShare={splitShareForActions}
+          onClose={() => {
+            setMemberActionsOpen(false)
+            setSplitShareForActions(null)
+          }}
           onUpdated={() => {
             onUpdated?.()
             setMemberActionsOpen(false)
+            setSplitShareForActions(null)
             onClose?.()
           }}
         />

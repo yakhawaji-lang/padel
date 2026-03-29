@@ -12,7 +12,6 @@ import {
   resolvePaymentShareDisplayName,
   shareNeedsRefundAcknowledgment,
   isSamePaymentShare,
-  sharePaymentAllowsElectronicRefund,
 } from '../utils/paymentShareMemberMatch.js'
 import { normalizePhone } from '../utils/phoneNormalize'
 import { buildPayShareAbsoluteUrl, buildWhatsAppHrefForSplitInvite } from '../utils/splitInviteLinks'
@@ -141,7 +140,7 @@ const MyBookingsPage = () => {
   const [walletByClub, setWalletByClub] = useState({})
   const [shareRowEditKey, setShareRowEditKey] = useState(null)
   const [shareRowEditPhone, setShareRowEditPhone] = useState('')
-  const [participantRefundMenuKey, setParticipantRefundMenuKey] = useState(null)
+  const [bootOpenSplitParticipantActions, setBootOpenSplitParticipantActions] = useState(false)
   const [shareRowBusyKey, setShareRowBusyKey] = useState(null)
 
   useEffect(() => {
@@ -163,16 +162,10 @@ const MyBookingsPage = () => {
       if (payMenuOpen && !e.target.closest('.my-bookings-pay-dropdown, .my-bookings-card-pay-wrap')) {
         setPayMenuOpen(null)
       }
-      if (
-        participantRefundMenuKey &&
-        !e.target.closest('.my-bookings-participant-refund-wrap')
-      ) {
-        setParticipantRefundMenuKey(null)
-      }
     }
     document.addEventListener('click', closePayMenu)
     return () => document.removeEventListener('click', closePayMenu)
-  }, [payMenuOpen, participantRefundMenuKey])
+  }, [payMenuOpen])
 
   useEffect(() => {
     if (!member?.id) return
@@ -651,10 +644,8 @@ const MyBookingsPage = () => {
       bookerShareError: 'Something went wrong. Try again.',
       participantLeaveShare: 'Leave split',
       participantLeaveConfirm: 'Remove yourself from this split? You have not paid yet.',
-      participantRefundTitle: 'Request refund',
-      participantRefundWallet: 'Credit club wallet',
-      participantRefundCash: 'Cash at club',
-      participantRefundCard: 'Back to card (online)',
+      splitParticipantModifyHint:
+        'Change how you receive a refund for your share (wallet, at the club, or card if you paid online).',
       participantRefundAwaiting: 'Refund requested — club will process it',
       splitAddBulkHint: 'Add several phone + amount rows, then send all invites at once.',
       payStateKicker: 'Your payment',
@@ -726,10 +717,8 @@ const MyBookingsPage = () => {
       bookerShareError: 'حدث خطأ. حاول مرة أخرى.',
       participantLeaveShare: 'إلغاء المشاركة',
       participantLeaveConfirm: 'إزالة نفسك من التقسيم؟ لم تدفع بعد.',
-      participantRefundTitle: 'طلب استرداد المبلغ',
-      participantRefundWallet: 'إلى محفظة النادي',
-      participantRefundCash: 'كاش في النادي',
-      participantRefundCard: 'إرجاع للبطاقة (دفع إلكتروني)',
+      splitParticipantModifyHint:
+        'تعديل طريقة استرداد حصتك: محفظة النادي، نقداً في النادي، أو للبطاقة إن دفعت إلكترونياً.',
       participantRefundAwaiting: 'تم طلب الاسترداد — بانتظار تنفيذ النادي',
       splitAddBulkHint: 'أضف عدة أسطر (جوال + مبلغ) ثم أرسل كل الدعوات دفعة واحدة.',
       payStateKicker: 'دفع حصتك',
@@ -815,31 +804,6 @@ const MyBookingsPage = () => {
         inviteToken: share.inviteToken || undefined,
         phone: member.phone || member.mobile
       })
-      setParticipantRefundMenuKey(null)
-      await refetchBookings()
-      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
-    } catch (e) {
-      if (typeof window !== 'undefined' && window.alert) {
-        window.alert(language === 'en' ? (e?.message || c.bookerShareError) : (e?.message || c.bookerShareError))
-      }
-    } finally {
-      setShareRowBusyKey(null)
-    }
-  }
-
-  const requestMyShareRefund = async (booking, club, share, compositeKey, refundRoute) => {
-    setShareRowBusyKey(compositeKey)
-    try {
-      await bookingApi.memberRequestShareRefund({
-        bookingId: booking.id,
-        clubId: club.id,
-        memberId: member.id,
-        shareId: share.id || undefined,
-        inviteToken: share.inviteToken || undefined,
-        refundRoute,
-        phone: member.phone || member.mobile
-      })
-      setParticipantRefundMenuKey(null)
       await refetchBookings()
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
     } catch (e) {
@@ -1299,7 +1263,7 @@ const MyBookingsPage = () => {
                                     !rf &&
                                     !memberReqAt &&
                                     !removed
-                                  const showParticipantRefundReq =
+                                  const showParticipantShareModify =
                                     isMyParticipation &&
                                     filter === 'upcoming' &&
                                     !!pd &&
@@ -1308,9 +1272,7 @@ const MyBookingsPage = () => {
                                     !removed
                                   const showParticipantRefundPending =
                                     isMyParticipation && !!memberReqAt && !rf && !removed
-                                  const allowEl = sharePaymentAllowsElectronicRefund(s)
-                                  const refundMenuOpen = participantRefundMenuKey === compositeKey
-                                  if (!showParticipantLeave && !showParticipantRefundReq && !showParticipantRefundPending) {
+                                  if (!showParticipantLeave && !showParticipantShareModify && !showParticipantRefundPending) {
                                     return null
                                   }
                                   return (
@@ -1331,63 +1293,21 @@ const MyBookingsPage = () => {
                                           {shareRowBusyKey === compositeKey ? '…' : c.participantLeaveShare}
                                         </button>
                                       ) : null}
-                                      {showParticipantRefundReq ? (
-                                        <div className="my-bookings-participant-refund-dropdown">
-                                          <button
-                                            type="button"
-                                            className={`my-bookings-participant-refund-toggle ${refundMenuOpen ? 'is-open' : ''}`}
-                                            disabled={!!shareRowBusyKey}
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              setParticipantRefundMenuKey(refundMenuOpen ? null : compositeKey)
-                                            }}
-                                          >
-                                            {shareRowBusyKey === compositeKey ? '…' : c.participantRefundTitle}{' '}
-                                            <span aria-hidden>▾</span>
-                                          </button>
-                                          {refundMenuOpen ? (
-                                            <div className="my-bookings-participant-refund-menu" role="menu">
-                                              <button
-                                                type="button"
-                                                className="my-bookings-participant-refund-item"
-                                                role="menuitem"
-                                                disabled={shareRowBusyKey === compositeKey}
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  requestMyShareRefund(r.booking, r.club, s, compositeKey, 'wallet')
-                                                }}
-                                              >
-                                                {c.participantRefundWallet}
-                                              </button>
-                                              <button
-                                                type="button"
-                                                className="my-bookings-participant-refund-item"
-                                                role="menuitem"
-                                                disabled={shareRowBusyKey === compositeKey}
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  requestMyShareRefund(r.booking, r.club, s, compositeKey, 'cash')
-                                                }}
-                                              >
-                                                {c.participantRefundCash}
-                                              </button>
-                                              {allowEl ? (
-                                                <button
-                                                  type="button"
-                                                  className="my-bookings-participant-refund-item"
-                                                  role="menuitem"
-                                                  disabled={shareRowBusyKey === compositeKey}
-                                                  onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    requestMyShareRefund(r.booking, r.club, s, compositeKey, 'electronic')
-                                                  }}
-                                                >
-                                                  {c.participantRefundCard}
-                                                </button>
-                                              ) : null}
-                                            </div>
-                                          ) : null}
-                                        </div>
+                                      {showParticipantShareModify ? (
+                                        <button
+                                          type="button"
+                                          className="my-bookings-participant-modify-btn"
+                                          title={c.splitParticipantModifyHint}
+                                          disabled={!!shareRowBusyKey}
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setDetailRow(r)
+                                            setBootOpenSplitParticipantActions(true)
+                                          }}
+                                        >
+                                          <span className="my-bookings-participant-modify-btn-icon" aria-hidden>✏️</span>
+                                          {c.edit}
+                                        </button>
                                       ) : null}
                                     </div>
                                   )
@@ -1654,7 +1574,12 @@ const MyBookingsPage = () => {
             memberDirectory={shareMemberDirectory}
             language={language}
             showBrowseClubLink={false}
-            onClose={() => setDetailRow(null)}
+            bootOpenSplitParticipantActions={bootOpenSplitParticipantActions}
+            onBootOpenSplitParticipantActionsDone={() => setBootOpenSplitParticipantActions(false)}
+            onClose={() => {
+              setBootOpenSplitParticipantActions(false)
+              setDetailRow(null)
+            }}
             onUpdated={async () => {
               await refreshClubsFromApi()
               loadClubs()

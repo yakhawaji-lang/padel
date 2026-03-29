@@ -13,8 +13,12 @@ export default function MemberBookingActionsModal({
   onClose,
   onUpdated,
   initialSection = 'reschedule',
+  /** If set, member is a split invitee: only cancel/refund for this share (no reschedule). */
+  splitShare = null,
 }) {
-  const [activeTab, setActiveTab] = useState(initialSection === 'cancel' ? 'cancel' : 'reschedule')
+  const [activeTab, setActiveTab] = useState(
+    splitShare ? 'cancel' : initialSection === 'cancel' ? 'cancel' : 'reschedule'
+  )
   const [quote, setQuote] = useState(null)
   const [loadErr, setLoadErr] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -30,8 +34,12 @@ export default function MemberBookingActionsModal({
   const currency = club?.settings?.currency || 'SAR'
 
   useEffect(() => {
+    if (splitShare) {
+      setActiveTab('cancel')
+      return
+    }
     setActiveTab(initialSection === 'cancel' ? 'cancel' : 'reschedule')
-  }, [initialSection, bookingId])
+  }, [initialSection, bookingId, splitShare?.id, splitShare?.inviteToken])
 
   const t = {
     en: {
@@ -64,6 +72,9 @@ export default function MemberBookingActionsModal({
       hoursLeft: 'Hours until start',
       success: 'Done.',
       close: 'Close',
+      splitParticipantTitle: 'Your share — booking details & refund',
+      splitRefundNetHint: 'Estimated refund applies to your paid share only.',
+      splitRefundPending: 'A refund for your share is already requested. The club will complete it.',
     },
     ar: {
       title: 'تعديل أو إلغاء الحجز',
@@ -95,6 +106,9 @@ export default function MemberBookingActionsModal({
       hoursLeft: 'ساعات حتى بداية الحجز',
       success: 'تم.',
       close: 'إغلاق',
+      splitParticipantTitle: 'حصتك — تفاصيل الحجز واسترداد المبلغ',
+      splitRefundNetHint: 'التقدير يخص حصتك المدفوعة فقط.',
+      splitRefundPending: 'سبق أن طلبت استرداد حصتك. سيُكمِل النادي الإجراء.',
     },
   }
   const c = t[language] || t.en
@@ -103,13 +117,25 @@ export default function MemberBookingActionsModal({
     if (!clubId || !bookingId || !memberId) return
     setLoadErr(null)
     try {
-      const q = await bookingApi.memberBookingSelfServiceQuote({ bookingId, clubId, memberId })
-      setQuote(q)
+      if (splitShare && (splitShare.id || splitShare.inviteToken)) {
+        const q = await bookingApi.memberShareSelfServiceQuote({
+          bookingId,
+          clubId,
+          memberId,
+          shareId: splitShare.id || undefined,
+          inviteToken: splitShare.inviteToken || undefined,
+          phone: platformUser?.mobile || platformUser?.phone,
+        })
+        setQuote(q)
+      } else {
+        const q = await bookingApi.memberBookingSelfServiceQuote({ bookingId, clubId, memberId })
+        setQuote(q)
+      }
     } catch (e) {
       setLoadErr(e?.message || 'Error')
       setQuote(null)
     }
-  }, [clubId, bookingId, memberId])
+  }, [clubId, bookingId, memberId, splitShare?.id, splitShare?.inviteToken, platformUser?.mobile, platformUser?.phone])
 
   useEffect(() => {
     loadQuote()
@@ -155,11 +181,30 @@ export default function MemberBookingActionsModal({
 
   const handleRefund = async (refundRoute) => {
     if (!clubId || !bookingId || !memberId) return
-    if (typeof window !== 'undefined' && !window.confirm(language === 'ar' ? 'تأكيد إلغاء الحجز وطلب الاسترداد؟' : 'Cancel this booking and request a refund?')) return
+    const confirmMsg = splitShare
+      ? language === 'ar'
+        ? 'تأكيد طلب استرداد حصتك (بعد موافقة النادي)؟'
+        : 'Request a refund for your share? The club will process it.'
+      : language === 'ar'
+        ? 'تأكيد إلغاء الحجز وطلب الاسترداد؟'
+        : 'Cancel this booking and request a refund?'
+    if (typeof window !== 'undefined' && !window.confirm(confirmMsg)) return
     setBusy(true)
     setLoadErr(null)
     try {
-      await bookingApi.memberRefundRequest({ bookingId, clubId, memberId, refundRoute })
+      if (splitShare) {
+        await bookingApi.memberRequestShareRefund({
+          bookingId,
+          clubId,
+          memberId,
+          shareId: splitShare.id || undefined,
+          inviteToken: splitShare.inviteToken || undefined,
+          refundRoute,
+          phone: platformUser?.mobile || platformUser?.phone,
+        })
+      } else {
+        await bookingApi.memberRefundRequest({ bookingId, clubId, memberId, refundRoute })
+      }
       onUpdated?.()
       if (typeof window !== 'undefined' && window.alert) window.alert(c.success)
       onClose?.()
@@ -194,7 +239,7 @@ export default function MemberBookingActionsModal({
     <div className="member-booking-actions-backdrop" onClick={onClose} role="presentation">
       <div className="member-booking-actions-modal" role="dialog" aria-modal="true" aria-labelledby="member-booking-actions-title" onClick={(e) => e.stopPropagation()}>
         <div className="member-booking-actions-head">
-          <h3 id="member-booking-actions-title">{c.title}</h3>
+          <h3 id="member-booking-actions-title">{splitShare ? c.splitParticipantTitle : c.title}</h3>
           <button type="button" className="member-booking-actions-close" onClick={onClose} aria-label={c.close}>×</button>
         </div>
         {loadErr && <div className="member-booking-actions-err">{loadErr}</div>}
@@ -204,6 +249,7 @@ export default function MemberBookingActionsModal({
             <p className="member-booking-actions-wallet">
               {c.wallet}: <strong>{quote.walletBalance?.toFixed ? quote.walletBalance.toFixed(2) : quote.walletBalance} {currency}</strong>
             </p>
+            {!splitShare ? (
             <div className="member-booking-actions-tabs" role="tablist" aria-label={c.title}>
               <button
                 type="button"
@@ -228,11 +274,12 @@ export default function MemberBookingActionsModal({
                 {c.tabCancel}
               </button>
             </div>
+            ) : null}
             <p className="member-booking-actions-tab-hint">
-              {activeTab === 'reschedule' ? c.feeHint : c.tabCancelHint}
+              {splitShare ? c.tabCancelHint : activeTab === 'reschedule' ? c.feeHint : c.tabCancelHint}
             </p>
 
-            {activeTab === 'reschedule' && (
+            {!splitShare && activeTab === 'reschedule' && (
               <section id="mba-panel-reschedule" role="tabpanel" aria-labelledby="mba-tab-reschedule" className="member-booking-actions-panel">
                 <h4 className="member-booking-actions-sr-only">{c.rescheduleTitle}</h4>
                 {(quote.nextRescheduleFee || 0) > 0 ? (
@@ -278,14 +325,20 @@ export default function MemberBookingActionsModal({
               </section>
             )}
 
-            {activeTab === 'cancel' && (
+            {(splitShare || activeTab === 'cancel') && (
               <section id="mba-panel-cancel" role="tabpanel" aria-labelledby="mba-tab-cancel" className="member-booking-actions-panel member-booking-actions-panel--danger">
                 <h4>{c.cancelTitle}</h4>
                 <p className="member-booking-actions-muted">{c.cancelHint}</p>
+                {splitShare && (
+                  <p className="member-booking-actions-muted member-booking-actions-split-hint">{c.splitRefundNetHint}</p>
+                )}
                 {quote.hoursUntilStart != null && (
                   <p className="member-booking-actions-muted">{c.hoursLeft}: {quote.hoursUntilStart.toFixed(1)}</p>
                 )}
-                {quote.cancelAllowed && (quote.paidAmount || 0) <= 0.01 ? (
+                {splitShare && quote.memberRefundPending ? (
+                  <p className="member-booking-actions-warn">{c.splitRefundPending}</p>
+                ) : null}
+                {!splitShare && quote.cancelAllowed && (quote.paidAmount || 0) <= 0.01 ? (
                   <>
                     <p className="member-booking-actions-muted">{c.cancelUnpaidHint}</p>
                     <p className="member-booking-actions-unpaid-note">{c.cancelUnpaidTitle}</p>
@@ -299,9 +352,16 @@ export default function MemberBookingActionsModal({
                       <p className="member-booking-actions-warn">
                         {c.refundOutsideHint}
                       </p>
-                    ) : null}
+          ) : null}
                     <p className="member-booking-actions-fee">
-                      {language === 'ar' ? 'صافي الاسترداد التقريبي' : 'Estimated net refund'}:{' '}
+                      {splitShare
+                        ? language === 'ar'
+                          ? 'صافي استرداد حصتك (تقريبي)'
+                          : 'Estimated net refund (your share)'
+                        : language === 'ar'
+                          ? 'صافي الاسترداد التقريبي'
+                          : 'Estimated net refund'}
+                      :{' '}
                       <strong>{quote.estimatedRefundNet} {currency}</strong>
                       {quote.cancelFee > 0 ? <span> ({language === 'ar' ? 'بعد خصم' : 'after fee'} {quote.cancelFee})</span> : null}
                     </p>
@@ -314,6 +374,7 @@ export default function MemberBookingActionsModal({
                           ? 'بعد الطلب، يؤكد النادي تسليم المبلغ نقداً أو إضافته للمحفظة (الدفع كان في النادي).'
                           : 'After you submit, the club will confirm cash payout or wallet credit (you paid at the club).'}
                     </p>
+                    {!quote.memberRefundPending && (
                     <div className="member-booking-actions-refund-btns">
                       <button type="button" className="member-booking-actions-secondary" disabled={busy} onClick={() => handleRefund('wallet')}>
                         {c.refundWallet}
@@ -327,12 +388,15 @@ export default function MemberBookingActionsModal({
                         </button>
                       ) : null}
                     </div>
+                    )}
                   </>
-                ) : !quote.canRequestRefundCancel && (quote.paidAmount || 0) > 0.01 ? (
+                ) : !splitShare && !quote.canRequestRefundCancel && (quote.paidAmount || 0) > 0.01 ? (
                   <p className="member-booking-actions-warn">{c.notAllowed}</p>
-                ) : (quote.paidAmount || 0) > 0.01 ? (
+                ) : !splitShare && (quote.paidAmount || 0) > 0.01 ? (
                   <p className="member-booking-actions-warn">{c.notAllowed}</p>
-                ) : !quote.cancelAllowed ? (
+                ) : !splitShare && !quote.cancelAllowed ? (
+                  <p className="member-booking-actions-warn">{c.notAllowed}</p>
+                ) : splitShare && !quote.memberRefundPending && !quote.canRequestRefundCancel && (quote.paidAmount || 0) > 0.01 ? (
                   <p className="member-booking-actions-warn">{c.notAllowed}</p>
                 ) : null}
               </section>

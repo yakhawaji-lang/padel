@@ -458,6 +458,14 @@ export async function memberBookingSelfServiceQuote({ bookingId, clubId, memberI
   })
 }
 
+/** Split participant: quote refund for own paid share (same policy as member-request-share-refund) */
+export async function memberShareSelfServiceQuote({ bookingId, clubId, memberId, shareId, inviteToken, phone }) {
+  return fetchJson('/api/bookings/member-share-self-service-quote', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId, memberId, shareId, inviteToken, phone }),
+  })
+}
+
 export async function memberRescheduleBooking(payload) {
   return fetchJson('/api/bookings/member-reschedule-booking', {
     method: 'POST',
