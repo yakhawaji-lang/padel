@@ -82,24 +82,40 @@ export function isPaymentShareRegistrationReturn(returnPath) {
 
 export function persistResumeInviteToken(token) {
   const t = normalizeInviteTokenParam(token)
-  if (!t || typeof sessionStorage === 'undefined') return
-  try {
-    sessionStorage.setItem(RESUME_INVITE_KEY, t)
-  } catch (_) {}
-}
-
-export function readResumeInviteToken() {
-  if (typeof sessionStorage === 'undefined') return ''
-  try {
-    return normalizeInviteTokenParam(sessionStorage.getItem(RESUME_INVITE_KEY) || '')
-  } catch {
-    return ''
+  if (!t) return
+  if (typeof sessionStorage !== 'undefined') {
+    try {
+      sessionStorage.setItem(RESUME_INVITE_KEY, t)
+    } catch (_) {}
+  }
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(RESUME_INVITE_KEY, t)
+    } catch (_) {}
   }
 }
 
+export function readResumeInviteToken() {
+  const fromStore = (store) => {
+    if (typeof store === 'undefined') return ''
+    try {
+      return normalizeInviteTokenParam(store.getItem(RESUME_INVITE_KEY) || '')
+    } catch {
+      return ''
+    }
+  }
+  return fromStore(sessionStorage) || fromStore(localStorage)
+}
+
 export function clearResumeInviteToken() {
-  if (typeof sessionStorage === 'undefined') return
-  try {
-    sessionStorage.removeItem(RESUME_INVITE_KEY)
-  } catch (_) {}
+  if (typeof sessionStorage !== 'undefined') {
+    try {
+      sessionStorage.removeItem(RESUME_INVITE_KEY)
+    } catch (_) {}
+  }
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.removeItem(RESUME_INVITE_KEY)
+    } catch (_) {}
+  }
 }

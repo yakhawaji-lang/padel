@@ -1870,7 +1870,7 @@ router.post('/add-split-participants', async (req, res) => {
   }
 })
 
-/** POST /api/bookings/booker-update-share-phone — الحاجز يصحح رقم ضيف ويُحدَّث رمز الدعوة والرابط */
+/** POST /api/bookings/booker-update-share-phone — الحاجز يصحح رقم الضيف؛ يُبقى invite_token حتى لا تُبطَل روابط واتساب المرسلة سابقاً */
 router.post('/booker-update-share-phone', async (req, res) => {
   try {
     const { bookingId, clubId, memberId, shareId, inviteToken, phone: rawPhone } = req.body || {}
@@ -1917,10 +1917,10 @@ router.post('/booker-update-share-phone', async (req, res) => {
     if (row.paid_at) return res.status(400).json({ error: 'Share already paid' })
     if (row.removed_at) return res.status(400).json({ error: 'Share removed' })
 
-    const newToken = `inv_${crypto.randomBytes(16).toString('hex')}`
+    const tokenKeep = normalizeInviteTokenParamExpress(row.invite_token) || row.invite_token
     const baseUrl = getPayBaseUrlFromRequest(req)
     const payPath = String(row.participant_type || '').toLowerCase() === 'unregistered' ? 'pay-invite' : 'pay-share'
-    const payUrl = `${baseUrl.replace(/\/$/, '')}/${payPath}/${newToken}`
+    const payUrl = `${baseUrl.replace(/\/$/, '')}/${payPath}/${tokenKeep}`
     const { rows: bkRowsUpd } = await query(
       `SELECT booking_date, start_time, end_time, time_slot, data FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL LIMIT 1`,
       [bookingId, clubId]
@@ -1951,8 +1951,8 @@ router.post('/booker-update-share-phone', async (req, res) => {
     const waLink = shareWhatsappLinkFromPlainText(plainUpd)
 
     await query(
-      `UPDATE booking_payment_shares SET phone = ?, invite_token = ?, whatsapp_link = ? WHERE id = ? AND club_id = ?`,
-      [phone, newToken, waLink, row.id, clubId]
+      `UPDATE booking_payment_shares SET phone = ?, whatsapp_link = ? WHERE id = ? AND club_id = ?`,
+      [phone, waLink, row.id, clubId]
     )
 
     const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bookingId, clubId)
@@ -1962,7 +1962,7 @@ router.post('/booker-update-share-phone', async (req, res) => {
       ok: true,
       paymentShare: {
         id: row.id,
-        inviteToken: newToken,
+        inviteToken: tokenKeep,
         payInviteUrl: payUrl,
         phone,
         whatsappLink: waLink,

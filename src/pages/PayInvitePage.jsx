@@ -179,7 +179,11 @@ const PayInvitePage = () => {
     const isNetwork = errorStatus === 'network' || (error && /fetch|network|failed to load/i.test(String(error)))
     const title = isNetwork
       ? t('Cannot reach server', 'لا يمكن الاتصال بالسيرفر')
-      : t('Invite not found', 'لم يتم العثور على الدعوة')
+      : is404
+        ? t('Invite not found', 'لم يتم العثور على الدعوة')
+        : errorStatus != null && errorStatus >= 500
+          ? t('Server error', 'خطأ في الخادم')
+          : t('Could not load invite', 'تعذّر تحميل الدعوة')
     const message = isNetwork
       ? t('Make sure the API server is running (e.g. port 4000) and try again.', 'تأكد من تشغيل سيرفر واجهة برمجة التطبيقات (مثلاً المنفذ 4000) ثم أعد المحاولة.')
       : is404
