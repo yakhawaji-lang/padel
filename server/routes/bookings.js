@@ -79,20 +79,28 @@ const SHARE_ROW_MEMBER_REFUND_SELECT = `id, booking_id, club_id, invite_token, m
 
 /** Ensures bookingMigration member_refund_* columns exist if an old DB returns ER_BAD_FIELD_ERROR */
 async function selectPaymentShareRowForMemberRefund(bookingId, clubId, { shareId, inviteToken }) {
-  const run = async () => {
-    if (shareId) {
-      const r = await query(
-        `SELECT ${SHARE_ROW_MEMBER_REFUND_SELECT} FROM booking_payment_shares WHERE id = ? AND booking_id = ? AND club_id = ?`,
-        [shareId, bookingId, clubId]
-      )
-      return r.rows?.[0]
-    }
-    const t = normalizeInviteTokenParamExpress(inviteToken)
+  const fetchById = async (sid) => {
+    if (sid == null || String(sid).trim() === '') return null
+    const r = await query(
+      `SELECT ${SHARE_ROW_MEMBER_REFUND_SELECT} FROM booking_payment_shares WHERE id = ? AND booking_id = ? AND club_id = ?`,
+      [sid, bookingId, clubId]
+    )
+    return r.rows?.[0] || null
+  }
+  const fetchByToken = async (tok) => {
+    const t = normalizeInviteTokenParamExpress(tok)
+    if (!t) return null
     const r = await query(
       `SELECT ${SHARE_ROW_MEMBER_REFUND_SELECT} FROM booking_payment_shares WHERE invite_token = ? AND booking_id = ? AND club_id = ?`,
       [t, bookingId, clubId]
     )
-    return r.rows?.[0]
+    return r.rows?.[0] || null
+  }
+  const run = async () => {
+    // Client may send a stale/wrong id (e.g. from embedded JSON). Prefer DB row by id, then fall back to invite_token.
+    const byId = await fetchById(shareId)
+    if (byId) return byId
+    return fetchByToken(inviteToken)
   }
   try {
     return await run()
