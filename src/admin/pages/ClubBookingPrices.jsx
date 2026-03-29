@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import './club-pages-common.css'
 import './ClubBookingPrices.css'
-import { getDefaultBookingPrices, calculateBookingPrice } from '../../utils/bookingPricing'
+import { getDefaultBookingPrices, mergeBookingPricesFromSaved, calculateBookingPrice } from '../../utils/bookingPricing'
+import { parseLocaleFloat, parseLocaleInt } from '../../utils/localeNumberParse'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
@@ -14,23 +15,37 @@ const DAY_LABELS = {
 const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
   const lang = language || 'en'
   const [activeTab, setActiveTab] = useState('duration')
-  const [prices, setPrices] = useState(() => ({
-    ...getDefaultBookingPrices(),
-    ...(club?.settings?.bookingPrices || {})
-  }))
+  const [prices, setPrices] = useState(() => mergeBookingPricesFromSaved(club?.settings?.bookingPrices))
   const [preview, setPreview] = useState({ date: '', time: '18:00', duration: 60 })
 
   useEffect(() => {
-    const bp = club?.settings?.bookingPrices || {}
-    setPrices(prev => ({ ...getDefaultBookingPrices(), ...bp }))
+    setPrices(mergeBookingPricesFromSaved(club?.settings?.bookingPrices))
   }, [club?.id])
 
   const handleSave = async () => {
+    const defaults = getDefaultBookingPrices()
+    const rows = Array.isArray(prices.durationPrices) && prices.durationPrices.length
+      ? prices.durationPrices
+      : defaults.durationPrices
     const sanitizedPrices = {
       ...prices,
-      durationPrices: (prices.durationPrices || []).map(d => ({
-        ...d,
-        durationMinutes: Math.max(30, d.durationMinutes || 60)
+      durationPrices: rows.map((d, i) => {
+        const def = defaults.durationPrices[i]
+        const dm = Math.max(30, parseLocaleInt(d.durationMinutes, 10, def?.durationMinutes || 60))
+        const pr = Math.max(0, parseLocaleFloat(d.price, Number.isFinite(Number(def?.price)) ? Number(def.price) : 0))
+        return { durationMinutes: dm, price: pr }
+      }),
+      dayModifiers: (prices.dayModifiers || []).map((m) => ({
+        ...m,
+        multiplier: parseLocaleFloat(m.multiplier, 1) || 1
+      })),
+      timeModifiers: (prices.timeModifiers || []).map((m) => ({
+        ...m,
+        multiplier: parseLocaleFloat(m.multiplier, 1) || 1
+      })),
+      seasonModifiers: (prices.seasonModifiers || []).map((m) => ({
+        ...m,
+        multiplier: parseLocaleFloat(m.multiplier, 1) || 1
       }))
     }
     try {
@@ -66,7 +81,7 @@ const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
       ...prev,
       durationPrices: (prev.durationPrices || []).map((d, idx) => {
         if (idx !== i) return d
-        const nextVal = field === 'price' ? parseFloat(val) || 0 : parseInt(val, 10) || 0
+        const nextVal = field === 'price' ? parseLocaleFloat(val, d.price ?? 0) : parseLocaleInt(val, 10, d.durationMinutes || 60)
         if (field === 'durationMinutes' && nextVal < 30) return { ...d, [field]: 30 }
         return { ...d, [field]: nextVal }
       })
@@ -95,7 +110,7 @@ const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
     setPrices(prev => ({
       ...prev,
       dayModifiers: (prev.dayModifiers || []).map((m, idx) =>
-        idx === i ? { ...m, multiplier: parseFloat(val) || 1 } : m
+        idx === i ? { ...m, multiplier: parseLocaleFloat(val, m.multiplier ?? 1) || 1 } : m
       )
     }))
   }
@@ -113,7 +128,7 @@ const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
     setPrices(prev => ({
       ...prev,
       timeModifiers: (prev.timeModifiers || []).map((m, idx) =>
-        idx === i ? { ...m, [field]: field === 'multiplier' ? parseFloat(val) || 1 : val } : m
+        idx === i ? { ...m, [field]: field === 'multiplier' ? parseLocaleFloat(val, m.multiplier ?? 1) || 1 : val } : m
       )
     }))
   }
@@ -132,7 +147,7 @@ const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
     setPrices(prev => ({
       ...prev,
       seasonModifiers: (prev.seasonModifiers || []).map((m, idx) =>
-        idx === i ? { ...m, [field]: field === 'multiplier' ? parseFloat(val) || 1 : val } : m
+        idx === i ? { ...m, [field]: field === 'multiplier' ? parseLocaleFloat(val, m.multiplier ?? 1) || 1 : val } : m
       )
     }))
   }
@@ -211,7 +226,8 @@ const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
                             step={15}
                             value={d.durationMinutes || 60}
                             onChange={(e) => updateDuration(i, 'durationMinutes', e.target.value)}
-                            className="cbp-input cbp-input-num"
+                            className="cbp-input cbp-input-num western-numerals"
+                            lang="en"
                             title={t('Minimum 30 minutes per row.', 'الحد الأدنى 30 دقيقة لكل صف.', lang)}
                           />
                         </td>
@@ -222,7 +238,8 @@ const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
                             step={10}
                             value={d.price ?? 100}
                             onChange={(e) => updateDuration(i, 'price', e.target.value)}
-                            className="cbp-input cbp-input-num"
+                            className="cbp-input cbp-input-num western-numerals"
+                            lang="en"
                           />
                         </td>
                         <td>
@@ -265,7 +282,8 @@ const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
                       step={0.1}
                       value={dm.multiplier ?? 1}
                       onChange={(e) => updateDayMult(i, e.target.value)}
-                      className="cbp-input cbp-input-num"
+                      className="cbp-input cbp-input-num western-numerals"
+                      lang="en"
                     />
                   </div>
                   <button type="button" className="cbp-btn-remove" onClick={() => removeDayModifier(i)}>×</button>
@@ -290,7 +308,7 @@ const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
                   </div>
                   <div className="cbp-modifier-mult">
                     <label>{t('Multiplier', 'المضاعف', lang)}</label>
-                    <input type="number" min={0.1} step={0.1} value={tm.multiplier ?? 1} onChange={(e) => updateTimeModifier(i, 'multiplier', e.target.value)} className="cbp-input cbp-input-num" />
+                    <input type="number" min={0.1} step={0.1} value={tm.multiplier ?? 1} onChange={(e) => updateTimeModifier(i, 'multiplier', e.target.value)} className="cbp-input cbp-input-num western-numerals" lang="en" />
                   </div>
                   <button type="button" className="cbp-btn-remove" onClick={() => removeTimeModifier(i)}>×</button>
                 </div>
@@ -314,7 +332,7 @@ const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
                   </div>
                   <div className="cbp-modifier-mult">
                     <label>{t('Multiplier', 'المضاعف', lang)}</label>
-                    <input type="number" min={0.1} step={0.1} value={sm.multiplier ?? 1} onChange={(e) => updateSeasonModifier(i, 'multiplier', e.target.value)} className="cbp-input cbp-input-num" />
+                    <input type="number" min={0.1} step={0.1} value={sm.multiplier ?? 1} onChange={(e) => updateSeasonModifier(i, 'multiplier', e.target.value)} className="cbp-input cbp-input-num western-numerals" lang="en" />
                   </div>
                   <button type="button" className="cbp-btn-remove" onClick={() => removeSeasonModifier(i)}>×</button>
                 </div>

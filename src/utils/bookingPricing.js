@@ -60,6 +60,50 @@ export function calculateBookingPrice(club, dateStr, startTime, durationMinutes)
   return { price: basePrice, currency, breakdown }
 }
 
+/**
+ * Merge saved bookingPrices with defaults so null/empty durationPrices from DB never wipes the table.
+ */
+export function mergeBookingPricesFromSaved(saved) {
+  const defaults = getDefaultBookingPrices()
+  if (!saved || typeof saved !== 'object') {
+    return {
+      ...defaults,
+      durationPrices: defaults.durationPrices.map((d) => ({ ...d })),
+      dayModifiers: defaults.dayModifiers.map((m) => ({ ...m, days: [...(m.days || [])] })),
+      timeModifiers: defaults.timeModifiers.map((m) => ({ ...m })),
+      seasonModifiers: defaults.seasonModifiers.map((m) => ({ ...m }))
+    }
+  }
+  const merged = { ...defaults, ...saved }
+  const dp = merged.durationPrices
+  if (!Array.isArray(dp) || dp.length === 0) {
+    merged.durationPrices = defaults.durationPrices.map((d) => ({ ...d }))
+  } else {
+    merged.durationPrices = dp.map((d, i) => {
+      const dm = Number(d?.durationMinutes)
+      const pr = Number(d?.price)
+      const def = defaults.durationPrices[i]
+      let price = Number.isFinite(pr) ? pr : NaN
+      if (!Number.isFinite(price) && def != null && Number.isFinite(Number(def.price))) price = Number(def.price)
+      if (!Number.isFinite(price)) price = 100
+      return {
+        durationMinutes: Math.max(30, Number.isFinite(dm) ? dm : def?.durationMinutes || 60),
+        price: Math.max(0, price)
+      }
+    })
+  }
+  if (!Array.isArray(merged.dayModifiers)) {
+    merged.dayModifiers = defaults.dayModifiers.map((m) => ({ ...m, days: [...(m.days || [])] }))
+  }
+  if (!Array.isArray(merged.timeModifiers)) {
+    merged.timeModifiers = defaults.timeModifiers.map((m) => ({ ...m }))
+  }
+  if (!Array.isArray(merged.seasonModifiers)) {
+    merged.seasonModifiers = defaults.seasonModifiers.map((m) => ({ ...m }))
+  }
+  return merged
+}
+
 /** Get default booking prices structure */
 export function getDefaultBookingPrices() {
   return {
