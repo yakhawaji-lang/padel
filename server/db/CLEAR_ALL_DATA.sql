@@ -1,15 +1,17 @@
 -- ============================================================================
--- ⚠️ PlayTix — مسح جميع البيانات التشغيلية (DEV / بيئة اختبار فقط)
--- نسخة مكافئة (مع إعادة بوابات الدفع): ../CLEAR_ALL_DATA.sql
--- ⚠️ DANGER: This deletes ALL clubs, members, bookings, invoices, wallets, etc.
+-- PlayTix — تفريغ جميع بيانات الجداول (الصفوف فقط) مع الإبقاء على هيكل الجداول
+-- ============================================================================
+-- ⚠️ تحذير: يحذف كل الحجوزات، الأعضاء، النوادي، الفواتير، المحافظ، السجلات، إلخ.
+--    لا يمكن التراجع. خذ نسخة احتياطية (Export) قبل التنفيذ.
 --
--- قبل التنفيذ:
--- 1) خذ نسخة احتياطية كاملة (Export) من قاعدة البيانات.
--- 2) في phpMyAdmin: اختر قاعدتك (مثلاً padel_db أو u502561206_padel_db).
--- 3) نفّذ هذا الملف من تبويب SQL.
+-- الاستخدام:
+--   1) phpMyAdmin → اختر قاعدتك (مثلاً padel_db أو u502561206_padel_db)
+--   2) تبويب SQL → الصق هذا الملف بالكامل → تنفيذ
 --
--- إن ظهر خطأ "Unknown table '...'" احذف أو علّق سطر TRUNCATE لذلك الجدول
--- (الخادم قد لا يحتوي كل الجداول بعد).
+-- إن ظهر خطأ "Table '...' doesn't exist": احذف أو علّق سطر TRUNCATE لذلك الجدول
+-- (قاعدتك قد لا تحتوي كل الجداول إن لم تُنفَّذ كل الهجرات).
+--
+-- الفرق عن DROP_ALL_TABLES.sql: هنا نُفرّغ البيانات فقط ولا نحذف الجداول.
 -- ============================================================================
 
 SET NAMES utf8mb4;
@@ -53,7 +55,7 @@ TRUNCATE TABLE `club_admin_users`;
 TRUNCATE TABLE `club_settings`;
 TRUNCATE TABLE `club_store`;
 
--- ----- متجر النادي (جداول منفصلة إن وُجدت) -----
+-- ----- متجر النادي -----
 TRUNCATE TABLE `store_sales`;
 TRUNCATE TABLE `store_products`;
 TRUNCATE TABLE `store_categories`;
@@ -75,14 +77,14 @@ TRUNCATE TABLE `audit_log`;
 
 TRUNCATE TABLE `entities`;
 
--- ----- تخزين Legacy (JSON في app_store / إعدادات الجلسات) -----
+-- ----- Legacy (JSON في app_store / app_settings) -----
 TRUNCATE TABLE `app_store`;
 TRUNCATE TABLE `app_settings`;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================================
--- إعادة صفوف بوابات الدفع الافتراضية (بعد TRUNCATE لـ platform_payment_gateways)
+-- إعادة القيم الافتراضية الضرورية حتى لا تتعطل الواجهة أو إعدادات الدفع
 -- ============================================================================
 
 INSERT INTO `platform_payment_gateways` (gateway_key, enabled, config_json, display_name, display_name_ar, sort_order) VALUES
@@ -91,11 +93,6 @@ INSERT INTO `platform_payment_gateways` (gateway_key, enabled, config_json, disp
 ('mada', 0, '{"merchantId":"","apiKey":"","gatewayId":"","description":"متاب - بطاقة الدفع السعودية"}', 'Mada', 'متاب', 3),
 ('split', 1, '{"deadlineMinutes":30,"description":"Split payment with other participants"}', 'Split payment', 'تقسيم المبلغ', 4)
 ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;
-
--- ============================================================================
--- (اختياري) إعادة القيم الفارغة الافتراضية مثل تهيئة النظام — يُنصح بعد المسح
--- Optional: empty defaults so الواجهة لا تنهار قبل أول مزامنة
--- ============================================================================
 
 INSERT IGNORE INTO `app_store` (`key`, `value`) VALUES ('admin_clubs', '[]');
 INSERT IGNORE INTO `app_store` (`key`, `value`) VALUES ('all_members', '[]');
@@ -113,6 +110,4 @@ INSERT IGNORE INTO `app_settings` (`key`, `value`) VALUES ('club_admin_session',
 INSERT IGNORE INTO `app_settings` (`key`, `value`) VALUES ('current_club_admin_id', 'null');
 INSERT IGNORE INTO `app_settings` (`key`, `value`) VALUES ('password_reset_tokens', '{}');
 
--- انتهى. لإنشاء أول مسؤول منصة استخدم واجهة التسجيل أو استورد من entities
--- كما في GET /api/init-db?reset=1 على بيئة التطوير.
--- ============================================================================
+-- انتهى. لإنشاء مسؤول منصة أو بيانات تجريبية استخدم واجهة التطبيق أو GET /api/init-db (بيئة التطوير).
