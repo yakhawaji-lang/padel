@@ -1203,22 +1203,43 @@ export async function saveClubsToNormalized(items, actor = {}) {
         try {
           const res = await query(
             `SELECT id, participant_type, member_id, phone, invite_token, whatsapp_link, payment_method, paid_at, payment_reference,
-             refunded_at, refund_method, refund_reference, refund_notes, refund_acknowledged_at, removed_at
+             refunded_at, refund_method, refund_reference, refund_notes, refund_acknowledged_at, removed_at,
+             member_refund_route, member_refund_requested_at, member_refund_net
              FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
             [bid, cid]
           )
           existingShares = res?.rows || []
-        } catch (_) {
-          const res = await query(
-            'SELECT id, participant_type, member_id, phone, invite_token, whatsapp_link, payment_method, paid_at, payment_reference FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
-            [bid, cid]
-          )
-          existingShares = res?.rows || []
+        } catch (e) {
+          const msg = e?.message || ''
+          if (msg.includes('member_refund')) {
+            try {
+              const res = await query(
+                `SELECT id, participant_type, member_id, phone, invite_token, whatsapp_link, payment_method, paid_at, payment_reference,
+                 refunded_at, refund_method, refund_reference, refund_notes, refund_acknowledged_at, removed_at
+                 FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
+                [bid, cid]
+              )
+              existingShares = res?.rows || []
+            } catch (_) {
+              existingShares = []
+            }
+          } else {
+            try {
+              const res = await query(
+                'SELECT id, participant_type, member_id, phone, invite_token, whatsapp_link, payment_method, paid_at, payment_reference FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
+                [bid, cid]
+              )
+              existingShares = res?.rows || []
+            } catch (_) {
+              existingShares = []
+            }
+          }
         }
         const preservedByKey = {}
         for (const r of existingShares || []) {
           const key = r.participant_type === 'unregistered' ? `u:${(r.phone || '').trim()}` : `r:${(r.member_id || '').trim()}`
           preservedByKey[key] = {
+            rowId: r.id,
             token: r.invite_token,
             wa: r.whatsapp_link,
             paymentMethod: r.payment_method,
@@ -1229,7 +1250,10 @@ export async function saveClubsToNormalized(items, actor = {}) {
             refundReference: r.refund_reference,
             refundNotes: r.refund_notes,
             refundAcknowledgedAt: r.refund_acknowledged_at,
-            removedAt: r.removed_at
+            removedAt: r.removed_at,
+            memberRefundRoute: r.member_refund_route,
+            memberRefundRequestedAt: r.member_refund_requested_at,
+            memberRefundNet: r.member_refund_net
           }
         }
         await query('DELETE FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?', [bid, cid])
@@ -1252,13 +1276,67 @@ export async function saveClubsToNormalized(items, actor = {}) {
           const refundNotes = preserved.refundNotes || s.refundNotes || null
           const refundAcknowledgedAt = preserved.refundAcknowledgedAt || s.refundAcknowledgedAt || null
           const removedAt = preserved.removedAt || s.removedAt || null
+          let explicitId = preserved.rowId != null && preserved.rowId !== '' ? preserved.rowId : null
+          if (explicitId == null && s.id != null && s.id !== '') explicitId = s.id
+          const mrr = preserved.memberRefundRoute ?? s.memberRefundRoute ?? s.member_refund_route ?? null
+          const mrq = preserved.memberRefundRequestedAt ?? s.memberRefundRequestedAt ?? s.member_refund_requested_at ?? null
+          const mrnRaw = preserved.memberRefundNet ?? s.memberRefundNet ?? s.member_refund_net
+          const mrn = mrnRaw != null && mrnRaw !== '' ? parseFloat(mrnRaw) : null
+          const rowCore = [bid, cid, ptype, mid, mname, ph, amt, wa, token, pm, paidAt, paymentRef, refundedAt, refundMethod, refundReference, refundNotes, refundAcknowledgedAt, removedAt]
+          const insertWithMemberRefund = async (useId) => {
+            if (useId) {
+              await query(
+                `INSERT INTO booking_payment_shares (id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, payment_method, paid_at, payment_reference,
+                 refunded_at, refund_method, refund_reference, refund_notes, refund_acknowledged_at, removed_at,
+                 member_refund_route, member_refund_requested_at, member_refund_net)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [useId, ...rowCore, mrr, mrq, Number.isFinite(mrn) ? mrn : null]
+              )
+            } else {
+              await query(
+                `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, payment_method, paid_at, payment_reference,
+                 refunded_at, refund_method, refund_reference, refund_notes, refund_acknowledged_at, removed_at,
+                 member_refund_route, member_refund_requested_at, member_refund_net)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [...rowCore, mrr, mrq, Number.isFinite(mrn) ? mrn : null]
+              )
+            }
+          }
+          const insertBaseOnly = async (useId) => {
+            if (useId) {
+              await query(
+                `INSERT INTO booking_payment_shares (id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, payment_method, paid_at, payment_reference,
+                 refunded_at, refund_method, refund_reference, refund_notes, refund_acknowledged_at, removed_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [useId, ...rowCore]
+              )
+            } else {
+              await query(
+                `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, payment_method, paid_at, payment_reference,
+                 refunded_at, refund_method, refund_reference, refund_notes, refund_acknowledged_at, removed_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [...rowCore]
+              )
+            }
+          }
           try {
-            await query(
-              `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, payment_method, paid_at, payment_reference,
-               refunded_at, refund_method, refund_reference, refund_notes, refund_acknowledged_at, removed_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [bid, cid, ptype, mid, mname, ph, amt, wa, token, pm, paidAt, paymentRef, refundedAt, refundMethod, refundReference, refundNotes, refundAcknowledgedAt, removedAt]
-            )
+            if (explicitId != null) {
+              try {
+                await insertWithMemberRefund(explicitId)
+              } catch (insErr) {
+                if (/Unknown column.*member_refund|member_refund.*Unknown column/i.test(insErr?.message || '')) {
+                  await insertBaseOnly(explicitId)
+                } else throw insErr
+              }
+            } else {
+              try {
+                await insertWithMemberRefund(null)
+              } catch (insErr) {
+                if (/Unknown column.*member_refund|member_refund.*Unknown column/i.test(insErr?.message || '')) {
+                  await insertBaseOnly(null)
+                } else throw insErr
+              }
+            }
           } catch (insErr) {
             if (/Unknown column 'refunded_at'/.test(insErr?.message || '')) {
               try {
