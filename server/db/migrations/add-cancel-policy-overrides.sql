@@ -1,12 +1,20 @@
--- Optional per booking-type cancel/refund policy overrides (JSON on club_settings)
--- Applied automatically on API startup via server/db/bookingMigration.js
---
--- If you see: #1060 Duplicate column name 'cancel_policy_overrides'
---   → The column already exists. Nothing to do; your schema is OK.
---
--- MySQL 5.7.8+ / MariaDB 10.2.7+ (JSON type). Run only once on hosts without Node migration.
+-- cancel_policy_overrides on club_settings (JSON) — آمن للتنفيذ أكثر من مرة
+-- Works on MySQL 5.7+ / MariaDB (uses INFORMATION_SCHEMA + prepared statement)
 
-ALTER TABLE club_settings ADD COLUMN cancel_policy_overrides JSON NULL COMMENT 'e.g. {"training":{"cancelRefundHoursBefore":48,"cancelFeeMode":"percent","cancelFeeValue":10}}';
+SET @col_exists := (
+  SELECT COUNT(*)
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'club_settings'
+    AND COLUMN_NAME = 'cancel_policy_overrides'
+);
 
--- Idempotent alternative (MariaDB 10.3+ only — comment out the line above if you use this):
--- ALTER TABLE club_settings ADD COLUMN IF NOT EXISTS cancel_policy_overrides JSON NULL COMMENT 'e.g. {"training":{"cancelRefundHoursBefore":48,"cancelFeeMode":"percent","cancelFeeValue":10}}';
+SET @sql := IF(
+  @col_exists = 0,
+  'ALTER TABLE club_settings ADD COLUMN cancel_policy_overrides JSON NULL COMMENT ''Optional training/tournament cancel fee overrides as JSON''',
+  'SELECT ''OK: cancel_policy_overrides already exists — no change.'' AS migration_result'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
