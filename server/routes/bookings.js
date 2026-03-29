@@ -1890,8 +1890,8 @@ router.post('/member-share-self-service-quote', async (req, res) => {
       return res.status(400).json({ error: 'shareId or inviteToken required' })
     }
     if (!row) return res.status(404).json({ error: 'Share not found' })
-    if (!row.invite_token) return res.status(400).json({ error: 'Not applicable' })
     const memberPhone = bodyPhone || ''
+    /** حصة الحاجز تُطابق member_id وقد لا يُخزَّن لها invite_token */
     if (!shareRowBelongsToMember(row, memberId, memberPhone)) {
       return res.status(403).json({ error: 'Not allowed' })
     }
@@ -1980,7 +1980,6 @@ router.post('/member-request-share-refund', async (req, res) => {
       return res.status(400).json({ error: 'shareId or inviteToken required' })
     }
     if (!row) return res.status(404).json({ error: 'Share not found' })
-    if (!row.invite_token) return res.status(400).json({ error: 'Not applicable' })
     const memberPhone = bodyPhone || ''
     if (!shareRowBelongsToMember(row, memberId, memberPhone)) {
       return res.status(403).json({ error: 'Not allowed' })
