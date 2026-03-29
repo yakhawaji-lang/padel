@@ -284,6 +284,15 @@
   background: #f8fafc;
 }
 
+.unified-pay-menu-item--muted:not(:disabled) {
+  opacity: 0.9;
+}
+
+.unified-pay-menu-item--muted:disabled {
+  cursor: not-allowed;
+  background: #f1f5f9;
+}
+
 .unified-pay-menu-item--chosen {
   background: #eff6ff;
 }

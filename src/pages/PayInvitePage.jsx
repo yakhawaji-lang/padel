@@ -5,7 +5,7 @@
  */
 import React, { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { getInviteByToken, recordPayment } from '../api/dbClient'
+import { getInviteByToken, recordPayment, getWalletBalance } from '../api/dbClient'
 import { getAppLanguage } from '../storage/languageStorage'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { addMemberToClub } from '../storage/adminStorage'
@@ -47,6 +47,8 @@ const PayInvitePage = () => {
   const [errorStatus, setErrorStatus] = useState(null)
   const [markingPaid, setMarkingPaid] = useState(false)
   const [markedPaid, setMarkedPaid] = useState(false)
+  const [walletBal, setWalletBal] = useState(null)
+  const [walletLoading, setWalletLoading] = useState(false)
   const language = getAppLanguage() || 'en'
 
   const loadInvite = React.useCallback(async () => {
@@ -128,6 +130,31 @@ const PayInvitePage = () => {
     return () => { cancelled = true }
   }, [platformUser?.id, data?.clubId, data?.inviteToken, tokenNorm, loadInvite])
 
+  useEffect(() => {
+    if (!platformUser?.id || !data?.clubId) {
+      setWalletBal(null)
+      setWalletLoading(false)
+      return
+    }
+    let c = false
+    setWalletLoading(true)
+    getWalletBalance(data.clubId, platformUser.id)
+      .then((r) => {
+        if (c) return
+        const n = typeof r?.balance === 'number' ? r.balance : parseFloat(r?.balance)
+        setWalletBal(Number.isFinite(n) ? n : 0)
+      })
+      .catch(() => {
+        if (!c) setWalletBal(null)
+      })
+      .finally(() => {
+        if (!c) setWalletLoading(false)
+      })
+    return () => {
+      c = true
+    }
+  }, [platformUser?.id, data?.clubId, data?.paidAt])
+
   const t = (en, ar) => (language === 'ar' ? ar : en)
 
   if (loading) {
@@ -189,6 +216,22 @@ const PayInvitePage = () => {
     } catch (e) {
       if (typeof window !== 'undefined' && window.alert) {
         window.alert(e?.message || (language === 'ar' ? 'فشل في تسجيل الدفع' : 'Failed to record payment'))
+      }
+    } finally {
+      setMarkingPaid(false)
+    }
+  }
+
+  const handlePayWallet = async () => {
+    const inviteTok = data?.inviteToken || tokenNorm
+    if (!inviteTok || !data?.clubId) return
+    setMarkingPaid(true)
+    try {
+      await recordPayment({ inviteToken: inviteTok, clubId: data.clubId, paymentMethod: 'wallet' })
+      setMarkedPaid(true)
+    } catch (e) {
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(e?.message || (language === 'ar' ? 'فشل الدفع من المحفظة' : 'Wallet payment failed'))
       }
     } finally {
       setMarkingPaid(false)
@@ -281,6 +324,12 @@ const PayInvitePage = () => {
                   electronicHref={`/pay-share/${canonicalInviteToken}`}
                   electronicTitle={t('Pay electronically', 'الدفع الإلكتروني')}
                   electronicDesc={t('Card or Mada online', 'بطاقة أو متاب أونلاين')}
+                  onPayWallet={handlePayWallet}
+                  walletDisabled={
+                    walletLoading ||
+                    (walletBal != null && walletBal + 1e-9 < (parseFloat(data?.amount) || 0))
+                  }
+                  walletBusy={markingPaid}
                 />
               </div>
             )}

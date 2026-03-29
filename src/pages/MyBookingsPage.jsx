@@ -5,7 +5,7 @@ import { getMemberBookings, getClubById, loadClubs, refreshClubsFromApi, getClub
 import * as bookingApi from '../api/dbClient'
 import LanguageIcon from '../components/LanguageIcon'
 import BookingDetailModal from '../components/BookingDetailModal'
-import { UnifiedPaymentMenu } from '../components/UnifiedPaymentOptions'
+import { UnifiedPaymentMenu, getUnifiedPaymentCopy } from '../components/UnifiedPaymentOptions'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './MyBookingsPage.css'
 import {
@@ -517,8 +517,7 @@ const MyBookingsPage = () => {
     }
   }
 
-  const handleRecordPayment = async (clubId, inviteToken, bookingId) => {
-    if (!clubId) return
+  const resolveShareInviteToken = async (clubId, inviteToken, bookingId) => {
     let token = inviteToken
     if (!token && bookingId && member?.id) {
       try {
@@ -526,6 +525,12 @@ const MyBookingsPage = () => {
         token = d?.inviteToken
       } catch (_) {}
     }
+    return token
+  }
+
+  const handleRecordPayment = async (clubId, inviteToken, bookingId) => {
+    if (!clubId) return
+    const token = await resolveShareInviteToken(clubId, inviteToken, bookingId)
     if (!token) return
     setMarkingPayAtClub(`share-${token}`)
     try {
@@ -537,6 +542,34 @@ const MyBookingsPage = () => {
       setPayMenuOpen(null)
     } catch (e) {
       console.error('recordPayment failed:', e)
+    } finally {
+      setMarkingPayAtClub(null)
+    }
+  }
+
+  const handlePayShareFromWallet = async (clubId, inviteToken, bookingId, busyKey) => {
+    if (!clubId) return
+    const token = await resolveShareInviteToken(clubId, inviteToken, bookingId)
+    if (!token) {
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(language === 'ar' ? 'تعذّر تحديد حصتك للدفع من المحفظة.' : 'Could not resolve your share for wallet payment.')
+      }
+      return
+    }
+    setMarkingPayAtClub(busyKey || `wallet-${token}`)
+    try {
+      await bookingApi.recordPayment({ inviteToken: token, clubId, paymentMethod: 'wallet' })
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      await refreshClubsFromApi()
+      loadClubs()
+      setBookings(getMemberBookings(member.id))
+      await loadWalletBalances()
+      setPayMenuOpen(null)
+    } catch (e) {
+      console.error('wallet share payment failed:', e)
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(language === 'ar' ? (e?.message || 'فشل الدفع من المحفظة') : (e?.message || 'Wallet payment failed'))
+      }
     } finally {
       setMarkingPayAtClub(null)
     }
@@ -1133,6 +1166,29 @@ const MyBookingsPage = () => {
 
   const rows = displayed.map((item, i) => renderBookingRow(item, i))
 
+  const getWalletPayMenuProps = (r) => {
+    const L = getUnifiedPaymentCopy(language)
+    const cid = r.payOptions?.clubId
+    const shareAmt = parseFloat(r.mySplitShare?.amount) || 0
+    const paid = !!(r.mySplitShare?.paidAt || r.mySplitShare?.paid_at)
+    const walletReady = cid != null && Object.prototype.hasOwnProperty.call(walletByClub, cid)
+    const bal = walletReady ? (Number(walletByClub[cid]) || 0) : 0
+    const canWallet =
+      !paid &&
+      shareAmt > 0.009 &&
+      (r.payOptions.type === 'share' || r.payOptions.type === 'initiator')
+    if (!canWallet) {
+      return { walletSubtitle: L.walletFullBookingOnly }
+    }
+    return {
+      onPayWallet: () =>
+        handlePayShareFromWallet(r.payOptions.clubId, r.payOptions.inviteToken, r.payOptions.bookingId, `w:${r.key}`),
+      walletPayLoading: !walletReady,
+      walletPayDisabled: walletReady && bal + 1e-9 < shareAmt,
+      walletPayBusy: markingPayAtClub === `w:${r.key}`,
+    }
+  }
+
   const backClubFromBookings = (upcoming[0]?.club || past[0]?.club || cancelledList[0]?.club || bookings[0]?.club) || null
   const backClub = fromClubId ? getClubById(fromClubId) : backClubFromBookings
   const backLink = backClub ? `/clubs/${backClub.id}` : '/'
@@ -1642,6 +1698,7 @@ const MyBookingsPage = () => {
                                   payAtClubDisabled={!!markingPayAtClub}
                                   electronicHref={getElectronicPayHref(r.payOptions, r.booking)}
                                   onElectronicNavigate={() => setPayMenuOpen(null)}
+                                  {...getWalletPayMenuProps(r)}
                                 />
                               ) : (
                                 <UnifiedPaymentMenu
@@ -1656,6 +1713,7 @@ const MyBookingsPage = () => {
                                   electronicHref={getElectronicPayHref(r.payOptions, r.booking)}
                                   electronicSubtitle={language === 'ar' ? 'بطاقة أو مدى — من صفحة الدفع' : 'Card or Mada — on payment page'}
                                   onElectronicNavigate={() => setPayMenuOpen(null)}
+                                  {...getWalletPayMenuProps(r)}
                                 />
                               )}
                             </div>

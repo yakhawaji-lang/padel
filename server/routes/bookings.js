@@ -325,13 +325,14 @@ router.post('/confirm', async (req, res) => {
     const bid = `bk_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
     const settings = await getBookingSettings(clubId)
     const payAtClub = paymentMethod === 'at_club'
-    const isWalletPay = paymentMethod === 'wallet'
-    const isOnlinePayment = paymentMethod === 'credit_card' || paymentMethod === 'mada'
     const hasShares = Array.isArray(paymentShares) && paymentShares.length > 0
+    const participantsSumForBooker = (paymentShares || []).reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
+    const bookerAmountPre = Math.round(Math.max(0, (parseFloat(totalAmount) || 0) - participantsSumForBooker) * 100) / 100
+    const initiatorPmLower = String(initiatorPaymentMethod || '').toLowerCase().trim()
+    const isWalletPay =
+      String(paymentMethod || '').toLowerCase().trim() === 'wallet' || (hasShares && initiatorPmLower === 'wallet')
+    const isOnlinePayment = paymentMethod === 'credit_card' || paymentMethod === 'mada'
     const payAtClubFull = payAtClub && !hasShares
-    if (isWalletPay && hasShares) {
-      return res.status(400).json({ error: 'Wallet is only available when you pay the full amount (not split).' })
-    }
     let walletApplied = 0
     let walletRemainderTotal = 0
     let remainderPm = ''
@@ -340,6 +341,20 @@ router.post('/confirm', async (req, res) => {
     let paidAmount
     if (isOnlinePayment) {
       status = 'pending_payment'
+      paidAmount = 0
+    } else if (isWalletPay && hasShares) {
+      if (bookerAmountPre <= 0.009) {
+        return res.status(400).json({ error: 'Split wallet payment requires a positive amount for your share as booker.' })
+      }
+      const bal = await walletService.getWalletBalance(clubId, memberId)
+      if (bal + 1e-9 < bookerAmountPre) {
+        return res.status(400).json({
+          error: 'Insufficient wallet balance to cover your share of this booking. Top up or choose another payment method.',
+        })
+      }
+      walletApplied = bookerAmountPre
+      walletRemainderTotal = 0
+      status = 'pending_payments'
       paidAmount = 0
     } else if (isWalletPay && !hasShares) {
       const total = Math.round((parseFloat(totalAmount) || 0) * 100) / 100
@@ -370,7 +385,8 @@ router.post('/confirm', async (req, res) => {
       status = 'confirmed'
       paidAmount = totalAmount || 0
     }
-    const paymentDeadlineMinutes = !payAtClub && !isWalletPay && hasShares ? settings.splitPaymentDeadlineMinutes : null
+    const paymentDeadlineMinutes =
+      hasShares && (!payAtClub || isWalletPay) ? settings.splitPaymentDeadlineMinutes : null
     const paymentDeadline = paymentDeadlineMinutes != null
       ? new Date(Date.now() + paymentDeadlineMinutes * 60 * 1000)
       : null
@@ -422,6 +438,17 @@ router.post('/confirm', async (req, res) => {
       }
       walletRollback = { clubId, memberId, amount: walletApplied, bid }
     }
+    if (isWalletPay && hasShares && bookerAmountPre > 0.009) {
+      const debit = await walletService.debitWallet(clubId, memberId, bookerAmountPre, {
+        reason: 'court_booking',
+        refType: 'booking',
+        refId: bid,
+      })
+      if (!debit.ok) {
+        return res.status(400).json({ error: debit.error || 'Wallet payment failed' })
+      }
+      walletRollback = { clubId, memberId, amount: bookerAmountPre, bid }
+    }
 
     await bookingService.createBooking({
       id: bid,
@@ -453,14 +480,15 @@ router.post('/confirm', async (req, res) => {
     const baseUrl = process.env.BASE_URL || process.env.PUBLIC_BASE_URL || (origin ? `${origin}${basePath}` : 'https://playtix.app/app')
     const createdShares = []
 
-    const participantsSum = (paymentShares || []).reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
-    const bookerAmount = Math.max(0, (totalAmount || 0) - participantsSum)
+    const bookerAmount = bookerAmountPre
+    let bookerShareRowId = null
     if (hasShares && bookerAmount > 0) {
-      await query(
+      const insShare = await query(
         `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, amount, payment_method)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [bid, clubId, 'registered', memberId, memberName, bookerAmount, initiatorPaymentMethod || null]
       )
+      bookerShareRowId = insShare.insertId
     }
     for (const s of paymentShares || []) {
       const token = `inv_${crypto.randomBytes(16).toString('hex')}`
@@ -474,6 +502,12 @@ router.post('/confirm', async (req, res) => {
         [bid, clubId, s.type || 'registered', s.memberId || null, s.memberName || null, s.phone || null, parseFloat(s.amount) || 0, waLink || null, token]
       )
       createdShares.push({ ...s, inviteToken: token, payInviteUrl: payUrl })
+    }
+
+    let recalcAfterShares = null
+    if (isWalletPay && hasShares && bookerShareRowId) {
+      await query(`UPDATE booking_payment_shares SET paid_at = NOW() WHERE id = ? AND club_id = ?`, [bookerShareRowId, clubId])
+      recalcAfterShares = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bid, clubId)
     }
 
     if (idempotencyKey) await idempotency.storeIdempotency(idempotencyKey, bid)
@@ -502,12 +536,15 @@ router.post('/confirm', async (req, res) => {
       console.warn('[Bookings] Message send error:', waErr?.message)
     }
 
+    const outStatus = recalcAfterShares?.status ?? status
+    const outPaidAmount = recalcAfterShares?.paidAmount ?? paidAmount
+
     await issueFullBookingInvoiceIfConfirmedSinglePayer({
       clubId,
       bookingId: bid,
-      status,
+      status: outStatus,
       totalAmount,
-      paidAmount,
+      paidAmount: outPaidAmount,
       memberId,
       memberName,
       isWalletPay,
@@ -518,10 +555,11 @@ router.post('/confirm', async (req, res) => {
     res.json({
       ok: true,
       bookingId: bid,
-      status,
-      paidAmount,
+      status: outStatus,
+      paidAmount: outPaidAmount,
       paymentShares: createdShares,
       ...(isWalletPay && !hasShares && { walletApplied, remainder: walletRemainderTotal }),
+      ...(isWalletPay && hasShares && { walletApplied: bookerAmountPre, remainder: 0 }),
       ...(paymentUrl && { paymentUrl }),
     })
   } catch (e) {
@@ -705,12 +743,34 @@ router.post('/join-training', async (req, res) => {
     if (hasShares && (participantsSum > totalAmount || bookerAmount <= 0)) {
       return res.status(400).json({ error: 'Invalid payment split. Sum must not exceed total.' })
     }
-    const effectivePayMethod = payMethod === 'credit_card' || payMethod === 'mada' ? payMethod : 'at_club'
-    await query(
+    const effectivePayMethod =
+      payMethod === 'wallet' ? 'wallet' : payMethod === 'credit_card' || payMethod === 'mada' ? payMethod : 'at_club'
+    if (effectivePayMethod === 'wallet') {
+      const bal = await walletService.getWalletBalance(clubId, memberId)
+      if (bal + 1e-9 < bookerAmount) {
+        return res.status(400).json({
+          error: 'Insufficient wallet balance for this training share.',
+        })
+      }
+    }
+    const insTrainee = await query(
       `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, amount, payment_method)
        VALUES (?, ?, 'registered', ?, ?, ?, ?)`,
       [bookingId, clubId, memberId, memberName || null, bookerAmount, effectivePayMethod]
     )
+    const traineeShareId = insTrainee.insertId
+    if (effectivePayMethod === 'wallet' && bookerAmount > 0.009) {
+      const debit = await walletService.debitWallet(clubId, memberId, bookerAmount, {
+        reason: 'training_join',
+        refType: 'booking_payment_share',
+        refId: String(traineeShareId),
+      })
+      if (!debit.ok) {
+        await query(`DELETE FROM booking_payment_shares WHERE id = ? AND club_id = ?`, [traineeShareId, clubId])
+        return res.status(400).json({ error: debit.error || 'Wallet payment failed' })
+      }
+      await query(`UPDATE booking_payment_shares SET paid_at = NOW() WHERE id = ? AND club_id = ?`, [traineeShareId, clubId])
+    }
     for (const s of paymentShares || []) {
       const token = `inv_${crypto.randomBytes(16).toString('hex')}`
       const isUnregistered = s.type === 'unregistered'
@@ -757,7 +817,7 @@ router.post('/join-training', async (req, res) => {
 })
 
 const shareForInvoiceSql = `
-  SELECT bps.id, bps.booking_id, bps.amount, bps.member_id, bps.member_name, bps.phone,
+  SELECT bps.id, bps.booking_id, bps.amount, bps.member_id, bps.member_name, bps.phone, bps.paid_at,
     COALESCE(cs.currency, 'SAR') AS currency
   FROM booking_payment_shares bps
   INNER JOIN club_bookings cb ON cb.id = bps.booking_id AND cb.club_id = bps.club_id AND cb.deleted_at IS NULL
@@ -766,6 +826,7 @@ const shareForInvoiceSql = `
 
 /** POST /api/bookings/record-payment - Record payment for a share (update paid_at, payment_method, recalc status)
  * - paymentMethod 'at_club': commitment only, paid_at = NULL
+ * - paymentMethod 'wallet': debit member wallet for share amount (requires x-actor-id = share.member_id)
  * - paymentReference (electronic): actual payment, paid_at = NOW()
  */
 router.post('/record-payment', async (req, res) => {
@@ -797,8 +858,76 @@ router.post('/record-payment', async (req, res) => {
       }
     }
     const bid = share.booking_id
+    const pmRaw = String(paymentMethod || '').toLowerCase().trim()
+    const isWalletPay = pmRaw === 'wallet'
     const isAtClub = paymentMethod === 'at_club'
-    const isElectronic = !!paymentReference
+    const isElectronic = !!paymentReference && !isWalletPay
+
+    if (isWalletPay) {
+      const actor = getActorFromRequest(req)
+      const mid = actor.actorId ? String(actor.actorId) : ''
+      if (!mid) return res.status(401).json({ error: 'Member authentication required for wallet payment' })
+      if (!share.member_id || String(share.member_id) !== mid) {
+        return res.status(403).json({ error: 'Wallet payment is only available for your own registered share' })
+      }
+      if (share.paid_at) return res.status(400).json({ error: 'Share already paid' })
+      const amt = Math.round((parseFloat(share.amount) || 0) * 100) / 100
+      if (amt <= 0.009) return res.status(400).json({ error: 'Invalid share amount' })
+      const debit = await walletService.debitWallet(clubId, mid, amt, {
+        reason: 'booking_payment_share',
+        refType: 'booking_payment_share',
+        refId: String(share.id),
+      })
+      if (!debit.ok) {
+        return res.status(400).json({ error: debit.error || 'Wallet payment failed' })
+      }
+      const upd = await query(
+        `UPDATE booking_payment_shares SET paid_at = NOW(), payment_reference = NULL, payment_method = ? WHERE id = ? AND club_id = ? AND paid_at IS NULL`,
+        ['wallet', share.id, clubId]
+      )
+      if (!upd.affectedRows) {
+        await walletService.creditWallet(clubId, mid, amt, {
+          reason: 'rollback_booking_share_wallet',
+          refType: 'booking_payment_share',
+          refId: String(share.id),
+        })
+        return res.status(409).json({ error: 'Share payment state changed; wallet was not charged.' })
+      }
+      await syncShareDisplayNameFromMember()
+      const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bid, clubId)
+      const paidAmount = rec?.paidAmount ?? 0
+      const status = rec?.status ?? 'pending_payments'
+      if (status !== 'confirmed' && !['cancelled', 'cancelled_awaiting_refund_ack', 'expired'].includes(status)) {
+        await bookingService.extendPaymentDeadlineAfterShareProgress(bid, clubId)
+      }
+      const { rows: bDate } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [bid, clubId])
+      const dateStr = bDate[0]?.booking_date ? String(bDate[0].booking_date).split('T')[0] : null
+      if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
+      try {
+        let shareBookingKind = 'court'
+        try {
+          const { rows: dr } = await query('SELECT data FROM club_bookings WHERE id = ? AND club_id = ?', [bid, clubId])
+          shareBookingKind = invoiceService.bookingInvoiceKindFromRowData(parseBookingJsonData(dr?.[0]?.data))
+        } catch (_) {}
+        await invoiceService.issueInvoiceForPaidShare({
+          clubId,
+          bookingId: bid,
+          shareId: share.id,
+          amount: share.amount,
+          currency: share.currency,
+          memberId: share.member_id,
+          memberName: share.member_name,
+          phone: share.phone,
+          paymentMethod: 'wallet',
+          paymentReference: `wallet:${share.id}`,
+          bookingKind: shareBookingKind,
+        })
+      } catch (invErr) {
+        console.warn('[record-payment] wallet invoice:', invErr?.message)
+      }
+      return res.json({ ok: true, paidAmount, status })
+    }
+
     if (isAtClub) {
       await query(
         'UPDATE booking_payment_shares SET paid_at = NULL, payment_reference = NULL, payment_method = ? WHERE id = ? AND club_id = ?',

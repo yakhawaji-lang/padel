@@ -5,7 +5,7 @@
  */
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { getInviteByToken, recordPayment } from '../api/dbClient'
+import { getInviteByToken, recordPayment, getWalletBalance } from '../api/dbClient'
 import { getAppLanguage } from '../storage/languageStorage'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { addMemberToClub } from '../storage/adminStorage'
@@ -39,6 +39,8 @@ const PaySharePage = () => {
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [walletBal, setWalletBal] = useState(null)
+  const [walletLoading, setWalletLoading] = useState(false)
   const platformUser = getCurrentPlatformUser()
   const shareSyncRef = React.useRef(false)
 
@@ -98,6 +100,31 @@ const PaySharePage = () => {
     return () => { cancelled = true }
   }, [platformUser?.id, data?.clubId, token, loadInvite])
 
+  useEffect(() => {
+    if (!platformUser?.id || !data?.clubId) {
+      setWalletBal(null)
+      setWalletLoading(false)
+      return
+    }
+    let c = false
+    setWalletLoading(true)
+    getWalletBalance(data.clubId, platformUser.id)
+      .then((r) => {
+        if (c) return
+        const n = typeof r?.balance === 'number' ? r.balance : parseFloat(r?.balance)
+        setWalletBal(Number.isFinite(n) ? n : 0)
+      })
+      .catch(() => {
+        if (!c) setWalletBal(0)
+      })
+      .finally(() => {
+        if (!c) setWalletLoading(false)
+      })
+    return () => {
+      c = true
+    }
+  }, [platformUser?.id, data?.clubId, data?.paidAt])
+
   const handlePayAtClub = async () => {
     if (!token || !data?.clubId) return
     setSubmitting(true)
@@ -108,6 +135,21 @@ const PaySharePage = () => {
       setTimeout(() => navigate('/my-bookings?payment=success'), 2000)
     } catch (e) {
       setError(e?.message || (language === 'ar' ? 'فشل تسجيل الدفع' : 'Failed to record payment'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handlePayWallet = async () => {
+    if (!token || !data?.clubId) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      await recordPayment({ inviteToken: token, clubId: data.clubId, paymentMethod: 'wallet' })
+      setSuccess(true)
+      setTimeout(() => navigate('/my-bookings?payment=success'), 2000)
+    } catch (e) {
+      setError(e?.message || (language === 'ar' ? 'فشل الدفع من المحفظة' : 'Wallet payment failed'))
     } finally {
       setSubmitting(false)
     }
@@ -288,6 +330,9 @@ const PaySharePage = () => {
           electronicDisabled={submitting}
           electronicTitle={chosePayAtClub ? c.switchToElectronic : c.payElectronic}
           electronicDesc={c.payElectronicDesc}
+          onPayWallet={handlePayWallet}
+          walletDisabled={walletLoading || (walletBal != null && walletBal + 1e-9 < (parseFloat(data?.amount) || 0))}
+          walletBusy={submitting}
         />
 
         {error && <p className="payment-error-msg">{error}</p>}

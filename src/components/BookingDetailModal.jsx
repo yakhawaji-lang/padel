@@ -16,7 +16,7 @@ import { buildPayShareAbsoluteUrl, buildWhatsAppHrefForSplitInvite } from '../ut
 import { getTournamentMemberPaymentEntry } from '../utils/tournamentHelpers'
 import { updateTournamentMemberPaymentEntry, withdrawMemberFromTournament } from '../storage/adminStorage'
 import { shareHasMemberRefundPending } from '../utils/bookingMemberCancel'
-import { UnifiedPaymentMenu } from './UnifiedPaymentOptions'
+import { UnifiedPaymentMenu, getUnifiedPaymentCopy } from './UnifiedPaymentOptions'
 import './BookingDetailModal.css'
 
 function getMapUrl(club) {
@@ -63,6 +63,7 @@ export default function BookingDetailModal({
   const [bookerSharePhoneDraft, setBookerSharePhoneDraft] = useState('')
   const [bookerShareBusy, setBookerShareBusy] = useState(false)
   const [splitShareForActions, setSplitShareForActions] = useState(null)
+  const [walletBalState, setWalletBalState] = useState({ loading: true, bal: null })
 
   const dateStr = booking?.dateStr || booking?.date || (booking?.startDate || '').toString().split('T')[0]
   const startTime = booking?.startTime || booking?.timeSlot || ''
@@ -97,6 +98,28 @@ export default function BookingDetailModal({
   const pendingCount = paymentShares.length - paidCount
   const needsPayment = ['pending_payments', 'partially_paid'].includes(status)
   const isTournamentBooking = booking?.isTournament === true
+
+  useEffect(() => {
+    if (!club?.id || !platformUser?.id || !needsPayment || isTournamentBooking || !userShare || userSharePaid) {
+      setWalletBalState({ loading: false, bal: null })
+      return
+    }
+    let cancelled = false
+    setWalletBalState({ loading: true, bal: null })
+    bookingApi
+      .getWalletBalance(club.id, platformUser.id)
+      .then((r) => {
+        if (cancelled) return
+        const n = typeof r?.balance === 'number' ? r.balance : parseFloat(r?.balance)
+        setWalletBalState({ loading: false, bal: Number.isFinite(n) ? n : 0 })
+      })
+      .catch(() => {
+        if (!cancelled) setWalletBalState({ loading: false, bal: 0 })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [club?.id, platformUser?.id, needsPayment, isTournamentBooking, userShare, userSharePaid, booking?.id])
   const tournamentEntry =
     isTournamentBooking && platformUser?.id && club
       ? getTournamentMemberPaymentEntry(club, booking, platformUser.id)
@@ -211,6 +234,34 @@ export default function BookingDetailModal({
       setMarkingPayAtClub(false)
     }
   }, [inviteToken, club?.id, booking?.id, platformUser?.id, onClose, onUpdated, language])
+
+  const handlePayShareFromWallet = useCallback(async () => {
+    if (!club?.id || !platformUser?.id) return
+    setMarkingPayAtClub(true)
+    try {
+      let token = inviteToken
+      if (!token) {
+        const d = await bookingApi.getShareInviteToken(booking.id, club.id, platformUser.id)
+        token = d?.inviteToken
+      }
+      if (!token) {
+        if (typeof window !== 'undefined' && window.alert) {
+          window.alert(language === 'ar' ? 'لم يتم العثور على رابط الدفع.' : 'Payment link not found.')
+        }
+        return
+      }
+      await bookingApi.recordPayment({ inviteToken: token, clubId: club.id, paymentMethod: 'wallet' })
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      await onUpdated?.()
+    } catch (e) {
+      console.error('wallet share payment failed:', e)
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(language === 'ar' ? (e?.message || 'فشل الدفع من المحفظة') : (e?.message || 'Wallet payment failed'))
+      }
+    } finally {
+      setMarkingPayAtClub(false)
+    }
+  }, [inviteToken, club?.id, booking?.id, platformUser?.id, onUpdated, language])
 
   const handleAcknowledgeRefund = useCallback(async () => {
     if (!club?.id || !platformUser?.id || !userShare) return
@@ -477,6 +528,17 @@ export default function BookingDetailModal({
   else if (statusLc === 'partially_paid') statusPillLabel = c.statusPartiallyPaid
   else if (statusLc === 'pending_payments') statusPillLabel = c.statusPendingPayments
 
+  const shareAmtWallet = parseFloat(userShare?.amount) || 0
+  const modalWalletMenuProps =
+    !isTournamentBooking && needsPayment && userShare && !userSharePaid && shareAmtWallet > 0.009
+      ? {
+          onPayWallet: handlePayShareFromWallet,
+          walletPayLoading: walletBalState.loading,
+          walletPayDisabled: !walletBalState.loading && (walletBalState.bal ?? 0) + 1e-9 < shareAmtWallet,
+          walletPayBusy: markingPayAtClub,
+        }
+      : { walletSubtitle: getUnifiedPaymentCopy(language).walletFullBookingOnly }
+
   return (
     <div className="booking-detail-modal-backdrop" onClick={onClose} role="presentation">
       <div
@@ -592,6 +654,7 @@ export default function BookingDetailModal({
                         payAtClubDisabled={!!markingPayAtClub}
                         electronicHref={inviteToken ? `/pay-share/${inviteToken}` : `/pay-share/booking/${booking.id}?clubId=${club.id}`}
                         onElectronicNavigate={onClose}
+                        {...modalWalletMenuProps}
                       />
                     ) : (
                       <UnifiedPaymentMenu
@@ -603,6 +666,7 @@ export default function BookingDetailModal({
                         electronicHref={`/pay/${booking.id}?method=credit_card`}
                         electronicSubtitle={language === 'ar' ? 'بطاقة أو مدى — اختر من صفحة الدفع' : 'Card or Mada — choose on the payment page'}
                         onElectronicNavigate={onClose}
+                        {...modalWalletMenuProps}
                       />
                     )}
                   </div>

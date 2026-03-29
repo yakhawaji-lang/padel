@@ -291,6 +291,8 @@ const ClubPublicPage = () => {
   const [trainingJoinPaymentMethod, setTrainingJoinPaymentMethod] = useState('at_club')
   const [trainingJoinPaymentShares, setTrainingJoinPaymentShares] = useState([])
   const [trainingJoinStep, setTrainingJoinStep] = useState(1)
+  const [trainingWalletBalance, setTrainingWalletBalance] = useState(null)
+  const [trainingWalletLoading, setTrainingWalletLoading] = useState(false)
   const [hoveredRange, setHoveredRange] = useState(null) // { court, courtId, startSlot, endSlot } - نطاق التمرير للحجز
   const [bookingSubmitting, setBookingSubmitting] = useState(false)
   const [bookingDuration, setBookingDuration] = useState(60)
@@ -340,6 +342,12 @@ const ClubPublicPage = () => {
     if (!bookingModal || !club) return 0
     return calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price
   }, [bookingModal, club, bookingModal?.dateStr, bookingModal?.startTime, bookingDuration])
+
+  const bookerSplitWalletAmount = useMemo(() => {
+    if (paymentStyle !== 'split' || !bookingModal) return 0
+    const shared = (paymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
+    return Math.max(0, bookingModalTotalPrice - shared)
+  }, [paymentStyle, bookingModal, paymentShares, bookingModalTotalPrice])
 
   const walletNeedsRemainderChoice = useMemo(() => {
     if (paymentMethod !== 'wallet' || paymentStyle !== 'single' || bookingFlowStep !== 3) return false
@@ -392,12 +400,22 @@ const ClubPublicPage = () => {
     })
   }, [paymentMethod, bookingFlowStep, paymentStyle, effectivePaymentChannels])
 
+  const splitWalletInsufficient =
+    paymentStyle === 'split' &&
+    bookingFlowStep === 5 &&
+    paymentMethod === 'wallet' &&
+    !bookingWalletLoading &&
+    bookingWalletBalance !== null &&
+    bookerSplitWalletAmount > (Number(bookingWalletBalance) || 0) + 1e-9
+
   useEffect(() => {
     if (trainingJoinModal) {
       setTrainingJoinStep(1)
       setTrainingJoinPaymentStyle('single')
       setTrainingJoinPaymentMethod('at_club')
       setTrainingJoinPaymentShares([])
+      setTrainingWalletBalance(null)
+      setTrainingWalletLoading(false)
       setLockError(null)
     }
   }, [trainingJoinModal])
@@ -405,11 +423,39 @@ const ClubPublicPage = () => {
   useEffect(() => {
     const ch = effectivePaymentChannels
     if (!ch) return
-    const isCurrentEnabled = trainingJoinPaymentMethod === 'at_club' ? ch.at_club !== false : !!ch[trainingJoinPaymentMethod]
+    const isCurrentEnabled =
+      trainingJoinPaymentMethod === 'at_club'
+        ? ch.at_club !== false
+        : trainingJoinPaymentMethod === 'wallet'
+          ? !!ch.wallet
+          : !!ch[trainingJoinPaymentMethod]
     if (!isCurrentEnabled) {
       setTrainingJoinPaymentMethod(pickFirstPaymentMethod(ch))
     }
   }, [effectivePaymentChannels, trainingJoinPaymentMethod])
+
+  useEffect(() => {
+    if (trainingJoinStep !== 4 || !clubId || !platformUser?.id) return
+    let cancelled = false
+    setTrainingWalletLoading(true)
+    bookingApi
+      .getWalletBalance(clubId, platformUser.id)
+      .then((r) => {
+        if (cancelled) return
+        const raw = r?.balance
+        const n = typeof raw === 'number' ? raw : parseFloat(raw)
+        setTrainingWalletBalance(Number.isFinite(n) ? n : 0)
+      })
+      .catch(() => {
+        if (!cancelled) setTrainingWalletBalance(null)
+      })
+      .finally(() => {
+        if (!cancelled) setTrainingWalletLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [trainingJoinStep, clubId, platformUser?.id])
 
   useEffect(() => {
     const ch = effectivePaymentChannels
@@ -434,7 +480,10 @@ const ClubPublicPage = () => {
   }, [bookingFlowStep, paymentStyle, effectivePaymentChannels, paymentMethod])
 
   useEffect(() => {
-    if (bookingFlowStep !== 3 || paymentStyle !== 'single' || !clubId || !platformUser?.id) return
+    const needBookingWallet =
+      (bookingFlowStep === 3 && paymentStyle === 'single') ||
+      (bookingFlowStep === 5 && paymentStyle === 'split')
+    if (!needBookingWallet || !clubId || !platformUser?.id) return
     let cancelled = false
     setBookingWalletLoading(true)
     bookingApi
@@ -1944,11 +1993,21 @@ const ClubPublicPage = () => {
                       name="paymentMethod"
                       value={paymentMethod}
                       onChange={setPaymentMethod}
-                      walletBalance={null}
-                      walletLoading={false}
+                      walletBalance={bookingWalletBalance}
+                      walletLoading={bookingWalletLoading}
                       walletCurrency={currency}
-                      walletUnavailable="split"
+                      walletUnavailable={false}
                     />
+                    {paymentMethod === 'wallet' && bookingWalletLoading && (
+                      <p className="club-public-booking-wallet-info-banner">{c.walletRemainderWhileLoading}</p>
+                    )}
+                    {splitWalletInsufficient && (
+                      <p className="club-public-booking-wallet-info-banner" role="alert">
+                        {language === 'en'
+                          ? `Your share is ${bookerSplitWalletAmount.toFixed(2)} ${currency}. Wallet balance is not enough — choose another method or top up.`
+                          : `حصتك ${bookerSplitWalletAmount.toFixed(2)} ${currency}. رصيد المحفظة غير كافٍ — اختر طريقة أخرى أو زِد الرصيد.`}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -2063,7 +2122,8 @@ const ClubPublicPage = () => {
                       disabled={
                         bookingSubmitting ||
                         (paymentShares || []).length === 0 ||
-                        (paymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) > calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price
+                        (paymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) > calculateBookingPrice(club, bookingModal.dateStr, bookingModal.startTime, bookingDuration).price ||
+                        (paymentMethod === 'wallet' && (bookingWalletLoading || splitWalletInsufficient))
                       }
                     >
                       {bookingSubmitting ? (language === 'en' ? 'Booking...' : 'جاري الحجز...') : c.confirmBooking}
@@ -2086,7 +2146,18 @@ const ClubPublicPage = () => {
           const courtLabelTrain = language === 'ar' && trainingJoinModal.court?.nameAr ? trainingJoinModal.court.nameAr : (trainingJoinModal.court?.name || '')
           const recapTrain = `${courtLabelTrain} · ${formatDate(dateStrTrain)} · ${bTrain?.startTime || bTrain?.timeSlot || ''} – ${bTrain?.endTime || ''} · ${(parseFloat(bTrain?.totalAmount) || 0).toFixed(2)} ${currency}`
           const joinPrice = parseFloat(bTrain?.totalAmount) || 0
-          const splitSumInvalid = trainingJoinPaymentStyle === 'split' && (trainingJoinPaymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) > joinPrice
+          const trainingSharedSum =
+            trainingJoinPaymentStyle === 'split'
+              ? (trainingJoinPaymentShares || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
+              : 0
+          const splitSumInvalid = trainingJoinPaymentStyle === 'split' && trainingSharedSum > joinPrice
+          const trainingBookerAmt =
+            trainingJoinPaymentStyle === 'split' ? Math.max(0, joinPrice - trainingSharedSum) : joinPrice
+          const trainingWalletInsufficient =
+            trainingJoinPaymentMethod === 'wallet' &&
+            !trainingWalletLoading &&
+            trainingWalletBalance !== null &&
+            trainingBookerAmt > (Number(trainingWalletBalance) || 0) + 1e-9
           return (
           <div className="club-public-booking-modal-backdrop" onClick={() => { if (!trainingJoinSubmitting) { setTrainingJoinModal(null); setTrainingJoinStep(1); setLockError(null) } }} role="presentation">
             <div className="club-public-booking-modal club-public-training-join-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="join-training-modal-title">
@@ -2209,11 +2280,21 @@ const ClubPublicPage = () => {
                         name="trainingPaymentMethod"
                         value={trainingJoinPaymentMethod}
                         onChange={setTrainingJoinPaymentMethod}
-                        walletBalance={null}
-                        walletLoading={false}
+                        walletBalance={trainingWalletBalance}
+                        walletLoading={trainingWalletLoading}
                         walletCurrency={currency}
-                        walletUnavailable="training"
+                        walletUnavailable={false}
                       />
+                      {trainingJoinPaymentMethod === 'wallet' && trainingWalletLoading && (
+                        <p className="club-public-booking-wallet-info-banner">{c.walletRemainderWhileLoading}</p>
+                      )}
+                      {trainingWalletInsufficient && (
+                        <p className="club-public-booking-wallet-info-banner" role="alert">
+                          {language === 'en'
+                            ? `Your amount is ${trainingBookerAmt.toFixed(2)} ${currency}. Wallet balance is not enough — choose another method or top up.`
+                            : `المبلغ المطلوب ${trainingBookerAmt.toFixed(2)} ${currency}. رصيد المحفظة غير كافٍ — اختر طريقة أخرى أو زِد الرصيد.`}
+                        </p>
+                      )}
                     </div>
                   </>
                 )}
@@ -2277,7 +2358,11 @@ const ClubPublicPage = () => {
                       type="button"
                       className="club-public-booking-modal-confirm"
                       onClick={handleJoinTraining}
-                      disabled={trainingJoinSubmitting || splitSumInvalid}
+                      disabled={
+                        trainingJoinSubmitting ||
+                        splitSumInvalid ||
+                        (trainingJoinPaymentMethod === 'wallet' && (trainingWalletLoading || trainingWalletInsufficient))
+                      }
                     >
                       {trainingJoinSubmitting ? (language === 'en' ? 'Joining...' : 'جاري الانضمام...') : c.confirmJoinTraining}
                     </button>

@@ -19,9 +19,12 @@ export function getUnifiedPaymentCopy(language) {
     walletBalanceLoading: ar ? 'جاري تحميل الرصيد…' : 'Loading balance…',
     walletAvailable: ar ? 'الرصيد المتاح' : 'Available',
     walletBalanceError: ar ? 'تعذّر تحميل الرصيد.' : 'Could not load balance.',
-    walletUnavailableSplit: ar ? 'المحفظة متاحة عند دفع المبلغ كاملاً دون تقسيم.' : 'Wallet is available when you pay the full amount (not split).',
-    walletUnavailableTraining: ar ? 'دفع المحفظة غير متاح لجلسات التدريب حالياً.' : 'Wallet payment is not available for coach training yet.',
-    walletUnavailableShare: ar ? 'للمشاركين: استخدم في النادي أو الإلكتروني. المحفظة عند الحجز الكامل من صفحة النادي.' : 'For shared payments: use at club or electronic. Wallet applies to full bookings from the club page.',
+    walletUnavailableSplit: ar ? 'المحفظة غير متاحة في هذه الشاشة.' : 'Wallet is not available on this screen.',
+    walletUnavailableTraining: ar ? 'المحفظة غير متاحة في هذه الشاشة.' : 'Wallet is not available on this screen.',
+    walletUnavailableShare: ar ? 'سجّل الدخول لاستخدام المحفظة أو اختر خياراً آخر أدناه.' : 'Log in to pay from your wallet, or choose another option below.',
+    walletPayShareDesc: ar ? 'يُخصم مبلغ حصتك فوراً من محفظتك في النادي.' : 'Your share amount is debited instantly from your club wallet.',
+    walletInsufficient: ar ? 'الرصيد غير كافٍ لهذه الحصة.' : 'Insufficient balance for this share.',
+    walletFullBookingOnly: ar ? 'للحجز الكامل بالمحفظة استخدم صفحة النادي أو أكمل الدفع الإلكتروني هنا.' : 'For full booking wallet pay use the club page, or complete electronic payment here.',
     walletUnavailableTournament: ar ? 'البطولة: الدفع في النادي أو تأكيد الدفع الإلكتروني فقط.' : 'Tournament: pay at the club or confirm electronic payment.',
     walletDisabledByClub: ar ? 'غير مفعّل في إعدادات النادي أو المنصة.' : 'Disabled in club or platform settings.',
     walletRemainderTitle: ar ? 'الباقي بعد المحفظة' : 'Remainder after wallet',
@@ -37,7 +40,7 @@ function useCopy(language) {
 /**
  * Radio-style picker for club booking modal (and similar).
  * value: 'at_club' | 'wallet' | 'credit_card' | 'mada'
- * walletUnavailable: false | 'split' | 'training'
+ * walletUnavailable: false | 'split' | 'training' (legacy; prefer false — wallet works for split & training where wired)
  */
 export function UnifiedPaymentMethodPicker({
   language = 'en',
@@ -251,13 +254,17 @@ export function UnifiedPaymentActionGrid({
   electronicTitle,
   electronicDesc,
   walletHint,
+  onPayWallet,
+  walletDisabled = false,
+  walletBusy = false,
 }) {
   const L = useCopy(language)
   const tAt = atClubTitle || L.payAtClub
   const tAtDesc = atClubDesc || L.payAtClubDesc
   const tEl = electronicTitle || L.payElectronic
   const tElDesc = electronicDesc || L.payElectronicDesc
-  const wHint = walletHint || L.walletUnavailableShare
+  const wHint = walletHint || L.walletPayShareDesc
+  const walletInteractive = typeof onPayWallet === 'function'
 
   const electronicBody = (
     <>
@@ -297,11 +304,25 @@ export function UnifiedPaymentActionGrid({
         </Link>
       )}
 
-      <div className="unified-pay-action unified-pay-action--disabled" aria-disabled="true">
-        <span className="unified-pay-action__icon" aria-hidden>👛</span>
-        <span className="unified-pay-action__title">{L.payWallet}</span>
-        <span className="unified-pay-action__desc">{wHint}</span>
-      </div>
+      {walletInteractive ? (
+        <button
+          type="button"
+          className={`unified-pay-action ${walletDisabled ? 'unified-pay-action--disabled' : ''}`}
+          onClick={() => !walletDisabled && !walletBusy && onPayWallet()}
+          disabled={walletDisabled || walletBusy}
+        >
+          <span className="unified-pay-action__icon" aria-hidden>👛</span>
+          <span className="unified-pay-action__title">{L.payWallet}</span>
+          <span className="unified-pay-action__desc">{walletDisabled ? L.walletInsufficient : wHint}</span>
+          {walletBusy ? <span className="unified-pay-action__desc">…</span> : null}
+        </button>
+      ) : (
+        <div className="unified-pay-action unified-pay-action--disabled" aria-disabled="true">
+          <span className="unified-pay-action__icon" aria-hidden>👛</span>
+          <span className="unified-pay-action__title">{L.payWallet}</span>
+          <span className="unified-pay-action__desc">{walletHint || L.walletUnavailableShare}</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -319,11 +340,17 @@ export function UnifiedPaymentMenu({
   walletSubtitle,
   variant = 'share',
   onElectronicNavigate,
+  /** When set with variant share/initiator split, wallet row is a real payment action */
+  onPayWallet,
+  walletPayDisabled = false,
+  walletPayBusy = false,
+  walletPayLoading = false,
 }) {
   const L = useCopy(language)
-  const wSub =
+  const staticWalletSub =
     walletSubtitle ||
     (variant === 'tournament' ? L.walletUnavailableTournament : L.walletUnavailableShare)
+  const walletInteractive = variant !== 'tournament' && typeof onPayWallet === 'function'
 
   return (
     <div className="unified-pay-menu" role="list">
@@ -359,13 +386,35 @@ export function UnifiedPaymentMenu({
         </span>
       </Link>
 
-      <div role="listitem" className="unified-pay-menu-item unified-pay-menu-item--static">
-        <span className="unified-pay-menu-item__icon" aria-hidden>👛</span>
-        <span className="unified-pay-menu-item__body">
-          <span className="unified-pay-menu-item__title">{L.payWallet}</span>
-          <span className="unified-pay-menu-item__desc">{wSub}</span>
-        </span>
-      </div>
+      {walletInteractive ? (
+        <button
+          type="button"
+          role="listitem"
+          className={`unified-pay-menu-item ${walletPayDisabled || walletPayLoading ? 'unified-pay-menu-item--muted' : ''}`}
+          onClick={() => !walletPayDisabled && !walletPayBusy && !walletPayLoading && onPayWallet()}
+          disabled={walletPayDisabled || walletPayBusy || walletPayLoading}
+        >
+          <span className="unified-pay-menu-item__icon" aria-hidden>👛</span>
+          <span className="unified-pay-menu-item__body">
+            <span className="unified-pay-menu-item__title">{L.payWallet}</span>
+            <span className="unified-pay-menu-item__desc">
+              {walletPayLoading
+                ? L.walletBalanceLoading
+                : walletPayDisabled
+                  ? L.walletInsufficient
+                  : L.payWalletDesc}
+            </span>
+          </span>
+        </button>
+      ) : (
+        <div role="listitem" className="unified-pay-menu-item unified-pay-menu-item--static">
+          <span className="unified-pay-menu-item__icon" aria-hidden>👛</span>
+          <span className="unified-pay-menu-item__body">
+            <span className="unified-pay-menu-item__title">{L.payWallet}</span>
+            <span className="unified-pay-menu-item__desc">{staticWalletSub}</span>
+          </span>
+        </div>
+      )}
     </div>
   )
 }
