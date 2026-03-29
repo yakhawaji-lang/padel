@@ -37,6 +37,63 @@ function isSplitFullyPaidByAllParticipants(booking) {
   return allPaid && sum >= total - 0.02
 }
 
+const SPLIT_PHONE_MIN_DIGITS = 8
+
+/** ميزانية التقسيم: الإجمالي، مجموع الحصص الحالية، والمتبقي للدعوات الجديدة */
+function getSplitBudgetForBooking(booking) {
+  const total =
+    parseFloat(booking?.totalAmount ?? booking?.total_amount ?? booking?.amount ?? booking?.price ?? 0) || 0
+  const shares = Array.isArray(booking?.paymentShares) ? booking.paymentShares : []
+  const activeSum = shares.reduce(
+    (s, sh) => s + (!(sh.removedAt || sh.removed_at) ? parseFloat(sh.amount) || 0 : 0),
+    0
+  )
+  const remaining = Math.max(0, total - activeSum)
+  return { total, activeSum, remaining }
+}
+
+function splitPhoneDigits(phone) {
+  return String(phone || '').replace(/\D/g, '')
+}
+
+function phoneDigitsValid(phone) {
+  return splitPhoneDigits(phone).length >= SPLIT_PHONE_MIN_DIGITS
+}
+
+/** تقسيم المتبقي بالتساوي على n مشارك (هللات، الباقي على آخر سطر) */
+function splitRemainingEquallyCents(remaining, n) {
+  if (n <= 0 || remaining <= 0) return []
+  const cents = Math.round(remaining * 100)
+  const each = Math.floor(cents / n)
+  const arr = Array.from({ length: n }, () => each)
+  arr[n - 1] += cents - each * n
+  return arr.map((c) => c / 100)
+}
+
+function phoneTailKeyLocal(phone) {
+  const d = splitPhoneDigits(phone)
+  if (d.length < SPLIT_PHONE_MIN_DIGITS) return ''
+  return d.length <= 10 ? d : d.slice(-10)
+}
+
+function phoneAlreadyActiveInBooking(booking, phone) {
+  const key = phoneTailKeyLocal(phone)
+  if (!key) return false
+  const shares = booking?.paymentShares || []
+  return shares.some((s) => {
+    if (s.removedAt || s.removed_at) return false
+    const sk = phoneTailKeyLocal(s.phone || '')
+    return sk && (sk === key || sk.endsWith(key) || key.endsWith(sk))
+  })
+}
+
+function phoneKeysMatch(phoneA, phoneB) {
+  const ka = phoneTailKeyLocal(phoneA)
+  const kb = phoneTailKeyLocal(phoneB)
+  if (!ka || !kb) return false
+  return ka === kb || ka.endsWith(kb) || kb.endsWith(ka)
+}
+
 function getBookingDisplayProps({ booking, club, memberId }, language) {
   const dateStr = booking.dateStr || booking.date || (booking.startDate && (typeof booking.startDate === 'string' ? booking.startDate : booking.startDate.toISOString?.()?.split('T')[0])) || ''
   const timeStr = (booking.startTime || booking.timeSlot || '') + (booking.endTime ? ` – ${booking.endTime}` : '')
@@ -130,7 +187,10 @@ const MyBookingsPage = () => {
   const [detailRow, setDetailRow] = useState(null)
   const [payMenuOpen, setPayMenuOpen] = useState(null)
   const [addSplitForBookingId, setAddSplitForBookingId] = useState(null)
-  const [addSplitRows, setAddSplitRows] = useState([{ phone: '', amount: '' }])
+  const [addSplitStep, setAddSplitStep] = useState(1)
+  const [addSplitPeople, setAddSplitPeople] = useState([{ phone: '', name: '' }])
+  const [addSplitRows, setAddSplitRows] = useState([])
+  const [addSplitWizardWarnings, setAddSplitWizardWarnings] = useState([])
   const [addSplitBusy, setAddSplitBusy] = useState(false)
   const [addSplitFavorites, setAddSplitFavorites] = useState([])
   const [addSplitFavoritesLoading, setAddSplitFavoritesLoading] = useState(false)
@@ -287,31 +347,48 @@ const MyBookingsPage = () => {
     return () => { cancelled = true }
   }, [addSplitForBookingId, member?.id, bookings])
 
-  const applyFavoritePhoneToSplitRows = (phone) => {
-    const p = (phone || '').trim()
+  const closeAddSplitPanel = () => {
+    setAddSplitForBookingId(null)
+    setAddSplitStep(1)
+    setAddSplitPeople([{ phone: '', name: '' }])
+    setAddSplitRows([])
+    setAddSplitWizardWarnings([])
+  }
+
+  const openAddSplitPanel = (bookingId) => {
+    setAddSplitForBookingId(bookingId)
+    setAddSplitStep(1)
+    setAddSplitPeople([{ phone: '', name: '' }])
+    setAddSplitRows([])
+    setAddSplitWizardWarnings([])
+  }
+
+  const applyFavoriteToSplitPeople = (f) => {
+    const p = (f?.phone || '').trim()
     if (!p) return
-    setAddSplitRows((prev) => {
-      const emptyIdx = prev.findIndex((r) => !(r.phone || '').trim())
+    const name = (f?.name || '').trim()
+    setAddSplitPeople((prev) => {
+      const emptyIdx = prev.findIndex((row) => !String(row.phone || '').trim())
       if (emptyIdx >= 0) {
         const next = [...prev]
-        next[emptyIdx] = { ...next[emptyIdx], phone: p }
+        next[emptyIdx] = { phone: p, name: name || next[emptyIdx].name || '' }
         return next
       }
-      return [...prev, { phone: p, amount: '' }]
+      return [...prev, { phone: p, name }]
     })
   }
 
-  const applyPhonesToSplitRows = (phones) => {
+  const applyPhonesToSplitPeople = (phones) => {
     const list = (phones || []).map((p) => String(p).trim()).filter(Boolean)
     if (list.length === 0) return
-    setAddSplitRows((prev) => {
+    setAddSplitPeople((prev) => {
       let next = [...prev]
       for (const pi of list) {
-        const emptyIdx = next.findIndex((r) => !(r.phone || '').trim())
+        const emptyIdx = next.findIndex((r) => !String(r.phone || '').trim())
         if (emptyIdx >= 0) {
           next[emptyIdx] = { ...next[emptyIdx], phone: pi }
         } else {
-          next = [...next, { phone: pi, amount: '' }]
+          next = [...next, { phone: pi, name: '' }]
         }
       }
       return next
@@ -323,7 +400,7 @@ const MyBookingsPage = () => {
     try {
       const { phones, error } = await pickPhoneNumbersFromContacts({ multiple: true, max: 12 })
       if (error === 'USER_CANCELLED') return
-      if (phones.length > 0) applyPhonesToSplitRows(phones)
+      if (phones.length > 0) applyPhonesToSplitPeople(phones)
     } finally {
       setAddSplitContactBusy(false)
     }
@@ -554,33 +631,6 @@ const MyBookingsPage = () => {
     return true
   }
 
-  const submitAddSplit = async (booking, club) => {
-    if (!club?.id || !booking?.id || !member?.id) return
-    const rows = addSplitRows.map((r) => ({
-      type: 'unregistered',
-      phone: (r.phone || '').trim(),
-      amount: parseFloat(r.amount) || 0
-    })).filter((r) => r.phone && r.amount > 0)
-    if (rows.length === 0) {
-      window.alert(language === 'en' ? 'Enter phone and amount for each invitee.' : 'أدخل الجوال والمبلغ لكل مدعو.')
-      return
-    }
-    setAddSplitBusy(true)
-    try {
-      await bookingApi.addSplitParticipants({ bookingId: booking.id, clubId: club.id, memberId: member.id, paymentShares: rows })
-      window.dispatchEvent(new CustomEvent('clubs-synced'))
-      await refreshClubsFromApi()
-      loadClubs()
-      setBookings(getMemberBookings(member.id))
-      setAddSplitForBookingId(null)
-      setAddSplitRows([{ phone: '', amount: '' }])
-    } catch (e) {
-      window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
-    } finally {
-      setAddSplitBusy(false)
-    }
-  }
-
   const t = {
     en: {
       myBookings: 'My Bookings',
@@ -627,7 +677,7 @@ const MyBookingsPage = () => {
       splitFavorites: 'Favorites',
       splitFavoritesEmpty: 'No favorites in this club yet. Add them from My favorites.',
       splitFavoritesNoPhone: 'No phone on file',
-      splitFavHint: 'Tap a name to fill the phone field.',
+      splitFavHint: 'Tap a name to add their phone to the list.',
       splitPickContacts: 'From contacts',
       splitParticipants: 'Split payment participants',
       yourShareAmountsHint: 'Only you see each person’s share amount.',
@@ -648,6 +698,34 @@ const MyBookingsPage = () => {
         'Change how you receive a refund for your share (wallet, at the club, or card if you paid online).',
       participantRefundAwaiting: 'Refund requested — club will process it',
       splitAddBulkHint: 'Add several phone + amount rows, then send all invites at once.',
+      splitWizardStep1: 'People',
+      splitWizardStep2: 'Amounts',
+      splitWizardStep3: 'Confirm',
+      splitWizardHintStep1:
+        'Add phone numbers from favorites, contacts, or manually. On the next screen you split the remaining booking balance among them.',
+      splitWizardReviewIntro: 'Review amounts, then send payment invites to everyone you added.',
+      splitWizardNext: 'Next',
+      splitWizardBack: 'Back',
+      splitWizardSendInvites: 'Send invites',
+      splitNoRemaining: 'There is no remaining balance to assign to new participants.',
+      splitNoValidPhones:
+        'Add at least one valid phone (8+ digits) for someone not already included in this split.',
+      splitAmountsInvalid: 'Enter a positive amount for each new participant.',
+      splitOverBudget: 'The assigned total is more than the remaining balance for this booking.',
+      splitSplitEqually: 'Split remaining equally',
+      splitBudgetRemaining: 'Remaining for new invites',
+      splitBudgetTotal: 'Booking total',
+      splitBudgetAllocated: 'Already allocated',
+      splitAssignedSum: 'Assigned to new invites',
+      splitLeftToAssign: 'Still unassigned',
+      splitNameOptional: 'Name (optional)',
+      splitPhoneLabel: 'Phone',
+      splitRemoveRow: 'Remove',
+      splitParticipantHeading: 'New participants',
+      splitWarnSkippedSelf: 'Your own number was not added as a new invitee.',
+      splitWarnSkippedInBooking: 'Some numbers were skipped because they are already part of this split.',
+      splitWarnSkippedDup: 'Duplicate numbers were merged into one row.',
+      splitWizardAriaSteps: 'Steps to add split payment participants',
       payStateKicker: 'Your payment',
       payAtClubStateTitle: 'Pay at the club',
       payAtClubStateDesc:
@@ -700,7 +778,7 @@ const MyBookingsPage = () => {
       splitFavorites: 'المفضلة',
       splitFavoritesEmpty: 'لا يوجد مفضلون في هذا النادي بعد. أضفهم من صفحة المفضلة.',
       splitFavoritesNoPhone: 'لا يوجد جوال',
-      splitFavHint: 'اضغط على الاسم لملء الجوال في أول سطر فارغ.',
+      splitFavHint: 'اضغط على الاسم لإضافة الجوال إلى القائمة.',
       splitPickContacts: 'من جهات الاتصال',
       splitParticipants: 'المشاركون في التقسيم',
       yourShareAmountsHint: 'أنت فقط ترى مبلغ حصة كل مشارك.',
@@ -721,6 +799,33 @@ const MyBookingsPage = () => {
         'تعديل طريقة استرداد حصتك: محفظة النادي، نقداً في النادي، أو للبطاقة إن دفعت إلكترونياً.',
       participantRefundAwaiting: 'تم طلب الاسترداد — بانتظار تنفيذ النادي',
       splitAddBulkHint: 'أضف عدة أسطر (جوال + مبلغ) ثم أرسل كل الدعوات دفعة واحدة.',
+      splitWizardStep1: 'المشاركون',
+      splitWizardStep2: 'التوزيع',
+      splitWizardStep3: 'التأكيد',
+      splitWizardHintStep1:
+        'أضف أرقام الجوال من المفضلة أو جهات الاتصال أو يدوياً. في الخطوة التالية توزّع المبلغ المتبقي من الحجز.',
+      splitWizardReviewIntro: 'راجِع المبالغ ثم أرسل دعوات الدفع لمن أضفتهم.',
+      splitWizardNext: 'التالي',
+      splitWizardBack: 'رجوع',
+      splitWizardSendInvites: 'إرسال الدعوات',
+      splitNoRemaining: 'لا يوجد رصيد متبقٍ لإضافة مشاركين جددين.',
+      splitNoValidPhones: 'أضف رقماً صالحاً واحداً على الأقل (8 أرقام فأكثر) لشخص غير مضمّن في التقسيم حالياً.',
+      splitAmountsInvalid: 'أدخل مبلغاً موجباً لكل مشارك جديد.',
+      splitOverBudget: 'مجموع المبالغ يتجاوز الرصيد المتبقي لهذا الحجز.',
+      splitSplitEqually: 'تقسيم المتبقي بالتساوي',
+      splitBudgetRemaining: 'المتبقي لدعوات جديدة',
+      splitBudgetTotal: 'إجمالي الحجز',
+      splitBudgetAllocated: 'المخصص حالياً',
+      splitAssignedSum: 'المخصص للمدعوين الجدد',
+      splitLeftToAssign: 'غير موزّع بعد',
+      splitNameOptional: 'الاسم (اختياري)',
+      splitPhoneLabel: 'الجوال',
+      splitRemoveRow: 'حذف',
+      splitParticipantHeading: 'مشاركون جدد',
+      splitWarnSkippedSelf: 'لم يُضف رقمك كمدعو جديد.',
+      splitWarnSkippedInBooking: 'تجاهلنا أرقاماً لأنها موجودة مسبقاً في هذا التقسيم.',
+      splitWarnSkippedDup: 'دُمجت الأرقام المكررة في سطر واحد.',
+      splitWizardAriaSteps: 'خطوات إضافة مشاركين للتقسيم',
       payStateKicker: 'دفع حصتك',
       payAtClubStateTitle: 'الدفع في النادي',
       payAtClubStateDesc:
@@ -730,6 +835,129 @@ const MyBookingsPage = () => {
     }
   }
   const c = t[language] || t.en
+
+  const addSplitApplyEqualAmounts = (booking) => {
+    const { remaining } = getSplitBudgetForBooking(booking)
+    const n = addSplitRows.length
+    if (n === 0) return
+    const amounts = splitRemainingEquallyCents(remaining, n)
+    setAddSplitRows((prev) =>
+      prev.map((row, i) => ({ ...row, amount: amounts[i] != null ? String(amounts[i]) : '' }))
+    )
+  }
+
+  const addSplitGoToAmountsStep = (booking) => {
+    const { remaining } = getSplitBudgetForBooking(booking)
+    if (remaining <= 0.009) {
+      window.alert(c.splitNoRemaining)
+      return
+    }
+    const bookerPhone = member?.phone || member?.mobile || ''
+    const warnings = []
+    const collected = []
+    const seen = new Set()
+    let skippedSelf = 0
+    let skippedDup = 0
+    let skippedBooking = 0
+
+    for (const row of addSplitPeople) {
+      const phone = String(row.phone || '').trim()
+      if (!phoneDigitsValid(phone)) continue
+      const key = phoneTailKeyLocal(phone)
+      if (!key) continue
+      if (bookerPhone && phoneKeysMatch(phone, bookerPhone)) {
+        skippedSelf++
+        continue
+      }
+      if (phoneAlreadyActiveInBooking(booking, phone)) {
+        skippedBooking++
+        continue
+      }
+      if (seen.has(key)) {
+        skippedDup++
+        continue
+      }
+      seen.add(key)
+      collected.push({
+        phone,
+        name: String(row.name || '').trim(),
+        amount: '',
+      })
+    }
+
+    if (collected.length === 0) {
+      window.alert(c.splitNoValidPhones)
+      return
+    }
+
+    if (skippedSelf) warnings.push(c.splitWarnSkippedSelf)
+    if (skippedBooking) warnings.push(c.splitWarnSkippedInBooking)
+    if (skippedDup) warnings.push(c.splitWarnSkippedDup)
+
+    const amounts = splitRemainingEquallyCents(remaining, collected.length)
+    const withAmounts = collected.map((row, i) => ({
+      ...row,
+      amount: amounts[i] != null ? String(amounts[i]) : '',
+    }))
+    setAddSplitRows(withAmounts)
+    setAddSplitWizardWarnings(warnings)
+    setAddSplitStep(2)
+  }
+
+  const addSplitGoToConfirmStep = (booking, currencyStr) => {
+    const { remaining } = getSplitBudgetForBooking(booking)
+    const cur = currencyStr || 'SAR'
+    const parsed = addSplitRows.map((row) => ({
+      ...row,
+      amountNum: parseFloat(String(row.amount).replace(',', '.')) || 0,
+    }))
+    if (parsed.some((row) => row.amountNum <= 0)) {
+      window.alert(c.splitAmountsInvalid)
+      return
+    }
+    const sum = parsed.reduce((s, row) => s + row.amountNum, 0)
+    if (sum > remaining + 0.02) {
+      window.alert(`${c.splitOverBudget} (${remaining.toFixed(2)} ${cur}).`)
+      return
+    }
+    setAddSplitStep(3)
+  }
+
+  const addSplitWizardBack = () => {
+    if (addSplitStep === 2) setAddSplitStep(1)
+    else if (addSplitStep === 3) setAddSplitStep(2)
+  }
+
+  const submitAddSplit = async (booking, club) => {
+    if (!club?.id || !booking?.id || !member?.id) return
+    const rows = addSplitRows.map((row) => ({
+      type: 'unregistered',
+      phone: (row.phone || '').trim(),
+      amount: parseFloat(String(row.amount).replace(',', '.')) || 0,
+    })).filter((row) => row.phone && row.amount > 0)
+    if (rows.length === 0) {
+      window.alert(c.splitAmountsInvalid)
+      return
+    }
+    setAddSplitBusy(true)
+    try {
+      await bookingApi.addSplitParticipants({
+        bookingId: booking.id,
+        clubId: club.id,
+        memberId: member.id,
+        paymentShares: rows,
+      })
+      window.dispatchEvent(new CustomEvent('clubs-synced'))
+      await refreshClubsFromApi()
+      loadClubs()
+      setBookings(getMemberBookings(member.id))
+      closeAddSplitPanel()
+    } catch (e) {
+      window.alert(e?.message || (language === 'en' ? 'Failed' : 'فشل'))
+    } finally {
+      setAddSplitBusy(false)
+    }
+  }
 
   const refetchBookings = React.useCallback(async () => {
     await refreshClubsFromApi()
@@ -1460,93 +1688,296 @@ const MyBookingsPage = () => {
                         type="button"
                         className="my-bookings-add-split-toggle"
                         onClick={() => {
-                          if (addSplitForBookingId === r.booking.id) {
-                            setAddSplitForBookingId(null)
-                          } else {
-                            setAddSplitForBookingId(r.booking.id)
-                            setAddSplitRows([{ phone: '', amount: '' }])
-                          }
+                          if (addSplitForBookingId === r.booking.id) closeAddSplitPanel()
+                          else openAddSplitPanel(r.booking.id)
                         }}
                       >
                         {language === 'en' ? '+ Add participants (share payment)' : '+ إضافة مشاركين (تقسيم)'}
                       </button>
-                      {addSplitForBookingId === r.booking.id && (
-                        <div className="my-bookings-add-split-form">
-                          <p className="my-bookings-add-split-bulk-hint">{c.splitAddBulkHint}</p>
-                          <div className="my-bookings-add-split-favorites">
-                            <p className="my-bookings-add-split-favorites-title">★ {c.splitFavorites}</p>
-                            <p className="my-bookings-add-split-fav-hint">{c.splitFavHint}</p>
-                            {addSplitFavoritesLoading ? (
-                              <div className="my-bookings-add-split-fav-loading">{c.loading}</div>
-                            ) : addSplitFavorites.length === 0 ? (
-                              <p className="my-bookings-add-split-fav-empty">{c.splitFavoritesEmpty}</p>
-                            ) : (
-                              <div className="my-bookings-add-split-fav-chips" role="list">
-                                {addSplitFavorites.map((f) => (
+                      {addSplitForBookingId === r.booking.id && (() => {
+                        const splitBudget = getSplitBudgetForBooking(r.booking)
+                        const newAssignedSum = addSplitRows.reduce(
+                          (s, row) => s + (parseFloat(String(row.amount).replace(',', '.')) || 0),
+                          0
+                        )
+                        const splitLeft = splitBudget.remaining - newAssignedSum
+                        const stepMeta = [
+                          { n: 1, label: c.splitWizardStep1 },
+                          { n: 2, label: c.splitWizardStep2 },
+                          { n: 3, label: c.splitWizardStep3 },
+                        ]
+                        return (
+                          <div className="my-bookings-add-split-form my-bookings-add-split-wizard">
+                            <ol className="my-bookings-split-wizard-steps" aria-label={c.splitWizardAriaSteps}>
+                              {stepMeta.map(({ n, label }) => (
+                                <li
+                                  key={n}
+                                  className={`my-bookings-split-wizard-step ${addSplitStep === n ? 'is-current' : ''} ${addSplitStep > n ? 'is-done' : ''}`}
+                                >
+                                  <span className="my-bookings-split-wizard-step-badge" aria-hidden>
+                                    {addSplitStep > n ? '✓' : n}
+                                  </span>
+                                  <span className="my-bookings-split-wizard-step-text">{label}</span>
+                                </li>
+                              ))}
+                            </ol>
+
+                            {addSplitStep === 1 && (
+                              <>
+                                <p className="my-bookings-add-split-bulk-hint">{c.splitWizardHintStep1}</p>
+                                <div className="my-bookings-add-split-favorites">
+                                  <p className="my-bookings-add-split-favorites-title">★ {c.splitFavorites}</p>
+                                  <p className="my-bookings-add-split-fav-hint">{c.splitFavHint}</p>
+                                  {addSplitFavoritesLoading ? (
+                                    <div className="my-bookings-add-split-fav-loading">{c.loading}</div>
+                                  ) : addSplitFavorites.length === 0 ? (
+                                    <p className="my-bookings-add-split-fav-empty">{c.splitFavoritesEmpty}</p>
+                                  ) : (
+                                    <div className="my-bookings-add-split-fav-chips" role="list">
+                                      {addSplitFavorites.map((f) => (
+                                        <button
+                                          key={f.id}
+                                          type="button"
+                                          className={`my-bookings-add-split-fav-chip ${f.phone ? '' : 'my-bookings-add-split-fav-chip--muted'}`}
+                                          disabled={!f.phone}
+                                          onClick={() => applyFavoriteToSplitPeople(f)}
+                                        >
+                                          <span className="my-bookings-add-split-fav-chip-name">{f.name}</span>
+                                          {f.phone ? (
+                                            <span className="my-bookings-add-split-fav-chip-phone">{f.phone}</span>
+                                          ) : (
+                                            <span className="my-bookings-add-split-fav-chip-na">{c.splitFavoritesNoPhone}</span>
+                                          )}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                {isContactsPickSupported() ? (
                                   <button
-                                    key={f.id}
                                     type="button"
-                                    className={`my-bookings-add-split-fav-chip ${f.phone ? '' : 'my-bookings-add-split-fav-chip--muted'}`}
-                                    disabled={!f.phone}
-                                    onClick={() => applyFavoritePhoneToSplitRows(f.phone)}
+                                    className="my-bookings-add-split-contacts-btn"
+                                    onClick={pickPhonesForSplit}
+                                    disabled={addSplitContactBusy || addSplitBusy}
                                   >
-                                    <span className="my-bookings-add-split-fav-chip-name">{f.name}</span>
-                                    {f.phone ? (
-                                      <span className="my-bookings-add-split-fav-chip-phone">{f.phone}</span>
-                                    ) : (
-                                      <span className="my-bookings-add-split-fav-chip-na">{c.splitFavoritesNoPhone}</span>
-                                    )}
+                                    {addSplitContactBusy ? '…' : `📇 ${c.splitPickContacts}`}
                                   </button>
+                                ) : null}
+                                <p className="my-bookings-split-participant-heading">{c.splitParticipantHeading}</p>
+                                {addSplitPeople.map((row, ri) => (
+                                  <div key={ri} className="my-bookings-add-split-person-row">
+                                    <div className="my-bookings-add-split-person-fields">
+                                      <input
+                                        type="text"
+                                        className="my-bookings-add-split-person-name"
+                                        placeholder={c.splitNameOptional}
+                                        value={row.name}
+                                        autoComplete="name"
+                                        onChange={(e) =>
+                                          setAddSplitPeople((prev) =>
+                                            prev.map((x, j) => (j === ri ? { ...x, name: e.target.value } : x))
+                                          )}
+                                      />
+                                      <input
+                                        type="tel"
+                                        className="my-bookings-add-split-person-phone"
+                                        placeholder={c.splitPhoneLabel}
+                                        value={row.phone}
+                                        autoComplete="tel"
+                                        inputMode="tel"
+                                        onChange={(e) =>
+                                          setAddSplitPeople((prev) =>
+                                            prev.map((x, j) => (j === ri ? { ...x, phone: e.target.value } : x))
+                                          )}
+                                      />
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="my-bookings-add-split-person-remove"
+                                      onClick={() =>
+                                        setAddSplitPeople((prev) =>
+                                          prev.length <= 1
+                                            ? [{ phone: '', name: '' }]
+                                            : prev.filter((_, j) => j !== ri)
+                                        )
+                                      }
+                                      aria-label={c.splitRemoveRow}
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
                                 ))}
-                              </div>
+                                <button
+                                  type="button"
+                                  className="my-bookings-add-split-more"
+                                  onClick={() => setAddSplitPeople((prev) => [...prev, { phone: '', name: '' }])}
+                                >
+                                  {language === 'en' ? '+ Add another' : '+ إضافة مشارك'}
+                                </button>
+                                <div className="my-bookings-split-wizard-nav my-bookings-split-wizard-nav--end">
+                                  <button
+                                    type="button"
+                                    className="my-bookings-split-wizard-btn my-bookings-split-wizard-btn-primary"
+                                    disabled={addSplitBusy}
+                                    onClick={() => addSplitGoToAmountsStep(r.booking)}
+                                  >
+                                    {c.splitWizardNext}
+                                  </button>
+                                </div>
+                              </>
+                            )}
+
+                            {addSplitStep === 2 && (
+                              <>
+                                {addSplitWizardWarnings.length > 0 ? (
+                                  <ul className="my-bookings-split-wizard-warnings">
+                                    {addSplitWizardWarnings.map((w, wi) => (
+                                      <li key={wi}>{w}</li>
+                                    ))}
+                                  </ul>
+                                ) : null}
+                                <div className="my-bookings-split-budget-card">
+                                  <div className="my-bookings-split-budget-row">
+                                    <span>{c.splitBudgetTotal}</span>
+                                    <strong>
+                                      {splitBudget.total.toFixed(2)} {r.currencyStr}
+                                    </strong>
+                                  </div>
+                                  <div className="my-bookings-split-budget-row">
+                                    <span>{c.splitBudgetAllocated}</span>
+                                    <strong>
+                                      {splitBudget.activeSum.toFixed(2)} {r.currencyStr}
+                                    </strong>
+                                  </div>
+                                  <div className="my-bookings-split-budget-row my-bookings-split-budget-row--highlight">
+                                    <span>{c.splitBudgetRemaining}</span>
+                                    <strong>
+                                      {splitBudget.remaining.toFixed(2)} {r.currencyStr}
+                                    </strong>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="my-bookings-split-equal-btn"
+                                  onClick={() => addSplitApplyEqualAmounts(r.booking)}
+                                  disabled={addSplitBusy || addSplitRows.length === 0}
+                                >
+                                  {c.splitSplitEqually}
+                                </button>
+                                {addSplitRows.map((row, ri) => (
+                                  <div key={`${row.phone}-${ri}`} className="my-bookings-add-split-amount-row">
+                                    <div className="my-bookings-add-split-amount-label">
+                                      <span className="my-bookings-add-split-amount-name">
+                                        {row.name || row.phone || c.splitPhoneLabel}
+                                      </span>
+                                      {row.name ? (
+                                        <span className="my-bookings-add-split-amount-phone" dir="ltr">
+                                          {row.phone}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    <div className="my-bookings-add-split-amount-input-wrap">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        className="my-bookings-add-split-amount-input"
+                                        value={row.amount}
+                                        inputMode="decimal"
+                                        onChange={(e) =>
+                                          setAddSplitRows((prev) =>
+                                            prev.map((x, j) => (j === ri ? { ...x, amount: e.target.value } : x))
+                                          )}
+                                      />
+                                      <span className="my-bookings-add-split-amount-cur">{r.currencyStr}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                                <div
+                                  className={`my-bookings-split-sum-row ${splitLeft < -0.02 ? 'is-over' : splitLeft <= 0.02 ? 'is-ok' : ''}`}
+                                >
+                                  <span>{c.splitAssignedSum}</span>
+                                  <strong>
+                                    {newAssignedSum.toFixed(2)} {r.currencyStr}
+                                  </strong>
+                                </div>
+                                <div
+                                  className={`my-bookings-split-sum-row my-bookings-split-sum-row--muted ${splitLeft < -0.02 ? 'is-over' : ''}`}
+                                >
+                                  <span>{c.splitLeftToAssign}</span>
+                                  <strong>
+                                    {splitLeft.toFixed(2)} {r.currencyStr}
+                                  </strong>
+                                </div>
+                                <div className="my-bookings-split-wizard-nav">
+                                  <button
+                                    type="button"
+                                    className="my-bookings-split-wizard-btn my-bookings-split-wizard-btn-secondary"
+                                    disabled={addSplitBusy}
+                                    onClick={addSplitWizardBack}
+                                  >
+                                    {c.splitWizardBack}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="my-bookings-split-wizard-btn my-bookings-split-wizard-btn-primary"
+                                    disabled={addSplitBusy || splitLeft < -0.02}
+                                    onClick={() => addSplitGoToConfirmStep(r.booking, r.currencyStr)}
+                                  >
+                                    {c.splitWizardNext}
+                                  </button>
+                                </div>
+                              </>
+                            )}
+
+                            {addSplitStep === 3 && (
+                              <>
+                                <p className="my-bookings-add-split-bulk-hint">{c.splitWizardReviewIntro}</p>
+                                <ul className="my-bookings-split-confirm-list">
+                                  {addSplitRows.map((row, ri) => {
+                                    const amt = parseFloat(String(row.amount).replace(',', '.')) || 0
+                                    return (
+                                      <li key={`${row.phone}-${ri}`} className="my-bookings-split-confirm-item">
+                                        <div className="my-bookings-split-confirm-who">
+                                          <span className="my-bookings-split-confirm-name">
+                                            {row.name || row.phone}
+                                          </span>
+                                          {row.name ? (
+                                            <span className="my-bookings-split-confirm-phone" dir="ltr">
+                                              {row.phone}
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                        <div className="my-bookings-split-confirm-amt">
+                                          {amt.toFixed(2)} {r.currencyStr}
+                                        </div>
+                                      </li>
+                                    )
+                                  })}
+                                </ul>
+                                <div className="my-bookings-split-wizard-nav">
+                                  <button
+                                    type="button"
+                                    className="my-bookings-split-wizard-btn my-bookings-split-wizard-btn-secondary"
+                                    disabled={addSplitBusy}
+                                    onClick={addSplitWizardBack}
+                                  >
+                                    {c.splitWizardBack}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="my-bookings-split-wizard-btn my-bookings-split-wizard-btn-primary my-bookings-split-wizard-btn-submit"
+                                    disabled={addSplitBusy}
+                                    onClick={() => submitAddSplit(r.booking, r.club)}
+                                  >
+                                    {addSplitBusy ? '…' : c.splitWizardSendInvites}
+                                  </button>
+                                </div>
+                              </>
                             )}
                           </div>
-                          {isContactsPickSupported() ? (
-                            <button
-                              type="button"
-                              className="my-bookings-add-split-contacts-btn"
-                              onClick={pickPhonesForSplit}
-                              disabled={addSplitContactBusy || addSplitBusy}
-                            >
-                              {addSplitContactBusy ? '…' : `📇 ${c.splitPickContacts}`}
-                            </button>
-                          ) : null}
-                          {addSplitRows.map((row, ri) => (
-                            <div key={ri} className="my-bookings-add-split-row">
-                              <input
-                                type="tel"
-                                placeholder={language === 'en' ? 'Phone' : 'الجوال'}
-                                value={row.phone}
-                                autoComplete="tel"
-                                onChange={(e) => setAddSplitRows((prev) => prev.map((x, j) => (j === ri ? { ...x, phone: e.target.value } : x)))}
-                              />
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                placeholder={language === 'en' ? 'Amount' : 'المبلغ'}
-                                value={row.amount}
-                                onChange={(e) => setAddSplitRows((prev) => prev.map((x, j) => (j === ri ? { ...x, amount: e.target.value } : x)))}
-                              />
-                            </div>
-                          ))}
-                          <button
-                            type="button"
-                            className="my-bookings-add-split-more"
-                            onClick={() => setAddSplitRows((prev) => [...prev, { phone: '', amount: '' }])}
-                          >
-                            {language === 'en' ? '+ Another' : '+ سطر'}
-                          </button>
-                          <button
-                            type="button"
-                            className="my-bookings-add-split-submit"
-                            disabled={addSplitBusy}
-                            onClick={() => submitAddSplit(r.booking, r.club)}
-                          >
-                            {addSplitBusy ? '…' : (language === 'en' ? 'Send invites' : 'إرسال الدعوات')}
-                          </button>
-                        </div>
-                      )}
+                        )
+                      })()}
                     </div>
                   )}
                   {r.club && (
