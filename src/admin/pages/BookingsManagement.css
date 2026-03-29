@@ -442,6 +442,20 @@
   background: #dbeafe;
   color: #1d4ed8;
 }
+.status-badge.status-member-refund-pending {
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 600;
+}
+.booking-payment-share-item.share-member-refund-pending {
+  border-inline-start: 3px solid #d97706;
+  background: #fffbeb;
+}
+.booking-member-share-refund-banner-footnote {
+  margin: 0;
+  font-size: 11px;
+  color: #92400e;
+}
 .status-badge.status-booker-method {
   background: #e0e7ff;
   color: #3730a3;

@@ -303,6 +303,11 @@
   background: #f0fdf4;
 }
 
+.ccd-sheet__share--refund-pending {
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
 .ccd-sheet__share-main {
   display: flex;
   justify-content: space-between;
@@ -346,6 +351,14 @@
 .ccd-sheet__tag--due {
   background: #fef3c7;
   color: #92400e;
+}
+
+.ccd-sheet__tag--refund-pending {
+  background: #fde68a;
+  color: #78350f;
+  font-weight: 700;
+  max-width: 100%;
+  line-height: 1.3;
 }
 
 .ccd-sheet__btn {

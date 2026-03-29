@@ -279,6 +279,19 @@ export async function voidClubInvoicesForBookingRefund(clubId, bookingId) {
   return { ok: true }
 }
 
+/** Void the paid invoice for one booking payment share (idempotency bps:club:share:paid). */
+export async function voidClubInvoiceForBookingShareRefund(clubId, bookingId, shareId) {
+  if (!(await invoicingTablesExist())) return { ok: true, skipped: true }
+  if (clubId == null || bookingId == null || shareId == null) return { ok: false, error: 'missing ids' }
+  const sourceRef = `${bookingId}:${shareId}`
+  await query(
+    `UPDATE club_invoices SET status = 'void', updated_at = NOW()
+     WHERE club_id = ? AND source_type = 'booking_share' AND source_ref = ? AND deleted_at IS NULL AND status IN ('paid','issued','partially_paid')`,
+    [String(clubId), String(sourceRef)]
+  )
+  return { ok: true }
+}
+
 /** قيمة method المناسبة لجدول club_payments (electronic | at_club | wallet | other) */
 export function normalizeClubPaymentMethodForInvoice(paymentMethod) {
   const m = (paymentMethod || 'electronic').toString().toLowerCase().trim()

@@ -2066,9 +2066,20 @@ router.post('/admin-fulfill-member-share-refund', async (req, res) => {
       throw e
     }
 
-    await mergeClubBookingDataJson(bookingId, clubId, { splitInviteReopen: true })
+    await mergeClubBookingDataJson(bookingId, clubId, {
+      splitInviteReopen: true,
+      splitMemberRefundPending: false,
+      splitMemberRefundShareId: null,
+    })
     const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bookingId, clubId)
     if (clubId && rec?.bookingDate) slotCache.invalidateLocks(clubId, rec.bookingDate)
+
+    try {
+      const invoiceService = await import('../services/invoiceService.js')
+      await invoiceService.voidClubInvoiceForBookingShareRefund(clubId, bookingId, row.id)
+    } catch (invE) {
+      console.warn('[admin-fulfill-member-share-refund] invoice void share:', invE?.message)
+    }
 
     const act = {
       actorType: actor.actorType || 'system',

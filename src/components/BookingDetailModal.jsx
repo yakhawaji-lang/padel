@@ -15,6 +15,7 @@ import { normalizePhone } from '../utils/phoneNormalize'
 import { buildPayShareAbsoluteUrl, buildWhatsAppHrefForSplitInvite } from '../utils/splitInviteLinks'
 import { getTournamentMemberPaymentEntry } from '../utils/tournamentHelpers'
 import { updateTournamentMemberPaymentEntry, withdrawMemberFromTournament } from '../storage/adminStorage'
+import { shareHasMemberRefundPending } from '../utils/bookingMemberCancel'
 import './BookingDetailModal.css'
 
 function getMapUrl(club) {
@@ -729,9 +730,9 @@ export default function BookingDetailModal({
                       (s.inviteToken ? buildPayShareAbsoluteUrl(s.inviteToken, s.type) : '')
                     const waTarget = payAbs ? buildWhatsAppHrefForSplitInvite(s.phone, payAbs, language) : (s.whatsappLink || '')
                     const isEditingShare = bookerShareEditKey === rowKey
-                    const memberReqAt = s.memberRefundRequestedAt || s.member_refund_requested_at
+                    const shareRefundPendingClub = shareHasMemberRefundPending(s, booking)
                     return (
-                      <div key={rowKey} className="booking-detail-share-row">
+                      <div key={rowKey} className={`booking-detail-share-row${shareRefundPendingClub ? ' booking-detail-share-row--refund-pending' : ''}`}>
                         {isEditingShare ? (
                           <div className="booking-detail-share-edit">
                             <input
@@ -770,16 +771,18 @@ export default function BookingDetailModal({
                             <span className="booking-detail-share-amount"> — {shareAmt} {currency}</span>
                           ) : null}
                         </span>
-                        <span className={`booking-detail-share-status ${pd ? 'paid' : ''}`}>
+                        <span className={`booking-detail-share-status ${pd && !shareRefundPendingClub ? 'paid' : ''} ${shareRefundPendingClub ? 'refund-pending' : ''}`}>
                           {rf && !s.refundAcknowledgedAt
                             ? '⏳ ' + (language === 'ar' ? 'بانتظار تأكيد الاسترداد' : 'Awaiting refund confirmation')
                             : rf && s.refundAcknowledgedAt
                               ? '✓ ' + (language === 'ar' ? 'أُكّد الاسترداد' : 'Refund confirmed')
-                              : pd
-                                ? '✓ ' + c.paid
-                                : s.paymentMethod === 'at_club'
-                                  ? '◐ ' + c.waitingConfirm
-                                  : '○ ' + c.pending}
+                              : shareRefundPendingClub && pd
+                                ? '⚠ ' + c.participantRefundAwaiting
+                                : pd
+                                  ? '✓ ' + c.paid
+                                  : s.paymentMethod === 'at_club'
+                                    ? '◐ ' + c.waitingConfirm
+                                    : '○ ' + c.pending}
                         </span>
                         <span className="booking-detail-share-actions">
                         {isMyShare && !pd && needsPayment && (
@@ -828,11 +831,11 @@ export default function BookingDetailModal({
                             !!s.inviteToken &&
                             !pd &&
                             !rf &&
-                            !memberReqAt &&
+                            !shareRefundPendingClub &&
                             !removed &&
                             !isBookingTerminal
                           const showRefundPending =
-                            isMyShare && !!memberReqAt && !rf && !removed
+                            isMyShare && shareRefundPendingClub && !rf && !removed
                           if (!showLeave && !showRefundPending) return null
                           return (
                             <span className="booking-detail-participant-self-wrap">

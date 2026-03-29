@@ -577,6 +577,22 @@
   color: #22c55e;
 }
 
+.booking-detail-share-row--refund-pending {
+  background: #fffbeb;
+  margin: 2px -8px;
+  padding: 8px 8px;
+  border-radius: 8px;
+  border: 1px solid #fcd34d;
+}
+
+.booking-detail-share-status.refund-pending {
+  color: #b45309;
+  font-weight: 600;
+  font-size: 0.82rem;
+  max-width: 100%;
+  line-height: 1.25;
+}
+
 .booking-detail-resend {
   text-decoration: none;
   font-size: 1.1rem;

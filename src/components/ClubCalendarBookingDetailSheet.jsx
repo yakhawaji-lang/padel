@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react'
 import { getBookingCalendarKind } from '../utils/bookingCalendarKind'
+import { shareHasMemberRefundPending } from '../utils/bookingMemberCancel'
 import './ClubCalendarBookingDetailSheet.css'
 
 function bookingJsonData(booking) {
@@ -249,11 +250,15 @@ export default function ClubCalendarBookingDetailSheet({
                   <p className="ccd-sheet__hint">{t.calendarDetailPaymentShares}</p>
                   <ul className="ccd-sheet__shares">
                     {shares.map((sh, idx) => {
-                      const paid = shareIsPaid(sh)
+                      const refundPending = shareHasMemberRefundPending(sh, booking)
+                      const paid = shareIsPaid(sh) && !refundPending
                       const name = sh.memberName || sh.name || `—`
                       const amt = parseFloat(sh.amount) || 0
                       return (
-                        <li key={idx} className={`ccd-sheet__share ${paid ? 'ccd-sheet__share--paid' : ''}`}>
+                        <li
+                          key={idx}
+                          className={`ccd-sheet__share ${refundPending ? 'ccd-sheet__share--refund-pending' : paid ? 'ccd-sheet__share--paid' : ''}`}
+                        >
                           <div className="ccd-sheet__share-main">
                             <span className="ccd-sheet__share-name">{name}</span>
                             <span className="ccd-sheet__share-amt">
@@ -261,10 +266,22 @@ export default function ClubCalendarBookingDetailSheet({
                             </span>
                           </div>
                           <div className="ccd-sheet__share-actions">
-                            <span className={paid ? 'ccd-sheet__tag ccd-sheet__tag--ok' : 'ccd-sheet__tag ccd-sheet__tag--due'}>
-                              {paid ? t.calendarDetailPaid : t.calendarDetailDue}
+                            <span
+                              className={
+                                refundPending
+                                  ? 'ccd-sheet__tag ccd-sheet__tag--refund-pending'
+                                  : paid
+                                    ? 'ccd-sheet__tag ccd-sheet__tag--ok'
+                                    : 'ccd-sheet__tag ccd-sheet__tag--due'
+                              }
+                            >
+                              {refundPending
+                                ? t.calendarDetailRefundPending || t.calendarDetailDue
+                                : paid
+                                  ? t.calendarDetailPaid
+                                  : t.calendarDetailDue}
                             </span>
-                            {!paid && !isPlaytomic ? (
+                            {!paid && !refundPending && !isPlaytomic ? (
                               <button
                                 type="button"
                                 className="ccd-sheet__btn ccd-sheet__btn--secondary"

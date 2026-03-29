@@ -31,6 +31,23 @@ export function bookingJsonData(booking) {
   return {}
 }
 
+/**
+ * Split participant requested refund; club must fulfill. Uses DB columns on the share and/or
+ * flags written to booking `data` when the member submits the request (see mergeClubBookingDataJson).
+ */
+export function shareHasMemberRefundPending(share, booking) {
+  if (!share) return false
+  const isRefunded = !!(share.refundedAt || share.refunded_at)
+  const isRemoved = !!(share.removedAt || share.removed_at)
+  if (isRefunded || isRemoved) return false
+  if (share.memberRefundRequestedAt || share.member_refund_requested_at) return true
+  const d = bookingJsonData(booking)
+  const flag = booking?.splitMemberRefundPending ?? d.splitMemberRefundPending
+  const sid = booking?.splitMemberRefundShareId ?? d.splitMemberRefundShareId
+  if (flag && sid != null && sid !== '' && String(sid) === String(share.id ?? '')) return true
+  return false
+}
+
 /** True when booking `data` or top-level marks member self-cancel (from API / local). */
 export function hasMemberSelfCancelFlag(booking) {
   const d = bookingJsonData(booking)

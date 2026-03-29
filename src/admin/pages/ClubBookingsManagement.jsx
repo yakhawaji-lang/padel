@@ -10,6 +10,7 @@ import {
   bookingHasCollectedPayment,
   bookingJsonData,
   hasMemberSelfCancelFlag,
+  shareHasMemberRefundPending,
 } from '../../utils/bookingMemberCancel'
 import './club-pages-common.css'
 import './BookingsManagement.css'
@@ -584,6 +585,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       amount: 'Amount',
       paid: 'Paid',
       payAtClub: 'Pay at club',
+      shareRefundPendingBadge: 'Refund requested',
       waitingClubConfirm: 'Waiting for club confirmation',
       booker: 'Booker',
       pending: 'Pending',
@@ -673,6 +675,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       amount: 'المبلغ',
       paid: 'مدفوع',
       payAtClub: 'سيدفع في النادي',
+      shareRefundPendingBadge: 'طلب استرداد',
       waitingClubConfirm: 'بانتظار التأكيد من النادي',
       booker: 'الحاجز',
       pending: 'قيد الانتظار',
@@ -1198,10 +1201,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                       const isRemoved = !!s.removedAt
                                       const canMarkPaid = !isRefunded && !isRemoved && !s.paidAt && s.paymentMethod === 'at_club' && (s.id || s.inviteToken)
                                       const refundChannelHint = draft.method === 'stripe_manual' ? c.stripeManualHint : draft.method === 'electronic_reverse' ? c.electronicHint : ''
-                                      const memberRefundPending =
-                                        !!(s.memberRefundRequestedAt || s.member_refund_requested_at) &&
-                                        !isRefunded &&
-                                        !isRemoved
+                                      const memberRefundPending = shareHasMemberRefundPending(s, b)
                                       const memberRefundPref = s.memberRefundRoute || s.member_refund_route || '—'
                                       const memberRefundNetVal =
                                         s.memberRefundNet != null ? s.memberRefundNet : s.member_refund_net
@@ -1213,7 +1213,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                         !rowAwaitingRefundAck &&
                                         !memberRefundPending
                                       return (
-                                        <div key={s.id || idx} className={`booking-payment-share-item ${isRemoved ? 'share-removed' : s.paidAt ? 'paid' : 'pending'}`}>
+                                        <div key={s.id || idx} className={`booking-payment-share-item ${isRemoved ? 'share-removed' : memberRefundPending ? 'share-member-refund-pending' : s.paidAt ? 'paid' : 'pending'}`}>
                                           <div className="booking-payment-share-top">
                                             <span className="booking-payment-share-name">
                                               {resolvePaymentShareDisplayName(s, members)}{isBooker ? ` (${c.booker})` : ''}
@@ -1224,6 +1224,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                                 <span className="status-badge status-removed">{c.removedParticipant}</span>
                                               ) : isRefunded ? (
                                                 <span className="status-badge status-refunded">{c.refunded}</span>
+                                              ) : memberRefundPending && s.paidAt ? (
+                                                <span className="status-badge status-member-refund-pending">{c.shareRefundPendingBadge}</span>
                                               ) : s.paidAt ? (
                                                 s.paymentMethod === 'at_club' ? (
                                                   <span className="status-badge status-pay-at-club">✓ {c.payAtClub}</span>
@@ -1260,39 +1262,47 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                               )}
                                             </div>
                                           )}
-                                          {memberRefundPending && s.id && (
-                                            <div className="booking-member-share-refund-banner">
+                                          {memberRefundPending && (
+                                            <div className="booking-member-share-refund-banner" role="status">
                                               <p className="booking-member-share-refund-banner-text">
                                                 {language === 'en'
                                                   ? `Member refund request: ${memberRefundPref} — net ${memberRefundNetVal != null ? memberRefundNetVal : '—'} ${currency}. Complete using the member’s chosen channel or yours.`
                                                   : `طلب استرداد من المشارك: ${memberRefundPref} — صافي ${memberRefundNetVal != null ? memberRefundNetVal : '—'} ${currency}. نفّذ حسب اختيار العضو أو قناتك.`}
                                               </p>
-                                              <div className="booking-member-share-refund-actions">
-                                                <button
-                                                  type="button"
-                                                  className="booking-payment-mark-paid-btn"
-                                                  disabled={actionLoading === `fulfill-share-refund-${s.id}`}
-                                                  onClick={() => handleFulfillMemberShareRefund(s.id, 'cash')}
-                                                >
-                                                  {actionLoading === `fulfill-share-refund-${s.id}` ? '…' : language === 'en' ? 'Cash done' : 'تم النقد'}
-                                                </button>
-                                                <button
-                                                  type="button"
-                                                  className="booking-payment-mark-paid-btn"
-                                                  disabled={actionLoading === `fulfill-share-refund-${s.id}`}
-                                                  onClick={() => handleFulfillMemberShareRefund(s.id, 'wallet')}
-                                                >
-                                                  {language === 'en' ? 'Wallet credit' : 'محفظة'}
-                                                </button>
-                                                <button
-                                                  type="button"
-                                                  className="booking-refund-btn booking-refund-btn--warn"
-                                                  disabled={actionLoading === `fulfill-share-refund-${s.id}`}
-                                                  onClick={() => handleFulfillMemberShareRefund(s.id, 'electronic')}
-                                                >
-                                                  {language === 'en' ? 'Electronic' : 'إلكتروني'}
-                                                </button>
-                                              </div>
+                                              {s.id ? (
+                                                <div className="booking-member-share-refund-actions">
+                                                  <button
+                                                    type="button"
+                                                    className="booking-payment-mark-paid-btn"
+                                                    disabled={actionLoading === `fulfill-share-refund-${s.id}`}
+                                                    onClick={() => handleFulfillMemberShareRefund(s.id, 'cash')}
+                                                  >
+                                                    {actionLoading === `fulfill-share-refund-${s.id}` ? '…' : language === 'en' ? 'Cash done' : 'تم النقد'}
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    className="booking-payment-mark-paid-btn"
+                                                    disabled={actionLoading === `fulfill-share-refund-${s.id}`}
+                                                    onClick={() => handleFulfillMemberShareRefund(s.id, 'wallet')}
+                                                  >
+                                                    {language === 'en' ? 'Wallet credit' : 'محفظة'}
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    className="booking-refund-btn booking-refund-btn--warn"
+                                                    disabled={actionLoading === `fulfill-share-refund-${s.id}`}
+                                                    onClick={() => handleFulfillMemberShareRefund(s.id, 'electronic')}
+                                                  >
+                                                    {language === 'en' ? 'Electronic' : 'إلكتروني'}
+                                                  </button>
+                                                </div>
+                                              ) : (
+                                                <p className="booking-member-share-refund-banner-footnote">
+                                                  {language === 'en'
+                                                    ? 'Refresh data or open this booking again if fulfillment buttons are missing (share id required).'
+                                                    : 'حدّث الصفحة أو أعد فتح الحجز إذا لم تظهر أزرار التنفيذ — يجب أن تتوفر معرفة الحصة.'}
+                                                </p>
+                                              )}
                                             </div>
                                           )}
                                           {canRefund && (
