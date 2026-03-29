@@ -14,7 +14,7 @@ import { normalizeBookingDateYmd } from '../services/bookingService.js'
 import * as paymentShareRecalc from '../services/paymentShareRecalc.js'
 import * as invoiceService from '../services/invoiceService.js'
 import * as walletService from '../services/walletService.js'
-import { computePolicyFee, hoursUntilBookingStart } from '../services/bookingPolicy.js'
+import { computePolicyFee, hoursUntilBookingStart, resolveCancelPolicy } from '../services/bookingPolicy.js'
 import * as idempotency from '../db/idempotency.js'
 import { getBookingSettings } from '../db/bookingSettings.js'
 import { hasNormalizedTables, purgeClubBookingFromDb } from '../db/normalizedData.js'
@@ -829,6 +829,11 @@ router.post('/record-payment', async (req, res) => {
     if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
     if (!isAtClub) {
       try {
+        let shareBookingKind = 'court'
+        try {
+          const { rows: dr } = await query('SELECT data FROM club_bookings WHERE id = ? AND club_id = ?', [bid, clubId])
+          shareBookingKind = invoiceService.bookingInvoiceKindFromRowData(parseBookingJsonData(dr?.[0]?.data))
+        } catch (_) {}
         await invoiceService.issueInvoiceForPaidShare({
           clubId,
           bookingId: bid,
@@ -840,6 +845,7 @@ router.post('/record-payment', async (req, res) => {
           phone: share.phone,
           paymentMethod: isElectronic ? 'electronic' : 'other',
           paymentReference: paymentReference || null,
+          bookingKind: shareBookingKind,
         })
       } catch (invErr) {
         console.warn('[record-payment] invoice:', invErr?.message)
@@ -894,6 +900,11 @@ router.post('/mark-share-paid-at-club', async (req, res) => {
     const dateStr = bDate[0]?.booking_date ? String(bDate[0].booking_date).split('T')[0] : null
     if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
     try {
+      let shareBookingKind = 'court'
+      try {
+        const { rows: dr } = await query('SELECT data FROM club_bookings WHERE id = ? AND club_id = ?', [bid, clubId])
+        shareBookingKind = invoiceService.bookingInvoiceKindFromRowData(parseBookingJsonData(dr?.[0]?.data))
+      } catch (_) {}
       await invoiceService.issueInvoiceForPaidShare({
         clubId,
         bookingId: bid,
@@ -905,6 +916,7 @@ router.post('/mark-share-paid-at-club', async (req, res) => {
         phone: share.phone,
         paymentMethod: 'at_club',
         paymentReference: null,
+        bookingKind: shareBookingKind,
       })
     } catch (invErr) {
       console.warn('[mark-share-paid-at-club] invoice:', invErr?.message)
@@ -1813,7 +1825,6 @@ router.post('/member-share-self-service-quote', async (req, res) => {
       return res.status(400).json({ error: 'Booking not active' })
     }
     const data = parseBookingJsonData(b.data)
-    if (data.type === 'training') return res.status(400).json({ error: 'Not available for training' })
 
     let row
     if (shareId || inviteToken) {
@@ -1833,12 +1844,13 @@ router.post('/member-share-self-service-quote', async (req, res) => {
 
     const memberRefundPending = !!row.member_refund_requested_at
     const settings = await getBookingSettings(clubId)
+    const cancelPol = resolveCancelPolicy(settings, data)
     const dateYmd = normalizeBookingDateYmd(b.booking_date)
     const hoursLeft = hoursUntilBookingStart(dateYmd, String(b.start_time || ''))
     const paidShare = parseFloat(row.amount) || 0
-    const minH = Math.max(0, parseInt(settings.cancelRefundHoursBefore, 10) || 24)
+    const minH = Math.max(0, parseInt(cancelPol.cancelRefundHoursBefore, 10) || 24)
     const withinPolicy = hoursLeft != null && hoursLeft >= minH
-    const cancelFee = withinPolicy ? computePolicyFee(settings.cancelFeeMode, settings.cancelFeeValue, paidShare) : 0
+    const cancelFee = withinPolicy ? computePolicyFee(cancelPol.cancelFeeMode, cancelPol.cancelFeeValue, paidShare) : 0
     const net = Math.max(0, Math.round((paidShare - cancelFee) * 100) / 100)
     const allowElectronicRefundRoute = shareAllowsElectronicRefundFromPaymentRow(row)
     const canRequest =
@@ -1904,7 +1916,6 @@ router.post('/member-request-share-refund', async (req, res) => {
       return res.status(400).json({ error: 'Booking not active' })
     }
     const data = parseBookingJsonData(b.data)
-    if (data.type === 'training') return res.status(400).json({ error: 'Not available for training' })
 
     let row
     if (shareId || inviteToken) {
@@ -1932,6 +1943,7 @@ router.post('/member-request-share-refund', async (req, res) => {
     }
 
     const settings = await getBookingSettings(clubId)
+    const cancelPol = resolveCancelPolicy(settings, data)
     const dateYmd = normalizeBookingDateYmd(b.booking_date)
     const hoursLeft = hoursUntilBookingStart(dateYmd, String(b.start_time || ''))
     if (hoursLeft == null || hoursLeft <= 0) {
@@ -1939,9 +1951,9 @@ router.post('/member-request-share-refund', async (req, res) => {
     }
 
     const paidShare = parseFloat(row.amount) || 0
-    const minH = Math.max(0, parseInt(settings.cancelRefundHoursBefore, 10) || 24)
+    const minH = Math.max(0, parseInt(cancelPol.cancelRefundHoursBefore, 10) || 24)
     const withinPolicy = hoursLeft >= minH
-    const cancelFee = withinPolicy ? computePolicyFee(settings.cancelFeeMode, settings.cancelFeeValue, paidShare) : 0
+    const cancelFee = withinPolicy ? computePolicyFee(cancelPol.cancelFeeMode, cancelPol.cancelFeeValue, paidShare) : 0
     const net = Math.max(0, Math.round((paidShare - cancelFee) * 100) / 100)
 
     try {
@@ -2564,23 +2576,24 @@ router.post('/member-self-service-quote', async (req, res) => {
       return res.status(400).json({ error: 'Booking not active' })
     }
     const data = parseBookingJsonData(b.data)
-    if (data.type === 'training') return res.status(400).json({ error: 'Not available for training' })
+    const isTrainingBooking = data.type === 'training'
 
     const settings = await getBookingSettings(clubId)
     const cnt = Math.max(0, parseInt(data.memberRescheduleCount, 10) || 0)
     const freeCap = Math.max(0, parseInt(settings.freeRescheduleCount, 10) || 1)
-    const appliesFee = cnt >= freeCap
+    const appliesFee = !isTrainingBooking && cnt >= freeCap
     const fee = appliesFee
       ? computePolicyFee(settings.rescheduleFeeMode, settings.rescheduleFeeValue, parseFloat(b.total_amount) || 0)
       : 0
 
     const dateYmd = normalizeBookingDateYmd(b.booking_date)
     const hoursLeft = hoursUntilBookingStart(dateYmd, String(b.start_time || ''))
-    const minH = Math.max(0, parseInt(settings.cancelRefundHoursBefore, 10) || 24)
+    const cancelPol = resolveCancelPolicy(settings, data)
+    const minH = Math.max(0, parseInt(cancelPol.cancelRefundHoursBefore, 10) || 24)
     const cancelAllowed = hoursLeft != null && hoursLeft >= minH
     let paidEff = parseFloat(b.paid_amount) || 0
     if (paidEff < 0.01 && st === 'confirmed') paidEff = parseFloat(b.total_amount) || 0
-    const cancelFee = cancelAllowed ? computePolicyFee(settings.cancelFeeMode, settings.cancelFeeValue, paidEff) : 0
+    const cancelFee = cancelAllowed ? computePolicyFee(cancelPol.cancelFeeMode, cancelPol.cancelFeeValue, paidEff) : 0
     const refundNet = Math.max(0, Math.round((paidEff - cancelFee) * 100) / 100)
     const canRequestRefundCancel =
       hoursLeft != null &&
@@ -2746,7 +2759,6 @@ router.post('/member-refund-request', async (req, res) => {
       return res.status(400).json({ error: 'Booking not active' })
     }
     const data = parseBookingJsonData(b.data)
-    if (data.type === 'training') return res.status(400).json({ error: 'Not available for training' })
     if (route === 'electronic' && !initiatorUsedElectronicCard(data)) {
       return res.status(400).json({
         error: 'Electronic refund applies only when the booking was paid by card or online.',
@@ -2754,6 +2766,7 @@ router.post('/member-refund-request', async (req, res) => {
     }
 
     const settings = await getBookingSettings(clubId)
+    const cancelPol = resolveCancelPolicy(settings, data)
     const dateYmd = normalizeBookingDateYmd(b.booking_date)
     const hoursLeft = hoursUntilBookingStart(dateYmd, String(b.start_time || ''))
     if (hoursLeft == null || hoursLeft <= 0) {
@@ -2772,9 +2785,9 @@ router.post('/member-refund-request', async (req, res) => {
       return res.json({ ok: true, immediateCancel: true, netAmount: 0 })
     }
 
-    const minH = Math.max(0, parseInt(settings.cancelRefundHoursBefore, 10) || 24)
+    const minH = Math.max(0, parseInt(cancelPol.cancelRefundHoursBefore, 10) || 24)
     const withinPolicy = hoursLeft >= minH
-    const cancelFee = withinPolicy ? computePolicyFee(settings.cancelFeeMode, settings.cancelFeeValue, paid) : 0
+    const cancelFee = withinPolicy ? computePolicyFee(cancelPol.cancelFeeMode, cancelPol.cancelFeeValue, paid) : 0
     const net = Math.max(0, Math.round((paid - cancelFee) * 100) / 100)
 
     const newData = {

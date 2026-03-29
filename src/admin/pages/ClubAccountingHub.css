@@ -645,3 +645,16 @@
 .acc-table--invoices td {
   font-size: 0.86rem;
 }
+
+.acc-panel--invoices .acc-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -4px;
+  padding: 0 4px;
+}
+
+@media (max-width: 640px) {
+  .acc-table--invoices {
+    min-width: 520px;
+  }
+}

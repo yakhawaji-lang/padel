@@ -623,6 +623,50 @@
   cursor: not-allowed;
 }
 
+.booking-member-refund-fulfill {
+  margin-top: 12px;
+  padding: 16px 18px;
+  background: linear-gradient(165deg, #fffbeb 0%, #fef9c3 100%);
+  border-radius: 14px;
+  border: 1px solid #fbbf24;
+  box-shadow: 0 4px 18px rgba(245, 158, 11, 0.12);
+}
+.booking-member-refund-fulfill__title {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #78350f;
+  line-height: 1.35;
+}
+.booking-member-refund-fulfill__meta {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: #92400e;
+  line-height: 1.45;
+}
+.booking-member-refund-fulfill__hint {
+  margin: 0 0 14px;
+  font-size: 0.85rem;
+  color: #78350f;
+  line-height: 1.5;
+}
+.booking-member-refund-fulfill__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+@media (max-width: 520px) {
+  .booking-member-refund-fulfill__actions {
+    flex-direction: column;
+  }
+  .booking-member-refund-fulfill__actions .booking-payment-mark-paid-btn,
+  .booking-member-refund-fulfill__actions .booking-refund-btn {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+}
+
 .booking-row-cancelled {
   opacity: 0.75;
 }

@@ -338,6 +338,17 @@
   box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
 }
 
+.member-booking-actions-training-note {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #1e40af;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+}
+
 .member-booking-actions-tab-hint {
   margin: 10px 0 4px;
   font-size: 0.8125rem;

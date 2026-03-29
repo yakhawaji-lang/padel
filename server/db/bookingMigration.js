@@ -49,6 +49,10 @@ export async function runMigration() {
     `)
   }
 
+  if (!(await columnExists('club_settings', 'cancel_policy_overrides'))) {
+    await query(`ALTER TABLE club_settings ADD COLUMN cancel_policy_overrides JSON NULL`)
+  }
+
   const clubSettingsCols = ['lock_minutes', 'payment_deadline_minutes', 'split_manage_minutes', 'split_payment_deadline_minutes', 'refund_days', 'allow_incomplete_bookings']
   for (const col of clubSettingsCols) {
     if (!(await columnExists('club_settings', col))) {

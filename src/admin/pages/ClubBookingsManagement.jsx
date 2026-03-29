@@ -1137,21 +1137,21 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                             })()}
                             {(rowAwaitingRefundAck || memberRefundPendingFulfillment) &&
                               (isMemberCancelledBooking(b) || b.memberRefundPreference || bookingData.memberRefundPreference) && (
-                              <div className="booking-member-refund-fulfill" style={{ marginTop: 12, padding: 14, background: '#fffbeb', borderRadius: 8, border: '1px solid #fcd34d' }}>
-                                <h5 style={{ margin: '0 0 8px', fontSize: '1rem' }}>
+                              <div className="booking-member-refund-fulfill">
+                                <h5 className="booking-member-refund-fulfill__title">
                                   {language === 'en' ? 'Member refund request' : 'طلب استرداد من العضو'}
                                 </h5>
-                                <p style={{ margin: '0 0 10px', fontSize: '0.9rem', color: '#92400e' }}>
+                                <p className="booking-member-refund-fulfill__meta">
                                   {language === 'en' ? 'Preference' : 'الخيار'}: <strong>{String(b.memberRefundPreference || '—')}</strong>
                                   {' · '}
                                   {language === 'en' ? 'Net' : 'الصافي'}: <strong>{b.memberRefundNet != null ? b.memberRefundNet : '—'} {currency}</strong>
                                 </p>
-                                <p style={{ margin: '0 0 12px', fontSize: '0.85rem', color: '#78350f' }}>
+                                <p className="booking-member-refund-fulfill__hint">
                                   {language === 'en'
                                     ? 'Choose how you completed the refund. For card payments, use Electronic after your bank reversal.'
                                     : 'اختر كيف نفّذت الاسترداد. للدفع بالبطاقة استخدم «إلكتروني» بعد عكس العملية لدى البنك.'}
                                 </p>
-                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                <div className="booking-member-refund-fulfill__actions">
                                   <button
                                     type="button"
                                     className="booking-payment-mark-paid-btn"

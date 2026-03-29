@@ -32,18 +32,22 @@ export default function MemberBookingActionsModal({
   const bookingId = booking?.id
   const memberId = platformUser?.id
   const currency = club?.settings?.currency || 'SAR'
+  const isTrainingBooking = booking?.type === 'training' || booking?.data?.type === 'training'
+  /** تغيير الموعد غير متاح لتدريب المدرب من هذه النافذة؛ مشارك التقسيم يرى الإلغاء فقط */
+  const hideReschedule = !!(splitShare || isTrainingBooking)
 
   useEffect(() => {
-    if (splitShare) {
+    if (hideReschedule) {
       setActiveTab('cancel')
       return
     }
     setActiveTab(initialSection === 'cancel' ? 'cancel' : 'reschedule')
-  }, [initialSection, bookingId, splitShare?.id, splitShare?.inviteToken])
+  }, [initialSection, bookingId, hideReschedule, splitShare?.id, splitShare?.inviteToken])
 
   const t = {
     en: {
       title: 'Change or cancel booking',
+      trainingRefundNote: 'Training session: you can request a refund per the club policy; changing the time is not available here.',
       tabReschedule: 'Reschedule',
       tabCancel: 'Cancel & refunds',
       tabCancelHint: 'Refund requests are handled by the club after you submit.',
@@ -82,6 +86,7 @@ export default function MemberBookingActionsModal({
     },
     ar: {
       title: 'تعديل أو إلغاء الحجز',
+      trainingRefundNote: 'حصة تدريب: يمكنك طلب الاسترداد وفق سياسة النادي؛ تغيير الموعد غير متاح من هنا.',
       tabReschedule: 'تغيير الموعد',
       tabCancel: 'الإلغاء واستعادة المبلغ',
       tabCancelHint: 'بعد إرسال الطلب، يعالج النادي مطالبة الاسترداد وفق سياساته.',
@@ -302,7 +307,7 @@ export default function MemberBookingActionsModal({
             <p className="member-booking-actions-wallet">
               {c.wallet}: <strong>{quote.walletBalance?.toFixed ? quote.walletBalance.toFixed(2) : quote.walletBalance} {currency}</strong>
             </p>
-            {!splitShare ? (
+            {!hideReschedule ? (
             <div className="member-booking-actions-tabs" role="tablist" aria-label={c.title}>
               <button
                 type="button"
@@ -378,7 +383,7 @@ export default function MemberBookingActionsModal({
               </section>
             )}
 
-            {(splitShare || activeTab === 'cancel') && (
+            {(splitShare || hideReschedule || activeTab === 'cancel') && (
               <section id="mba-panel-cancel" role="tabpanel" aria-labelledby="mba-tab-cancel" className="member-booking-actions-panel member-booking-actions-panel--danger">
                 <h4>{c.cancelTitle}</h4>
                 <p className="member-booking-actions-muted">{c.cancelHint}</p>

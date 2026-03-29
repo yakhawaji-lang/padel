@@ -96,6 +96,7 @@ async function ensureClubSettingsBookingColumns() {
     { name: 'cancel_refund_hours_before', type: 'INT NOT NULL DEFAULT 24', def: '_special' },
     { name: 'cancel_fee_mode', type: "VARCHAR(16) NOT NULL DEFAULT 'none'", def: '_special' },
     { name: 'cancel_fee_value', type: 'DECIMAL(10,2) NOT NULL DEFAULT 0', def: '_special' },
+    { name: 'cancel_policy_overrides', type: 'JSON', def: 'NULL' },
   ]
   for (const { name, type, def } of cols) {
     if (def === '_special') {
@@ -515,6 +516,20 @@ function settingsFromSettingsRow(s) {
     cancelRefundHoursBefore: bookingNumFromDb(row.cancel_refund_hours_before, 24),
     cancelFeeMode: bookingStrFromDb(row.cancel_fee_mode, 'none'),
     cancelFeeValue: bookingNumFromDb(row.cancel_fee_value, 0),
+    cancelPolicyOverrides: (() => {
+      const v = row.cancel_policy_overrides
+      if (v == null || v === '') return {}
+      if (typeof v === 'object' && !Array.isArray(v)) return v
+      if (typeof v === 'string') {
+        try {
+          const p = JSON.parse(v)
+          return p && typeof p === 'object' && !Array.isArray(p) ? p : {}
+        } catch {
+          return {}
+        }
+      }
+      return {}
+    })(),
     ...(() => {
       const v = row.payment_enabled_channels
       if (v && typeof v === 'object' && !Array.isArray(v)) return { paymentEnabledChannels: v }
@@ -541,6 +556,25 @@ async function resolvePaymentChannelsJsonForSave(clubId, s) {
   try {
     const { rows } = await query('SELECT payment_enabled_channels AS pec FROM club_settings WHERE club_id = ?', [cid])
     const raw = rows?.[0]?.pec
+    if (raw == null || raw === '') return null
+    return typeof raw === 'string' ? raw : JSON.stringify(raw)
+  } catch {
+    return null
+  }
+}
+
+/** سياسات إلغاء منفصلة للتدريب/البطولة — لا تُفرَّغ إلا عند إرسال الحقل صراحةً */
+async function resolveCancelPolicyOverridesJsonForSave(clubId, s) {
+  if (s.cancelPolicyOverrides !== undefined) {
+    if (s.cancelPolicyOverrides == null) return null
+    const o = s.cancelPolicyOverrides
+    return JSON.stringify(typeof o === 'object' && !Array.isArray(o) ? o : {})
+  }
+  const cid = clubId ? String(clubId) : ''
+  if (!cid) return null
+  try {
+    const { rows } = await query('SELECT cancel_policy_overrides AS cpo FROM club_settings WHERE club_id = ?', [cid])
+    const raw = rows?.[0]?.cpo
     if (raw == null || raw === '') return null
     return typeof raw === 'string' ? raw : JSON.stringify(raw)
   } catch {
@@ -710,7 +744,7 @@ export async function getClubsFromNormalized() {
 
   let settingsRes
   try {
-    settingsRes = await query(`SELECT club_id, default_language, timezone, currency, booking_duration, preparation_time_minutes, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, payment_enabled_channels, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, reschedule_fee_mode, reschedule_fee_value, free_reschedule_count, cancel_refund_hours_before, cancel_fee_mode, cancel_fee_value, updated_by FROM club_settings WHERE club_id IN (${placeholders})`, clubIds)
+    settingsRes = await query(`SELECT club_id, default_language, timezone, currency, booking_duration, preparation_time_minutes, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, payment_enabled_channels, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, reschedule_fee_mode, reschedule_fee_value, free_reschedule_count, cancel_refund_hours_before, cancel_fee_mode, cancel_fee_value, cancel_policy_overrides, updated_by FROM club_settings WHERE club_id IN (${placeholders})`, clubIds)
   } catch (e) {
     if (e?.message?.includes('Unknown column') && (e?.message?.includes('lock_minutes') || e?.message?.includes('preparation_time_minutes') || e?.message?.includes('working_hours_seasons') || e?.message?.includes('payment_enabled_channels') || e?.message?.includes('reschedule_fee'))) {
       await ensureClubSettingsBookingColumns()
@@ -1384,6 +1418,7 @@ export async function updateClubSettingsInDb(clubId, settings, actor = {}) {
   const bookingPricesJson = JSON.stringify(s.bookingPrices || {})
   const workingHoursSeasonsJson = JSON.stringify(Array.isArray(s.workingHoursSeasons) ? s.workingHoursSeasons : [])
   const paymentChannelsJson = await resolvePaymentChannelsJsonForSave(cid, s)
+  const cancelPolicyOverridesJson = await resolveCancelPolicyOverridesJsonForSave(cid, s)
 
   const generalParams = [
     s.defaultLanguage || 'en', s.timezone || 'Asia/Riyadh', s.currency || 'SAR',
@@ -1414,11 +1449,12 @@ export async function updateClubSettingsInDb(clubId, settings, actor = {}) {
   const bookingParams = [
     lockMinutes, paymentDeadlineMinutes, splitManageMinutes, splitPaymentDeadlineMinutes, refundDays, allowIncomplete,
     rescheduleFeeMode, rescheduleFeeValue, freeRescheduleCount, cancelRefundHoursBefore, cancelFeeMode, cancelFeeValue,
+    cancelPolicyOverridesJson,
     actor.actorId || null, cid,
   ]
 
   const generalUpdateSql = `UPDATE club_settings SET default_language=?, timezone=?, currency=?, booking_duration=?, preparation_time_minutes=?, max_booking_advance=?, cancellation_policy=?, opening_time=?, closing_time=?, header_bg_color=?, header_text_color=?, hero_bg_color=?, hero_bg_opacity=?, hero_title_color=?, hero_text_color=?, hero_stats_color=?, social_links=?, booking_prices=?, working_hours_seasons=?, payment_enabled_channels=?, updated_at=NOW(), updated_by=? WHERE club_id=?`
-  const bookingUpdateSql = `UPDATE club_settings SET lock_minutes=?, payment_deadline_minutes=?, split_manage_minutes=?, split_payment_deadline_minutes=?, refund_days=?, allow_incomplete_bookings=?, reschedule_fee_mode=?, reschedule_fee_value=?, free_reschedule_count=?, cancel_refund_hours_before=?, cancel_fee_mode=?, cancel_fee_value=?, updated_at=NOW(), updated_by=? WHERE club_id=?`
+  const bookingUpdateSql = `UPDATE club_settings SET lock_minutes=?, payment_deadline_minutes=?, split_manage_minutes=?, split_payment_deadline_minutes=?, refund_days=?, allow_incomplete_bookings=?, reschedule_fee_mode=?, reschedule_fee_value=?, free_reschedule_count=?, cancel_refund_hours_before=?, cancel_fee_mode=?, cancel_fee_value=?, cancel_policy_overrides=?, updated_at=NOW(), updated_by=? WHERE club_id=?`
 
   try {
     const { rows: existing } = await query('SELECT club_id FROM club_settings WHERE club_id = ?', [cid])
@@ -1435,7 +1471,7 @@ export async function updateClubSettingsInDb(clubId, settings, actor = {}) {
     }
     await query(bookingUpdateSql, bookingParams)
   } catch (e) {
-    if (e?.message?.includes('Unknown column') && (e?.message?.includes('lock_minutes') || e?.message?.includes('refund_days') || e?.message?.includes('allow_incomplete') || e?.message?.includes('preparation_time_minutes') || e?.message?.includes('working_hours_seasons') || e?.message?.includes('payment_enabled_channels') || e?.message?.includes('reschedule_fee'))) {
+    if (e?.message?.includes('Unknown column') && (e?.message?.includes('lock_minutes') || e?.message?.includes('refund_days') || e?.message?.includes('allow_incomplete') || e?.message?.includes('preparation_time_minutes') || e?.message?.includes('working_hours_seasons') || e?.message?.includes('payment_enabled_channels') || e?.message?.includes('reschedule_fee') || e?.message?.includes('cancel_policy_overrides'))) {
       await ensureClubSettingsBookingColumns()
       const { rows: existing2 } = await query('SELECT club_id FROM club_settings WHERE club_id = ?', [cid])
       if (!existing2 || existing2.length === 0) {

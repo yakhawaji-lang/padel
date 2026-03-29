@@ -129,6 +129,32 @@ export async function issuePaidInvoice({
   }
 }
 
+export function bookingInvoiceKindFromRowData(data) {
+  if (!data || typeof data !== 'object') return 'court'
+  if (data.type === 'training') return 'training'
+  if (data.isTournament === true || data.tournamentType != null) return 'tournament'
+  return 'court'
+}
+
+export function invoiceLineLabelsForShare(bookingId, kind = 'court') {
+  const k = ['training', 'tournament'].includes(kind) ? kind : 'court'
+  const labels = {
+    court: {
+      en: `Court booking — payment share (booking ${bookingId})`,
+      ar: `حجز ملعب — دفع حصة (الحجز ${bookingId})`,
+    },
+    training: {
+      en: `Training session — participant payment (booking ${bookingId})`,
+      ar: `حصة تدريب — دفع مشارك (الحجز ${bookingId})`,
+    },
+    tournament: {
+      en: `Tournament — member payment (booking ${bookingId})`,
+      ar: `بطولة — دفع مشارك (الحجز ${bookingId})`,
+    },
+  }
+  return labels[k] || labels.court
+}
+
 export async function issueInvoiceForPaidShare({
   clubId,
   bookingId,
@@ -140,11 +166,13 @@ export async function issueInvoiceForPaidShare({
   phone,
   paymentMethod,
   paymentReference,
+  bookingKind = 'court',
 }) {
   const method = (paymentMethod || 'electronic').toString()
   const idem = `bps:${clubId}:${shareId}:paid`
-  const descEn = `Court booking share — booking ${bookingId}`
-  const descAr = `مشاركة دفع حجز ملعب — الحجز ${bookingId}`
+  const L = invoiceLineLabelsForShare(bookingId, bookingKind)
+  const descEn = L.en
+  const descAr = L.ar
   return issuePaidInvoice({
     clubId,
     currency: currency || 'SAR',
@@ -169,6 +197,24 @@ export async function issueInvoiceForPaidShare({
 export async function syncInvoicesForAllPaidSharesOnBooking({ clubId, bookingId }) {
   if (!(await invoicingTablesExist())) return { ok: true, skipped: true, primaryForUi: null }
   if (!clubId || bookingId == null || bookingId === '') return { ok: false, primaryForUi: null }
+  let bookingKind = 'court'
+  try {
+    const { rows: dr } = await query(
+      'SELECT data FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL',
+      [bookingId, clubId]
+    )
+    let d = dr?.[0]?.data
+    if (typeof d === 'string') {
+      try {
+        d = JSON.parse(d)
+      } catch {
+        d = {}
+      }
+    }
+    bookingKind = bookingInvoiceKindFromRowData(d && typeof d === 'object' ? d : {})
+  } catch {
+    bookingKind = 'court'
+  }
   let rows
   try {
     const res = await query(
@@ -213,6 +259,7 @@ export async function syncInvoicesForAllPaidSharesOnBooking({ clubId, bookingId 
         phone: r.phone,
         paymentMethod: r.payment_method || 'at_club',
         paymentReference: r.payment_reference || null,
+        bookingKind,
       })
       if (inv?.invoiceNumber && !primaryForUi) primaryForUi = inv
     } catch (err) {

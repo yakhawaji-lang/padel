@@ -22,6 +22,16 @@ export default function ClubBookingPoliciesPage({ club, language = 'en', onUpdat
   const [cancelFeeMode, setCancelFeeMode] = useState('none')
   const [cancelFeeValue, setCancelFeeValue] = useState(0)
 
+  const [trainUseCustom, setTrainUseCustom] = useState(false)
+  const [trainHours, setTrainHours] = useState(24)
+  const [trainFeeMode, setTrainFeeMode] = useState('none')
+  const [trainFeeValue, setTrainFeeValue] = useState(0)
+
+  const [tournUseCustom, setTournUseCustom] = useState(false)
+  const [tournHours, setTournHours] = useState(24)
+  const [tournFeeMode, setTournFeeMode] = useState('none')
+  const [tournFeeValue, setTournFeeValue] = useState(0)
+
   useEffect(() => {
     const st = club?.settings || {}
     setFreeRescheduleCount(Number(st.freeRescheduleCount ?? 1) || 1)
@@ -30,13 +40,39 @@ export default function ClubBookingPoliciesPage({ club, language = 'en', onUpdat
     setCancelRefundHoursBefore(Number(st.cancelRefundHoursBefore ?? 24) || 24)
     setCancelFeeMode(['none', 'percent', 'fixed'].includes(st.cancelFeeMode) ? st.cancelFeeMode : 'none')
     setCancelFeeValue(Number(st.cancelFeeValue ?? 0) || 0)
-  }, [club?.id, club?.settings?.freeRescheduleCount, club?.settings?.rescheduleFeeMode, club?.settings?.cancelRefundHoursBefore, club?.settings?.cancelFeeMode])
+
+    const ov = st.cancelPolicyOverrides && typeof st.cancelPolicyOverrides === 'object' ? st.cancelPolicyOverrides : {}
+    const tr = ov.training
+    const hasTr = tr && typeof tr === 'object' && Object.keys(tr).length > 0
+    setTrainUseCustom(!!hasTr)
+    setTrainHours(
+      hasTr && tr.cancelRefundHoursBefore != null ? Number(tr.cancelRefundHoursBefore) || 0 : Number(st.cancelRefundHoursBefore ?? 24) || 24
+    )
+    setTrainFeeMode(['none', 'percent', 'fixed'].includes(tr?.cancelFeeMode) ? tr.cancelFeeMode : 'none')
+    setTrainFeeValue(tr?.cancelFeeValue != null ? Number(tr.cancelFeeValue) || 0 : 0)
+
+    const tn = ov.tournament
+    const hasTn = tn && typeof tn === 'object' && Object.keys(tn).length > 0
+    setTournUseCustom(!!hasTn)
+    setTournHours(
+      hasTn && tn.cancelRefundHoursBefore != null ? Number(tn.cancelRefundHoursBefore) || 0 : Number(st.cancelRefundHoursBefore ?? 24) || 24
+    )
+    setTournFeeMode(['none', 'percent', 'fixed'].includes(tn?.cancelFeeMode) ? tn.cancelFeeMode : 'none')
+    setTournFeeValue(tn?.cancelFeeValue != null ? Number(tn.cancelFeeValue) || 0 : 0)
+  }, [
+    club?.id,
+    club?.settings?.freeRescheduleCount,
+    club?.settings?.rescheduleFeeMode,
+    club?.settings?.cancelRefundHoursBefore,
+    club?.settings?.cancelFeeMode,
+    club?.settings?.cancelPolicyOverrides,
+  ])
 
   const c = {
     title: t('Booking change & cancellation', 'تعديل الحجز والإلغاء', lang),
     subtitle: t(
-      'Rules for member self-service: first free edits, then fees; cancel/refund window and fees.',
-      'قواعد تعديل وإلغاء الحجز من قبل العضو: التعديلات المجانية ثم الرسوم؛ نافذة الإلغاء والاسترداد والرسوم.',
+      'Court bookings use the default rules below. You can set separate refund windows and fees for training and tournaments.',
+      'حجوزات الملعب تستخدم القواعد الافتراضية أدناه. يمكنك ضبط نافذة ورسوم استرداد منفصلة للتدريب والبطولات.',
       lang
     ),
     save: t('Save', 'حفظ', lang),
@@ -46,31 +82,41 @@ export default function ClubBookingPoliciesPage({ club, language = 'en', onUpdat
     rescheduleCard: t('Reschedule (change time)', 'تغيير موعد الحجز', lang),
     freeCount: t('Free edits before fees', 'عدد التعديلات المجانية قبل الرسوم', lang),
     freeCountHint: t(
-      'e.g. 1 = first change is free, then the fee below applies.',
-      'مثلاً 1 = أول تعديل مجاني، ثم تُطبَّق الرسوم أدناه.',
+      'e.g. 1 = first change is free, then the fee below applies. Training sessions do not use reschedule from the member app.',
+      'مثلاً 1 = أول تعديل مجاني، ثم تُطبَّق الرسوم أدناه. حصص التدريب لا تستخدم تغيير الموعد من تطبيق العضو.',
       lang
     ),
     feeMode: t('Fee after free edits', 'رسوم التعديل بعد استنفاد المجاني', lang),
     feeValue: t('Value (%, or fixed in club currency)', 'القيمة (نسبة مئوية، أو مبلغ بعملة النادي)', lang),
-    cancelCard: t('Cancel & refund', 'الإلغاء والاسترداد', lang),
+    cancelCard: t('Court — cancel & refund (default)', 'الملعب — الإلغاء والاسترداد (الافتراضي)', lang),
     hoursBefore: t('Minimum hours before start', 'أقل عدد ساعات قبل بداية الحجز', lang),
     hoursBeforeHint: t(
-      'Members may cancel and request a refund only if this many hours remain before the booking starts.',
-      'يستطيع العضو الإلغاء وطلب الاسترداد فقط إذا بقيت على الأقل هذه الساعات قبل بداية الحجز.',
+      'Applies to court bookings and split-payment shares unless overridden below.',
+      'تنطبق على حجز الملعب ومشاركة التقسيم ما لم تُعدَّل في الأقسام أدناه.',
       lang
     ),
     cancelFee: t('Cancellation / refund fee', 'رسوم الإلغاء أو الاسترداد', lang),
     cancelFeeValue: t('Value (%, or fixed)', 'القيمة (نسبة أو مبلغ ثابت)', lang),
-    note: t(
-      'Refund to wallet is instant when enabled; original payment refunds are created as pending for club processing.',
-      'الاسترداد للمحفظة فوري عند التفعيل؛ طلب الاسترداد للدفع الأصلي يُسجَّل كمعلّق لمعالجة النادي.',
+    trainCard: t('Training sessions — optional override', 'حصص التدريب — سياسة اختيارية', lang),
+    trainCustom: t('Use different rules for coach training bookings', 'استخدام قواعد مختلفة لحجوزات التدريب', lang),
+    trainHint: t(
+      'When off, training cancellations use the same hours and fees as court bookings.',
+      'عند الإيقاف، يطبَّق على التدريب نفس الساعات والرسوم كحجز الملعب.',
       lang
     ),
-    migration: t(
-      'DB migration (run once on the server):',
-      'تهجير قاعدة البيانات (مرة واحدة على السيرفر):',
+    tournCard: t('Tournaments — optional override', 'البطولات — سياسة اختيارية', lang),
+    tournCustom: t('Use different rules for tournament bookings', 'استخدام قواعد مختلفة لحجوزات البطولة', lang),
+    tournHint: t(
+      'When off, tournament-related cancellations use the court default. Member self-service for tournaments may still be limited by product rules.',
+      'عند الإيقاف، تُستخدم افتراضيات الملعب. قد تبقى بعض خطوات البطولة مقيدة بمنطق المنتج.',
       lang
-    )
+    ),
+    note: t(
+      'Wallet refunds are fast when the club confirms; card reversals stay pending until staff marks electronic fulfillment. Split participants choose wallet, cash, or card (if paid online).',
+      'استرداد المحفظة سريع عند تأكيد النادي؛ عكس البطاقة يبقى معلّقاً حتى يُحدَّد التنفيذ الإلكتروني. مشاركو التقسيم يختارون محفظة أو كاش أو بطاقة (إن دفعوا إلكترونياً).',
+      lang
+    ),
+    migration: t('DB migrations (run on server if needed):', 'تهجير قاعدة البيانات (على السيرفر عند الحاجة):', lang)
   }
 
   const handleSave = async () => {
@@ -78,6 +124,26 @@ export default function ClubBookingPoliciesPage({ club, language = 'en', onUpdat
     setErr(false)
     setSaving(true)
     try {
+      const cancelPolicyOverrides = { ...(club?.settings?.cancelPolicyOverrides || {}) }
+      if (trainUseCustom) {
+        cancelPolicyOverrides.training = {
+          cancelRefundHoursBefore: Math.max(0, Math.min(2160, parseInt(String(trainHours), 10) || 0)),
+          cancelFeeMode: trainFeeMode,
+          cancelFeeValue: trainFeeMode === 'none' ? 0 : Math.max(0, Number(trainFeeValue) || 0),
+        }
+      } else {
+        delete cancelPolicyOverrides.training
+      }
+      if (tournUseCustom) {
+        cancelPolicyOverrides.tournament = {
+          cancelRefundHoursBefore: Math.max(0, Math.min(2160, parseInt(String(tournHours), 10) || 0)),
+          cancelFeeMode: tournFeeMode,
+          cancelFeeValue: tournFeeMode === 'none' ? 0 : Math.max(0, Number(tournFeeValue) || 0),
+        }
+      } else {
+        delete cancelPolicyOverrides.tournament
+      }
+
       await onUpdateClub({
         settings: {
           ...club?.settings,
@@ -86,7 +152,8 @@ export default function ClubBookingPoliciesPage({ club, language = 'en', onUpdat
           rescheduleFeeValue: Math.max(0, Number(rescheduleFeeValue) || 0),
           cancelRefundHoursBefore: Math.max(0, Math.min(2160, parseInt(String(cancelRefundHoursBefore), 10) || 0)),
           cancelFeeMode,
-          cancelFeeValue: Math.max(0, Number(cancelFeeValue) || 0)
+          cancelFeeValue: Math.max(0, Number(cancelFeeValue) || 0),
+          cancelPolicyOverrides,
         }
       })
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
@@ -99,8 +166,8 @@ export default function ClubBookingPoliciesPage({ club, language = 'en', onUpdat
     }
   }
 
-  const MIGRATION_RAW =
-    'https://raw.githubusercontent.com/yakhawaji-lang/padel/main/server/db/migrations/add-member-wallet-and-booking-policies.sql'
+  const MIGRATION_WALLET = 'https://raw.githubusercontent.com/yakhawaji-lang/padel/main/server/db/migrations/add-member-wallet-and-booking-policies.sql'
+  const MIGRATION_OVERRIDES = 'https://raw.githubusercontent.com/yakhawaji-lang/padel/main/server/db/migrations/add-cancel-policy-overrides.sql'
 
   return (
     <div className="club-admin-page club-booking-policies-page">
@@ -202,13 +269,97 @@ export default function ClubBookingPoliciesPage({ club, language = 'en', onUpdat
             </label>
           )}
         </section>
+
+        <section className="cbp-card cbp-card--wide">
+          <h2 className="cbp-card-title">{c.trainCard}</h2>
+          <label className="cbp-check">
+            <input type="checkbox" checked={trainUseCustom} onChange={(e) => setTrainUseCustom(e.target.checked)} disabled={saving} />
+            <span>{c.trainCustom}</span>
+          </label>
+          <p className="cbp-hint cbp-hint--tight">{c.trainHint}</p>
+          {trainUseCustom ? (
+            <>
+              <label className="cbp-field">
+                <span className="cbp-label">{c.hoursBefore}</span>
+                <input type="number" min={0} max={2160} value={trainHours} onChange={(e) => setTrainHours(e.target.value)} disabled={saving} />
+              </label>
+              <label className="cbp-field">
+                <span className="cbp-label">{c.cancelFee}</span>
+                <select value={trainFeeMode} onChange={(e) => setTrainFeeMode(e.target.value)} disabled={saving}>
+                  {MODES.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {lang === 'ar' ? m.labelAr : m.labelEn}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {trainFeeMode !== 'none' && (
+                <label className="cbp-field">
+                  <span className="cbp-label">{c.cancelFeeValue}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={trainFeeMode === 'percent' ? '0.1' : '0.01'}
+                    value={trainFeeValue}
+                    onChange={(e) => setTrainFeeValue(e.target.value)}
+                    disabled={saving}
+                  />
+                </label>
+              )}
+            </>
+          ) : null}
+        </section>
+
+        <section className="cbp-card cbp-card--wide">
+          <h2 className="cbp-card-title">{c.tournCard}</h2>
+          <label className="cbp-check">
+            <input type="checkbox" checked={tournUseCustom} onChange={(e) => setTournUseCustom(e.target.checked)} disabled={saving} />
+            <span>{c.tournCustom}</span>
+          </label>
+          <p className="cbp-hint cbp-hint--tight">{c.tournHint}</p>
+          {tournUseCustom ? (
+            <>
+              <label className="cbp-field">
+                <span className="cbp-label">{c.hoursBefore}</span>
+                <input type="number" min={0} max={2160} value={tournHours} onChange={(e) => setTournHours(e.target.value)} disabled={saving} />
+              </label>
+              <label className="cbp-field">
+                <span className="cbp-label">{c.cancelFee}</span>
+                <select value={tournFeeMode} onChange={(e) => setTournFeeMode(e.target.value)} disabled={saving}>
+                  {MODES.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {lang === 'ar' ? m.labelAr : m.labelEn}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {tournFeeMode !== 'none' && (
+                <label className="cbp-field">
+                  <span className="cbp-label">{c.cancelFeeValue}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={tournFeeMode === 'percent' ? '0.1' : '0.01'}
+                    value={tournFeeValue}
+                    onChange={(e) => setTournFeeValue(e.target.value)}
+                    disabled={saving}
+                  />
+                </label>
+              )}
+            </>
+          ) : null}
+        </section>
       </div>
 
       <p className="cbp-note">{c.note}</p>
       <p className="cbp-migration">
         {c.migration}{' '}
-        <a href={MIGRATION_RAW} target="_blank" rel="noopener noreferrer" className="cbp-migration-link">
-          {MIGRATION_RAW}
+        <a href={MIGRATION_WALLET} target="_blank" rel="noopener noreferrer" className="cbp-migration-link">
+          wallet + booking policies
+        </a>
+        {' · '}
+        <a href={MIGRATION_OVERRIDES} target="_blank" rel="noopener noreferrer" className="cbp-migration-link">
+          cancel_policy_overrides (JSON)
         </a>
       </p>
     </div>
