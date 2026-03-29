@@ -737,6 +737,116 @@
   gap: 8px;
 }
 
+.my-bookings-participant-refund-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.my-bookings-share-refund-pending {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--mb-warning);
+  line-height: 1.3;
+}
+
+.my-bookings-participant-leave-btn {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--mb-border);
+  background: var(--mb-surface);
+  color: var(--mb-text-muted);
+  cursor: pointer;
+}
+
+.my-bookings-participant-leave-btn:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  color: var(--mb-text);
+}
+
+.my-bookings-participant-leave-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.my-bookings-participant-refund-dropdown {
+  position: relative;
+  width: 100%;
+  max-width: 240px;
+}
+
+.my-bookings-participant-refund-toggle {
+  width: 100%;
+  text-align: start;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--mb-primary);
+  background: #eff6ff;
+  color: var(--mb-primary);
+  cursor: pointer;
+}
+
+.my-bookings-participant-refund-toggle.is-open {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.my-bookings-participant-refund-toggle:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.my-bookings-participant-refund-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: var(--mb-surface);
+  border: 1px solid var(--mb-primary);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: var(--mb-shadow);
+}
+
+.my-bookings-participant-refund-item {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: start;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: var(--mb-text);
+  cursor: pointer;
+}
+
+.my-bookings-participant-refund-item:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.my-bookings-participant-refund-item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.my-bookings-add-split-bulk-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--mb-text-muted);
+  line-height: 1.45;
+}
+
 .my-bookings-share-item-status {
   font-size: 0.8125rem;
   font-weight: 600;

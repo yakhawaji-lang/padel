@@ -627,6 +627,30 @@ export async function bookerRemovePendingShare({ bookingId, clubId, memberId, sh
   })
 }
 
+/** Split participant: leave before paying (removes own share) */
+export async function memberRemoveOwnShare({ bookingId, clubId, memberId, shareId, inviteToken, phone }) {
+  return fetchJson('/api/bookings/member-remove-own-share', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId, memberId, shareId, inviteToken, phone })
+  })
+}
+
+/** Split participant: paid share — request refund (wallet / cash at club / card); club fulfills via admin */
+export async function memberRequestShareRefund({ bookingId, clubId, memberId, shareId, inviteToken, refundRoute, phone }) {
+  return fetchJson('/api/bookings/member-request-share-refund', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId, memberId, shareId, inviteToken, refundRoute, phone })
+  })
+}
+
+/** Club staff: complete split-participant refund after member request */
+export async function adminFulfillMemberShareRefund({ shareId, clubId, fulfillment }) {
+  return fetchJson('/api/bookings/admin-fulfill-member-share-refund', {
+    method: 'POST',
+    body: JSON.stringify({ shareId, clubId, fulfillment })
+  })
+}
+
 /** بعد حفظ تعديل حجز من الأدمن: إعادة مهلة الدفع حسب إعداد النادي */
 export async function adminExtendSplitPaymentDeadline({ bookingId, clubId }) {
   return fetchJson('/api/bookings/admin-extend-split-deadline', {

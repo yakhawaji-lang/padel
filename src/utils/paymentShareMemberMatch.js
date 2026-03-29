@@ -108,6 +108,22 @@ export function shareNeedsRefundAcknowledgment(share, member) {
   return mp.length >= 8 && sp.length >= 8 && mp === sp
 }
 
+/** Share was paid online/card — member may request reversal to card (club fulfills). */
+export function sharePaymentAllowsElectronicRefund(share) {
+  const pm = String(share?.paymentMethod || share?.payment_method || '')
+    .toLowerCase()
+    .trim()
+  if (!pm || pm === 'at_club' || pm === 'pay_at_club' || pm === 'cash') return false
+  return ['credit_card', 'mada', 'electronic', 'card', 'online', 'stripe', 'apple_pay', 'google_pay', 'tap', 'hyperpay'].includes(pm)
+}
+
+export function isSamePaymentShare(a, b) {
+  if (!a || !b) return false
+  if (a.id != null && b.id != null && String(a.id) === String(b.id)) return true
+  if (a.inviteToken && b.inviteToken && a.inviteToken === b.inviteToken) return true
+  return false
+}
+
 /** Non-tournament court/training booking: booker or split participant */
 export function memberRelatesToCourtBooking(booking, member) {
   if (!member?.id || !booking || booking.isTournament) return false

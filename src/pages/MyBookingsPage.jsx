@@ -7,7 +7,13 @@ import LanguageIcon from '../components/LanguageIcon'
 import BookingDetailModal from '../components/BookingDetailModal'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import './MyBookingsPage.css'
-import { findPaymentShareForMember, resolvePaymentShareDisplayName, shareNeedsRefundAcknowledgment } from '../utils/paymentShareMemberMatch.js'
+import {
+  findPaymentShareForMember,
+  resolvePaymentShareDisplayName,
+  shareNeedsRefundAcknowledgment,
+  isSamePaymentShare,
+  sharePaymentAllowsElectronicRefund,
+} from '../utils/paymentShareMemberMatch.js'
 import { normalizePhone } from '../utils/phoneNormalize'
 import { buildPayShareAbsoluteUrl, buildWhatsAppHrefForSplitInvite } from '../utils/splitInviteLinks'
 import { getTournamentMemberPaymentEntry } from '../utils/tournamentHelpers.js'
@@ -135,6 +141,7 @@ const MyBookingsPage = () => {
   const [walletByClub, setWalletByClub] = useState({})
   const [shareRowEditKey, setShareRowEditKey] = useState(null)
   const [shareRowEditPhone, setShareRowEditPhone] = useState('')
+  const [participantRefundMenuKey, setParticipantRefundMenuKey] = useState(null)
   const [shareRowBusyKey, setShareRowBusyKey] = useState(null)
 
   useEffect(() => {
@@ -156,10 +163,16 @@ const MyBookingsPage = () => {
       if (payMenuOpen && !e.target.closest('.my-bookings-pay-dropdown, .my-bookings-card-pay-wrap')) {
         setPayMenuOpen(null)
       }
+      if (
+        participantRefundMenuKey &&
+        !e.target.closest('.my-bookings-participant-refund-wrap')
+      ) {
+        setParticipantRefundMenuKey(null)
+      }
     }
     document.addEventListener('click', closePayMenu)
     return () => document.removeEventListener('click', closePayMenu)
-  }, [payMenuOpen])
+  }, [payMenuOpen, participantRefundMenuKey])
 
   useEffect(() => {
     if (!member?.id) return
@@ -545,9 +558,7 @@ const MyBookingsPage = () => {
     const shares = booking.paymentShares || []
     if (!Array.isArray(shares) || shares.length === 0) return false
     if (isSplitFullyPaidByAllParticipants(booking)) return false
-    const hasRemoved = shares.some((s) => s.removedAt || s.removed_at)
-    const data = booking.data && typeof booking.data === 'object' ? booking.data : {}
-    return hasRemoved || !!data.splitInviteReopen
+    return true
   }
 
   const submitAddSplit = async (booking, club) => {
@@ -638,6 +649,14 @@ const MyBookingsPage = () => {
       bookerRemoveShare: 'Remove',
       bookerShareConfirmRemove: 'Remove this participant? They have not paid yet.',
       bookerShareError: 'Something went wrong. Try again.',
+      participantLeaveShare: 'Leave split',
+      participantLeaveConfirm: 'Remove yourself from this split? You have not paid yet.',
+      participantRefundTitle: 'Request refund',
+      participantRefundWallet: 'Credit club wallet',
+      participantRefundCash: 'Cash at club',
+      participantRefundCard: 'Back to card (online)',
+      participantRefundAwaiting: 'Refund requested — club will process it',
+      splitAddBulkHint: 'Add several phone + amount rows, then send all invites at once.',
     },
     ar: {
       myBookings: 'حجوزاتي',
@@ -699,6 +718,14 @@ const MyBookingsPage = () => {
       bookerRemoveShare: 'حذف',
       bookerShareConfirmRemove: 'إزالة هذا المشارك؟ لم يكمل الدفع بعد.',
       bookerShareError: 'حدث خطأ. حاول مرة أخرى.',
+      participantLeaveShare: 'إلغاء المشاركة',
+      participantLeaveConfirm: 'إزالة نفسك من التقسيم؟ لم تدفع بعد.',
+      participantRefundTitle: 'طلب استرداد المبلغ',
+      participantRefundWallet: 'إلى محفظة النادي',
+      participantRefundCash: 'كاش في النادي',
+      participantRefundCard: 'إرجاع للبطاقة (دفع إلكتروني)',
+      participantRefundAwaiting: 'تم طلب الاسترداد — بانتظار تنفيذ النادي',
+      splitAddBulkHint: 'أضف عدة أسطر (جوال + مبلغ) ثم أرسل كل الدعوات دفعة واحدة.',
     }
   }
   const c = t[language] || t.en
@@ -764,6 +791,54 @@ const MyBookingsPage = () => {
     }
   }
 
+  const leaveMySplitShare = async (booking, club, share, compositeKey) => {
+    if (typeof window !== 'undefined' && !window.confirm(c.participantLeaveConfirm)) return
+    setShareRowBusyKey(compositeKey)
+    try {
+      await bookingApi.memberRemoveOwnShare({
+        bookingId: booking.id,
+        clubId: club.id,
+        memberId: member.id,
+        shareId: share.id || undefined,
+        inviteToken: share.inviteToken || undefined,
+        phone: member.phone || member.mobile
+      })
+      setParticipantRefundMenuKey(null)
+      await refetchBookings()
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+    } catch (e) {
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(language === 'en' ? (e?.message || c.bookerShareError) : (e?.message || c.bookerShareError))
+      }
+    } finally {
+      setShareRowBusyKey(null)
+    }
+  }
+
+  const requestMyShareRefund = async (booking, club, share, compositeKey, refundRoute) => {
+    setShareRowBusyKey(compositeKey)
+    try {
+      await bookingApi.memberRequestShareRefund({
+        bookingId: booking.id,
+        clubId: club.id,
+        memberId: member.id,
+        shareId: share.id || undefined,
+        inviteToken: share.inviteToken || undefined,
+        refundRoute,
+        phone: member.phone || member.mobile
+      })
+      setParticipantRefundMenuKey(null)
+      await refetchBookings()
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+    } catch (e) {
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(language === 'en' ? (e?.message || c.bookerShareError) : (e?.message || c.bookerShareError))
+      }
+    } finally {
+      setShareRowBusyKey(null)
+    }
+  }
+
   const getPayOptions = (booking, club) => {
     const memberIdStr = String(member?.id || '')
     const isInitiator = String(booking.memberId || booking.initiatorMemberId || '') === memberIdStr
@@ -804,6 +879,7 @@ const MyBookingsPage = () => {
     })
     const showAddSplit = canAddSplitParticipants(booking, club, member)
     const isBooker = String(booking.memberId || booking.initiatorMemberId || '') === String(member?.id || '')
+    const mySplitShare = member ? findPaymentShareForMember(booking, member) : null
 
     return {
       key: `${club?.id}-${booking.id}-${i}`,
@@ -829,6 +905,7 @@ const MyBookingsPage = () => {
       visibleShares,
       showAddSplit,
       isBooker,
+      mySplitShare,
       tournamentEntry,
       tournamentAwaitingClub,
       terminalCancelled,
@@ -1183,6 +1260,111 @@ const MyBookingsPage = () => {
                                     </button>
                                   </>
                                 ) : null}
+                                {(() => {
+                                  const isMyParticipation =
+                                    !!(r.mySplitShare && s.inviteToken && isSamePaymentShare(s, r.mySplitShare))
+                                  const memberReqAt = s.memberRefundRequestedAt || s.member_refund_requested_at
+                                  const removed = !!(s.removedAt || s.removed_at)
+                                  const showParticipantLeave =
+                                    isMyParticipation &&
+                                    filter === 'upcoming' &&
+                                    !pd &&
+                                    !rf &&
+                                    !memberReqAt &&
+                                    !removed
+                                  const showParticipantRefundReq =
+                                    isMyParticipation &&
+                                    filter === 'upcoming' &&
+                                    !!pd &&
+                                    !rf &&
+                                    !memberReqAt &&
+                                    !removed
+                                  const showParticipantRefundPending =
+                                    isMyParticipation && !!memberReqAt && !rf && !removed
+                                  const allowEl = sharePaymentAllowsElectronicRefund(s)
+                                  const refundMenuOpen = participantRefundMenuKey === compositeKey
+                                  if (!showParticipantLeave && !showParticipantRefundReq && !showParticipantRefundPending) {
+                                    return null
+                                  }
+                                  return (
+                                    <div className="my-bookings-participant-refund-wrap" onClick={(e) => e.stopPropagation()}>
+                                      {showParticipantRefundPending ? (
+                                        <span className="my-bookings-share-refund-pending">{c.participantRefundAwaiting}</span>
+                                      ) : null}
+                                      {showParticipantLeave ? (
+                                        <button
+                                          type="button"
+                                          className="my-bookings-participant-leave-btn"
+                                          disabled={!!shareRowBusyKey}
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            leaveMySplitShare(r.booking, r.club, s, compositeKey)
+                                          }}
+                                        >
+                                          {shareRowBusyKey === compositeKey ? '…' : c.participantLeaveShare}
+                                        </button>
+                                      ) : null}
+                                      {showParticipantRefundReq ? (
+                                        <div className="my-bookings-participant-refund-dropdown">
+                                          <button
+                                            type="button"
+                                            className={`my-bookings-participant-refund-toggle ${refundMenuOpen ? 'is-open' : ''}`}
+                                            disabled={!!shareRowBusyKey}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setParticipantRefundMenuKey(refundMenuOpen ? null : compositeKey)
+                                            }}
+                                          >
+                                            {shareRowBusyKey === compositeKey ? '…' : c.participantRefundTitle}{' '}
+                                            <span aria-hidden>▾</span>
+                                          </button>
+                                          {refundMenuOpen ? (
+                                            <div className="my-bookings-participant-refund-menu" role="menu">
+                                              <button
+                                                type="button"
+                                                className="my-bookings-participant-refund-item"
+                                                role="menuitem"
+                                                disabled={shareRowBusyKey === compositeKey}
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  requestMyShareRefund(r.booking, r.club, s, compositeKey, 'wallet')
+                                                }}
+                                              >
+                                                {c.participantRefundWallet}
+                                              </button>
+                                              <button
+                                                type="button"
+                                                className="my-bookings-participant-refund-item"
+                                                role="menuitem"
+                                                disabled={shareRowBusyKey === compositeKey}
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  requestMyShareRefund(r.booking, r.club, s, compositeKey, 'cash')
+                                                }}
+                                              >
+                                                {c.participantRefundCash}
+                                              </button>
+                                              {allowEl ? (
+                                                <button
+                                                  type="button"
+                                                  className="my-bookings-participant-refund-item"
+                                                  role="menuitem"
+                                                  disabled={shareRowBusyKey === compositeKey}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    requestMyShareRefund(r.booking, r.club, s, compositeKey, 'electronic')
+                                                  }}
+                                                >
+                                                  {c.participantRefundCard}
+                                                </button>
+                                              ) : null}
+                                            </div>
+                                          ) : null}
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  )
+                                })()}
                               </div>
                                 </>
                               )}
@@ -1301,6 +1483,7 @@ const MyBookingsPage = () => {
                       </button>
                       {addSplitForBookingId === r.booking.id && (
                         <div className="my-bookings-add-split-form">
+                          <p className="my-bookings-add-split-bulk-hint">{c.splitAddBulkHint}</p>
                           <div className="my-bookings-add-split-favorites">
                             <p className="my-bookings-add-split-favorites-title">★ {c.splitFavorites}</p>
                             <p className="my-bookings-add-split-fav-hint">{c.splitFavHint}</p>

@@ -56,6 +56,26 @@ export async function walletTablesExist() {
 }
 
 /** Idempotency: already credited this booking refund to wallet? */
+/** Idempotency: wallet credit already applied for this payment share refund */
+export async function hasShareRefundWalletCredit(clubId, memberId, shareId) {
+  const mid = normalizeMemberId(memberId)
+  const sid = shareId != null ? String(shareId).trim() : ''
+  if (!clubId || !mid || !sid) return false
+  if (!(await ensureMemberWalletTables())) return false
+  try {
+    const { rows } = await query(
+      `SELECT 1 AS ok FROM member_wallet_ledger
+       WHERE club_id = ? AND member_id = ? AND ref_type = 'booking_share'
+         AND direction = 'credit' AND reason = 'share_refund_club_confirmed'
+         AND (ref_id = ? OR CAST(ref_id AS CHAR(255)) = ?) LIMIT 1`,
+      [String(clubId), mid, sid, sid]
+    )
+    return rows?.length > 0
+  } catch {
+    return false
+  }
+}
+
 export async function hasBookingRefundCredit(clubId, memberId, bookingId) {
   const mid = normalizeMemberId(memberId)
   if (!clubId || !mid || !bookingId) return false

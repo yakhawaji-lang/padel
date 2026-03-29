@@ -739,7 +739,8 @@ export async function getClubsFromNormalized() {
       try {
         return await query(
           `SELECT id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, paid_at, payment_reference, payment_method,
-           refunded_at, refund_method, refund_reference, refund_notes, refund_acknowledged_at, removed_at
+           refunded_at, refund_method, refund_reference, refund_notes, refund_acknowledged_at, removed_at,
+           member_refund_route, member_refund_requested_at, member_refund_net
            FROM booking_payment_shares WHERE club_id IN (${placeholders})`,
           clubIds
         )
@@ -852,7 +853,10 @@ export async function getClubsFromNormalized() {
       refundReference: r.refund_reference || undefined,
       refundNotes: r.refund_notes || undefined,
       refundAcknowledgedAt: r.refund_acknowledged_at || undefined,
-      removedAt: r.removed_at || undefined
+      removedAt: r.removed_at || undefined,
+      memberRefundRoute: r.member_refund_route || undefined,
+      memberRefundRequestedAt: r.member_refund_requested_at || undefined,
+      memberRefundNet: r.member_refund_net != null ? parseFloat(r.member_refund_net) : undefined
     })
   })
 

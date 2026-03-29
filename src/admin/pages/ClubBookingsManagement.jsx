@@ -337,6 +337,33 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     }
   }
 
+  const handleFulfillMemberShareRefund = async (shareId, fulfillment) => {
+    if (!club?.id || !shareId) return
+    const ful = String(fulfillment).toLowerCase()
+    const msgEn = {
+      cash: 'Confirm cash refund to this participant for their share?',
+      wallet: 'Confirm wallet credit for this share refund?',
+      electronic: 'Confirm electronic/card refund was processed for this share?',
+    }
+    const msgAr = {
+      cash: 'تأكيد دفع الاسترداد نقداً لهذا المشارك عن حصته؟',
+      wallet: 'تأكيد إضافة المبلغ للمحفظة لهذا الاسترداد؟',
+      electronic: 'تأكيد تنفيذ الاسترداد الإلكتروني/البطاقة لهذه الحصة؟',
+    }
+    const msg = (language === 'en' ? msgEn : msgAr)[ful] || (language === 'en' ? 'Confirm?' : 'تأكيد؟')
+    if (!window.confirm(msg)) return
+    const key = `fulfill-share-refund-${shareId}`
+    setActionLoading(key)
+    try {
+      await bookingApi.adminFulfillMemberShareRefund({ shareId, clubId: club.id, fulfillment: ful })
+      refreshFromServer()
+    } catch (e) {
+      window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const handleFulfillMemberRefund = async (b, fulfillment) => {
     if (!club?.id || !b?.id) return
     const ful = String(fulfillment).toLowerCase()
@@ -1171,7 +1198,20 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                       const isRemoved = !!s.removedAt
                                       const canMarkPaid = !isRefunded && !isRemoved && !s.paidAt && s.paymentMethod === 'at_club' && (s.id || s.inviteToken)
                                       const refundChannelHint = draft.method === 'stripe_manual' ? c.stripeManualHint : draft.method === 'electronic_reverse' ? c.electronicHint : ''
-                                      const canRefund = !!s.id && !!s.paidAt && !isRefunded && !isRemoved && !rowAwaitingRefundAck
+                                      const memberRefundPending =
+                                        !!(s.memberRefundRequestedAt || s.member_refund_requested_at) &&
+                                        !isRefunded &&
+                                        !isRemoved
+                                      const memberRefundPref = s.memberRefundRoute || s.member_refund_route || '—'
+                                      const memberRefundNetVal =
+                                        s.memberRefundNet != null ? s.memberRefundNet : s.member_refund_net
+                                      const canRefund =
+                                        !!s.id &&
+                                        !!s.paidAt &&
+                                        !isRefunded &&
+                                        !isRemoved &&
+                                        !rowAwaitingRefundAck &&
+                                        !memberRefundPending
                                       return (
                                         <div key={s.id || idx} className={`booking-payment-share-item ${isRemoved ? 'share-removed' : s.paidAt ? 'paid' : 'pending'}`}>
                                           <div className="booking-payment-share-top">
@@ -1218,6 +1258,41 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                               ) : (
                                                 <span className="booking-refund-ack pending">⏳ {c.payerConfirmPending}</span>
                                               )}
+                                            </div>
+                                          )}
+                                          {memberRefundPending && s.id && (
+                                            <div className="booking-member-share-refund-banner">
+                                              <p className="booking-member-share-refund-banner-text">
+                                                {language === 'en'
+                                                  ? `Member refund request: ${memberRefundPref} — net ${memberRefundNetVal != null ? memberRefundNetVal : '—'} ${currency}. Complete using the member’s chosen channel or yours.`
+                                                  : `طلب استرداد من المشارك: ${memberRefundPref} — صافي ${memberRefundNetVal != null ? memberRefundNetVal : '—'} ${currency}. نفّذ حسب اختيار العضو أو قناتك.`}
+                                              </p>
+                                              <div className="booking-member-share-refund-actions">
+                                                <button
+                                                  type="button"
+                                                  className="booking-payment-mark-paid-btn"
+                                                  disabled={actionLoading === `fulfill-share-refund-${s.id}`}
+                                                  onClick={() => handleFulfillMemberShareRefund(s.id, 'cash')}
+                                                >
+                                                  {actionLoading === `fulfill-share-refund-${s.id}` ? '…' : language === 'en' ? 'Cash done' : 'تم النقد'}
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  className="booking-payment-mark-paid-btn"
+                                                  disabled={actionLoading === `fulfill-share-refund-${s.id}`}
+                                                  onClick={() => handleFulfillMemberShareRefund(s.id, 'wallet')}
+                                                >
+                                                  {language === 'en' ? 'Wallet credit' : 'محفظة'}
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  className="booking-refund-btn booking-refund-btn--warn"
+                                                  disabled={actionLoading === `fulfill-share-refund-${s.id}`}
+                                                  onClick={() => handleFulfillMemberShareRefund(s.id, 'electronic')}
+                                                >
+                                                  {language === 'en' ? 'Electronic' : 'إلكتروني'}
+                                                </button>
+                                              </div>
                                             </div>
                                           )}
                                           {canRefund && (

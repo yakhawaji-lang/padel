@@ -592,6 +592,101 @@
   margin-inline-start: auto;
 }
 
+.booking-detail-participant-self-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.booking-detail-share-refund-pending {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #d97706;
+  line-height: 1.35;
+}
+
+.booking-detail-participant-leave {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.booking-detail-participant-leave:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.booking-detail-participant-leave:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.booking-detail-participant-refund {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.booking-detail-participant-refund-toggle {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #2563eb;
+  background: #eff6ff;
+  color: #2563eb;
+  cursor: pointer;
+}
+
+.booking-detail-participant-refund-toggle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.booking-detail-participant-refund-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  min-width: 200px;
+  z-index: 2;
+}
+
+.booking-detail-participant-refund-item {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: start;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.booking-detail-participant-refund-item:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.booking-detail-participant-refund-item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .booking-detail-share-icon-btn {
   min-width: 32px;
   min-height: 32px;
