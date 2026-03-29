@@ -19,11 +19,20 @@ export function normalizeInviteTokenParam(raw) {
   return noFrag
 }
 
+/** True if the value normalizes to inv_ + 32 hex digits (server invite_token shape). */
+export function isWellFormedInviteToken(raw) {
+  const t = normalizeInviteTokenParam(raw)
+  return /^inv_[a-f0-9]{32}$/.test(t)
+}
+
 /**
  * Turn returnTo query param into an app path (handles full https URLs and encoding).
+ * Strips Vite BASE_URL (e.g. /app) when duplicated in plain paths so React Router basename matches.
  */
 export function normalizePayReturnPath(rt) {
   if (!rt || typeof rt !== 'string') return ''
+  const base = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) || '/'
+  const baseNorm = base.replace(/\/$/, '')
   let s = rt.trim().replace(/^@+/, '')
   try {
     s = decodeURIComponent(s)
@@ -35,8 +44,6 @@ export function normalizePayReturnPath(rt) {
     try {
       const u = new URL(s)
       const pathname = u.pathname || ''
-      const base = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) || '/'
-      const baseNorm = base.replace(/\/$/, '')
       if (baseNorm && pathname.startsWith(baseNorm + '/')) {
         return pathname.slice(baseNorm.length) || '/'
       }
@@ -47,6 +54,11 @@ export function normalizePayReturnPath(rt) {
     }
   }
   if (!s.startsWith('/')) s = `/${s}`
+  if (baseNorm && s.startsWith(baseNorm + '/')) {
+    s = s.slice(baseNorm.length) || '/'
+  } else if (baseNorm && s === baseNorm) {
+    s = '/'
+  }
   return s
 }
 

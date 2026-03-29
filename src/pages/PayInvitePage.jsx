@@ -13,6 +13,7 @@ import {
   normalizeInviteTokenParam,
   persistResumeInviteToken,
   readResumeInviteToken,
+  isWellFormedInviteToken,
 } from '../utils/paymentShareDeepLink'
 import './PayInvitePage.css'
 import { UnifiedPaymentActionGrid } from '../components/UnifiedPaymentOptions'
@@ -53,7 +54,12 @@ const PayInvitePage = () => {
 
   const loadInvite = React.useCallback(async () => {
     const stored = readResumeInviteToken()
-    const candidates = [...new Set([tokenNorm, stored].filter(Boolean))]
+    const urlTokenOk = isWellFormedInviteToken(tokenNorm)
+    const candidates = [
+      ...new Set(
+        (urlTokenOk ? [tokenNorm, stored] : [stored, tokenNorm]).filter(Boolean)
+      )
+    ]
     if (!candidates.length) {
       setLoading(false)
       setError('Token required')
