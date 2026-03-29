@@ -1201,26 +1201,8 @@
 .my-bookings-add-split-person-fields {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
-@media (min-width: 520px) {
-  .my-bookings-add-split-person-fields {
-    flex-direction: row;
-  }
-
-  .my-bookings-add-split-person-name {
-    flex: 1 1 38%;
-  }
-
-  .my-bookings-add-split-person-phone {
-    flex: 1 1 62%;
-  }
-}
-
-.my-bookings-add-split-person-name,
 .my-bookings-add-split-person-phone {
   width: 100%;
   padding: 8px 10px;

@@ -188,7 +188,7 @@ const MyBookingsPage = () => {
   const [payMenuOpen, setPayMenuOpen] = useState(null)
   const [addSplitForBookingId, setAddSplitForBookingId] = useState(null)
   const [addSplitStep, setAddSplitStep] = useState(1)
-  const [addSplitPeople, setAddSplitPeople] = useState([{ phone: '', name: '' }])
+  const [addSplitPeople, setAddSplitPeople] = useState([{ phone: '' }])
   const [addSplitRows, setAddSplitRows] = useState([])
   const [addSplitWizardWarnings, setAddSplitWizardWarnings] = useState([])
   const [addSplitBusy, setAddSplitBusy] = useState(false)
@@ -350,7 +350,7 @@ const MyBookingsPage = () => {
   const closeAddSplitPanel = () => {
     setAddSplitForBookingId(null)
     setAddSplitStep(1)
-    setAddSplitPeople([{ phone: '', name: '' }])
+    setAddSplitPeople([{ phone: '' }])
     setAddSplitRows([])
     setAddSplitWizardWarnings([])
   }
@@ -358,7 +358,7 @@ const MyBookingsPage = () => {
   const openAddSplitPanel = (bookingId) => {
     setAddSplitForBookingId(bookingId)
     setAddSplitStep(1)
-    setAddSplitPeople([{ phone: '', name: '' }])
+    setAddSplitPeople([{ phone: '' }])
     setAddSplitRows([])
     setAddSplitWizardWarnings([])
   }
@@ -369,12 +369,13 @@ const MyBookingsPage = () => {
     const name = (f?.name || '').trim()
     setAddSplitPeople((prev) => {
       const emptyIdx = prev.findIndex((row) => !String(row.phone || '').trim())
+      const entry = name ? { phone: p, name } : { phone: p }
       if (emptyIdx >= 0) {
         const next = [...prev]
-        next[emptyIdx] = { phone: p, name: name || next[emptyIdx].name || '' }
+        next[emptyIdx] = entry
         return next
       }
-      return [...prev, { phone: p, name }]
+      return [...prev, entry]
     })
   }
 
@@ -386,9 +387,9 @@ const MyBookingsPage = () => {
       for (const pi of list) {
         const emptyIdx = next.findIndex((r) => !String(r.phone || '').trim())
         if (emptyIdx >= 0) {
-          next[emptyIdx] = { ...next[emptyIdx], phone: pi }
+          next[emptyIdx] = { phone: pi }
         } else {
-          next = [...next, { phone: pi, name: '' }]
+          next = [...next, { phone: pi }]
         }
       }
       return next
@@ -718,7 +719,6 @@ const MyBookingsPage = () => {
       splitBudgetAllocated: 'Already allocated',
       splitAssignedSum: 'Assigned to new invites',
       splitLeftToAssign: 'Still unassigned',
-      splitNameOptional: 'Name (optional)',
       splitPhoneLabel: 'Phone',
       splitRemoveRow: 'Remove',
       splitParticipantHeading: 'New participants',
@@ -818,7 +818,6 @@ const MyBookingsPage = () => {
       splitBudgetAllocated: 'المخصص حالياً',
       splitAssignedSum: 'المخصص للمدعوين الجدد',
       splitLeftToAssign: 'غير موزّع بعد',
-      splitNameOptional: 'الاسم (اختياري)',
       splitPhoneLabel: 'الجوال',
       splitRemoveRow: 'حذف',
       splitParticipantHeading: 'مشاركون جدد',
@@ -1768,17 +1767,6 @@ const MyBookingsPage = () => {
                                   <div key={ri} className="my-bookings-add-split-person-row">
                                     <div className="my-bookings-add-split-person-fields">
                                       <input
-                                        type="text"
-                                        className="my-bookings-add-split-person-name"
-                                        placeholder={c.splitNameOptional}
-                                        value={row.name}
-                                        autoComplete="name"
-                                        onChange={(e) =>
-                                          setAddSplitPeople((prev) =>
-                                            prev.map((x, j) => (j === ri ? { ...x, name: e.target.value } : x))
-                                          )}
-                                      />
-                                      <input
                                         type="tel"
                                         className="my-bookings-add-split-person-phone"
                                         placeholder={c.splitPhoneLabel}
@@ -1787,7 +1775,9 @@ const MyBookingsPage = () => {
                                         inputMode="tel"
                                         onChange={(e) =>
                                           setAddSplitPeople((prev) =>
-                                            prev.map((x, j) => (j === ri ? { ...x, phone: e.target.value } : x))
+                                            prev.map((x, j) =>
+                                              j === ri ? { ...x, phone: e.target.value } : x
+                                            )
                                           )}
                                       />
                                     </div>
@@ -1797,7 +1787,7 @@ const MyBookingsPage = () => {
                                       onClick={() =>
                                         setAddSplitPeople((prev) =>
                                           prev.length <= 1
-                                            ? [{ phone: '', name: '' }]
+                                            ? [{ phone: '' }]
                                             : prev.filter((_, j) => j !== ri)
                                         )
                                       }
@@ -1810,7 +1800,7 @@ const MyBookingsPage = () => {
                                 <button
                                   type="button"
                                   className="my-bookings-add-split-more"
-                                  onClick={() => setAddSplitPeople((prev) => [...prev, { phone: '', name: '' }])}
+                                  onClick={() => setAddSplitPeople((prev) => [...prev, { phone: '' }])}
                                 >
                                   {language === 'en' ? '+ Add another' : '+ إضافة مشارك'}
                                 </button>
