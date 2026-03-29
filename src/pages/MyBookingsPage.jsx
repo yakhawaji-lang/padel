@@ -1479,8 +1479,9 @@ const MyBookingsPage = () => {
                                   </>
                                 ) : null}
                                 {(() => {
+                                  /** حصة الحاجز تُطابق memberId/id وقد لا يكون لها inviteToken */
                                   const isMyParticipation =
-                                    !!(r.mySplitShare && s.inviteToken && isSamePaymentShare(s, r.mySplitShare))
+                                    !!(r.mySplitShare && isSamePaymentShare(s, r.mySplitShare))
                                   const memberReqAt = s.memberRefundRequestedAt || s.member_refund_requested_at
                                   const removed = !!(s.removedAt || s.removed_at)
                                   const bookingSt = (r.booking?.status || '').toString().toLowerCase()

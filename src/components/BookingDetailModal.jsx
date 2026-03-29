@@ -118,30 +118,45 @@ export default function BookingDetailModal({
     !!club?.id && !isTournamentBooking && isInitiator && !!platformUser?.id && !isBookingTerminal
   const shareMemberRefundPending = !!(userShare?.memberRefundRequestedAt || userShare?.member_refund_requested_at)
   const shareRefunded = !!(userShare?.refundedAt || userShare?.refunded_at)
+  const splitShareIdentified = !!(userShare && (userShare.id || userShare.inviteToken || inviteToken))
   const canOpenSplitShareMemberActions =
     !!club?.id &&
     !isTournamentBooking &&
     !isInitiator &&
-    !!userShare?.inviteToken &&
+    splitShareIdentified &&
     userSharePaid &&
     !needsRefundAck &&
     !shareMemberRefundPending &&
     !shareRefunded &&
     !!platformUser?.id &&
     !terminalBlocksSplitParticipantRefund
+  /** حاجز له حصة مدفوعة في التقسيم: مهلة منتهية — إلغاء كامل الحجز غير متاح؛ طلب استرداد الحصة مثل المشارك */
+  const canOpenBookerOwnShareRefundActions =
+    !!club?.id &&
+    !isTournamentBooking &&
+    isInitiator &&
+    splitShareIdentified &&
+    userSharePaid &&
+    !needsRefundAck &&
+    !shareMemberRefundPending &&
+    !shareRefunded &&
+    !!platformUser?.id &&
+    statusLc === 'expired'
 
   useEffect(() => {
     if (!bootOpenSplitParticipantActions || !platformUser || !booking || !club) return
     const us = findPaymentShareForMember(booking, platformUser)
-    if (!us?.inviteToken) {
+    if (!us?.inviteToken && us?.id == null) {
       onBootOpenSplitParticipantActionsDone?.()
       return
     }
     const paid = !!(us.paidAt || us.paid_at)
     const pending = !!(us.memberRefundRequestedAt || us.member_refund_requested_at)
     const rf = !!(us.refundedAt || us.refunded_at)
-    const term = ['cancelled', 'cancelled_awaiting_refund_ack'].includes((booking?.status || '').toString().toLowerCase())
-    if (!paid || pending || rf || term) {
+    const st = (booking?.status || '').toString().toLowerCase()
+    const termBlocked = st === 'cancelled' || st === 'cancelled_awaiting_refund_ack'
+    const expiredOk = st === 'expired'
+    if (!paid || pending || rf || (termBlocked && !expiredOk)) {
       onBootOpenSplitParticipantActionsDone?.()
       return
     }
@@ -651,7 +666,7 @@ export default function BookingDetailModal({
               <p className="booking-detail-primary-hint">{c.cancelBookingHint}</p>
             ) : null}
 
-            {canOpenSplitShareMemberActions && (
+            {(canOpenSplitShareMemberActions || canOpenBookerOwnShareRefundActions) && (
               <div className="booking-detail-primary-row">
                 <button
                   type="button"
@@ -669,7 +684,7 @@ export default function BookingDetailModal({
                 </button>
               </div>
             )}
-            {canOpenSplitShareMemberActions ? (
+            {(canOpenSplitShareMemberActions || canOpenBookerOwnShareRefundActions) ? (
               <p className="booking-detail-primary-hint">{c.splitParticipantModifyHint}</p>
             ) : null}
 
