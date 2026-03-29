@@ -1562,6 +1562,168 @@
   margin-top: 12px;
 }
 
+/* ----- Pay method chosen (at club) — status panel ----- */
+.my-bookings-pay-state {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #86efac;
+  background: linear-gradient(165deg, #ecfdf5 0%, #ffffff 52%, #f8fafc 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 4px 20px rgba(22, 163, 74, 0.09);
+  animation: my-bookings-pay-state-in 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .my-bookings-pay-state {
+    animation: none;
+  }
+}
+
+@keyframes my-bookings-pay-state-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.my-bookings-pay-state-top {
+  padding: 16px 18px 14px;
+}
+
+.my-bookings-pay-state-kicker {
+  margin: 0 0 10px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #15803d;
+}
+
+[dir="rtl"] .my-bookings-pay-state-kicker {
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 0.75rem;
+}
+
+.my-bookings-pay-state-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.my-bookings-pay-state-icon-wrap {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: linear-gradient(145deg, #d1fae5 0%, #a7f3d0 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(21, 128, 61, 0.12);
+}
+
+.my-bookings-pay-state-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.my-bookings-pay-state-title {
+  margin: 0 0 6px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: #14532d;
+  line-height: 1.3;
+}
+
+.my-bookings-pay-state-desc {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #365314;
+}
+
+.my-bookings-pay-state-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.35);
+  white-space: nowrap;
+  align-self: center;
+}
+
+.my-bookings-pay-state-badge-icon {
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.my-bookings-pay-state-footer {
+  padding: 14px 18px 16px;
+  background: rgba(255, 255, 255, 0.92);
+  border-top: 1px solid #bbf7d0;
+  backdrop-filter: blur(6px);
+}
+
+.my-bookings-pay-state-switch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 12px;
+  border: 1.5px solid var(--mb-primary);
+  background: var(--mb-surface);
+  color: var(--mb-primary);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+}
+
+.my-bookings-pay-state-switch:hover {
+  background: #eff6ff;
+  border-color: #1d4ed8;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.12);
+}
+
+.my-bookings-pay-state-switch-icon {
+  font-size: 1.125rem;
+  line-height: 1;
+}
+
+@media (max-width: 400px) {
+  .my-bookings-pay-state-row {
+    flex-wrap: wrap;
+  }
+  .my-bookings-pay-state-badge {
+    margin-inline-start: 0;
+    width: 100%;
+    justify-content: center;
+    margin-top: 4px;
+  }
+}
+
 .my-bookings-card-pay-wrap .my-bookings-pay-at-club-btn,
 .my-bookings-card-pay-wrap .my-bookings-pay-btn {
   width: 100%;

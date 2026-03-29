@@ -657,6 +657,12 @@ const MyBookingsPage = () => {
       participantRefundCard: 'Back to card (online)',
       participantRefundAwaiting: 'Refund requested — club will process it',
       splitAddBulkHint: 'Add several phone + amount rows, then send all invites at once.',
+      payStateKicker: 'Your payment',
+      payAtClubStateTitle: 'Pay at the club',
+      payAtClubStateDesc:
+        'Front desk will confirm once they receive your payment. You can switch to card or Mada online below if you change your mind.',
+      payAtClubStateBadge: 'Selected',
+      switchToElectronicPayment: 'Switch to electronic payment',
     },
     ar: {
       myBookings: 'حجوزاتي',
@@ -726,6 +732,12 @@ const MyBookingsPage = () => {
       participantRefundCard: 'إرجاع للبطاقة (دفع إلكتروني)',
       participantRefundAwaiting: 'تم طلب الاسترداد — بانتظار تنفيذ النادي',
       splitAddBulkHint: 'أضف عدة أسطر (جوال + مبلغ) ثم أرسل كل الدعوات دفعة واحدة.',
+      payStateKicker: 'دفع حصتك',
+      payAtClubStateTitle: 'الدفع في النادي',
+      payAtClubStateDesc:
+        'سيُؤكَّد الدفع من الاستقبال عند استلام المبلغ. يمكنك أدناه التبديل للدفع الإلكتروني (بطاقة أو مدى) إذا غيّرت رأيك.',
+      payAtClubStateBadge: 'تم الاختيار',
+      switchToElectronicPayment: 'التبديل إلى الدفع الإلكتروني',
     }
   }
   const c = t[language] || t.en
@@ -854,6 +866,21 @@ const MyBookingsPage = () => {
       return { type: 'initiator', bookingId: booking.id, clubId: club.id, chosePayAtClub: initiatorChosePayAtClub }
     }
     return null
+  }
+
+  /** Deep link for online payment (split / booker / tournament). */
+  const getElectronicPayHref = (po, booking) => {
+    if (!po || !booking?.id) return '#'
+    if (po.type === 'tournament') {
+      const mid = po.memberId ?? member?.id
+      return `/pay/tournament-member/${po.clubId}/${booking.id}?memberId=${encodeURIComponent(String(mid || ''))}`
+    }
+    if (po.type === 'share') {
+      return po.inviteToken
+        ? `/pay-share/${po.inviteToken}`
+        : `/pay-share/booking/${booking.id}?clubId=${po.clubId}`
+    }
+    return `/pay/${booking.id}?method=credit_card`
   }
 
   const renderBookingRow = ({ booking, club }, i) => {
@@ -1390,78 +1417,120 @@ const MyBookingsPage = () => {
                     (['pending_payments', 'partially_paid'].includes((r.booking.status || '').toString()) ||
                       r.payOptions.type === 'tournament') && (
                     <div className="my-bookings-card-pay-wrap" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        className={`my-bookings-pay-btn ${payMenuOpen === r.key ? 'my-bookings-pay-btn-open' : ''}`}
-                        onClick={() => setPayMenuOpen(payMenuOpen === r.key ? null : r.key)}
-                        disabled={!!markingPayAtClub}
-                      >
-                        <span className="my-bookings-pay-btn-icon">💳</span>
-                        {c.pay}
-                        <span className="my-bookings-pay-btn-chevron" aria-hidden>▼</span>
-                      </button>
-                      {payMenuOpen === r.key && (
-                        <div className="my-bookings-card-pay-menu">
-                          {r.payOptions.type === 'tournament' ? (
-                            <>
-                              <button
-                                type="button"
-                                className={`my-bookings-pay-menu-item ${r.payOptions.chosePayAtClub ? 'my-bookings-pay-menu-item-chosen' : ''}`}
-                                onClick={() => { handleTournamentPayAtClubChoice(r.payOptions.clubId, r.payOptions.bookingId, r.payOptions.memberId); setPayMenuOpen(null) }}
-                                disabled={!!markingPayAtClub || r.payOptions.chosePayAtClub}
-                                aria-pressed={r.payOptions.chosePayAtClub}
-                              >
-                                <span className="my-bookings-pay-menu-icon">🏢</span>
-                                {r.payOptions.chosePayAtClub ? <span className="my-bookings-pay-menu-check" aria-hidden>✓ </span> : null}
-                                {r.payOptions.chosePayAtClub ? (language === 'ar' ? 'اخترت الدفع في النادي — بانتظار التأكيد' : 'Pay at club chosen — awaiting confirmation') : c.payAtClub}
-                              </button>
-                              <Link
-                                to={`/pay/tournament-member/${r.payOptions.clubId}/${r.booking.id}?memberId=${encodeURIComponent(String(r.payOptions.memberId))}`}
-                                className="my-bookings-pay-menu-item my-bookings-pay-menu-link"
-                                onClick={() => setPayMenuOpen(null)}
-                              >
-                                <span className="my-bookings-pay-menu-icon">💳</span>
-                                {r.payOptions.chosePayAtClub ? (language === 'ar' ? 'التبديل إلى الدفع الإلكتروني' : 'Switch to electronic payment') : c.payElectronic}
-                              </Link>
-                            </>
-                          ) : r.payOptions.type === 'share' ? (
-                            <>
-                              <button
-                                type="button"
-                                className={`my-bookings-pay-menu-item ${r.payOptions.chosePayAtClub ? 'my-bookings-pay-menu-item-chosen' : ''}`}
-                                onClick={() => { handleRecordPayment(r.payOptions.clubId, r.payOptions.inviteToken, r.payOptions.bookingId); setPayMenuOpen(null) }}
-                                disabled={!!markingPayAtClub || r.payOptions.chosePayAtClub}
-                                aria-pressed={r.payOptions.chosePayAtClub}
-                              >
-                                <span className="my-bookings-pay-menu-icon">🏢</span>
-                                {r.payOptions.chosePayAtClub ? <span className="my-bookings-pay-menu-check" aria-hidden>✓ </span> : null}
-                                {r.payOptions.chosePayAtClub ? (language === 'ar' ? 'اخترتها — سأدفع في النادي' : 'Chosen — pay at club') : c.payAtClub}
-                              </button>
-                              <Link to={r.payOptions.inviteToken ? `/pay-share/${r.payOptions.inviteToken}` : `/pay-share/booking/${r.booking.id}?clubId=${r.payOptions.clubId}`} className="my-bookings-pay-menu-item my-bookings-pay-menu-link" onClick={() => setPayMenuOpen(null)}>
-                                <span className="my-bookings-pay-menu-icon">💳</span>
-                                {r.payOptions.chosePayAtClub ? (language === 'ar' ? 'التبديل إلى الدفع الإلكتروني' : 'Switch to electronic payment') : c.payElectronic}
-                              </Link>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                className={`my-bookings-pay-menu-item ${r.payOptions.chosePayAtClub ? 'my-bookings-pay-menu-item-chosen' : ''}`}
-                                onClick={() => { handleMarkPayAtClub(r.payOptions.clubId, r.payOptions.bookingId); setPayMenuOpen(null) }}
-                                disabled={markingPayAtClub === r.booking.id || r.payOptions.chosePayAtClub}
-                                aria-pressed={r.payOptions.chosePayAtClub}
-                              >
-                                <span className="my-bookings-pay-menu-icon">🏢</span>
-                                {r.payOptions.chosePayAtClub ? <span className="my-bookings-pay-menu-check" aria-hidden>✓ </span> : null}
-                                {r.payOptions.chosePayAtClub ? (language === 'ar' ? 'اخترتها — سأدفع في النادي' : 'Chosen — pay at club') : (markingPayAtClub === r.booking.id ? '…' : c.payAtClub)}
-                              </button>
-                              <Link to={`/pay/${r.booking.id}?method=credit_card`} className="my-bookings-pay-menu-item my-bookings-pay-menu-link" onClick={() => setPayMenuOpen(null)}>
-                                <span className="my-bookings-pay-menu-icon">💳</span>
-                                {c.payElectronic}
-                              </Link>
-                            </>
+                      {r.payOptions.chosePayAtClub ? (
+                        <section
+                          className="my-bookings-pay-state my-bookings-pay-state--at-club"
+                          aria-label={language === 'ar' ? 'حالة الدفع' : 'Payment status'}
+                        >
+                          <div className="my-bookings-pay-state-top">
+                            <p className="my-bookings-pay-state-kicker">{c.payStateKicker}</p>
+                            <div className="my-bookings-pay-state-row">
+                              <div className="my-bookings-pay-state-icon-wrap" aria-hidden>🏢</div>
+                              <div className="my-bookings-pay-state-copy">
+                                <h3 className="my-bookings-pay-state-title">{c.payAtClubStateTitle}</h3>
+                                <p className="my-bookings-pay-state-desc">{c.payAtClubStateDesc}</p>
+                              </div>
+                              <span className="my-bookings-pay-state-badge">
+                                <span className="my-bookings-pay-state-badge-icon" aria-hidden>✓</span>
+                                {c.payAtClubStateBadge}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="my-bookings-pay-state-footer">
+                            <Link
+                              to={getElectronicPayHref(r.payOptions, r.booking)}
+                              className="my-bookings-pay-state-switch"
+                              onClick={() => setPayMenuOpen(null)}
+                            >
+                              <span className="my-bookings-pay-state-switch-icon" aria-hidden>💳</span>
+                              {c.switchToElectronicPayment}
+                            </Link>
+                          </div>
+                        </section>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className={`my-bookings-pay-btn ${payMenuOpen === r.key ? 'my-bookings-pay-btn-open' : ''}`}
+                            onClick={() => setPayMenuOpen(payMenuOpen === r.key ? null : r.key)}
+                            disabled={!!markingPayAtClub}
+                          >
+                            <span className="my-bookings-pay-btn-icon">💳</span>
+                            {c.pay}
+                            <span className="my-bookings-pay-btn-chevron" aria-hidden>▼</span>
+                          </button>
+                          {payMenuOpen === r.key && (
+                            <div className="my-bookings-card-pay-menu">
+                              {r.payOptions.type === 'tournament' ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className={`my-bookings-pay-menu-item ${r.payOptions.chosePayAtClub ? 'my-bookings-pay-menu-item-chosen' : ''}`}
+                                    onClick={() => { handleTournamentPayAtClubChoice(r.payOptions.clubId, r.payOptions.bookingId, r.payOptions.memberId); setPayMenuOpen(null) }}
+                                    disabled={!!markingPayAtClub || r.payOptions.chosePayAtClub}
+                                    aria-pressed={r.payOptions.chosePayAtClub}
+                                  >
+                                    <span className="my-bookings-pay-menu-icon">🏢</span>
+                                    {r.payOptions.chosePayAtClub ? <span className="my-bookings-pay-menu-check" aria-hidden>✓ </span> : null}
+                                    {r.payOptions.chosePayAtClub ? (language === 'ar' ? 'اخترت الدفع في النادي — بانتظار التأكيد' : 'Pay at club chosen — awaiting confirmation') : c.payAtClub}
+                                  </button>
+                                  <Link
+                                    to={getElectronicPayHref(r.payOptions, r.booking)}
+                                    className="my-bookings-pay-menu-item my-bookings-pay-menu-link"
+                                    onClick={() => setPayMenuOpen(null)}
+                                  >
+                                    <span className="my-bookings-pay-menu-icon">💳</span>
+                                    {r.payOptions.chosePayAtClub ? c.switchToElectronicPayment : c.payElectronic}
+                                  </Link>
+                                </>
+                              ) : r.payOptions.type === 'share' ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className={`my-bookings-pay-menu-item ${r.payOptions.chosePayAtClub ? 'my-bookings-pay-menu-item-chosen' : ''}`}
+                                    onClick={() => { handleRecordPayment(r.payOptions.clubId, r.payOptions.inviteToken, r.payOptions.bookingId); setPayMenuOpen(null) }}
+                                    disabled={!!markingPayAtClub || r.payOptions.chosePayAtClub}
+                                    aria-pressed={r.payOptions.chosePayAtClub}
+                                  >
+                                    <span className="my-bookings-pay-menu-icon">🏢</span>
+                                    {r.payOptions.chosePayAtClub ? <span className="my-bookings-pay-menu-check" aria-hidden>✓ </span> : null}
+                                    {r.payOptions.chosePayAtClub ? (language === 'ar' ? 'اخترتها — سأدفع في النادي' : 'Chosen — pay at club') : c.payAtClub}
+                                  </button>
+                                  <Link
+                                    to={getElectronicPayHref(r.payOptions, r.booking)}
+                                    className="my-bookings-pay-menu-item my-bookings-pay-menu-link"
+                                    onClick={() => setPayMenuOpen(null)}
+                                  >
+                                    <span className="my-bookings-pay-menu-icon">💳</span>
+                                    {r.payOptions.chosePayAtClub ? c.switchToElectronicPayment : c.payElectronic}
+                                  </Link>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    className={`my-bookings-pay-menu-item ${r.payOptions.chosePayAtClub ? 'my-bookings-pay-menu-item-chosen' : ''}`}
+                                    onClick={() => { handleMarkPayAtClub(r.payOptions.clubId, r.payOptions.bookingId); setPayMenuOpen(null) }}
+                                    disabled={markingPayAtClub === r.booking.id || r.payOptions.chosePayAtClub}
+                                    aria-pressed={r.payOptions.chosePayAtClub}
+                                  >
+                                    <span className="my-bookings-pay-menu-icon">🏢</span>
+                                    {r.payOptions.chosePayAtClub ? <span className="my-bookings-pay-menu-check" aria-hidden>✓ </span> : null}
+                                    {r.payOptions.chosePayAtClub ? (language === 'ar' ? 'اخترتها — سأدفع في النادي' : 'Chosen — pay at club') : (markingPayAtClub === r.booking.id ? '…' : c.payAtClub)}
+                                  </button>
+                                  <Link
+                                    to={getElectronicPayHref(r.payOptions, r.booking)}
+                                    className="my-bookings-pay-menu-item my-bookings-pay-menu-link"
+                                    onClick={() => setPayMenuOpen(null)}
+                                  >
+                                    <span className="my-bookings-pay-menu-icon">💳</span>
+                                    {c.payElectronic}
+                                  </Link>
+                                </>
+                              )}
+                            </div>
                           )}
-                        </div>
+                        </>
                       )}
                     </div>
                   )}
