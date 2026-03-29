@@ -15,6 +15,16 @@ import {
 import './club-pages-common.css'
 import './BookingsManagement.css'
 
+function sumActivePaidShares(paymentShares) {
+  if (!Array.isArray(paymentShares)) return 0
+  return paymentShares.reduce((sum, s) => {
+    if (s.removedAt || s.removed_at) return sum
+    if (!(s.paidAt || s.paid_at)) return sum
+    if (s.refundedAt || s.refunded_at) return sum
+    return sum + (parseFloat(s.amount) || 0)
+  }, 0)
+}
+
 /** Admin list: court rental vs coach training vs tournament (king / social). */
 function classifyAdminBooking(b) {
   const d = b?.data && typeof b.data === 'object' ? b.data : {}
@@ -36,6 +46,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   const [expandedPaymentId, setExpandedPaymentId] = useState(null)
   const [refundDraftByShareId, setRefundDraftByShareId] = useState({})
   const [fullRefundDraft, setFullRefundDraft] = useState({})
+  const [splitExtendMinutesDraft, setSplitExtendMinutesDraft] = useState({})
 
   const refreshFromCache = () => {
     loadClubs()
@@ -602,7 +613,18 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       stripeManualHint: 'Process the reversal in Stripe dashboard, then enter the refund ID above.',
       electronicHint: 'For card/Mada, process reversal in your gateway and note the reference.',
       refundAckDone: 'Participant confirmed receipt',
-      editDisabledTournament: 'Edit tournament blocks from the tournament section of the club app.'
+      editDisabledTournament: 'Edit tournament blocks from the tournament section of the club app.',
+      expiredSplitBannerTitle: 'Split payment deadline passed',
+      expiredSplitBannerHint:
+        'The system marked this booking expired before all shares were paid. You can extend the deadline; it becomes active again so members can pay or the booker can add invitees.',
+      extendMinutesLabel: 'Extension (minutes from now)',
+      extendMinutesHint: 'Capped at end of the booking day if that evening is still in the future. Max 43200 (30 days).',
+      extendPreset30: '30 min',
+      extendPreset1h: '1 h',
+      extendPreset2h: '2 h',
+      extendPreset24h: '24 h',
+      extendSplitDeadlineBtn: 'Extend & reactivate booking',
+      extendSplitSuccess: 'Deadline extended. The booking is active again — members will see it under upcoming bookings.',
     },
     ar: {
       bookings: 'الحجوزات',
@@ -692,10 +714,52 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       stripeManualHint: 'نفّذ الاسترداد من لوحة Stripe ثم أدخل رقم الاسترداد أعلاه.',
       electronicHint: 'لبطاقة/مدى، نفّذ العكس من بوابة الدفع وسجّل المرجع.',
       refundAckDone: 'أكد المشارك الاستلام',
-      editDisabledTournament: 'عدّل مواعيد البطولة من قسم البطولات في تطبيق النادي.'
+      editDisabledTournament: 'عدّل مواعيد البطولة من قسم البطولات في تطبيق النادي.',
+      expiredSplitBannerTitle: 'انتهت مهلة إكمال تقسيم الدفع',
+      expiredSplitBannerHint:
+        'عُدّ هذا الحجز منتهياً قبل اكتمال كل الدفعات. يمكنك تمديد المهلة؛ يعود الحجز نشطاً ليتمكن المشاركون من الدفع أو الحاجز من إضافة مدعوين.',
+      extendMinutesLabel: 'مدة التمديد (دقائق من الآن)',
+      extendMinutesHint: 'يُقيَّد بآخر يوم من يوم الحجز إذا لم يمرّ بعد. الحد الأقصى 43200 دقيقة (30 يوماً).',
+      extendPreset30: '٣٠ د',
+      extendPreset1h: '١ س',
+      extendPreset2h: '٢ س',
+      extendPreset24h: '٢٤ س',
+      extendSplitDeadlineBtn: 'تمديد المهلة وإعادة تفعيل الحجز',
+      extendSplitSuccess: 'تم التمديد. الحجز نشط من جديد — سيظهر للأعضاء ضمن الحجوزات القادمة.',
     }
   }
   const c = t[language] || t.en
+
+  const handleExtendExpiredSplitDeadline = async (b) => {
+    if (!club?.id || !b?.id) return
+    const raw = splitExtendMinutesDraft[b.id]
+    const defMins = club?.settings?.splitPaymentDeadlineMinutes ?? 30
+    const parsed = raw != null && String(raw).trim() !== '' ? parseInt(String(raw), 10) : defMins
+    const mins = Number.isFinite(parsed) && parsed > 0 ? Math.min(43200, parsed) : defMins
+    setActionLoading('extend-deadline-' + b.id)
+    try {
+      const res = await bookingApi.adminExtendSplitPaymentDeadline({
+        bookingId: b.id,
+        clubId: club.id,
+        extendMinutes: mins,
+      })
+      if (res?.skipped) {
+        window.alert(
+          language === 'en'
+            ? 'Nothing to extend for this booking in its current state.'
+            : 'لا يوجد ما يمدَّد في حالة هذا الحجز الحالية.'
+        )
+        return
+      }
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      refreshFromServer()
+      window.alert(c.extendSplitSuccess)
+    } catch (e) {
+      window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
+    } finally {
+      setActionLoading(null)
+    }
+  }
 
   const kindLabel = (kind) => ({
     court: c.kindCourt,
@@ -967,9 +1031,16 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                   const hasShares = paymentShares.length > 0
                   const currency = priceInfo.currency || club?.settings?.currency || 'SAR'
                   const totalAmount = b.totalAmount ?? b.total_amount ?? priceInfo.price ?? 0
+                  const paidSumForPanel = sumActivePaidShares(paymentShares)
+                  const incompleteSplit =
+                    hasShares &&
+                    Number(totalAmount) > 0 &&
+                    paidSumForPanel < Number(totalAmount) - 0.01
+                  const unpaidSplitExpired = statusLc === 'expired' && incompleteSplit
                   const showPaymentPanel =
                     rowAwaitingRefundAck ||
                     memberRefundPendingFulfillment ||
+                    unpaidSplitExpired ||
                     (!rowEnded &&
                       (hasShares ||
                         isPendingPayment ||
@@ -1102,6 +1173,63 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                 </span>
                               </div>
                             </div>
+                            {unpaidSplitExpired ? (
+                              <div className="booking-expired-split-extend">
+                                <h5 className="booking-expired-split-extend__title">{c.expiredSplitBannerTitle}</h5>
+                                <p className="booking-expired-split-extend__hint">{c.expiredSplitBannerHint}</p>
+                                <div className="booking-expired-split-extend__row">
+                                  <label className="booking-expired-split-extend__label" htmlFor={`extend-mins-${b.id}`}>
+                                    {c.extendMinutesLabel}
+                                  </label>
+                                  <input
+                                    id={`extend-mins-${b.id}`}
+                                    type="number"
+                                    min={1}
+                                    max={43200}
+                                    className="booking-expired-split-extend__input western-numerals"
+                                    value={
+                                      splitExtendMinutesDraft[b.id] != null
+                                        ? splitExtendMinutesDraft[b.id]
+                                        : String(club?.settings?.splitPaymentDeadlineMinutes ?? 30)
+                                    }
+                                    onChange={(e) =>
+                                      setSplitExtendMinutesDraft((prev) => ({
+                                        ...prev,
+                                        [b.id]: e.target.value,
+                                      }))
+                                    }
+                                  />
+                                </div>
+                                <p className="booking-expired-split-extend__meta">{c.extendMinutesHint}</p>
+                                <div className="booking-expired-split-extend__presets">
+                                  {[
+                                    { v: 30, lab: c.extendPreset30 },
+                                    { v: 60, lab: c.extendPreset1h },
+                                    { v: 120, lab: c.extendPreset2h },
+                                    { v: 1440, lab: c.extendPreset24h },
+                                  ].map((p) => (
+                                    <button
+                                      key={p.v}
+                                      type="button"
+                                      className="booking-expired-split-extend__chip"
+                                      onClick={() =>
+                                        setSplitExtendMinutesDraft((prev) => ({ ...prev, [b.id]: String(p.v) }))
+                                      }
+                                    >
+                                      {p.lab}
+                                    </button>
+                                  ))}
+                                </div>
+                                <button
+                                  type="button"
+                                  className="booking-payment-mark-paid-btn booking-expired-split-extend__submit"
+                                  disabled={actionLoading === 'extend-deadline-' + b.id}
+                                  onClick={() => handleExtendExpiredSplitDeadline(b)}
+                                >
+                                  {actionLoading === 'extend-deadline-' + b.id ? '…' : c.extendSplitDeadlineBtn}
+                                </button>
+                              </div>
+                            ) : null}
                             {(() => {
                               const singleM = (
                                 b.initiatorPaymentMethod ||

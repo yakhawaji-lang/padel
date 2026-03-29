@@ -112,6 +112,8 @@ export default function BookingDetailModal({
   const totalAmount = booking?.totalAmount ?? booking?.total_amount ?? 0
   const statusLc = (status || '').toLowerCase()
   const isBookingTerminal = ['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(statusLc)
+  /** إلغاء/سياسة الاسترداد للمشارك — الحجز المنتهي بمهلة الدفع يظل يمكن طلب استرداد الحصة */
+  const terminalBlocksSplitParticipantRefund = ['cancelled', 'cancelled_awaiting_refund_ack'].includes(statusLc)
   const canOpenMemberActions =
     !!club?.id && !isTournamentBooking && isInitiator && !!platformUser?.id && !isBookingTerminal
   const shareMemberRefundPending = !!(userShare?.memberRefundRequestedAt || userShare?.member_refund_requested_at)
@@ -126,7 +128,7 @@ export default function BookingDetailModal({
     !shareMemberRefundPending &&
     !shareRefunded &&
     !!platformUser?.id &&
-    !isBookingTerminal
+    !terminalBlocksSplitParticipantRefund
 
   useEffect(() => {
     if (!bootOpenSplitParticipantActions || !platformUser || !booking || !club) return
@@ -138,7 +140,7 @@ export default function BookingDetailModal({
     const paid = !!(us.paidAt || us.paid_at)
     const pending = !!(us.memberRefundRequestedAt || us.member_refund_requested_at)
     const rf = !!(us.refundedAt || us.refunded_at)
-    const term = ['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes((booking?.status || '').toString().toLowerCase())
+    const term = ['cancelled', 'cancelled_awaiting_refund_ack'].includes((booking?.status || '').toString().toLowerCase())
     if (!paid || pending || rf || term) {
       onBootOpenSplitParticipantActionsDone?.()
       return

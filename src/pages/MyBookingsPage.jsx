@@ -1483,6 +1483,9 @@ const MyBookingsPage = () => {
                                     !!(r.mySplitShare && s.inviteToken && isSamePaymentShare(s, r.mySplitShare))
                                   const memberReqAt = s.memberRefundRequestedAt || s.member_refund_requested_at
                                   const removed = !!(s.removedAt || s.removed_at)
+                                  const bookingSt = (r.booking?.status || '').toString().toLowerCase()
+                                  const splitRefundOkCancelled =
+                                    filter === 'cancelled' && bookingSt === 'expired'
                                   const showParticipantLeave =
                                     isMyParticipation &&
                                     filter === 'upcoming' &&
@@ -1492,13 +1495,17 @@ const MyBookingsPage = () => {
                                     !removed
                                   const showParticipantShareModify =
                                     isMyParticipation &&
-                                    filter === 'upcoming' &&
+                                    (filter === 'upcoming' || splitRefundOkCancelled) &&
                                     !!pd &&
                                     !rf &&
                                     !memberReqAt &&
                                     !removed
                                   const showParticipantRefundPending =
-                                    isMyParticipation && !!memberReqAt && !rf && !removed
+                                    isMyParticipation &&
+                                    !!memberReqAt &&
+                                    !rf &&
+                                    !removed &&
+                                    (filter === 'upcoming' || splitRefundOkCancelled)
                                   if (!showParticipantLeave && !showParticipantShareModify && !showParticipantRefundPending) {
                                     return null
                                   }

@@ -44,6 +44,7 @@ function needsDataActorHeaders(path, method) {
   if (m === 'POST' && path === '/api/invoices/purge') return true
   if (m === 'POST' && path === '/api/bookings/admin-fulfill-member-refund') return true
   if (m === 'POST' && path === '/api/bookings/admin-fulfill-member-share-refund') return true
+  if (m === 'POST' && path === '/api/bookings/admin-extend-split-deadline') return true
   return false
 }
 
@@ -660,11 +661,15 @@ export async function adminFulfillMemberShareRefund({ shareId, clubId, fulfillme
   })
 }
 
-/** بعد حفظ تعديل حجز من الأدمن: إعادة مهلة الدفع حسب إعداد النادي */
-export async function adminExtendSplitPaymentDeadline({ bookingId, clubId }) {
+/** أدمن النادي: تمديد مهلة التقسيم، أو إعادة تفعيل حجز منتهٍ (expired) مع مدة بالدقائق */
+export async function adminExtendSplitPaymentDeadline({ bookingId, clubId, extendMinutes }) {
   return fetchJson('/api/bookings/admin-extend-split-deadline', {
     method: 'POST',
-    body: JSON.stringify({ bookingId, clubId })
+    body: JSON.stringify({
+      bookingId,
+      clubId,
+      ...(extendMinutes != null && extendMinutes !== '' ? { extendMinutes } : {}),
+    }),
   })
 }
 

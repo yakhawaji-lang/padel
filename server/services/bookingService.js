@@ -118,10 +118,28 @@ export function normalizeBookingDateYmd(bookingDate) {
 }
 
 /**
- * After share/recalc or admin edit: reset payment_deadline to now + club split_payment_deadline_minutes
- * (capped at end of booking_date local calendar day). Uses exact setting (min 1 minute).
+ * New payment deadline: now + minutes, optionally capped by end of booking calendar day (only if that end is still in the future).
  */
-export async function extendPaymentDeadlineAfterShareProgress(bookingId, clubId) {
+export function computePaymentDeadlineFromMinutes(bookingDateYmd, minutes) {
+  const mins = Math.max(1, Math.min(43200, parseInt(minutes, 10) || 30))
+  let deadlineMs = Date.now() + mins * 60 * 1000
+  if (bookingDateYmd) {
+    const [y, mo, d] = bookingDateYmd.split('-').map(Number)
+    if (y && mo && d) {
+      const endOfBookingDay = new Date(y, mo - 1, d, 23, 59, 59, 999)
+      if (!Number.isNaN(endOfBookingDay.getTime()) && endOfBookingDay.getTime() > Date.now()) {
+        deadlineMs = Math.min(deadlineMs, endOfBookingDay.getTime())
+      }
+    }
+  }
+  return new Date(deadlineMs)
+}
+
+/**
+ * After share/recalc or admin edit: reset payment_deadline to now + club split_payment_deadline_minutes
+ * (or overrideMinutes when provided). Capped at end of booking day when that day is still in the future.
+ */
+export async function extendPaymentDeadlineAfterShareProgress(bookingId, clubId, overrideMinutes = undefined) {
   const { rows } = await query(
     `SELECT cb.booking_date, cs.split_payment_deadline_minutes
      FROM club_bookings cb
@@ -131,22 +149,60 @@ export async function extendPaymentDeadlineAfterShareProgress(bookingId, clubId)
   )
   if (!rows?.length) return null
   const dateYmd = normalizeBookingDateYmd(rows[0].booking_date)
-  const rawMins = parseInt(rows[0].split_payment_deadline_minutes, 10)
-  const mins = Number.isFinite(rawMins) && rawMins > 0 ? rawMins : 30
-  const fromNowMs = Date.now() + mins * 60 * 1000
-  let deadlineMs = fromNowMs
-  if (dateYmd) {
-    const [y, mo, d] = dateYmd.split('-').map(Number)
-    if (y && mo && d) {
-      const endOfBookingDay = new Date(y, mo - 1, d, 23, 59, 59, 999)
-      if (!Number.isNaN(endOfBookingDay.getTime())) {
-        deadlineMs = Math.min(fromNowMs, endOfBookingDay.getTime())
-      }
-    }
-  }
-  const deadline = new Date(deadlineMs)
+  const rawSetting = parseInt(rows[0].split_payment_deadline_minutes, 10)
+  const settingMins = Number.isFinite(rawSetting) && rawSetting > 0 ? rawSetting : 30
+  const om = overrideMinutes != null && overrideMinutes !== '' ? parseInt(overrideMinutes, 10) : NaN
+  const mins = Number.isFinite(om) && om > 0 ? om : settingMins
+  const deadline = computePaymentDeadlineFromMinutes(dateYmd, mins)
   await updateBookingPaymentDeadline(bookingId, clubId, deadline)
   return deadline
+}
+
+/**
+ * Club extends split payment time after automated expiry: restore awaiting-payment status and new deadline.
+ */
+export async function reactivateExpiredSplitBooking(bookingId, clubId, extendMinutes) {
+  const { rows } = await query(
+    `SELECT id, status, total_amount, paid_amount, booking_date FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
+    [bookingId, clubId]
+  )
+  if (!rows?.length) return { error: 'not_found' }
+  const st = (rows[0].status || '').toString().toLowerCase()
+  if (st !== 'expired') return { error: 'not_expired' }
+
+  let sharesRes
+  try {
+    sharesRes = await query(
+      `SELECT amount, paid_at, refunded_at, removed_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
+      [bookingId, clubId]
+    )
+  } catch (_) {
+    return { error: 'shares_lookup_failed' }
+  }
+  const shares = sharesRes?.rows || []
+  if (shares.length === 0) return { error: 'not_split' }
+
+  let paidAmount = 0
+  for (const s of shares) {
+    if (s.removed_at) continue
+    if (!s.paid_at) continue
+    if (s.refunded_at) continue
+    paidAmount += parseFloat(s.amount) || 0
+  }
+  const totalAmount = parseFloat(rows[0].total_amount) || 0
+  if (totalAmount > 0.01 && paidAmount >= totalAmount - 0.01) {
+    return { error: 'already_fully_paid' }
+  }
+
+  const newStatus = paidAmount > 0.01 ? 'partially_paid' : 'pending_payments'
+  const dateYmd = normalizeBookingDateYmd(rows[0].booking_date)
+  const deadline = computePaymentDeadlineFromMinutes(dateYmd, extendMinutes)
+
+  await query(
+    `UPDATE club_bookings SET status = ?, payment_deadline_at = ?, paid_amount = ? WHERE id = ? AND club_id = ?`,
+    [newStatus, deadline, paidAmount, bookingId, clubId]
+  )
+  return { ok: true, status: newStatus, paymentDeadlineAt: deadline, paidAmount }
 }
 
 /**
