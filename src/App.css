@@ -3465,6 +3465,13 @@ button:active {
   box-shadow: 0 2px 10px rgba(217, 119, 6, 0.12);
 }
 
+.booking-event--kind-court.booking-event--pay-refund-pending {
+  background: linear-gradient(165deg, #fff7ed 0%, #ffedd5 100%);
+  border-left: 4px solid #ea580c !important;
+  color: #7c2d12;
+  box-shadow: 0 2px 10px rgba(234, 88, 12, 0.18);
+}
+
 .booking-event--kind-court.booking-event--pay-unpaid {
   background: linear-gradient(165deg, #fff1f2 0%, #ffe4e6 100%);
   border-left: 4px solid #e11d48 !important;
@@ -3484,6 +3491,13 @@ button:active {
   border-left: 4px solid #ca8a04 !important;
   color: #713f12;
   box-shadow: 0 2px 12px rgba(202, 138, 4, 0.15);
+}
+
+.booking-event--kind-training.booking-event--pay-refund-pending {
+  background: linear-gradient(145deg, #e0f2fe 0%, #fed7aa 100%);
+  border-left: 4px solid #ea580c !important;
+  color: #7c2d12;
+  box-shadow: 0 2px 12px rgba(234, 88, 12, 0.16);
 }
 
 .booking-event--kind-training.booking-event--pay-unpaid {
@@ -3628,6 +3642,12 @@ button:active {
   background: rgba(245, 158, 11, 0.2);
   color: #fcd34d;
   border-color: rgba(252, 211, 77, 0.35);
+}
+
+.booking-tooltip__pay--refund-pending {
+  background: rgba(251, 146, 60, 0.22);
+  color: #fdba74;
+  border-color: rgba(251, 146, 60, 0.4);
 }
 
 .booking-tooltip__pay--unpaid {
@@ -3869,6 +3889,11 @@ button:active {
 .bookings-legend-swatch--court-partial {
   background: linear-gradient(135deg, #fef3c7, #fde68a);
   border: 1px solid #d97706;
+}
+
+.bookings-legend-swatch--court-refund-pending {
+  background: linear-gradient(135deg, #ffedd5, #fdba74);
+  border: 1px solid #ea580c;
 }
 
 .bookings-legend-swatch--court-unpaid {

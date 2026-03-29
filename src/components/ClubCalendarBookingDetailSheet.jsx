@@ -103,7 +103,18 @@ export default function ClubCalendarBookingDetailSheet({
       ? 'ccd-sheet__pay--paid'
       : paymentStatus === 'partially_paid'
         ? 'ccd-sheet__pay--partial'
-        : 'ccd-sheet__pay--unpaid'
+        : paymentStatus === 'refund_pending'
+          ? 'ccd-sheet__pay--refund-pending'
+          : 'ccd-sheet__pay--unpaid'
+
+  const payHeaderLabel =
+    paymentStatus === 'paid'
+      ? t.paid
+      : paymentStatus === 'partially_paid'
+        ? t.partiallyPaid
+        : paymentStatus === 'refund_pending'
+          ? (t.calendarPaymentRefundPending || t.calendarDetailRefundPending)
+          : t.notPaid
 
   const trainingExtras = []
   if (kind === 'training') {
@@ -140,13 +151,7 @@ export default function ClubCalendarBookingDetailSheet({
           </div>
           {!booking?.isTournament && (
             <div className="ccd-sheet__header-meta">
-              <span className={`ccd-sheet__pay-badge ${payBadgeClass}`}>
-                {paymentStatus === 'paid'
-                  ? t.paid
-                  : paymentStatus === 'partially_paid'
-                    ? t.partiallyPaid
-                    : t.notPaid}
-              </span>
+              <span className={`ccd-sheet__pay-badge ${payBadgeClass}`}>{payHeaderLabel}</span>
               {isPlaytomic ? <span className="ccd-sheet__src-pill">{t.calendarTooltipPlaytomic}</span> : null}
             </div>
           )}

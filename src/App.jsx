@@ -31,7 +31,7 @@ import {
   getLegacyOpenCloseBounds,
   isSameDayIntervalWithinClubHours
 } from './utils/clubWorkingHours'
-import { isTerminalBookingStatus, isMemberCancelledBooking } from './utils/bookingMemberCancel'
+import { isTerminalBookingStatus, isMemberCancelledBooking, bookingHasPendingMemberShareRefund } from './utils/bookingMemberCancel'
 
 function bookingJsonData(booking) {
   const d = booking?.data
@@ -164,17 +164,21 @@ function CalendarBookingTooltip({
       ? 'booking-tooltip__pay--paid'
       : paymentStatus === 'partially_paid'
         ? 'booking-tooltip__pay--partial'
-        : paymentStatus
-          ? 'booking-tooltip__pay--unpaid'
-          : ''
+        : paymentStatus === 'refund_pending'
+          ? 'booking-tooltip__pay--refund-pending'
+          : paymentStatus
+            ? 'booking-tooltip__pay--unpaid'
+            : ''
   const payBadgeLabel =
     paymentStatus === 'paid'
       ? t.paid
       : paymentStatus === 'partially_paid'
         ? t.partiallyPaid
-        : paymentStatus
-          ? t.notPaid
-          : null
+        : paymentStatus === 'refund_pending'
+          ? t.calendarPaymentRefundPending
+          : paymentStatus
+            ? t.notPaid
+            : null
   const shares = Array.isArray(booking.paymentShares) ? booking.paymentShares : []
   const totalAmt = parseFloat(booking.totalAmount ?? booking.total_amount ?? booking.amount ?? 0) || 0
   const paidFromShares = shares.reduce((s, sh) => s + (sh.paidAt ? (parseFloat(sh.amount) || 0) : 0), 0)
@@ -4812,7 +4816,7 @@ function App({ currentUser }) {
     setBookingFormData(null)
   }
 
-  const getPaymentStatus = (booking) => {
+  const computeBasePaymentStatus = (booking) => {
     if (!booking) return 'not_paid'
     if (booking.isTournament) return 'paid'
 
@@ -4849,6 +4853,14 @@ function App({ currentUser }) {
     if (st === 'partially_paid') return 'partially_paid'
     if (st === 'confirmed') return 'paid'
     return 'not_paid'
+  }
+
+  const getPaymentStatus = (booking) => {
+    const base = computeBasePaymentStatus(booking)
+    if ((base === 'paid' || base === 'partially_paid') && bookingHasPendingMemberShareRefund(booking)) {
+      return 'refund_pending'
+    }
+    return base
   }
 
   // Bookings are loaded from club.bookings (DB) in loadSavedData
@@ -6576,6 +6588,7 @@ function App({ currentUser }) {
                       <div className="bookings-calendar-legend__strip">
                         <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--court-paid" aria-hidden />{t.calendarLegendCourtPaid}</span>
                         <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--court-partial" aria-hidden />{t.calendarLegendCourtPartial}</span>
+                        <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--court-refund-pending" aria-hidden />{t.calendarLegendCourtRefundPending}</span>
                         <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--court-unpaid" aria-hidden />{t.calendarLegendCourtUnpaid}</span>
                         <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--training" aria-hidden />{t.calendarLegendTraining}</span>
                         <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--king" aria-hidden />{t.calendarLegendKing}</span>
@@ -6685,19 +6698,23 @@ function App({ currentUser }) {
                                 } else {
                                   eventClass += ` booking-event--kind-${calKind}`
                                   eventClass +=
-                                    paymentStatus === 'paid'
-                                      ? ' booking-event--pay-paid'
-                                      : paymentStatus === 'partially_paid'
-                                        ? ' booking-event--pay-partial'
-                                        : ' booking-event--pay-unpaid'
+                                    paymentStatus === 'refund_pending'
+                                      ? ' booking-event--pay-refund-pending'
+                                      : paymentStatus === 'paid'
+                                        ? ' booking-event--pay-paid'
+                                        : paymentStatus === 'partially_paid'
+                                          ? ' booking-event--pay-partial'
+                                          : ' booking-event--pay-unpaid'
                                 }
                                 const paymentLabelStr = isTournamentBooking
                                   ? '—'
-                                  : paymentStatus === 'paid'
-                                    ? t.paid
-                                    : paymentStatus === 'partially_paid'
-                                      ? t.partiallyPaid
-                                      : t.notPaid
+                                  : paymentStatus === 'refund_pending'
+                                    ? t.calendarPaymentRefundPending
+                                    : paymentStatus === 'paid'
+                                      ? t.paid
+                                      : paymentStatus === 'partially_paid'
+                                        ? t.partiallyPaid
+                                        : t.notPaid
                                 return (
                                   <div
                                     key={booking.id}
@@ -6722,7 +6739,7 @@ function App({ currentUser }) {
                                   >
                                       {!isTournamentBooking && (
                                       <div className="booking-status-badge">
-                                        {paymentStatus === 'paid' ? '✓' : paymentStatus === 'partially_paid' ? '⚠' : '✗'}
+                                        {paymentStatus === 'refund_pending' ? '⏳' : paymentStatus === 'paid' ? '✓' : paymentStatus === 'partially_paid' ? '⚠' : '✗'}
                                       </div>
                                       )}
                                       {isTournamentBooking && (
@@ -6925,19 +6942,23 @@ function App({ currentUser }) {
                                   } else {
                                     eventClass += ` booking-event--kind-${calKind}`
                                     eventClass +=
-                                      paymentStatus === 'paid'
-                                        ? ' booking-event--pay-paid'
-                                        : paymentStatus === 'partially_paid'
-                                          ? ' booking-event--pay-partial'
-                                          : ' booking-event--pay-unpaid'
+                                      paymentStatus === 'refund_pending'
+                                        ? ' booking-event--pay-refund-pending'
+                                        : paymentStatus === 'paid'
+                                          ? ' booking-event--pay-paid'
+                                          : paymentStatus === 'partially_paid'
+                                            ? ' booking-event--pay-partial'
+                                            : ' booking-event--pay-unpaid'
                                   }
                                   const paymentLabelStr = isTournamentBooking
                                     ? '—'
-                                    : paymentStatus === 'paid'
-                                      ? t.paid
-                                      : paymentStatus === 'partially_paid'
-                                        ? t.partiallyPaid
-                                        : t.notPaid
+                                    : paymentStatus === 'refund_pending'
+                                      ? t.calendarPaymentRefundPending
+                                      : paymentStatus === 'paid'
+                                        ? t.paid
+                                        : paymentStatus === 'partially_paid'
+                                          ? t.partiallyPaid
+                                          : t.notPaid
                                   return (
                                     <div
                                       key={booking.id}
@@ -6959,7 +6980,7 @@ function App({ currentUser }) {
                                     >
                                       {!isTournamentBooking && (
                                       <div className="booking-status-badge">
-                                        {paymentStatus === 'paid' ? '✓' : paymentStatus === 'partially_paid' ? '⚠' : '✗'}
+                                        {paymentStatus === 'refund_pending' ? '⏳' : paymentStatus === 'paid' ? '✓' : paymentStatus === 'partially_paid' ? '⚠' : '✗'}
                                       </div>
                                       )}
                                       {isTournamentBooking && (
@@ -7016,7 +7037,15 @@ function App({ currentUser }) {
                   const isTH = !!hb.isTournament
                   const pStat = getPaymentStatus(hb)
                   const pLabel =
-                    isTH ? '—' : pStat === 'paid' ? t.paid : pStat === 'partially_paid' ? t.partiallyPaid : t.notPaid
+                    isTH
+                      ? '—'
+                      : pStat === 'refund_pending'
+                        ? t.calendarPaymentRefundPending
+                        : pStat === 'paid'
+                          ? t.paid
+                          : pStat === 'partially_paid'
+                            ? t.partiallyPaid
+                            : t.notPaid
                   const vw = typeof window !== 'undefined' ? window.innerWidth : 1024
                   const vh = typeof window !== 'undefined' ? window.innerHeight : 768
                   const margin = 12

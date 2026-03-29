@@ -158,6 +158,11 @@
   background: #ffedd5;
   color: #9a3412;
 }
+.ccd-sheet__pay--refund-pending {
+  background: #ffedd5;
+  color: #c2410c;
+  border: 1px solid rgba(234, 88, 12, 0.35);
+}
 .ccd-sheet__pay--unpaid {
   background: #fee2e2;
   color: #991b1b;
