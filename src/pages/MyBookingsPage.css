@@ -2353,3 +2353,74 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ----- Split: remainder pay + co-add permission ----- */
+.my-bookings-price-note {
+  margin-top: 8px;
+  padding: 8px 10px;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--mb-text-muted);
+  background: var(--mb-bg);
+  border-radius: var(--mb-radius-sm);
+  border: 1px dashed var(--mb-border);
+}
+
+.my-bookings-coadd-toggle {
+  margin-top: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--mb-bg);
+  border-radius: var(--mb-radius-sm);
+  border: 1px solid var(--mb-border);
+}
+
+.my-bookings-coadd-toggle input {
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.my-bookings-coadd-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.875rem;
+  color: var(--mb-text);
+  cursor: pointer;
+}
+
+.my-bookings-coadd-hint {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--mb-text-muted);
+}
+
+.my-bookings-remainder {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--mb-warning-bg);
+  border: 1px solid rgba(217, 119, 6, 0.25);
+  border-radius: var(--mb-radius-sm);
+}
+
+.my-bookings-remainder-title {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--mb-text);
+  margin-bottom: 4px;
+}
+
+.my-bookings-remainder-hint {
+  font-size: 0.8125rem;
+  color: var(--mb-text-muted);
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+
+.my-bookings-remainder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

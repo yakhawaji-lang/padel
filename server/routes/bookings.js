@@ -100,6 +100,18 @@ function shareRowBelongsToMember(row, memberId, memberPhoneRaw) {
   return mt.length >= 8 && st.length >= 8 && mt === st
 }
 
+async function memberIsSplitParticipantOnBooking(bookingId, clubId, memberId) {
+  const { rows: memRows } = await query('SELECT mobile, phone FROM members WHERE id = ? AND deleted_at IS NULL', [
+    String(memberId),
+  ])
+  const phoneRaw = memRows?.[0]?.mobile || memRows?.[0]?.phone || ''
+  const { rows: shareRows } = await query(
+    `SELECT member_id, phone FROM booking_payment_shares WHERE booking_id = ? AND club_id = ? AND removed_at IS NULL`,
+    [bookingId, clubId]
+  )
+  return (shareRows || []).some((row) => shareRowBelongsToMember(row, memberId, phoneRaw))
+}
+
 function shareAllowsElectronicRefundFromPaymentRow(row) {
   const pm = String(row.payment_method || '').toLowerCase().trim()
   if (!pm || pm === 'at_club' || pm === 'pay_at_club' || pm === 'cash') return false
@@ -1051,6 +1063,178 @@ router.post('/record-payment', async (req, res) => {
   }
 })
 
+/** POST /api/bookings/set-allow-co-add-split — الحاجز يسمح للمشاركين بإضافة آخرين للتقسيم */
+router.post('/set-allow-co-add-split', async (req, res) => {
+  try {
+    const { bookingId, clubId, memberId, allow } = req.body || {}
+    if (!bookingId || !clubId || !memberId) {
+      return res.status(400).json({ error: 'bookingId, clubId, memberId required' })
+    }
+    const actor = getActorFromRequest(req)
+    if (!actor.actorId || String(actor.actorId) !== String(memberId)) {
+      return res.status(401).json({ error: 'Member authentication required' })
+    }
+    const { rows: bRows } = await query(
+      `SELECT member_id, initiator_member_id FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
+      [bookingId, clubId]
+    )
+    if (!bRows?.length) return res.status(404).json({ error: 'Booking not found' })
+    const initiator = String(bRows[0].initiator_member_id || bRows[0].member_id || '')
+    if (String(memberId) !== initiator) return res.status(403).json({ error: 'Only booker can change this setting' })
+    await mergeClubBookingDataJson(bookingId, clubId, { allowParticipantsAddSplit: !!allow })
+    res.json({ ok: true, allowParticipantsAddSplit: !!allow })
+  } catch (e) {
+    console.error('bookings set-allow-co-add-split error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/**
+ * POST /api/bookings/record-remainder-payment — تسوية كل الحصص غير المدفوعة دفعة واحدة (حاجز أو أي مشارك).
+ * wallet: يخصم من محفظة الفاعل (X-Actor-Id) إجمالي المتبقي. at_club / electronic: كما record-payment لكل حصة.
+ */
+router.post('/record-remainder-payment', async (req, res) => {
+  try {
+    const { bookingId, clubId, memberId, paymentMethod, paymentReference } = req.body || {}
+    if (!bookingId || !clubId || !memberId) {
+      return res.status(400).json({ error: 'bookingId, clubId, memberId required' })
+    }
+    const actor = getActorFromRequest(req)
+    if (!actor.actorId || String(actor.actorId) !== String(memberId)) {
+      return res.status(401).json({ error: 'Member authentication required' })
+    }
+    const { rows: bRows } = await query(
+      `SELECT id, member_id, initiator_member_id, status FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
+      [bookingId, clubId]
+    )
+    if (!bRows?.length) return res.status(404).json({ error: 'Booking not found' })
+    const st = (bRows[0].status || '').toString().toLowerCase()
+    if (['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st)) {
+      return res.status(400).json({ error: 'Cannot pay this booking' })
+    }
+    const initiator = String(bRows[0].initiator_member_id || bRows[0].member_id || '')
+    const okParticipant =
+      String(memberId) === initiator || (await memberIsSplitParticipantOnBooking(bookingId, clubId, memberId))
+    if (!okParticipant) return res.status(403).json({ error: 'Not allowed to settle this booking' })
+
+    const { rows: shareRows } = await query(
+      `SELECT id, amount, paid_at, removed_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
+      [bookingId, clubId]
+    )
+    const unpaid = (shareRows || []).filter((s) => !s.removed_at && !s.paid_at)
+    if (unpaid.length === 0) return res.status(400).json({ error: 'No unpaid shares' })
+    const totalRemainder = Math.round(unpaid.reduce((a, s) => a + (parseFloat(s.amount) || 0), 0) * 100) / 100
+    if (totalRemainder <= 0.009) return res.status(400).json({ error: 'Nothing to pay' })
+
+    const pmRaw = String(paymentMethod || '').toLowerCase().trim()
+    const isWallet = pmRaw === 'wallet'
+    const isAtClub = pmRaw === 'at_club'
+    const isElectronic = !!(paymentReference && String(paymentReference).trim()) && !isWallet
+
+    if (isWallet) {
+      const debit = await walletService.debitWallet(clubId, String(memberId), totalRemainder, {
+        reason: 'booking_split_remainder',
+        refType: 'booking_remainder',
+        refId: `${String(bookingId)}-${String(clubId)}`,
+      })
+      if (!debit.ok) return res.status(400).json({ error: debit.error || 'Wallet payment failed' })
+      try {
+        for (const s of unpaid) {
+          const upd = await query(
+            `UPDATE booking_payment_shares SET paid_at = NOW(), payment_reference = NULL, payment_method = ? WHERE id = ? AND club_id = ? AND paid_at IS NULL`,
+            ['wallet', s.id, clubId]
+          )
+          if (!upd.affectedRows) throw new Error('share_state_changed')
+        }
+      } catch (err) {
+        await walletService.creditWallet(clubId, String(memberId), totalRemainder, {
+          reason: 'rollback_booking_remainder_wallet',
+          refType: 'booking_remainder',
+          refId: `${String(bookingId)}-${String(clubId)}`,
+        })
+        return res.status(409).json({ error: 'Share payment state changed; wallet was not charged.' })
+      }
+    } else if (isAtClub) {
+      for (const s of unpaid) {
+        await query(
+          `UPDATE booking_payment_shares SET paid_at = NULL, payment_reference = NULL, payment_method = ? WHERE id = ? AND club_id = ? AND paid_at IS NULL`,
+          ['at_club', s.id, clubId]
+        )
+      }
+    } else if (isElectronic) {
+      const pref = String(paymentReference).trim()
+      for (const s of unpaid) {
+        await query(
+          `UPDATE booking_payment_shares SET paid_at = NOW(), payment_reference = ?, payment_method = ? WHERE id = ? AND club_id = ? AND paid_at IS NULL`,
+          [pref, 'electronic', s.id, clubId]
+        )
+      }
+    } else {
+      const pref = paymentReference != null ? String(paymentReference) : null
+      for (const s of unpaid) {
+        await query(
+          `UPDATE booking_payment_shares SET paid_at = NOW(), payment_reference = ?, payment_method = ? WHERE id = ? AND club_id = ? AND paid_at IS NULL`,
+          [pref, null, s.id, clubId]
+        )
+      }
+    }
+
+    if (!isAtClub) {
+      try {
+        let shareBookingKind = 'court'
+        try {
+          const { rows: dr } = await query('SELECT data FROM club_bookings WHERE id = ? AND club_id = ?', [
+            bookingId,
+            clubId,
+          ])
+          shareBookingKind = invoiceService.bookingInvoiceKindFromRowData(parseBookingJsonData(dr?.[0]?.data))
+        } catch (_) {}
+        for (const s of unpaid) {
+          const sr = await query(`${shareForInvoiceSql} WHERE bps.id = ? AND bps.club_id = ?`, [s.id, clubId])
+          const sh = sr.rows?.[0]
+          if (!sh) continue
+          try {
+            await invoiceService.issueInvoiceForPaidShare({
+              clubId,
+              bookingId,
+              shareId: sh.id,
+              amount: sh.amount,
+              currency: sh.currency,
+              memberId: sh.member_id,
+              memberName: sh.member_name,
+              phone: sh.phone,
+              paymentMethod: isWallet ? 'wallet' : isElectronic ? 'electronic' : 'other',
+              paymentReference: isWallet ? `wallet:${sh.id}` : paymentReference || null,
+              bookingKind: shareBookingKind,
+            })
+          } catch (invErr) {
+            console.warn('[record-remainder-payment] invoice:', invErr?.message)
+          }
+        }
+      } catch (invOuter) {
+        console.warn('[record-remainder-payment] invoice batch:', invOuter?.message)
+      }
+    }
+
+    const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bookingId, clubId)
+    const paidAmount = rec?.paidAmount ?? 0
+    const status = rec?.status ?? 'pending_payments'
+    if (status !== 'confirmed' && !['cancelled', 'cancelled_awaiting_refund_ack', 'expired'].includes(status)) {
+      await bookingService.extendPaymentDeadlineAfterShareProgress(bookingId, clubId)
+    }
+    const { rows: bDate } = await query('SELECT booking_date FROM club_bookings WHERE id = ? AND club_id = ?', [
+      bookingId,
+      clubId,
+    ])
+    const dateStr = bDate[0]?.booking_date ? String(bDate[0].booking_date).split('T')[0] : null
+    if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
+    res.json({ ok: true, paidAmount, status, remainderPaid: totalRemainder })
+  } catch (e) {
+    console.error('bookings record-remainder-payment error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
 /** POST /api/bookings/mark-share-paid-at-club - Admin marks a participant share as paid when cash received at club */
 router.post('/mark-share-paid-at-club', async (req, res) => {
   try {
@@ -1771,15 +1955,20 @@ router.post('/add-split-participants', async (req, res) => {
     if (!bRows?.length) return res.status(404).json({ error: 'Booking not found' })
     const b = bRows[0]
     const initiator = String(b.initiator_member_id || b.member_id || '')
-    if (String(memberId) !== initiator) return res.status(403).json({ error: 'Only booker can add participants' })
-    const st = (b.status || '').toString()
-    if (['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st)) {
-      return res.status(400).json({ error: 'Cannot modify this booking' })
-    }
     let data = {}
     try {
       data = typeof b.data === 'object' ? b.data : JSON.parse(b.data || '{}')
     } catch (_) {}
+    const allowCoAdd = !!data.allowParticipantsAddSplit
+    if (String(memberId) !== initiator) {
+      if (!allowCoAdd) return res.status(403).json({ error: 'Only booker can add participants' })
+      const isParticipant = await memberIsSplitParticipantOnBooking(bookingId, clubId, memberId)
+      if (!isParticipant) return res.status(403).json({ error: 'Not a participant on this booking' })
+    }
+    const st = (b.status || '').toString()
+    if (['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st)) {
+      return res.status(400).json({ error: 'Cannot modify this booking' })
+    }
     let anyShareRes
     try {
       anyShareRes = await query(

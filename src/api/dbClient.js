@@ -46,6 +46,8 @@ function needsDataActorHeaders(path, method) {
   if (m === 'POST' && path === '/api/bookings/admin-fulfill-member-share-refund') return true
   if (m === 'POST' && path === '/api/bookings/admin-extend-split-deadline') return true
   if (m === 'POST' && path === '/api/bookings/record-payment') return true
+  if (m === 'POST' && path === '/api/bookings/set-allow-co-add-split') return true
+  if (m === 'POST' && path === '/api/bookings/record-remainder-payment') return true
   return false
 }
 
@@ -619,6 +621,28 @@ export async function addSplitParticipants({ bookingId, clubId, memberId, paymen
   return fetchJson('/api/bookings/add-split-participants', {
     method: 'POST',
     body: JSON.stringify({ bookingId, clubId, memberId, paymentShares })
+  })
+}
+
+/** Booker: allow other split participants to add people to the payment split */
+export async function setAllowCoAddSplit({ bookingId, clubId, memberId, allow }) {
+  return fetchJson('/api/bookings/set-allow-co-add-split', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId, memberId, allow: !!allow })
+  })
+}
+
+/** Booker or participant: pay all unpaid shares in one step (wallet / at_club / electronic ref) */
+export async function recordRemainderPayment({ bookingId, clubId, memberId, paymentMethod, paymentReference }) {
+  return fetchJson('/api/bookings/record-remainder-payment', {
+    method: 'POST',
+    body: JSON.stringify({
+      bookingId,
+      clubId,
+      memberId,
+      paymentMethod,
+      ...(paymentReference != null && paymentReference !== '' ? { paymentReference } : {})
+    })
   })
 }
 

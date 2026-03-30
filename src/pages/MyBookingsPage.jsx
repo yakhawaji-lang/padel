@@ -18,6 +18,7 @@ import { normalizePhone } from '../utils/phoneNormalize'
 import { buildPayShareAbsoluteUrl, buildWhatsAppHrefForSplitInvite, buildClubPublicAbsoluteUrl } from '../utils/splitInviteLinks'
 import { getTournamentMemberPaymentEntry } from '../utils/tournamentHelpers.js'
 import { isContactsPickSupported, pickPhoneNumbersFromContacts } from '../utils/contactPicker'
+import { calculateBookingPrice } from '../utils/bookingPricing'
 
 /** حجوزات مُلغاة أو منتهية أو بانتظار تأكيد الاسترداد — تظهر في تبويب «ملغاة» وليس في القادمة/السابقة */
 const LIST_CANCELLED_STATUSES = ['cancelled', 'expired', 'cancelled_awaiting_refund_ack']
@@ -51,6 +52,66 @@ function getSplitBudgetForBooking(booking) {
   )
   const remaining = Math.max(0, total - activeSum)
   return { total, activeSum, remaining }
+}
+
+/** Paid vs total split: outstanding = unpaid share amounts + any gap before full booking total is allocated */
+function getSplitPaymentProgress(booking) {
+  const total = parseFloat(booking?.totalAmount ?? booking?.total_amount ?? 0) || 0
+  const shares = Array.isArray(booking?.paymentShares) ? booking.paymentShares : []
+  const active = shares.filter((s) => !(s.removedAt || s.removed_at))
+  const allocated = active.reduce((s, sh) => s + (parseFloat(sh.amount) || 0), 0)
+  const paidSum = active.reduce(
+    (s, sh) =>
+      s +
+      ((sh.paidAt || sh.paid_at) && !(sh.refundedAt || sh.refunded_at) ? parseFloat(sh.amount) || 0 : 0),
+    0
+  )
+  const unpaidSum = active.reduce(
+    (s, sh) =>
+      s +
+      (!(sh.paidAt || sh.paid_at) && !(sh.refundedAt || sh.refunded_at) ? parseFloat(sh.amount) || 0 : 0),
+    0
+  )
+  const unallocated = Math.max(0, total - allocated)
+  const outstanding = Math.max(0, unpaidSum + unallocated)
+  return {
+    total,
+    allocated,
+    paidSum,
+    outstanding,
+    unpaidCount: active.filter((s) => !(s.paidAt || s.paid_at)).length,
+  }
+}
+
+function getBookingDurationMinutesForClubPricing(booking) {
+  const fixed = booking?.data?.durationMinutes ?? booking?.durationMinutes
+  if (Number.isFinite(Number(fixed)) && Number(fixed) >= 30) return Number(fixed)
+  const st = booking?.startTime || booking?.timeSlot || ''
+  const en = booking?.endTime || ''
+  if (st && en && String(st).includes(':') && String(en).includes(':')) {
+    const [sh, sm] = String(st).split(':').map((x) => parseInt(x, 10) || 0)
+    const [eh, em] = String(en).split(':').map((x) => parseInt(x, 10) || 0)
+    const m = eh * 60 + em - (sh * 60 + sm)
+    if (m >= 30) return m
+  }
+  return 60
+}
+
+function getClubPriceRateHint(booking, club, dateStr) {
+  if (!club?.settings || booking?.isTournament || !dateStr) return null
+  try {
+    const startRaw = booking.startTime || booking.timeSlot || '12:00'
+    const startTime = String(startRaw).substring(0, 5)
+    const dur = getBookingDurationMinutesForClubPricing(booking)
+    const rec = calculateBookingPrice(club, dateStr, startTime, dur)
+    const stored = parseFloat(booking.totalAmount ?? booking.total_amount ?? 0) || 0
+    if (rec.price <= 0.01 || stored <= 0.01) return null
+    if (Math.abs(rec.price - stored) < 0.51) return null
+    const currency = rec.currency || club.settings?.currency || 'SAR'
+    return { clubRate: rec.price, lockedTotal: stored, currency }
+  } catch {
+    return null
+  }
 }
 
 function splitPhoneDigits(phone) {
@@ -607,6 +668,57 @@ const MyBookingsPage = () => {
     }
   }
 
+  const handleSetAllowCoAddSplit = async (booking, club, allow) => {
+    if (!member?.id || !booking?.id || !club?.id) return
+    setMarkingPayAtClub(`coadd-${booking.id}`)
+    try {
+      await bookingApi.setAllowCoAddSplit({
+        bookingId: booking.id,
+        clubId: club.id,
+        memberId: member.id,
+        allow: !!allow
+      })
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      await refreshClubsFromApi()
+      loadClubs()
+      setBookings(getMemberBookings(member.id))
+    } catch (e) {
+      if (typeof window !== 'undefined') {
+        window.alert(
+          e?.message || (language === 'ar' ? 'تعذّر حفظ الإعداد.' : 'Could not save setting.')
+        )
+      }
+    } finally {
+      setMarkingPayAtClub(null)
+    }
+  }
+
+  const handleRemainderPayment = async (booking, club, paymentMethod, paymentReference) => {
+    if (!member?.id || !booking?.id || !club?.id) return
+    setMarkingPayAtClub(`rem-${booking.id}`)
+    try {
+      await bookingApi.recordRemainderPayment({
+        bookingId: booking.id,
+        clubId: club.id,
+        memberId: member.id,
+        paymentMethod,
+        paymentReference
+      })
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      await refreshClubsFromApi()
+      loadClubs()
+      setBookings(getMemberBookings(member.id))
+      await loadWalletBalances()
+      setPayMenuOpen(null)
+    } catch (e) {
+      if (typeof window !== 'undefined') {
+        window.alert(e?.message || (language === 'ar' ? 'فشل تسوية المتبقي.' : 'Could not settle remainder.'))
+      }
+    } finally {
+      setMarkingPayAtClub(null)
+    }
+  }
+
   const getStatusLabel = (status) => {
     const s = (status || 'confirmed').toString().toLowerCase()
     const labels = {
@@ -659,7 +771,9 @@ const MyBookingsPage = () => {
     const st = (booking.status || '').toString()
     if (['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st)) return false
     const initiator = String(booking.memberId || booking.initiatorMemberId || '') === String(m.id)
-    if (!initiator) return false
+    const allowCo = !!(booking?.data?.allowParticipantsAddSplit)
+    const isParticipant = !!findPaymentShareForMember(booking, m)
+    if (!initiator && !(allowCo && isParticipant)) return false
     const shares = booking.paymentShares || []
     if (!Array.isArray(shares) || shares.length === 0) return false
     if (isSplitFullyPaidByAllParticipants(booking)) return false
@@ -677,6 +791,17 @@ const MyBookingsPage = () => {
       court: 'Court',
       club: 'Club',
       price: 'Price',
+      priceNoteLabel: 'Club rates',
+      priceNoteBody:
+        'Current club price for this duration: {clubRate} {currency}. Your booking total (locked when you booked): {locked}.',
+      remainderTitle: 'Remaining to pay',
+      remainderSubtitle: 'Booker or any participant can settle all unpaid shares at once.',
+      payRemainderAtClub: 'Pay remainder at club',
+      payRemainderWallet: 'Pay remainder from wallet',
+      payRemainderOnline: 'Pay remainder online',
+      allowCoAddSplit: 'Let participants add split members',
+      allowCoAddSplitHint:
+        'When on, anyone on this split can use “Add participants” (same rules as you for amounts and budget).',
       status: 'Status',
       actions: 'Actions',
       cancel: 'Cancel',
@@ -777,6 +902,17 @@ const MyBookingsPage = () => {
       court: 'الملعب',
       club: 'النادي',
       price: 'السعر',
+      priceNoteLabel: 'أسعار النادي',
+      priceNoteBody:
+        'سعر النادي الحالي لنفس المدة: {clubRate} {currency}. إجمالي حجزك (ثابت عند الحجز): {locked}.',
+      remainderTitle: 'المتبقي للدفع',
+      remainderSubtitle: 'الحاجز أو أي مشارك يمكنه تسوية كل الحصص غير المدفوعة دفعة واحدة.',
+      payRemainderAtClub: 'دفع المتبقي في النادي',
+      payRemainderWallet: 'دفع المتبقي من المحفظة',
+      payRemainderOnline: 'دفع المتبقي إلكترونياً',
+      allowCoAddSplit: 'السماح للمشاركين بإضافة مقسِّمين',
+      allowCoAddSplitHint:
+        'عند التفعيل، يمكن لأي شخص في التقسيم استخدام «إضافة مشاركين» ضمن نفس قواعد الميزانية.',
       status: 'الحالة',
       actions: 'إجراءات',
       cancel: 'إلغاء',
@@ -1132,6 +1268,18 @@ const MyBookingsPage = () => {
     const showAddSplit = canAddSplitParticipants(booking, club, member)
     const isBooker = String(booking.memberId || booking.initiatorMemberId || '') === String(member?.id || '')
     const mySplitShare = member ? findPaymentShareForMember(booking, member) : null
+    const splitProgress =
+      !booking.isTournament && (booking.paymentShares || []).length > 0
+        ? getSplitPaymentProgress(booking)
+        : { total: 0, paidSum: 0, outstanding: 0, unpaidCount: 0, allocated: 0 }
+    const clubRateHint =
+      !booking.isTournament && club && dateStr ? getClubPriceRateHint(booking, club, dateStr) : null
+    const showRemainderActions =
+      isUpcoming &&
+      !booking.isTournament &&
+      visibleShares.length > 0 &&
+      splitProgress.outstanding > 0.02 &&
+      !terminalCancelled
 
     return {
       key: `${club?.id}-${booking.id}-${i}`,
@@ -1158,6 +1306,9 @@ const MyBookingsPage = () => {
       showAddSplit,
       isBooker,
       mySplitShare,
+      splitProgress,
+      clubRateHint,
+      showRemainderActions,
       tournamentEntry,
       tournamentAwaitingClub,
       terminalCancelled,
@@ -1415,6 +1566,17 @@ const MyBookingsPage = () => {
                         <span className="my-bookings-card-label">{c.price}</span>
                         <span className="my-bookings-card-value my-bookings-card-value--price">{r.priceText}</span>
                       </div>
+                      {r.clubRateHint ? (
+                        <div className="my-bookings-card-field my-bookings-card-field--wide my-bookings-price-note-wrap">
+                          <span className="my-bookings-card-label">{c.priceNoteLabel}</span>
+                          <span className="my-bookings-card-value my-bookings-price-note">
+                            {c.priceNoteBody
+                              .replace('{clubRate}', r.clubRateHint.clubRate.toFixed(2))
+                              .replace('{currency}', r.clubRateHint.currency)
+                              .replace('{locked}', r.clubRateHint.lockedTotal.toFixed(2))}
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                   {Array.isArray(r.visibleShares) && r.visibleShares.length > 0 && (
@@ -1423,6 +1585,23 @@ const MyBookingsPage = () => {
                         <h3 className="my-bookings-participants-title">{c.splitParticipants}</h3>
                         {r.isBooker ? <p className="my-bookings-participants-hint">{c.yourShareAmountsHint}</p> : null}
                       </div>
+                      {r.isBooker && filter === 'upcoming' && !r.terminalCancelled && !r.isTournament ? (
+                        <label className="my-bookings-coadd-toggle">
+                          <input
+                            type="checkbox"
+                            checked={!!(r.booking?.data?.allowParticipantsAddSplit)}
+                            disabled={markingPayAtClub === `coadd-${r.booking.id}`}
+                            onChange={(e) => {
+                              e.stopPropagation()
+                              handleSetAllowCoAddSplit(r.booking, r.club, e.target.checked)
+                            }}
+                          />
+                          <span>
+                            <strong>{c.allowCoAddSplit}</strong>
+                            <span className="my-bookings-coadd-toggle-hint">{c.allowCoAddSplitHint}</span>
+                          </span>
+                        </label>
+                      ) : null}
                       <ul className="my-bookings-participants-list">
                         {r.visibleShares.slice(0, 12).map((s, idx) => {
                           const name = (() => {
@@ -1624,6 +1803,65 @@ const MyBookingsPage = () => {
                           )
                         })}
                       </ul>
+                      {r.showRemainderActions ? (
+                        <div className="my-bookings-remainder-bar" onClick={(e) => e.stopPropagation()}>
+                          <div className="my-bookings-remainder-head">
+                            <strong className="my-bookings-remainder-title">{c.remainderTitle}</strong>
+                            <span className="my-bookings-remainder-amount">
+                              {r.splitProgress.outstanding.toFixed(2)} {r.currencyStr}
+                            </span>
+                          </div>
+                          <p className="my-bookings-remainder-sub">{c.remainderSubtitle}</p>
+                          <div className="my-bookings-remainder-actions">
+                            <button
+                              type="button"
+                              className="my-bookings-remainder-btn"
+                              disabled={markingPayAtClub === `rem-${r.booking.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleRemainderPayment(r.booking, r.club, 'at_club')
+                              }}
+                            >
+                              {c.payRemainderAtClub}
+                            </button>
+                            {(() => {
+                              const cid = r.club?.id
+                              const wReady = cid != null && Object.prototype.hasOwnProperty.call(walletByClub, cid)
+                              const bal = wReady ? Number(walletByClub[cid]) || 0 : 0
+                              const need = r.splitProgress.outstanding
+                              const canW = wReady && bal + 1e-9 >= need
+                              return (
+                                <button
+                                  type="button"
+                                  className="my-bookings-remainder-btn my-bookings-remainder-btn--wallet"
+                                  disabled={
+                                    markingPayAtClub === `rem-${r.booking.id}` || !canW
+                                  }
+                                  title={!wReady ? c.loading : !canW ? c.walletSubtitle : ''}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleRemainderPayment(r.booking, r.club, 'wallet')
+                                  }}
+                                >
+                                  {c.payRemainderWallet}
+                                </button>
+                              )
+                            })()}
+                            <button
+                              type="button"
+                              className="my-bookings-remainder-btn my-bookings-remainder-btn--secondary"
+                              disabled={markingPayAtClub === `rem-${r.booking.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const ref = `online-${Date.now()}`
+                                handleRemainderPayment(r.booking, r.club, 'credit_card', ref)
+                              }}
+                            >
+                              {c.payRemainderOnline}
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
                       {r.visibleShares.length > 12 && (
                         <p className="my-bookings-participants-more">
                           +{r.visibleShares.length - 12} {language === 'en' ? 'more' : 'المزيد'}
