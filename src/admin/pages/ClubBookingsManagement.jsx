@@ -36,11 +36,6 @@ function classifyAdminBooking(b) {
   return 'court'
 }
 
-/** Keys refund draft state; must stay in sync between the row UI and handleAdminRefundShare. */
-function paymentShareRefundDraftKey(share, idx) {
-  return String(share?.id || share?.inviteToken || `i${idx}`)
-}
-
 const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   const [bookings, setBookings] = useState([])
   const [filter, setFilter] = useState('upcoming')
@@ -49,8 +44,6 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   const [editBooking, setEditBooking] = useState(null)
   const [editForm, setEditForm] = useState({})
   const [expandedPaymentId, setExpandedPaymentId] = useState(null)
-  const [refundDraftByShareId, setRefundDraftByShareId] = useState({})
-  const [fullRefundDraft, setFullRefundDraft] = useState({})
   const [splitExtendMinutesDraft, setSplitExtendMinutesDraft] = useState({})
 
   const refreshFromCache = () => {
@@ -306,56 +299,6 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
         ? `Failed to delete: ${e?.message || 'Server error. Try again.'}`
         : `فشل الحذف: ${e?.message || 'خطأ في الخادم. حاول مرة أخرى.'}`
       showError(msg)
-    } finally {
-      setActionLoading(null)
-    }
-  }
-
-  const handleAdminRefundShare = async (share, bookingId, { removeFromBooking, shareKey }) => {
-    const draftKey = shareKey != null && shareKey !== '' ? String(shareKey) : String(share.id || share.inviteToken || '')
-    const draft = refundDraftByShareId[draftKey] || {}
-    const refundMethod = draft.method || 'cash'
-    const refundReference = (draft.reference || '').trim() || undefined
-    const refundNotes = (draft.notes || '').trim() || undefined
-    if (!club?.id || !bookingId) return
-    const key = `refund-${share.id || share.inviteToken}`
-    setActionLoading(key)
-    try {
-      await bookingApi.adminRefundShare({
-        shareId: share.id || undefined,
-        inviteToken: share.inviteToken || undefined,
-        clubId: club.id,
-        refundMethod,
-        refundReference,
-        refundNotes,
-        removeFromBooking: !!removeFromBooking
-      })
-      refreshFromServer()
-    } catch (e) {
-      window.alert(language === 'en' ? (e?.message || 'Refund failed') : (e?.message || 'فشل الاسترداد'))
-    } finally {
-      setActionLoading(null)
-    }
-  }
-
-  const handleAdminRefundFull = async (bookingId) => {
-    if (!club?.id || !bookingId) return
-    const draft = fullRefundDraft[bookingId] || {}
-    if (!window.confirm(language === 'en'
-      ? 'Refund all paid participants and cancel the booking? Payers will confirm receipt in the app.'
-      : 'استرداد المدفوع لجميع المشاركين وإلغاء الحجز؟ سيؤكد الدافعون الاستلام من التطبيق.')) return
-    setActionLoading('full-refund-' + bookingId)
-    try {
-      await bookingApi.adminRefundBookingFull({
-        bookingId,
-        clubId: club.id,
-        refundMethod: draft.method || 'cash',
-        refundReference: (draft.reference || '').trim() || undefined,
-        refundNotes: (draft.notes || '').trim() || undefined
-      })
-      refreshFromServer()
-    } catch (e) {
-      window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
     } finally {
       setActionLoading(null)
     }
@@ -634,17 +577,10 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       booker: 'Booker',
       pending: 'Pending',
       clickToExpand: 'Click to view payment details',
-      refundHow: 'Refund channel',
       refundRef: 'Reference / receipt',
-      refundNotesPh: 'Internal notes',
-      recordRefund: 'Record refund',
-      refundAndRemove: 'Refund & remove from split',
-      refundAll: 'Refund all & cancel booking',
       refunded: 'Refunded',
       removedParticipant: 'Removed',
       payerConfirmPending: 'Awaiting payer confirmation',
-      stripeManualHint: 'Process the reversal in Stripe dashboard, then enter the refund ID above.',
-      electronicHint: 'For card/Mada, process reversal in your gateway and note the reference.',
       refundAckDone: 'Participant confirmed receipt',
       editDisabledTournament: 'Edit tournament blocks from the tournament section of the club app.',
       expiredSplitBannerTitle: 'Split payment deadline passed',
@@ -746,17 +682,10 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       booker: 'الحاجز',
       pending: 'قيد الانتظار',
       clickToExpand: 'انقر لعرض تفاصيل الدفع',
-      refundHow: 'قناة الاسترداد',
       refundRef: 'مرجع / إيصال',
-      refundNotesPh: 'ملاحظات داخلية',
-      recordRefund: 'تسجيل الاسترداد',
-      refundAndRemove: 'استرداد وإزالة من التقسيم',
-      refundAll: 'استرداد الجميع وإلغاء الحجز',
       refunded: 'مسترد',
       removedParticipant: 'مُزال',
       payerConfirmPending: 'بانتظار تأكيد المسترد',
-      stripeManualHint: 'نفّذ الاسترداد من لوحة Stripe ثم أدخل رقم الاسترداد أعلاه.',
-      electronicHint: 'لبطاقة/مدى، نفّذ العكس من بوابة الدفع وسجّل المرجع.',
       refundAckDone: 'أكد المشارك الاستلام',
       editDisabledTournament: 'عدّل مواعيد البطولة من قسم البطولات في تطبيق النادي.',
       expiredSplitBannerTitle: 'انتهت مهلة إكمال تقسيم الدفع',
@@ -1430,23 +1359,13 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                     const bookerAmountFromCalc = Math.max(0, totalAmount - sharesSum)
                                     const bookerPaymentMethod = b.initiatorPaymentMethod || b.paymentMethod
                                     const renderShareRow = (s, idx, isBooker) => {
-                                      const shareKey = paymentShareRefundDraftKey(s, idx)
-                                      const draft = refundDraftByShareId[shareKey] || { method: 'cash' }
                                       const isRefunded = !!s.refundedAt
                                       const isRemoved = !!s.removedAt
                                       const canMarkPaid = !isRefunded && !isRemoved && !s.paidAt && s.paymentMethod === 'at_club' && (s.id || s.inviteToken)
-                                      const refundChannelHint = draft.method === 'electronic_reverse' ? c.electronicHint : ''
                                       const memberRefundPending = shareHasMemberRefundPending(s, b)
                                       const memberRefundPref = s.memberRefundRoute || s.member_refund_route || '—'
                                       const memberRefundNetVal =
                                         s.memberRefundNet != null ? s.memberRefundNet : s.member_refund_net
-                                      const canRefund =
-                                        !!s.id &&
-                                        !!s.paidAt &&
-                                        !isRefunded &&
-                                        !isRemoved &&
-                                        !rowAwaitingRefundAck &&
-                                        !memberRefundPending
                                       return (
                                         <div key={s.id || idx} className={`booking-payment-share-item ${isRemoved ? 'share-removed' : memberRefundPending ? 'share-member-refund-pending' : s.paidAt ? 'paid' : 'pending'}`}>
                                           <div className="booking-payment-share-top">
@@ -1540,62 +1459,6 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                               )}
                                             </div>
                                           )}
-                                          {canRefund && (
-                                            <div className="booking-refund-controls">
-                                              <label className="booking-refund-label">{c.refundHow}</label>
-                                              <select
-                                                className="booking-refund-select"
-                                                value={draft.method || 'cash'}
-                                                onChange={(e) => setRefundDraftByShareId((prev) => ({
-                                                  ...prev,
-                                                  [shareKey]: { ...draft, method: e.target.value }
-                                                }))}
-                                              >
-                                                <option value="cash">{language === 'en' ? 'Cash at club' : 'نقد في النادي'}</option>
-                                                <option value="wallet">{language === 'en' ? 'Customer wallet' : 'محفظة العميل'}</option>
-                                                <option value="electronic_reverse">{language === 'en' ? 'Electronic reversal' : 'عكس إلكتروني'}</option>
-                                              </select>
-                                              <input
-                                                className="booking-refund-input"
-                                                type="text"
-                                                placeholder={c.refundRef}
-                                                value={draft.reference || ''}
-                                                onChange={(e) => setRefundDraftByShareId((prev) => ({
-                                                  ...prev,
-                                                  [shareKey]: { ...draft, reference: e.target.value }
-                                                }))}
-                                              />
-                                              <input
-                                                className="booking-refund-input"
-                                                type="text"
-                                                placeholder={c.refundNotesPh}
-                                                value={draft.notes || ''}
-                                                onChange={(e) => setRefundDraftByShareId((prev) => ({
-                                                  ...prev,
-                                                  [shareKey]: { ...draft, notes: e.target.value }
-                                                }))}
-                                              />
-                                              {refundChannelHint ? <p className="booking-refund-hint">{refundChannelHint}</p> : null}
-                                              <div className="booking-refund-actions">
-                                                <button
-                                                  type="button"
-                                                  className="booking-refund-btn booking-refund-br"
-                                                  disabled={actionLoading === `refund-${s.id || s.inviteToken}`}
-                                                  onClick={() => handleAdminRefundShare(s, b.id, { removeFromBooking: false, shareKey })}
-                                                >
-                                                  {c.recordRefund}
-                                                </button>
-                                                <button
-                                                  type="button"
-                                                  className="booking-refund-btn booking-refund-btn--warn"
-                                                  disabled={actionLoading === `refund-${s.id || s.inviteToken}`}
-                                                  onClick={() => handleAdminRefundShare(s, b.id, { removeFromBooking: true, shareKey })}
-                                                >
-                                                  {c.refundAndRemove}
-                                                </button>
-                                              </div>
-                                            </div>
-                                          )}
                                         </div>
                                       )
                                     }
@@ -1622,44 +1485,6 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                       </>
                                     )
                                   })()}
-                                </div>
-                              </div>
-                            )}
-                            {hasShares && !rowAwaitingRefundAck && !rowEnded && (
-                              <div className="booking-full-refund-card">
-                                <h5 className="booking-full-refund-title">{c.refundAll}</h5>
-                                <p className="booking-full-refund-desc">{language === 'en' ? 'Marks every paid share as refunded, voids their share invoices, and removes unpaid invites. Booking becomes cancelled until each payer confirms in the app.' : 'يُسجَّل الاسترداد لكل من دفع، وتُلغى فواتير الحصص المستردة، ويُزال المدعوون غير المدفوع. يصبح الحجز ملغياً حتى يؤكد كل دافع في التطبيق.'}</p>
-                                <div className="booking-refund-controls booking-refund-controls--full">
-                                  <select
-                                    className="booking-refund-select"
-                                    value={(fullRefundDraft[b.id] || {}).method || 'cash'}
-                                    onChange={(e) => setFullRefundDraft((prev) => ({
-                                      ...prev,
-                                      [b.id]: { ...(prev[b.id] || {}), method: e.target.value }
-                                    }))}
-                                  >
-                                    <option value="cash">{language === 'en' ? 'Cash at club' : 'نقد في النادي'}</option>
-                                    <option value="wallet">{language === 'en' ? 'Customer wallet' : 'محفظة العميل'}</option>
-                                    <option value="electronic_reverse">{language === 'en' ? 'Electronic reversal' : 'عكس إلكتروني'}</option>
-                                  </select>
-                                  <input
-                                    className="booking-refund-input"
-                                    type="text"
-                                    placeholder={c.refundRef}
-                                    value={(fullRefundDraft[b.id] || {}).reference || ''}
-                                    onChange={(e) => setFullRefundDraft((prev) => ({
-                                      ...prev,
-                                      [b.id]: { ...(prev[b.id] || {}), reference: e.target.value }
-                                    }))}
-                                  />
-                                  <button
-                                    type="button"
-                                    className="booking-full-refund-submit"
-                                    disabled={actionLoading === 'full-refund-' + b.id}
-                                    onClick={() => handleAdminRefundFull(b.id)}
-                                  >
-                                    {actionLoading === 'full-refund-' + b.id ? '…' : c.refundAll}
-                                  </button>
                                 </div>
                               </div>
                             )}
