@@ -45,6 +45,7 @@ function needsDataActorHeaders(path, method) {
   if (m === 'POST' && path === '/api/bookings/admin-fulfill-member-refund') return true
   if (m === 'POST' && path === '/api/bookings/admin-fulfill-member-share-refund') return true
   if (m === 'POST' && path === '/api/bookings/admin-extend-split-deadline') return true
+  if (m === 'POST' && path === '/api/bookings/admin-import-expired-split-credits') return true
   if (m === 'POST' && path === '/api/bookings/record-payment') return true
   if (m === 'POST' && path === '/api/bookings/set-allow-co-add-split') return true
   if (m === 'POST' && path === '/api/bookings/record-remainder-payment') return true
@@ -695,6 +696,14 @@ export async function adminExtendSplitPaymentDeadline({ bookingId, clubId, exten
       clubId,
       ...(extendMinutes != null && extendMinutes !== '' ? { extendMinutes } : {}),
     }),
+  })
+}
+
+/** Club admin: credit member wallets for paid shares on an expired (deadline) split booking; void share invoices */
+export async function adminImportExpiredSplitCreditsToWallets({ bookingId, clubId }) {
+  return fetchJson('/api/bookings/admin-import-expired-split-credits', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId }),
   })
 }
 

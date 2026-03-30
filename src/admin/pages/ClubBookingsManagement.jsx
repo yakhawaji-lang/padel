@@ -68,7 +68,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   }
 
   const today = new Date().toISOString().split('T')[0]
-  const { upcoming, past, memberCancelled, displayed, typeCounts } = useMemo(() => {
+  const { upcoming, past, deadlineExpired, memberCancelled, displayed, typeCounts } = useMemo(() => {
     const withDate = bookings.map(b => ({
       ...b,
       dateStr: (b.date || b.startDate || '').toString().split('T')[0]
@@ -76,12 +76,29 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     const upcomingL = withDate.filter(
       b => !isTerminalBookingStatus(b.status) && (b.dateStr || '') >= today
     )
-    const pastL = withDate.filter(b => (b.dateStr || '') < today)
-    const memberCancelled = [...withDate.filter(b => isTerminalBookingStatus(b.status))].sort((a, b) =>
-      String(b.dateStr || '').localeCompare(String(a.dateStr || ''))
+    const pastL = withDate.filter(
+      (b) =>
+        (b.dateStr || '') < today &&
+        (b.status || '').toString().toLowerCase() !== 'expired'
     )
+    const deadlineExpired = [...withDate.filter(b => (b.status || '').toString().toLowerCase() === 'expired')].sort(
+      (a, b) => String(b.dateStr || '').localeCompare(String(a.dateStr || ''))
+    )
+    const memberCancelled = [
+      ...withDate.filter((b) => {
+        if (!isTerminalBookingStatus(b.status)) return false
+        if ((b.status || '').toString().toLowerCase() === 'expired') return false
+        return true
+      })
+    ].sort((a, b) => String(b.dateStr || '').localeCompare(String(a.dateStr || '')))
     const timeList =
-      filter === 'upcoming' ? upcomingL : filter === 'past' ? pastL : memberCancelled
+      filter === 'upcoming'
+        ? upcomingL
+        : filter === 'past'
+          ? pastL
+          : filter === 'deadline_expired'
+            ? deadlineExpired
+            : memberCancelled
     const counts = { all: timeList.length, court: 0, training: 0, tournament: 0 }
     for (const b of timeList) {
       const k = classifyAdminBooking(b)
@@ -99,7 +116,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
         return true
       })
     }
-    return { upcoming: upcomingL, past: pastL, memberCancelled, displayed: disp, typeCounts: counts }
+    return { upcoming: upcomingL, past: pastL, deadlineExpired, memberCancelled, displayed: disp, typeCounts: counts }
   }, [bookings, filter, typeFilter, today])
 
   const bookingStats = useMemo(() => {
@@ -118,8 +135,12 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     let pendingPay = 0
     let collected = 0
     let booked = 0
+    let deadlineExpiredKpi = 0
 
     for (const b of withDate) {
+      if ((b.status || '').toString().toLowerCase() === 'expired') {
+        deadlineExpiredKpi += 1
+      }
       if (isTerminalBookingStatus(b.status)) continue
       active += 1
       const ds = b.dateStr || ''
@@ -160,7 +181,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       outstanding,
       terminal,
       total: bookings.length,
-      collectionRate
+      collectionRate,
+      deadlineExpiredKpi
     }
   }, [bookings, today])
 
@@ -538,6 +560,9 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       statWeekHint: 'Scheduled within a week',
       statPending: 'Awaiting payment',
       statPendingHint: 'Pending or partial checkout',
+      statDeadlineExpired: 'Payment deadline expired',
+      statDeadlineExpiredHint: 'Bookings marked expired after the pay-by time',
+      deadlineExpiredTab: 'Deadline expired',
       statCollected: 'Collected',
       statCollectedHint: 'Paid amounts on active bookings',
       statBooked: 'Booked value',
@@ -625,6 +650,12 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       extendPreset24h: '24 h',
       extendSplitDeadlineBtn: 'Extend & reactivate booking',
       extendSplitSuccess: 'Deadline extended. The booking is active again — members will see it under upcoming bookings.',
+      importExpiredPaidToWallet: 'Import paid shares → member wallets',
+      importExpiredPaidHint:
+        'For registered members only: voids share invoices, marks shares refunded, and credits each payer’s club wallet. Guest/unlinked phone shares need a manual refund.',
+      importExpiredPaidConfirm:
+        'Credit all paid amounts on registered member shares to their wallets and void the related invoices? This cannot be undone.',
+      importExpiredPaidSuccess: 'Imported. Paying members were credited in their club wallets.',
     },
     ar: {
       bookings: 'الحجوزات',
@@ -639,6 +670,9 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       statWeekHint: 'مجدولة خلال أسبوع',
       statPending: 'بانتظار الدفع',
       statPendingHint: 'دفع معلق أو جزئي',
+      statDeadlineExpired: 'منتهية مهلة الدفع',
+      statDeadlineExpiredHint: 'حُدِّدت كمنتهية بعد انتهاء مهلة الدفع',
+      deadlineExpiredTab: 'المنتهية مهلة الدفع',
       statCollected: 'المحصّل',
       statCollectedHint: 'المبالغ المدفوعة على الحجوزات النشطة',
       statBooked: 'قيمة الحجوزات',
@@ -726,6 +760,12 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       extendPreset24h: '٢٤ س',
       extendSplitDeadlineBtn: 'تمديد المهلة وإعادة تفعيل الحجز',
       extendSplitSuccess: 'تم التمديد. الحجز نشط من جديد — سيظهر للأعضاء ضمن الحجوزات القادمة.',
+      importExpiredPaidToWallet: 'استيراد المدفوع إلى محافظ الأعضاء',
+      importExpiredPaidHint:
+        'للأعضاء المسجلين فقط: يلغي فواتير الحصص، يوسم الحصص كمستردة، ويودع المبلغ في محفظة كل دافع في النادي. ضيوف بدون عضوية تحتاج معالجة يدوية.',
+      importExpiredPaidConfirm:
+        'إيداع مبالغ المدفوع في محافظ الأعضاء المسجلين وإلغاء فواتير الحصص؟ لا يمكن التراجع.',
+      importExpiredPaidSuccess: 'تم الاستيراد. وُجدت أرصدة في محافظ الأعضاء في هذا النادي.',
     }
   }
   const c = t[language] || t.en
@@ -754,6 +794,22 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
       refreshFromServer()
       window.alert(c.extendSplitSuccess)
+    } catch (e) {
+      window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleImportExpiredPaidToWallets = async (b) => {
+    if (!club?.id || !b?.id) return
+    if (!window.confirm(c.importExpiredPaidConfirm)) return
+    setActionLoading(`import-expired-${b.id}`)
+    try {
+      await bookingApi.adminImportExpiredSplitCreditsToWallets({ bookingId: b.id, clubId: club.id })
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      refreshFromServer()
+      window.alert(c.importExpiredPaidSuccess)
     } catch (e) {
       window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
     } finally {
@@ -875,6 +931,11 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                 : ''}
             </span>
           </article>
+          <article className="bookings-kpi bookings-kpi--rust">
+            <span className="bookings-kpi__label">{c.statDeadlineExpired}</span>
+            <strong className="bookings-kpi__value western-numerals">{bookingStats.deadlineExpiredKpi}</strong>
+            <span className="bookings-kpi__hint">{c.statDeadlineExpiredHint}</span>
+          </article>
           <article className="bookings-kpi bookings-kpi--emerald">
             <span className="bookings-kpi__label">{c.statCollected}</span>
             <strong className="bookings-kpi__value western-numerals">{formatCurrency(bookingStats.collected)}</strong>
@@ -928,6 +989,16 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                 >
                   <span className="bookings-tab-title">{c.past}</span>
                   <span className="bookings-tab-count western-numerals">{past.length}</span>
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === 'deadline_expired'}
+                  className={`bookings-tab ${filter === 'deadline_expired' ? 'active' : ''}`}
+                  onClick={() => setFilter('deadline_expired')}
+                >
+                  <span className="bookings-tab-title">{c.deadlineExpiredTab}</span>
+                  <span className="bookings-tab-count western-numerals">{deadlineExpired.length}</span>
                 </button>
                 <button
                   type="button"
@@ -1228,6 +1299,19 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                 >
                                   {actionLoading === 'extend-deadline-' + b.id ? '…' : c.extendSplitDeadlineBtn}
                                 </button>
+                                {paidSumForPanel > 0.01 ? (
+                                  <div className="booking-expired-split-import">
+                                    <p className="booking-expired-split-import__hint">{c.importExpiredPaidHint}</p>
+                                    <button
+                                      type="button"
+                                      className="booking-payment-mark-paid-btn booking-expired-split-import__btn"
+                                      disabled={actionLoading === `import-expired-${b.id}`}
+                                      onClick={() => handleImportExpiredPaidToWallets(b)}
+                                    >
+                                      {actionLoading === `import-expired-${b.id}` ? '…' : c.importExpiredPaidToWallet}
+                                    </button>
+                                  </div>
+                                ) : null}
                               </div>
                             ) : null}
                             {(() => {

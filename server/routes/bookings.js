@@ -1939,6 +1939,131 @@ router.post('/admin-extend-split-deadline', async (req, res) => {
   }
 })
 
+/**
+ * POST /api/bookings/admin-import-expired-split-credits
+ * حجز منتهٍ (مهلة الدفع): إيداع مبالغ الأسهم المدفوعة لمحافظ الأعضاء المسجلين، إلغاء فواتير الحصص، وتسجيل استرداد للحصة.
+ */
+router.post('/admin-import-expired-split-credits', async (req, res) => {
+  try {
+    const normalized = await hasNormalizedTables()
+    if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
+    const { bookingId, clubId } = req.body || {}
+    if (!bookingId || !clubId) {
+      return res.status(400).json({ error: 'bookingId and clubId required' })
+    }
+
+    const actor = getActorFromRequest(req)
+    const at = String(actor.actorType || '').toLowerCase()
+    if (at === 'club_admin') {
+      if (!actor.clubId || String(actor.clubId) !== String(clubId)) {
+        return res.status(403).json({ error: 'Forbidden' })
+      }
+    } else if (at !== 'platform_admin') {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+
+    const { rows: bRows } = await query(
+      `SELECT id, status FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
+      [bookingId, clubId]
+    )
+    if (!bRows?.length) return res.status(404).json({ error: 'Booking not found' })
+    if (String(bRows[0].status || '').toLowerCase() !== 'expired') {
+      return res.status(400).json({ error: 'Only bookings expired (payment deadline) can import paid shares to wallets' })
+    }
+
+    let shareRows
+    try {
+      const r = await query(
+        `SELECT id, member_id, amount, paid_at, refunded_at, removed_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
+        [bookingId, clubId]
+      )
+      shareRows = r.rows
+    } catch (e) {
+      if (!e?.message?.includes('refunded_at') && !e?.message?.includes('removed_at')) throw e
+      const r = await query(
+        `SELECT id, member_id, amount, paid_at, refunded_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
+        [bookingId, clubId]
+      )
+      shareRows = (r.rows || []).map((x) => ({ ...x, removed_at: null }))
+    }
+
+    const note =
+      'PlayTix: amount credited to member wallet after booking expired (payment deadline); share marked refunded.'
+    const toProcess = (shareRows || []).filter(
+      (s) =>
+        s.paid_at &&
+        !s.refunded_at &&
+        !s.removed_at &&
+        s.member_id != null &&
+        String(s.member_id).trim() !== '' &&
+        (parseFloat(s.amount) || 0) > 0.009
+    )
+
+    if (toProcess.length === 0) {
+      return res.status(400).json({
+        error:
+          'No importable shares: need paid amounts on rows with a registered member id. Guest-only shares require manual handling.',
+      })
+    }
+
+    const imported = []
+    for (const s of toProcess) {
+      const amt = Math.round((parseFloat(s.amount) || 0) * 100) / 100
+      const mid = String(s.member_id)
+      try {
+        await invoiceService.voidClubInvoiceForBookingShareRefund(clubId, bookingId, s.id)
+      } catch (invE) {
+        console.warn('[admin-import-expired-split-credits] void invoice:', invE?.message)
+      }
+
+      let upd
+      try {
+        upd = await query(
+          `UPDATE booking_payment_shares SET refunded_at = NOW(), refund_method = 'wallet', refund_reference = 'expired_import', refund_notes = ? WHERE id = ? AND club_id = ? AND paid_at IS NOT NULL AND refunded_at IS NULL AND (removed_at IS NULL)`,
+          [note.substring(0, 500), s.id, clubId]
+        )
+      } catch (e) {
+        if (!e?.message?.includes('refund_notes')) throw e
+        upd = await query(
+          `UPDATE booking_payment_shares SET refunded_at = NOW(), refund_method = 'wallet', refund_reference = 'expired_import' WHERE id = ? AND club_id = ? AND paid_at IS NOT NULL AND refunded_at IS NULL AND (removed_at IS NULL)`,
+          [s.id, clubId]
+        )
+      }
+
+      if (!upd?.affectedRows) continue
+
+      const cr = await walletService.creditWallet(clubId, mid, amt, {
+        reason: 'expired_booking_import_share_to_wallet',
+        refType: 'expired_booking_import',
+        refId: `${String(bookingId)}:${String(s.id)}`,
+      })
+      if (!cr.ok) {
+        try {
+          await query(
+            `UPDATE booking_payment_shares SET refunded_at = NULL, refund_method = NULL, refund_reference = NULL WHERE id = ? AND club_id = ?`,
+            [s.id, clubId]
+          )
+        } catch (_) {}
+        return res.status(400).json({ error: cr.error || 'Wallet credit failed', partial: imported })
+      }
+      imported.push({ shareId: s.id, memberId: mid, amount: amt })
+    }
+
+    if (imported.length === 0) {
+      return res.status(400).json({
+        error: 'No shares were updated (state may have changed). Refresh and try again.',
+      })
+    }
+
+    const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bookingId, clubId)
+    if (clubId && rec?.bookingDate) slotCache.invalidateLocks(clubId, rec.bookingDate)
+    res.json({ ok: true, imported, paidAmount: rec?.paidAmount, status: rec?.status })
+  } catch (e) {
+    console.error('bookings admin-import-expired-split-credits error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
 /** POST /api/bookings/add-split-participants — الحاجز يضيف مشاركين بعد فتح إعادة الدعوة */
 router.post('/add-split-participants', async (req, res) => {
   try {

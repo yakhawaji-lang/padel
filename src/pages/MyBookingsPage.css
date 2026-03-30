@@ -2622,3 +2622,14 @@
     transition: opacity 0.15s, box-shadow 0.15s;
   }
 }
+
+.my-bookings-expired-deadline-banner {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #92400e;
+  background: linear-gradient(135deg, #fffbeb 0%, #ffedd5 100%);
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  border-radius: 10px;
+}

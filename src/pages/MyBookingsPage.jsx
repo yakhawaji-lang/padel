@@ -496,12 +496,25 @@ const MyBookingsPage = () => {
     const d = r.booking.dateStr || r.booking.date || r.booking.startDate || ''
     return typeof d === 'string' ? d.split('T')[0] : (d && d.toISOString ? d.toISOString().split('T')[0] : '')
   }
+  const expiredDeadlineList = bookings
+    .filter((r) => (r.booking?.status || '').toLowerCase() === 'expired')
+    .sort((a, b) => String(normDate(b) || '').localeCompare(String(normDate(a) || '')))
   const cancelledList = bookings
-    .filter((r) => bookingIsListCancelled(r.booking))
+    .filter((r) => {
+      const st = (r.booking?.status || '').toLowerCase()
+      return ['cancelled', 'cancelled_awaiting_refund_ack'].includes(st)
+    })
     .sort((a, b) => String(normDate(b) || '').localeCompare(String(normDate(a) || '')))
   const upcoming = bookings.filter((r) => normDate(r) >= today && !bookingIsListCancelled(r.booking))
   const past = bookings.filter((r) => normDate(r) < today && !bookingIsListCancelled(r.booking))
-  const displayed = filter === 'upcoming' ? upcoming : filter === 'past' ? past : cancelledList
+  const displayed =
+    filter === 'upcoming'
+      ? upcoming
+      : filter === 'past'
+        ? past
+        : filter === 'expired_deadline'
+          ? expiredDeadlineList
+          : cancelledList
 
   /** من صفحة النادي: ?booking=id — اختر التبويب المناسب ثم مرّر ولوّن البطاقة */
   const focusBookingIdParam = searchParams.get('booking')
@@ -512,6 +525,10 @@ const MyBookingsPage = () => {
     const item = bookings.find((x) => String(x.booking?.id) === String(focusBookingIdParam))
     if (!item) return
     const b = item.booking
+    if ((b.status || '').toLowerCase() === 'expired') {
+      setFilter('expired_deadline')
+      return
+    }
     if (bookingIsListCancelled(b)) {
       setFilter('cancelled')
       return
@@ -831,6 +848,10 @@ const MyBookingsPage = () => {
       noUpcoming: 'No upcoming bookings.',
       noPast: 'No past bookings.',
       cancelled: 'Cancelled',
+      expiredDeadlineTab: 'Deadline expired',
+      noExpiredDeadline: 'No bookings with an expired payment deadline.',
+      expiredDeadlineMemberHint:
+        'Payment window ended before the booking was fully paid. The club may extend the deadline or settle balances — paid shares may be moved to member wallets.',
       noCancelled: 'No cancelled bookings.',
       walletTitle: 'Club wallet',
       walletSubtitle: 'Balance you can use for club fees (credits from refunds appear here).',
@@ -942,6 +963,10 @@ const MyBookingsPage = () => {
       noUpcoming: 'لا توجد حجوزات قادمة.',
       noPast: 'لا توجد حجوزات سابقة.',
       cancelled: 'الملغاة',
+      expiredDeadlineTab: 'المنتهية مهلة الدفع',
+      noExpiredDeadline: 'لا توجد حجوزات منتهية مهلة الدفع.',
+      expiredDeadlineMemberHint:
+        'انتهت مهلة الدفع قبل إكمال كل المستحق. يمكن للنادي تمديد المهلة أو تسوية المبالغ — وقد تُودَع حصص الدفع في محافظ الأعضاء.',
       noCancelled: 'لا توجد حجوزات ملغاة.',
       walletTitle: 'محفظة النادي',
       walletSubtitle: 'رصيد يُستخدم لرسوم الحجز في النادي (تظهر هنا أرصدة الاسترداد إلى المحفظة).',
@@ -1302,6 +1327,7 @@ const MyBookingsPage = () => {
       visibleShares.length > 0 &&
       splitProgress.outstanding > 0.02 &&
       !terminalCancelled
+    const showExpiredDeadlineBanner = (booking?.status || '').toLowerCase() === 'expired'
 
     return {
       key: `${club?.id}-${booking.id}-${i}`,
@@ -1331,6 +1357,7 @@ const MyBookingsPage = () => {
       splitProgress,
       clubRateHint,
       showRemainderActions,
+      showExpiredDeadlineBanner,
       tournamentEntry,
       tournamentAwaitingClub,
       terminalCancelled,
@@ -1362,7 +1389,13 @@ const MyBookingsPage = () => {
     }
   }
 
-  const backClubFromBookings = (upcoming[0]?.club || past[0]?.club || cancelledList[0]?.club || bookings[0]?.club) || null
+  const backClubFromBookings =
+    (upcoming[0]?.club ||
+      past[0]?.club ||
+      expiredDeadlineList[0]?.club ||
+      cancelledList[0]?.club ||
+      bookings[0]?.club) ||
+    null
   const backClub = fromClubId ? getClubById(fromClubId) : backClubFromBookings
   const backLink = backClub ? `/clubs/${backClub.id}` : '/'
   const backText = backClub
@@ -1514,6 +1547,16 @@ const MyBookingsPage = () => {
           <button
             type="button"
             role="tab"
+            aria-selected={filter === 'expired_deadline'}
+            className={`my-bookings-tab ${filter === 'expired_deadline' ? 'active' : ''}`}
+            onClick={() => setFilter('expired_deadline')}
+          >
+            <span className="my-bookings-tab-label">{c.expiredDeadlineTab}</span>
+            <span className="my-bookings-tab-count">{expiredDeadlineList.length}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
             aria-selected={filter === 'cancelled'}
             className={`my-bookings-tab ${filter === 'cancelled' ? 'active' : ''}`}
             onClick={() => setFilter('cancelled')}
@@ -1527,7 +1570,13 @@ const MyBookingsPage = () => {
           <section className="my-bookings-empty" aria-live="polite">
             <div className="my-bookings-empty-icon" aria-hidden />
             <p className="my-bookings-empty-title">
-              {filter === 'upcoming' ? c.noUpcoming : filter === 'past' ? c.noPast : c.noCancelled}
+              {filter === 'upcoming'
+                ? c.noUpcoming
+                : filter === 'past'
+                  ? c.noPast
+                  : filter === 'expired_deadline'
+                    ? c.noExpiredDeadline
+                    : c.noCancelled}
             </p>
             <Link to={backLink} className="my-bookings-empty-cta">{c.bookCourt}</Link>
           </section>
@@ -1558,6 +1607,9 @@ const MyBookingsPage = () => {
                         {r.getStatusLabel(r.booking.status)}
                       </span>
                     </div>
+                    {r.showExpiredDeadlineBanner ? (
+                      <p className="my-bookings-expired-deadline-banner">{c.expiredDeadlineMemberHint}</p>
+                    ) : null}
                     <div className="my-bookings-card-summary">
                       <div className="my-bookings-card-field">
                         <span className="my-bookings-card-label">{c.date}</span>
@@ -1761,8 +1813,8 @@ const MyBookingsPage = () => {
                                   const memberReqAt = s.memberRefundRequestedAt || s.member_refund_requested_at
                                   const removed = !!(s.removedAt || s.removed_at)
                                   const bookingSt = (r.booking?.status || '').toString().toLowerCase()
-                                  const splitRefundOkCancelled =
-                                    filter === 'cancelled' && bookingSt === 'expired'
+                                  const splitRefundOkExpiredTab =
+                                    filter === 'expired_deadline' && bookingSt === 'expired'
                                   const showParticipantLeave =
                                     isMyParticipation &&
                                     filter === 'upcoming' &&
@@ -1772,7 +1824,7 @@ const MyBookingsPage = () => {
                                     !removed
                                   const showParticipantShareModify =
                                     isMyParticipation &&
-                                    (filter === 'upcoming' || splitRefundOkCancelled) &&
+                                    (filter === 'upcoming' || splitRefundOkExpiredTab) &&
                                     !!pd &&
                                     !rf &&
                                     !memberReqAt &&
@@ -1782,7 +1834,7 @@ const MyBookingsPage = () => {
                                     !!memberReqAt &&
                                     !rf &&
                                     !removed &&
-                                    (filter === 'upcoming' || splitRefundOkCancelled)
+                                    (filter === 'upcoming' || splitRefundOkExpiredTab)
                                   if (!showParticipantLeave && !showParticipantShareModify && !showParticipantRefundPending) {
                                     return null
                                   }
