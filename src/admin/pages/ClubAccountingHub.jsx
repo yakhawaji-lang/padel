@@ -27,6 +27,22 @@ function courtLabel(club, courtId, lang) {
   return lang === 'ar' ? (c.nameAr || c.name) : (c.name || c.nameAr)
 }
 
+function getInvoiceStatusLabel(inv, lang = 'en') {
+  const status = String(inv?.status || '').toLowerCase()
+  const sourceType = String(inv?.source_type || '').toLowerCase()
+  // Share/full booking refunds currently void invoice records; present them as refunded in UI.
+  if (status === 'void' && (sourceType === 'booking_share' || sourceType === 'booking_full')) {
+    return lang === 'ar' ? 'مسترجع' : 'Refunded'
+  }
+  if (lang === 'ar') {
+    if (status === 'paid') return 'مدفوع'
+    if (status === 'issued') return 'صادرة'
+    if (status === 'partially_paid') return 'مدفوع جزئياً'
+    if (status === 'void') return 'ملغاة'
+  }
+  return inv?.status || '—'
+}
+
 function monthRange() {
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -477,7 +493,7 @@ export default function ClubAccountingHub({ club, language, onUpdateClub }) {
                           {formatMoney(inv.total ?? inv.amount_paid, inv.currency || currency, lang)}
                         </td>
                         <td>
-                          <span className="acc-pill acc-pill--income">{inv.status || '—'}</span>
+                          <span className="acc-pill acc-pill--income">{getInvoiceStatusLabel(inv, lang)}</span>
                         </td>
                         <td className="acc-invoice-source">
                           <span className="acc-invoice-source-type">{inv.source_type || '—'}</span>

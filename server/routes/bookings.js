@@ -1716,7 +1716,7 @@ async function mergeClubBookingDataJson(bookingId, clubId, patch) {
   return true
 }
 
-/** POST /api/bookings/admin-refund-share — استرداد حصة (نقد/إلكتروني يدوي) واختيارياً إزالة المشارك */
+/** POST /api/bookings/admin-refund-share — استرداد حصة (نقد/محفظة/إلكتروني) واختيارياً إزالة المشارك */
 router.post('/admin-refund-share', async (req, res) => {
   try {
     const {
@@ -1729,19 +1729,19 @@ router.post('/admin-refund-share', async (req, res) => {
       removeFromBooking
     } = req.body || {}
     if (!clubId) return res.status(400).json({ error: 'clubId required' })
-    const allowedMethods = new Set(['cash', 'pos', 'stripe_manual', 'electronic_reverse', 'other'])
-    const rm = allowedMethods.has((refundMethod || '').toString()) ? refundMethod : 'other'
+    const allowedMethods = new Set(['cash', 'wallet', 'electronic_reverse'])
+    const rm = allowedMethods.has((refundMethod || '').toString()) ? refundMethod : 'cash'
     let shareRows
     async function loadShare(whereSql, params) {
       try {
         const r = await query(
-          `SELECT id, booking_id, paid_at, refunded_at, removed_at FROM booking_payment_shares WHERE ${whereSql}`,
+          `SELECT id, booking_id, member_id, amount, paid_at, refunded_at, removed_at FROM booking_payment_shares WHERE ${whereSql}`,
           params
         )
         return r.rows
       } catch (_) {
         const r = await query(
-          `SELECT id, booking_id, paid_at, refunded_at FROM booking_payment_shares WHERE ${whereSql}`,
+          `SELECT id, booking_id, member_id, amount, paid_at, refunded_at FROM booking_payment_shares WHERE ${whereSql}`,
           params
         )
         return (r.rows || []).map((x) => ({ ...x, removed_at: null }))
@@ -1762,6 +1762,25 @@ router.post('/admin-refund-share', async (req, res) => {
       return res.status(400).json({ error: 'Nothing to refund — share was not paid' })
     }
     const bid = row.booking_id
+    if (rm === 'wallet') {
+      const targetMemberId = row.member_id != null ? String(row.member_id).trim() : ''
+      if (!targetMemberId) {
+        return res.status(400).json({ error: 'Wallet refund requires a registered member on this share' })
+      }
+      const refundAmt = Math.round((parseFloat(row.amount) || 0) * 100) / 100
+      if (!Number.isFinite(refundAmt) || refundAmt <= 0.009) {
+        return res.status(400).json({ error: 'Invalid refund amount for wallet credit' })
+      }
+      const alreadyCredited = await walletService.hasShareRefundWalletCredit(clubId, targetMemberId, row.id)
+      if (!alreadyCredited) {
+        const cr = await walletService.creditWallet(clubId, targetMemberId, refundAmt, {
+          reason: 'share_refund_admin_wallet',
+          refType: 'booking_share',
+          refId: String(row.id),
+        })
+        if (!cr.ok) return res.status(400).json({ error: cr.error || 'Wallet refund credit failed' })
+      }
+    }
     try {
       await query(
         `UPDATE booking_payment_shares SET refunded_at = NOW(), refund_method = ?, refund_reference = ?, refund_notes = ? WHERE id = ? AND club_id = ?`,
@@ -1798,10 +1817,10 @@ router.post('/admin-refund-booking-full', async (req, res) => {
   try {
     const { bookingId, clubId, refundMethod, refundReference, refundNotes } = req.body || {}
     if (!bookingId || !clubId) return res.status(400).json({ error: 'bookingId and clubId required' })
-    const allowedMethods = new Set(['cash', 'pos', 'stripe_manual', 'electronic_reverse', 'other'])
-    const rm = allowedMethods.has((refundMethod || '').toString()) ? refundMethod : 'other'
+    const allowedMethods = new Set(['cash', 'wallet', 'electronic_reverse'])
+    const rm = allowedMethods.has((refundMethod || '').toString()) ? refundMethod : 'cash'
     const { rows: shares } = await query(
-      `SELECT id, paid_at, refunded_at, removed_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
+      `SELECT id, member_id, amount, paid_at, refunded_at, removed_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
       [bookingId, clubId]
     )
     if (!shares?.length) {
@@ -1814,6 +1833,24 @@ router.post('/admin-refund-booking-full', async (req, res) => {
       if (s.removed_at) continue
       if (s.refunded_at) continue
       if (s.paid_at) {
+        if (rm === 'wallet') {
+          const targetMemberId = s.member_id != null ? String(s.member_id).trim() : ''
+          if (!targetMemberId) {
+            return res.status(400).json({ error: 'Wallet refund requires registered members for all paid shares' })
+          }
+          const refundAmt = Math.round((parseFloat(s.amount) || 0) * 100) / 100
+          if (Number.isFinite(refundAmt) && refundAmt > 0.009) {
+            const alreadyCredited = await walletService.hasShareRefundWalletCredit(clubId, targetMemberId, s.id)
+            if (!alreadyCredited) {
+              const cr = await walletService.creditWallet(clubId, targetMemberId, refundAmt, {
+                reason: 'share_refund_admin_wallet',
+                refType: 'booking_share',
+                refId: String(s.id),
+              })
+              if (!cr.ok) return res.status(400).json({ error: cr.error || 'Wallet refund credit failed' })
+            }
+          }
+        }
         try {
           await query(
             `UPDATE booking_payment_shares SET refunded_at = NOW(), refund_method = ?, refund_reference = ?, refund_notes = ? WHERE id = ? AND club_id = ?`,

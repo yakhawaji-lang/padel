@@ -542,11 +542,11 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     const labels = {
       en: {
         at_club: 'At club', credit_card: 'Credit card', mada: 'Mada', electronic: 'Electronic',
-        cash: 'Cash', pos: 'POS', stripe_manual: 'Stripe (manual)', electronic_reverse: 'Electronic reversal', other: 'Other'
+        cash: 'Cash', wallet: 'Wallet', electronic_reverse: 'Electronic reversal'
       },
       ar: {
         at_club: 'في النادي', credit_card: 'بطاقة ائتمان', mada: 'مدى', electronic: 'إلكتروني',
-        cash: 'نقد', pos: 'شبكة', stripe_manual: 'Stripe يدوي', electronic_reverse: 'عكس إلكتروني', other: 'أخرى'
+        cash: 'نقد', wallet: 'محفظة', electronic_reverse: 'عكس إلكتروني'
       }
     }
     return (labels[language] || labels.en)[m] || m
@@ -1439,7 +1439,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                       const isRefunded = !!s.refundedAt
                                       const isRemoved = !!s.removedAt
                                       const canMarkPaid = !isRefunded && !isRemoved && !s.paidAt && s.paymentMethod === 'at_club' && (s.id || s.inviteToken)
-                                      const refundChannelHint = draft.method === 'stripe_manual' ? c.stripeManualHint : draft.method === 'electronic_reverse' ? c.electronicHint : ''
+                                      const refundChannelHint = draft.method === 'electronic_reverse' ? c.electronicHint : ''
                                       const memberRefundPending = shareHasMemberRefundPending(s, b)
                                       const memberRefundPref = s.memberRefundRoute || s.member_refund_route || '—'
                                       const memberRefundNetVal =
@@ -1493,7 +1493,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                           {isRefunded && (
                                             <div className="booking-refund-meta">
                                               <span>{getPaymentMethodLabel(s.paymentMethod)} → {s.refundMethod || '—'}</span>
-                                              {s.refundReference ? <span className="booking-refund-ref">{s.refundReference}</span> : null}
+                                              {s.refundReference ? <span className="booking-refund-ref">{c.refundRef}: {s.refundReference}</span> : null}
                                               {s.refundAcknowledgedAt ? (
                                                 <span className="booking-refund-ack ok">✓ {c.refundAckDone}</span>
                                               ) : (
@@ -1556,10 +1556,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                                 }))}
                                               >
                                                 <option value="cash">{language === 'en' ? 'Cash at club' : 'نقد في النادي'}</option>
-                                                <option value="pos">{language === 'en' ? 'POS / terminal' : 'شبكة / POS'}</option>
-                                                <option value="stripe_manual">Stripe ({language === 'en' ? 'manual' : 'يدوي'})</option>
+                                                <option value="wallet">{language === 'en' ? 'Customer wallet' : 'محفظة العميل'}</option>
                                                 <option value="electronic_reverse">{language === 'en' ? 'Electronic reversal' : 'عكس إلكتروني'}</option>
-                                                <option value="other">{language === 'en' ? 'Other' : 'أخرى'}</option>
                                               </select>
                                               <input
                                                 className="booking-refund-input"
@@ -1646,10 +1644,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                     }))}
                                   >
                                     <option value="cash">{language === 'en' ? 'Cash at club' : 'نقد في النادي'}</option>
-                                    <option value="pos">{language === 'en' ? 'POS / terminal' : 'شبكة / POS'}</option>
-                                    <option value="stripe_manual">Stripe ({language === 'en' ? 'manual' : 'يدوي'})</option>
+                                    <option value="wallet">{language === 'en' ? 'Customer wallet' : 'محفظة العميل'}</option>
                                     <option value="electronic_reverse">{language === 'en' ? 'Electronic reversal' : 'عكس إلكتروني'}</option>
-                                    <option value="other">{language === 'en' ? 'Other' : 'أخرى'}</option>
                                   </select>
                                   <input
                                     className="booking-refund-input"
