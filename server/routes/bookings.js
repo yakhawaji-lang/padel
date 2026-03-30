@@ -1118,10 +1118,11 @@ router.post('/record-remainder-payment', async (req, res) => {
     if (!okParticipant) return res.status(403).json({ error: 'Not allowed to settle this booking' })
 
     const { rows: shareRows } = await query(
-      `SELECT id, amount, paid_at, removed_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
+      `SELECT id, amount, paid_at, refunded_at, removed_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
       [bookingId, clubId]
     )
-    const unpaid = (shareRows || []).filter((s) => !s.removed_at && !s.paid_at)
+    // Refunded active shares are also outstanding and should be payable again.
+    const unpaid = (shareRows || []).filter((s) => !s.removed_at && (!s.paid_at || s.refunded_at))
     if (unpaid.length === 0) return res.status(400).json({ error: 'No unpaid shares' })
     const totalRemainder = Math.round(unpaid.reduce((a, s) => a + (parseFloat(s.amount) || 0), 0) * 100) / 100
     if (totalRemainder <= 0.009) return res.status(400).json({ error: 'Nothing to pay' })
@@ -1141,7 +1142,16 @@ router.post('/record-remainder-payment', async (req, res) => {
       try {
         for (const s of unpaid) {
           const upd = await query(
-            `UPDATE booking_payment_shares SET paid_at = NOW(), payment_reference = NULL, payment_method = ? WHERE id = ? AND club_id = ? AND paid_at IS NULL`,
+            `UPDATE booking_payment_shares SET
+              paid_at = NOW(),
+              payment_reference = NULL,
+              payment_method = ?,
+              refunded_at = NULL,
+              refund_method = NULL,
+              refund_reference = NULL,
+              refund_notes = NULL,
+              refund_acknowledged_at = NULL
+             WHERE id = ? AND club_id = ? AND removed_at IS NULL AND (paid_at IS NULL OR refunded_at IS NOT NULL)`,
             ['wallet', s.id, clubId]
           )
           if (!upd.affectedRows) throw new Error('share_state_changed')
@@ -1157,7 +1167,16 @@ router.post('/record-remainder-payment', async (req, res) => {
     } else if (isAtClub) {
       for (const s of unpaid) {
         await query(
-          `UPDATE booking_payment_shares SET paid_at = NOW(), payment_reference = NULL, payment_method = ? WHERE id = ? AND club_id = ? AND paid_at IS NULL`,
+          `UPDATE booking_payment_shares SET
+            paid_at = NOW(),
+            payment_reference = NULL,
+            payment_method = ?,
+            refunded_at = NULL,
+            refund_method = NULL,
+            refund_reference = NULL,
+            refund_notes = NULL,
+            refund_acknowledged_at = NULL
+           WHERE id = ? AND club_id = ? AND removed_at IS NULL AND (paid_at IS NULL OR refunded_at IS NOT NULL)`,
           ['at_club', s.id, clubId]
         )
       }
@@ -1165,7 +1184,16 @@ router.post('/record-remainder-payment', async (req, res) => {
       const pref = String(paymentReference).trim()
       for (const s of unpaid) {
         await query(
-          `UPDATE booking_payment_shares SET paid_at = NOW(), payment_reference = ?, payment_method = ? WHERE id = ? AND club_id = ? AND paid_at IS NULL`,
+          `UPDATE booking_payment_shares SET
+            paid_at = NOW(),
+            payment_reference = ?,
+            payment_method = ?,
+            refunded_at = NULL,
+            refund_method = NULL,
+            refund_reference = NULL,
+            refund_notes = NULL,
+            refund_acknowledged_at = NULL
+           WHERE id = ? AND club_id = ? AND removed_at IS NULL AND (paid_at IS NULL OR refunded_at IS NOT NULL)`,
           [pref, 'electronic', s.id, clubId]
         )
       }
@@ -1173,7 +1201,16 @@ router.post('/record-remainder-payment', async (req, res) => {
       const pref = paymentReference != null ? String(paymentReference) : null
       for (const s of unpaid) {
         await query(
-          `UPDATE booking_payment_shares SET paid_at = NOW(), payment_reference = ?, payment_method = ? WHERE id = ? AND club_id = ? AND paid_at IS NULL`,
+          `UPDATE booking_payment_shares SET
+            paid_at = NOW(),
+            payment_reference = ?,
+            payment_method = ?,
+            refunded_at = NULL,
+            refund_method = NULL,
+            refund_reference = NULL,
+            refund_notes = NULL,
+            refund_acknowledged_at = NULL
+           WHERE id = ? AND club_id = ? AND removed_at IS NULL AND (paid_at IS NULL OR refunded_at IS NOT NULL)`,
           [pref, null, s.id, clubId]
         )
       }
