@@ -1926,12 +1926,23 @@ router.post('/acknowledge-share-refund', async (req, res) => {
     if (row.refund_acknowledged_at) return res.json({ ok: true, alreadyAcknowledged: true })
     try {
       await query(
-        `UPDATE booking_payment_shares SET refund_acknowledged_at = NOW() WHERE id = ? AND club_id = ?`,
+        `UPDATE booking_payment_shares
+         SET refund_acknowledged_at = NOW(),
+             removed_at = COALESCE(removed_at, NOW())
+         WHERE id = ? AND club_id = ?`,
         [row.id, clubId]
       )
     } catch (e) {
-      if (!e?.message?.includes('refund_acknowledged_at')) throw e
-      return res.status(503).json({ error: 'Run DB migration add-booking-refund-columns.sql' })
+      if (e?.message?.includes('removed_at')) {
+        await query(
+          `UPDATE booking_payment_shares SET refund_acknowledged_at = NOW() WHERE id = ? AND club_id = ?`,
+          [row.id, clubId]
+        )
+      } else if (!e?.message?.includes('refund_acknowledged_at')) {
+        throw e
+      } else {
+        return res.status(503).json({ error: 'Run DB migration add-booking-refund-columns.sql' })
+      }
     }
     const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(row.booking_id, clubId)
     if ((rec?.status || '').toString().toLowerCase() === 'cancelled') {
