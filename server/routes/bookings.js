@@ -1934,6 +1934,17 @@ router.post('/acknowledge-share-refund', async (req, res) => {
       return res.status(503).json({ error: 'Run DB migration add-booking-refund-columns.sql' })
     }
     const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(row.booking_id, clubId)
+    if ((rec?.status || '').toString().toLowerCase() === 'cancelled') {
+      // After all refunded payers confirm receipt, classify it as member-cancelled in client tabs.
+      try {
+        await mergeClubBookingDataJson(row.booking_id, clubId, {
+          memberSelfCancel: true,
+          memberSelfCancelAt: new Date().toISOString(),
+        })
+      } catch (_) {
+        /* ignore metadata patch failures */
+      }
+    }
     if (clubId && rec?.bookingDate) slotCache.invalidateLocks(clubId, rec.bookingDate)
     res.json({ ok: true, ...rec })
   } catch (e) {
