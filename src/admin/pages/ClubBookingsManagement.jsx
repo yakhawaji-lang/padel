@@ -36,6 +36,11 @@ function classifyAdminBooking(b) {
   return 'court'
 }
 
+/** Keys refund draft state; must stay in sync between the row UI and handleAdminRefundShare. */
+function paymentShareRefundDraftKey(share, idx) {
+  return String(share?.id || share?.inviteToken || `i${idx}`)
+}
+
 const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   const [bookings, setBookings] = useState([])
   const [filter, setFilter] = useState('upcoming')
@@ -306,8 +311,9 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     }
   }
 
-  const handleAdminRefundShare = async (share, bookingId, { removeFromBooking }) => {
-    const draft = refundDraftByShareId[String(share.id || share.inviteToken || '')] || {}
+  const handleAdminRefundShare = async (share, bookingId, { removeFromBooking, shareKey }) => {
+    const draftKey = shareKey != null && shareKey !== '' ? String(shareKey) : String(share.id || share.inviteToken || '')
+    const draft = refundDraftByShareId[draftKey] || {}
     const refundMethod = draft.method || 'cash'
     const refundReference = (draft.reference || '').trim() || undefined
     const refundNotes = (draft.notes || '').trim() || undefined
@@ -1407,7 +1413,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                     const bookerAmountFromCalc = Math.max(0, totalAmount - sharesSum)
                                     const bookerPaymentMethod = b.initiatorPaymentMethod || b.paymentMethod
                                     const renderShareRow = (s, idx, isBooker) => {
-                                      const shareKey = String(s.id || s.inviteToken || `i${idx}`)
+                                      const shareKey = paymentShareRefundDraftKey(s, idx)
                                       const draft = refundDraftByShareId[shareKey] || { method: 'cash' }
                                       const isRefunded = !!s.refundedAt
                                       const isRemoved = !!s.removedAt
@@ -1560,7 +1566,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                                   type="button"
                                                   className="booking-refund-btn booking-refund-br"
                                                   disabled={actionLoading === `refund-${s.id || s.inviteToken}`}
-                                                  onClick={() => handleAdminRefundShare(s, b.id, { removeFromBooking: false })}
+                                                  onClick={() => handleAdminRefundShare(s, b.id, { removeFromBooking: false, shareKey })}
                                                 >
                                                   {c.recordRefund}
                                                 </button>
@@ -1568,7 +1574,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                                   type="button"
                                                   className="booking-refund-btn booking-refund-btn--warn"
                                                   disabled={actionLoading === `refund-${s.id || s.inviteToken}`}
-                                                  onClick={() => handleAdminRefundShare(s, b.id, { removeFromBooking: true })}
+                                                  onClick={() => handleAdminRefundShare(s, b.id, { removeFromBooking: true, shareKey })}
                                                 >
                                                   {c.refundAndRemove}
                                                 </button>
