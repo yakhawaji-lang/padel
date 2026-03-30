@@ -1734,6 +1734,11 @@ router.post('/admin-refund-share', async (req, res) => {
       if (!e?.message?.includes('refunded_at') && !e?.message?.includes('refund_method')) throw e
       return res.status(503).json({ error: 'Run DB migration add-booking-refund-columns.sql' })
     }
+    try {
+      await invoiceService.voidClubInvoiceForBookingShareRefund(clubId, bid, row.id)
+    } catch (invE) {
+      console.warn('[admin-refund-share] invoice void share:', invE?.message)
+    }
     if (removeFromBooking) {
       try {
         await query(`UPDATE booking_payment_shares SET removed_at = NOW() WHERE id = ? AND club_id = ?`, [row.id, clubId])
@@ -1767,6 +1772,7 @@ router.post('/admin-refund-booking-full', async (req, res) => {
     }
     const note = (refundNotes || '').toString().substring(0, 500) || null
     const ref = refundReference || null
+    const refundedShareIds = []
     for (const s of shares) {
       if (s.removed_at) continue
       if (s.refunded_at) continue
@@ -1776,6 +1782,7 @@ router.post('/admin-refund-booking-full', async (req, res) => {
             `UPDATE booking_payment_shares SET refunded_at = NOW(), refund_method = ?, refund_reference = ?, refund_notes = ? WHERE id = ? AND club_id = ?`,
             [rm, ref, note, s.id, clubId]
           )
+          refundedShareIds.push(s.id)
         } catch (e) {
           if (!e?.message?.includes('refunded_at')) throw e
           return res.status(503).json({ error: 'Run DB migration add-booking-refund-columns.sql' })
@@ -1786,6 +1793,13 @@ router.post('/admin-refund-booking-full', async (req, res) => {
         } catch (e) {
           if (!e?.message?.includes('removed_at')) throw e
         }
+      }
+    }
+    for (const shareId of refundedShareIds) {
+      try {
+        await invoiceService.voidClubInvoiceForBookingShareRefund(clubId, bookingId, shareId)
+      } catch (invE) {
+        console.warn('[admin-refund-booking-full] invoice void share:', invE?.message)
       }
     }
     await mergeClubBookingDataJson(bookingId, clubId, { splitInviteReopen: true })

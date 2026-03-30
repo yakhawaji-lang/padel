@@ -622,6 +622,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       splitPayment: 'Split between participants',
       singlePayment: 'Paid by booker',
       totalAmount: 'Total amount',
+      collectedAmount: 'Collected',
+      remainingAmount: 'Remaining',
       amountPerParticipant: 'Amount per participant',
       participant: 'Participant',
       amount: 'Amount',
@@ -643,6 +645,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       payerConfirmPending: 'Awaiting payer confirmation',
       stripeManualHint: 'Process the reversal in Stripe dashboard, then enter the refund ID above.',
       electronicHint: 'For card/Mada, process reversal in your gateway and note the reference.',
+      refundImpactHint:
+        'Record refund keeps this participant in split; Refund & remove reopens their amount for the booker/participants to settle and voids that participant invoice.',
       refundAckDone: 'Participant confirmed receipt',
       editDisabledTournament: 'Edit tournament blocks from the tournament section of the club app.',
       expiredSplitBannerTitle: 'Split payment deadline passed',
@@ -732,6 +736,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       splitPayment: 'مقسوم بين المشاركين',
       singlePayment: 'دفع فردي من الحاجز',
       totalAmount: 'المبلغ الإجمالي',
+      collectedAmount: 'المحصّل',
+      remainingAmount: 'المتبقي',
       amountPerParticipant: 'المطلوب من كل مشارك',
       participant: 'المشارك',
       amount: 'المبلغ',
@@ -753,6 +759,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       payerConfirmPending: 'بانتظار تأكيد المسترد',
       stripeManualHint: 'نفّذ الاسترداد من لوحة Stripe ثم أدخل رقم الاسترداد أعلاه.',
       electronicHint: 'لبطاقة/مدى، نفّذ العكس من بوابة الدفع وسجّل المرجع.',
+      refundImpactHint:
+        'تسجيل الاسترداد يبقي المشارك ضمن التقسيم؛ الاسترداد مع الإزالة يعيد قيمة حصته كمتبقٍ على الحاجز/المشاركين تسويته ويلغي فاتورة تلك الحصة.',
       refundAckDone: 'أكد المشارك الاستلام',
       editDisabledTournament: 'عدّل مواعيد البطولة من قسم البطولات في تطبيق النادي.',
       expiredSplitBannerTitle: 'انتهت مهلة إكمال تقسيم الدفع',
@@ -1109,6 +1117,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                   const currency = priceInfo.currency || club?.settings?.currency || 'SAR'
                   const totalAmount = b.totalAmount ?? b.total_amount ?? priceInfo.price ?? 0
                   const paidSumForPanel = sumActivePaidShares(paymentShares)
+                  const remainingForPanel = Math.max(0, (parseFloat(totalAmount) || 0) - paidSumForPanel)
                   const incompleteSplit =
                     hasShares &&
                     Number(totalAmount) > 0 &&
@@ -1249,6 +1258,18 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                   {totalAmount} {currency}
                                 </span>
                               </div>
+                              {hasShares && (
+                                <>
+                                  <div className="booking-payment-detail-item">
+                                    <span className="booking-payment-detail-label">{c.collectedAmount}</span>
+                                    <span className="booking-payment-detail-value">{paidSumForPanel.toFixed(2)} {currency}</span>
+                                  </div>
+                                  <div className="booking-payment-detail-item">
+                                    <span className="booking-payment-detail-label">{c.remainingAmount}</span>
+                                    <span className="booking-payment-detail-value">{remainingForPanel.toFixed(2)} {currency}</span>
+                                  </div>
+                                </>
+                              )}
                             </div>
                             {unpaidSplitExpired ? (
                               <div className="booking-expired-split-extend">
@@ -1561,6 +1582,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                                 }))}
                                               />
                                               {refundChannelHint ? <p className="booking-refund-hint">{refundChannelHint}</p> : null}
+                                              <p className="booking-refund-impact-hint">{c.refundImpactHint}</p>
                                               <div className="booking-refund-actions">
                                                 <button
                                                   type="button"
@@ -1613,7 +1635,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                             {hasShares && !rowAwaitingRefundAck && !rowEnded && (
                               <div className="booking-full-refund-card">
                                 <h5 className="booking-full-refund-title">{c.refundAll}</h5>
-                                <p className="booking-full-refund-desc">{language === 'en' ? 'Marks every paid share as refunded and removes unpaid invites. Booking becomes cancelled until each payer confirms in the app.' : 'يُسجَّل الاسترداد لكل من دفع ويُزال المدعوون غير المدفوع. يصبح الحجز ملغياً حتى يؤكد كل دافع في التطبيق.'}</p>
+                                <p className="booking-full-refund-desc">{language === 'en' ? 'Marks every paid share as refunded, voids their share invoices, and removes unpaid invites. Booking becomes cancelled until each payer confirms in the app.' : 'يُسجَّل الاسترداد لكل من دفع، وتُلغى فواتير الحصص المستردة، ويُزال المدعوون غير المدفوع. يصبح الحجز ملغياً حتى يؤكد كل دافع في التطبيق.'}</p>
                                 <div className="booking-refund-controls booking-refund-controls--full">
                                   <select
                                     className="booking-refund-select"
