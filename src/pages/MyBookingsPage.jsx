@@ -94,14 +94,21 @@ function getSplitPaymentProgress(booking) {
       (!(sh.paidAt || sh.paid_at) && !(sh.refundedAt || sh.refunded_at) ? parseFloat(sh.amount) || 0 : 0),
     0
   )
+  const refundedSum = active.reduce(
+    (s, sh) =>
+      s +
+      ((sh.refundedAt || sh.refunded_at) ? parseFloat(sh.amount) || 0 : 0),
+    0
+  )
   const unallocated = Math.max(0, total - allocated)
-  const outstanding = Math.max(0, unpaidSum + unallocated)
+  // Refunded shares were previously collected then returned; they must reappear as amount to settle.
+  const outstanding = Math.max(0, unpaidSum + refundedSum + unallocated)
   return {
     total,
     allocated,
     paidSum,
     outstanding,
-    unpaidCount: active.filter((s) => !(s.paidAt || s.paid_at)).length,
+    unpaidCount: active.filter((s) => !(s.paidAt || s.paid_at) || (s.refundedAt || s.refunded_at)).length,
   }
 }
 
