@@ -91,31 +91,88 @@ function phoneTail9(raw) {
   return d.length >= 9 ? d.slice(-9) : d
 }
 
+function digitsOnlyPhone(s) {
+  return String(s || '').replace(/\D/g, '')
+}
+
 /**
- * حصة بدون member_id (مدعو بالهاتف) لكن العضو مسجّل في النادي — نستنتج المعرف للإيداع في المحفظة.
- * يُرجع id واحد فقط عند تطابق فريد؛ وإلا null.
+ * مطابقة رقم الحصة مع mobile العضو (تغطية 966 / 05 / ذيل 8 أو 9 أرقام).
+ */
+function memberMobileMatchesSharePhone(sharePhone, memberMobile) {
+  const a = digitsOnlyPhone(sharePhone)
+  const b = digitsOnlyPhone(memberMobile)
+  if (a.length < 8 || b.length < 8) return false
+  if (a.slice(-9) === b.slice(-9)) return true
+  if (a.slice(-8) === b.slice(-8)) return true
+  const strip966 = (d) => (String(d).startsWith('966') && d.length >= 11 ? d.slice(3) : d)
+  const aa = strip966(a)
+  const bb = strip966(b)
+  if (aa.length >= 9 && bb.length >= 9 && aa.slice(-9) === bb.slice(-9)) return true
+  return aa.slice(-8) === bb.slice(-8)
+}
+
+/**
+ * حصة بدون member_id — نستنتج معرف العضو من الهاتف للإيداع في المحفظة.
+ * 1) أعضاء مرتبطون بالنادي (member_clubs)
+ * 2) إن فشل: بحث بين كل الأعضاء بتطابق فريد ثم INSERT IGNORE لربط النادي
  */
 async function resolveMemberIdForShareWalletFromPhone(clubId, sharePhone) {
-  const tail = phoneTail9(sharePhone || '')
-  if (tail.length < 8) return null
-  try {
-    const { rows } = await query(
-      `SELECT m.id, m.mobile
-       FROM members m
-       INNER JOIN member_clubs mc ON mc.member_id = m.id AND mc.club_id = ?
-       WHERE m.deleted_at IS NULL`,
-      [String(clubId)]
-    )
+  const sDig = digitsOnlyPhone(sharePhone)
+  if (sDig.length < 8) return null
+
+  async function membersInClubRows() {
+    try {
+      const r = await query(
+        `SELECT m.id, m.mobile FROM members m
+         INNER JOIN member_clubs mc ON mc.member_id = m.id AND mc.club_id = ?
+         WHERE m.deleted_at IS NULL`,
+        [String(clubId)]
+      )
+      return r.rows || []
+    } catch (e) {
+      if (!e?.message?.includes('deleted_at')) throw e
+      const r = await query(
+        `SELECT m.id, m.mobile FROM members m
+         INNER JOIN member_clubs mc ON mc.member_id = m.id AND mc.club_id = ?`,
+        [String(clubId)]
+      )
+      return r.rows || []
+    }
+  }
+
+  async function allMembersWithMobile() {
+    try {
+      const r = await query(`SELECT id, mobile FROM members WHERE deleted_at IS NULL`, [])
+      return r.rows || []
+    } catch {
+      const r = await query(`SELECT id, mobile FROM members`, [])
+      return r.rows || []
+    }
+  }
+
+  function collectMatches(rows) {
     const ids = new Set()
     for (const r of rows || []) {
-      const t1 = phoneTail9(r.mobile)
-      if (t1.length >= 8 && t1 === tail) ids.add(String(r.id))
+      const mob = r.mobile
+      if (mob == null || String(mob).trim() === '') continue
+      if (memberMobileMatchesSharePhone(sharePhone, mob)) ids.add(String(r.id))
     }
-    if (ids.size === 1) return [...ids][0]
-    return null
-  } catch (_) {
-    return null
+    return ids
   }
+
+  let ids = collectMatches(await membersInClubRows())
+  if (ids.size === 1) return [...ids][0]
+
+  ids = collectMatches(await allMembersWithMobile())
+  if (ids.size !== 1) return null
+
+  const mid = [...ids][0]
+  try {
+    await query(`INSERT IGNORE INTO member_clubs (member_id, club_id) VALUES (?, ?)`, [mid, String(clubId)])
+  } catch (_) {
+    /* ربط النادي اختياري — الإيداع في المحفظة يعتمد على member_id فقط */
+  }
+  return mid
 }
 
 /** Split participant: same member id or matching phone tail (invite rows). */
@@ -2752,7 +2809,7 @@ router.post('/admin-fulfill-member-share-refund', async (req, res) => {
     let row
     try {
       const r = await query(
-        `SELECT id, booking_id, club_id, member_id, amount, paid_at, refunded_at, removed_at, refund_notes,
+        `SELECT id, booking_id, club_id, member_id, phone, amount, paid_at, refunded_at, removed_at, refund_notes,
                 member_refund_route, member_refund_requested_at, member_refund_net
          FROM booking_payment_shares WHERE id = ? AND club_id = ?`,
         [shareId, clubId]
