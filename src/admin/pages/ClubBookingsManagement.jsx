@@ -645,8 +645,6 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       payerConfirmPending: 'Awaiting payer confirmation',
       stripeManualHint: 'Process the reversal in Stripe dashboard, then enter the refund ID above.',
       electronicHint: 'For card/Mada, process reversal in your gateway and note the reference.',
-      refundImpactHint:
-        'Record refund keeps this participant in split; Refund & remove reopens their amount for the booker/participants to settle and voids that participant invoice.',
       refundAckDone: 'Participant confirmed receipt',
       editDisabledTournament: 'Edit tournament blocks from the tournament section of the club app.',
       expiredSplitBannerTitle: 'Split payment deadline passed',
@@ -759,8 +757,6 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       payerConfirmPending: 'بانتظار تأكيد المسترد',
       stripeManualHint: 'نفّذ الاسترداد من لوحة Stripe ثم أدخل رقم الاسترداد أعلاه.',
       electronicHint: 'لبطاقة/مدى، نفّذ العكس من بوابة الدفع وسجّل المرجع.',
-      refundImpactHint:
-        'تسجيل الاسترداد يبقي المشارك ضمن التقسيم؛ الاسترداد مع الإزالة يعيد قيمة حصته كمتبقٍ على الحاجز/المشاركين تسويته ويلغي فاتورة تلك الحصة.',
       refundAckDone: 'أكد المشارك الاستلام',
       editDisabledTournament: 'عدّل مواعيد البطولة من قسم البطولات في تطبيق النادي.',
       expiredSplitBannerTitle: 'انتهت مهلة إكمال تقسيم الدفع',
@@ -1580,7 +1576,6 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                                 }))}
                                               />
                                               {refundChannelHint ? <p className="booking-refund-hint">{refundChannelHint}</p> : null}
-                                              <p className="booking-refund-impact-hint">{c.refundImpactHint}</p>
                                               <div className="booking-refund-actions">
                                                 <button
                                                   type="button"

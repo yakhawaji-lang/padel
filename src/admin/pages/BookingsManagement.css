@@ -546,13 +546,6 @@
   color: #0369a1;
   line-height: 1.4;
 }
-.booking-refund-impact-hint {
-  flex: 1 0 100%;
-  margin: 0;
-  font-size: 11px;
-  color: #475569;
-  line-height: 1.5;
-}
 .booking-refund-actions {
   display: flex;
   flex-wrap: wrap;
