@@ -91,6 +91,33 @@ function phoneTail9(raw) {
   return d.length >= 9 ? d.slice(-9) : d
 }
 
+/**
+ * حصة بدون member_id (مدعو بالهاتف) لكن العضو مسجّل في النادي — نستنتج المعرف للإيداع في المحفظة.
+ * يُرجع id واحد فقط عند تطابق فريد؛ وإلا null.
+ */
+async function resolveMemberIdForShareWalletFromPhone(clubId, sharePhone) {
+  const tail = phoneTail9(sharePhone || '')
+  if (tail.length < 8) return null
+  try {
+    const { rows } = await query(
+      `SELECT m.id, m.mobile
+       FROM members m
+       INNER JOIN member_clubs mc ON mc.member_id = m.id AND mc.club_id = ?
+       WHERE m.deleted_at IS NULL`,
+      [String(clubId)]
+    )
+    const ids = new Set()
+    for (const r of rows || []) {
+      const t1 = phoneTail9(r.mobile)
+      if (t1.length >= 8 && t1 === tail) ids.add(String(r.id))
+    }
+    if (ids.size === 1) return [...ids][0]
+    return null
+  } catch (_) {
+    return null
+  }
+}
+
 /** Split participant: same member id or matching phone tail (invite rows). */
 function shareRowBelongsToMember(row, memberId, memberPhoneRaw) {
   if (!row || !memberId) return false
@@ -2746,14 +2773,32 @@ router.post('/admin-fulfill-member-share-refund', async (req, res) => {
     net = Math.round(net * 100) / 100
 
     const bookingId = row.booking_id
-    const mid = row.member_id ? String(row.member_id).trim() : ''
+    let mid = row.member_id ? String(row.member_id).trim() : ''
+    if (!mid) {
+      const resolved = await resolveMemberIdForShareWalletFromPhone(clubId, row.phone)
+      if (resolved) {
+        mid = resolved
+        try {
+          await query(`UPDATE booking_payment_shares SET member_id = ? WHERE id = ? AND club_id = ? AND (member_id IS NULL OR member_id = '')`, [
+            mid,
+            row.id,
+            clubId,
+          ])
+        } catch (patchE) {
+          console.warn('[admin-fulfill-member-share-refund] patch member_id:', patchE?.message)
+        }
+      }
+    }
 
     if (f === 'wallet') {
       if (!Number.isFinite(net) || net < 0.01) {
         return res.status(400).json({ error: 'Refund amount is zero or invalid for wallet credit' })
       }
       if (!mid) {
-        return res.status(400).json({ error: 'Cannot credit wallet: share has no member id' })
+        return res.status(400).json({
+          error:
+            'Cannot credit wallet: share has no member id. Link the participant to a club member (matching phone) or set member on the share.',
+        })
       }
       const alreadyCredited = await walletService.hasShareRefundWalletCredit(clubId, mid, row.id)
       if (!alreadyCredited) {
