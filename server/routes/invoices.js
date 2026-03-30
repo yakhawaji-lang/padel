@@ -24,19 +24,48 @@ router.get('/', async (req, res) => {
     }
     const limit = num(req.query.limit, 50, 200)
     const offset = num(req.query.offset, 0, 100000)
-    let sql = `SELECT public_id, invoice_number, status, currency, total, amount_paid, balance_due,
-      paid_at, issued_at, customer_name, customer_phone, source_type, source_ref
-      FROM club_invoices WHERE club_id = ? AND deleted_at IS NULL`
+    let sql = `
+      SELECT ci.public_id, ci.invoice_number, ci.status, ci.currency, ci.total, ci.amount_paid, ci.balance_due,
+        ci.paid_at, ci.issued_at,
+        COALESCE(
+          NULLIF(TRIM(ci.customer_name), ''),
+          NULLIF(TRIM(bps.member_name), ''),
+          NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(cb.data, '$.customerName'))), ''),
+          NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(cb.data, '$.customer'))), ''),
+          NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(cb.data, '$.memberName'))), '')
+        ) AS customer_name,
+        COALESCE(
+          NULLIF(TRIM(ci.customer_phone), ''),
+          NULLIF(TRIM(bps.phone), ''),
+          NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(cb.data, '$.phone'))), ''),
+          NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(cb.data, '$.customerPhone'))), '')
+        ) AS customer_phone,
+        COALESCE(
+          NULLIF(TRIM(ci.customer_member_id), ''),
+          NULLIF(TRIM(bps.member_id), ''),
+          NULLIF(TRIM(cb.member_id), '')
+        ) AS customer_member_id,
+        bps.participant_type AS share_participant_type,
+        ci.source_type, ci.source_ref
+      FROM club_invoices ci
+      LEFT JOIN booking_payment_shares bps ON ci.club_id = bps.club_id
+        AND ci.source_type = 'booking_share'
+        AND ci.source_ref = CONCAT(bps.booking_id, ':', bps.id)
+      LEFT JOIN club_bookings cb ON ci.club_id = cb.club_id
+        AND ci.source_type = 'booking_full'
+        AND ci.source_ref = cb.id
+        AND cb.deleted_at IS NULL
+      WHERE ci.club_id = ? AND ci.deleted_at IS NULL`
     const params = [clubId]
     if (from) {
-      sql += ' AND issued_at >= ?'
+      sql += ' AND ci.issued_at >= ?'
       params.push(from)
     }
     if (to) {
-      sql += ' AND issued_at < DATE_ADD(?, INTERVAL 1 DAY)'
+      sql += ' AND ci.issued_at < DATE_ADD(?, INTERVAL 1 DAY)'
       params.push(to)
     }
-    sql += ' ORDER BY issued_at DESC, id DESC LIMIT ? OFFSET ?'
+    sql += ' ORDER BY ci.issued_at DESC, ci.id DESC LIMIT ? OFFSET ?'
     params.push(limit, offset)
     const { rows } = await query(sql, params)
     res.json({ ok: true, invoices: rows || [], invoicingEnabled: true })

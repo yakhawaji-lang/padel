@@ -646,6 +646,54 @@
   font-size: 0.86rem;
 }
 
+.acc-table__customer {
+  min-width: 11rem;
+  max-width: 22rem;
+  vertical-align: top;
+}
+
+.acc-invoice-customer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.35;
+}
+
+.acc-invoice-customer__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.acc-invoice-customer__name {
+  font-weight: 600;
+  color: var(--acc-text);
+}
+
+.acc-invoice-customer__meta {
+  font-size: 0.78rem;
+  color: var(--acc-muted);
+  font-weight: 500;
+}
+
+.acc-invoice-customer__label {
+  margin-inline-end: 4px;
+  opacity: 0.85;
+}
+
+.acc-invoice-customer__badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--acc-slate-soft);
+  color: var(--acc-slate);
+}
+
 .acc-panel--invoices .acc-table-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;

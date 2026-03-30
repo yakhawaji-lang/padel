@@ -27,6 +27,38 @@ function courtLabel(club, courtId, lang) {
   return lang === 'ar' ? (c.nameAr || c.name) : (c.name || c.nameAr)
 }
 
+function InvoiceCustomerDetail({ inv, t }) {
+  const name = (inv?.customer_name != null ? String(inv.customer_name) : '').trim()
+  const phone = (inv?.customer_phone != null ? String(inv.customer_phone) : '').trim()
+  const mid = (inv?.customer_member_id != null ? String(inv.customer_member_id) : '').trim()
+  const sharePt = String(inv?.share_participant_type || '').toLowerCase()
+  const guestBadge = sharePt === 'unregistered' && !mid
+
+  return (
+    <div className="acc-invoice-customer">
+      <div className="acc-invoice-customer__row acc-invoice-customer__name">
+        <span>{name || '—'}</span>
+        {guestBadge ? (
+          <span className="acc-invoice-customer__badge" title={t('No linked member', 'بدون عضو مرتبط')}>
+            {t('Guest', 'ضيف')}
+          </span>
+        ) : null}
+      </div>
+      {phone ? (
+        <div className="acc-invoice-customer__row acc-invoice-customer__meta western-numerals" title={t('Phone', 'الجوال')}>
+          {phone}
+        </div>
+      ) : null}
+      {mid ? (
+        <div className="acc-invoice-customer__row acc-invoice-customer__meta">
+          <span className="acc-invoice-customer__label">{t('Member', 'عضو')}</span>
+          <code className="acc-code acc-code--sub">{mid}</code>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function getInvoiceStatusLabel(inv, lang = 'en') {
   const status = String(inv?.status || '').toLowerCase()
   const sourceType = String(inv?.source_type || '').toLowerCase()
@@ -111,10 +143,20 @@ export default function ClubAccountingHub({ club, language, onUpdateClub }) {
     return invoices.filter((inv) => {
       const num = String(inv.invoice_number || '').toLowerCase()
       const cust = String(inv.customer_name || '').toLowerCase()
+      const phone = String(inv.customer_phone || '').toLowerCase()
+      const mid = String(inv.customer_member_id || '').toLowerCase()
       const pid = String(inv.public_id || '').toLowerCase()
       const src = String(inv.source_ref || '').toLowerCase()
       const st = String(inv.status || '').toLowerCase()
-      return num.includes(q) || cust.includes(q) || pid.includes(q) || src.includes(q) || st.includes(q)
+      return (
+        num.includes(q) ||
+        cust.includes(q) ||
+        phone.includes(q) ||
+        mid.includes(q) ||
+        pid.includes(q) ||
+        src.includes(q) ||
+        st.includes(q)
+      )
     })
   }, [invoices, invoiceQuery])
 
@@ -427,8 +469,8 @@ export default function ClubAccountingHub({ club, language, onUpdateClub }) {
                 type="search"
                 className="acc-input acc-input--grow acc-input--prominent"
                 placeholder={t(
-                  'Search invoice #, customer, booking ref, status…',
-                  'بحث برقم الفاتورة، العميل، مرجع الحجز، الحالة…'
+                  'Search invoice #, name, phone, member id, booking ref…',
+                  'بحث برقم الفاتورة، الاسم، الجوال، رقم العضو، مرجع الحجز…'
                 )}
                 value={invoiceQuery}
                 onChange={(e) => setInvoiceQuery(e.target.value)}
@@ -488,7 +530,9 @@ export default function ClubAccountingHub({ club, language, onUpdateClub }) {
                             ? String(inv.issued_at).split('T')[0]
                             : '—'}
                         </td>
-                        <td>{inv.customer_name || '—'}</td>
+                        <td className="acc-table__customer">
+                          <InvoiceCustomerDetail inv={inv} t={t} />
+                        </td>
                         <td className="western-numerals">
                           {formatMoney(inv.total ?? inv.amount_paid, inv.currency || currency, lang)}
                         </td>
