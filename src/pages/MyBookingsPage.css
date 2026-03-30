@@ -2354,73 +2354,271 @@
   cursor: not-allowed;
 }
 
-/* ----- Split: remainder pay + co-add permission ----- */
-.my-bookings-price-note {
-  margin-top: 8px;
-  padding: 8px 10px;
-  font-size: 0.8125rem;
-  line-height: 1.4;
-  color: var(--mb-text-muted);
-  background: var(--mb-bg);
-  border-radius: var(--mb-radius-sm);
-  border: 1px dashed var(--mb-border);
+/* ----- Split: price note (locked total vs current club rate) ----- */
+.my-bookings-price-note-wrap {
+  align-self: stretch;
 }
 
+.my-bookings-price-note-wrap .my-bookings-card-value.my-bookings-price-note {
+  display: block;
+  margin-top: 2px;
+  padding: 10px 12px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #475569;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  border-inline-start: 3px solid #94a3b8;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
+@media (min-width: 640px) {
+  .my-bookings-price-note-wrap .my-bookings-card-value.my-bookings-price-note {
+    font-size: 0.84375rem;
+    padding: 11px 14px;
+  }
+}
+
+/* ----- Split: booker permission (participants may add split members) ----- */
 .my-bookings-coadd-toggle {
-  margin-top: 12px;
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  background: var(--mb-bg);
-  border-radius: var(--mb-radius-sm);
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, #fafbfc 0%, #f4f6f8 100%);
   border: 1px solid var(--mb-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.my-bookings-coadd-toggle input {
-  margin-top: 4px;
+.my-bookings-coadd-toggle:hover {
+  border-color: #cbd5e1;
+}
+
+.my-bookings-coadd-toggle:focus-within {
+  outline: none;
+  border-color: var(--mb-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.my-bookings-coadd-toggle input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  margin: 2px 0 0;
   flex-shrink: 0;
-}
-
-.my-bookings-coadd-label {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 0.875rem;
-  color: var(--mb-text);
+  accent-color: var(--mb-primary);
   cursor: pointer;
 }
 
-.my-bookings-coadd-hint {
-  font-size: 0.75rem;
-  font-weight: 400;
-  color: var(--mb-text-muted);
+.my-bookings-coadd-toggle > span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+  font-size: 0.875rem;
+  line-height: 1.35;
+  color: var(--mb-text);
+  text-align: start;
 }
 
-.my-bookings-remainder {
-  margin-top: 14px;
-  padding: 12px 14px;
-  background: var(--mb-warning-bg);
-  border: 1px solid rgba(217, 119, 6, 0.25);
-  border-radius: var(--mb-radius-sm);
+.my-bookings-coadd-toggle > span strong {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  letter-spacing: -0.01em;
+}
+
+.my-bookings-coadd-toggle-hint {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--mb-text-muted);
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 480px) {
+  .my-bookings-coadd-toggle {
+    padding: 14px 16px;
+    align-items: center;
+  }
+
+  .my-bookings-coadd-toggle input[type="checkbox"] {
+    margin-top: 0;
+  }
+}
+
+/* ----- Split: pay full remainder (booker or participant) ----- */
+.my-bookings-remainder-bar {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: linear-gradient(145deg, #fffbeb 0%, #fef3c7 38%, #fff7ed 100%);
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.08);
+}
+
+@media (min-width: 640px) {
+  .my-bookings-remainder-bar {
+    padding: 18px 20px;
+  }
+}
+
+.my-bookings-remainder-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 8px;
 }
 
 .my-bookings-remainder-title {
+  font-size: 0.8125rem;
   font-weight: 700;
-  font-size: 0.9375rem;
-  color: var(--mb-text);
-  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #92400e;
+  margin: 0;
 }
 
-.my-bookings-remainder-hint {
+.my-bookings-remainder-amount {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  font-size: 1rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: #78350f;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  border-radius: 999px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+@media (min-width: 640px) {
+  .my-bookings-remainder-amount {
+    font-size: 1.0625rem;
+    padding: 8px 14px;
+  }
+}
+
+.my-bookings-remainder-sub {
+  margin: 0 0 14px;
   font-size: 0.8125rem;
-  color: var(--mb-text-muted);
-  margin: 0 0 12px;
-  line-height: 1.4;
+  line-height: 1.45;
+  color: #a16207;
+  max-width: min(52ch, 100%);
+  text-align: start;
+}
+
+@media (min-width: 640px) {
+  .my-bookings-remainder-sub {
+    font-size: 0.84375rem;
+    margin-bottom: 16px;
+  }
 }
 
 .my-bookings-remainder-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (min-width: 520px) {
+  .my-bookings-remainder-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+.my-bookings-remainder-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.15s, background 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  flex: 1 1 auto;
+  background: linear-gradient(135deg, #1e3a5f 0%, #152a47 100%);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(30, 58, 95, 0.2);
+}
+
+@media (min-width: 520px) {
+  .my-bookings-remainder-btn {
+    flex: 1 1 calc(50% - 5px);
+    min-width: min(100%, 148px);
+  }
+}
+
+@media (min-width: 720px) {
+  .my-bookings-remainder-btn {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+.my-bookings-remainder-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(30, 58, 95, 0.28);
+}
+
+.my-bookings-remainder-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.my-bookings-remainder-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.my-bookings-remainder-btn--wallet {
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.22);
+}
+
+.my-bookings-remainder-btn--wallet:hover:not(:disabled) {
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.32);
+}
+
+.my-bookings-remainder-btn--secondary {
+  background: var(--mb-surface);
+  color: var(--mb-text);
+  border: 1px solid var(--mb-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.my-bookings-remainder-btn--secondary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .my-bookings-remainder-btn,
+  .my-bookings-remainder-btn:hover:not(:disabled),
+  .my-bookings-remainder-btn:active:not(:disabled) {
+    transform: none;
+    transition: opacity 0.15s, box-shadow 0.15s;
+  }
 }

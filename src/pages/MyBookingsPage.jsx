@@ -1804,9 +1804,16 @@ const MyBookingsPage = () => {
                         })}
                       </ul>
                       {r.showRemainderActions ? (
-                        <div className="my-bookings-remainder-bar" onClick={(e) => e.stopPropagation()}>
+                        <div
+                          className="my-bookings-remainder-bar"
+                          role="region"
+                          aria-labelledby={`mb-remainder-${r.booking.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <div className="my-bookings-remainder-head">
-                            <strong className="my-bookings-remainder-title">{c.remainderTitle}</strong>
+                            <strong id={`mb-remainder-${r.booking.id}`} className="my-bookings-remainder-title">
+                              {c.remainderTitle}
+                            </strong>
                             <span className="my-bookings-remainder-amount">
                               {r.splitProgress.outstanding.toFixed(2)} {r.currencyStr}
                             </span>
