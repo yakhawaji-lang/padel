@@ -1091,7 +1091,7 @@ router.post('/set-allow-co-add-split', async (req, res) => {
 
 /**
  * POST /api/bookings/record-remainder-payment — تسوية كل الحصص غير المدفوعة دفعة واحدة (حاجز أو أي مشارك).
- * wallet: يخصم من محفظة الفاعل (X-Actor-Id) إجمالي المتبقي. at_club / electronic: كما record-payment لكل حصة.
+ * wallet: يخصم من محفظة الفاعل إجمالي المتبقي. electronic: paid_at فوري. at_club: تسجيل استلام/تسوية في النادي (paid_at) لكل حصة متبقية — يختلف عن record-payment لمشارك واحد حيث at_club يعني مجرد التزام بدون paid_at.
  */
 router.post('/record-remainder-payment', async (req, res) => {
   try {
@@ -1157,7 +1157,7 @@ router.post('/record-remainder-payment', async (req, res) => {
     } else if (isAtClub) {
       for (const s of unpaid) {
         await query(
-          `UPDATE booking_payment_shares SET paid_at = NULL, payment_reference = NULL, payment_method = ? WHERE id = ? AND club_id = ? AND paid_at IS NULL`,
+          `UPDATE booking_payment_shares SET paid_at = NOW(), payment_reference = NULL, payment_method = ? WHERE id = ? AND club_id = ? AND paid_at IS NULL`,
           ['at_club', s.id, clubId]
         )
       }
@@ -1179,41 +1179,42 @@ router.post('/record-remainder-payment', async (req, res) => {
       }
     }
 
-    if (!isAtClub) {
+    try {
+      let shareBookingKind = 'court'
       try {
-        let shareBookingKind = 'court'
+        const { rows: dr } = await query('SELECT data FROM club_bookings WHERE id = ? AND club_id = ?', [
+          bookingId,
+          clubId,
+        ])
+        shareBookingKind = invoiceService.bookingInvoiceKindFromRowData(parseBookingJsonData(dr?.[0]?.data))
+      } catch (_) {}
+      const invMethod = isWallet ? 'wallet' : isElectronic ? 'electronic' : isAtClub ? 'at_club' : 'other'
+      const invRefGlobal =
+        isWallet ? null : isElectronic && paymentReference != null ? String(paymentReference).trim() : null
+      for (const s of unpaid) {
+        const sr = await query(`${shareForInvoiceSql} WHERE bps.id = ? AND bps.club_id = ?`, [s.id, clubId])
+        const sh = sr.rows?.[0]
+        if (!sh) continue
         try {
-          const { rows: dr } = await query('SELECT data FROM club_bookings WHERE id = ? AND club_id = ?', [
-            bookingId,
+          await invoiceService.issueInvoiceForPaidShare({
             clubId,
-          ])
-          shareBookingKind = invoiceService.bookingInvoiceKindFromRowData(parseBookingJsonData(dr?.[0]?.data))
-        } catch (_) {}
-        for (const s of unpaid) {
-          const sr = await query(`${shareForInvoiceSql} WHERE bps.id = ? AND bps.club_id = ?`, [s.id, clubId])
-          const sh = sr.rows?.[0]
-          if (!sh) continue
-          try {
-            await invoiceService.issueInvoiceForPaidShare({
-              clubId,
-              bookingId,
-              shareId: sh.id,
-              amount: sh.amount,
-              currency: sh.currency,
-              memberId: sh.member_id,
-              memberName: sh.member_name,
-              phone: sh.phone,
-              paymentMethod: isWallet ? 'wallet' : isElectronic ? 'electronic' : 'other',
-              paymentReference: isWallet ? `wallet:${sh.id}` : paymentReference || null,
-              bookingKind: shareBookingKind,
-            })
-          } catch (invErr) {
-            console.warn('[record-remainder-payment] invoice:', invErr?.message)
-          }
+            bookingId,
+            shareId: sh.id,
+            amount: sh.amount,
+            currency: sh.currency,
+            memberId: sh.member_id,
+            memberName: sh.member_name,
+            phone: sh.phone,
+            paymentMethod: invMethod,
+            paymentReference: isWallet ? `wallet:${sh.id}` : isAtClub ? null : invRefGlobal || paymentReference || null,
+            bookingKind: shareBookingKind,
+          })
+        } catch (invErr) {
+          console.warn('[record-remainder-payment] invoice:', invErr?.message)
         }
-      } catch (invOuter) {
-        console.warn('[record-remainder-payment] invoice batch:', invOuter?.message)
       }
+    } catch (invOuter) {
+      console.warn('[record-remainder-payment] invoice batch:', invOuter?.message)
     }
 
     const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bookingId, clubId)
