@@ -1319,6 +1319,9 @@ const MyBookingsPage = () => {
       !booking.isTournament && (booking.paymentShares || []).length > 0
         ? getSplitPaymentProgress(booking)
         : { total: 0, paidSum: 0, outstanding: 0, unpaidCount: 0, allocated: 0 }
+    const allowParticipantsSettleRemainder = getAllowParticipantsAddSplit(booking)
+    const canViewRemainderActions =
+      isBooker || (allowParticipantsSettleRemainder && !!mySplitShare)
     const clubRateHint =
       !booking.isTournament && club && dateStr ? getClubPriceRateHint(booking, club, dateStr) : null
     const showRemainderActions =
@@ -1326,6 +1329,7 @@ const MyBookingsPage = () => {
       !booking.isTournament &&
       visibleShares.length > 0 &&
       splitProgress.outstanding > 0.02 &&
+      canViewRemainderActions &&
       !terminalCancelled
     const showExpiredDeadlineBanner = (booking?.status || '').toLowerCase() === 'expired'
 
