@@ -39,6 +39,28 @@ function isSplitFullyPaidByAllParticipants(booking) {
   return allPaid && sum >= total - 0.02
 }
 
+/**
+ * API/normalized clubs merge `club_bookings.data` onto the booking root (`allowParticipantsAddSplit`).
+ * Legacy copies may keep a nested `booking.data` object or JSON string.
+ */
+function getAllowParticipantsAddSplit(booking) {
+  if (!booking || typeof booking !== 'object') return false
+  if (booking.allowParticipantsAddSplit != null) return !!booking.allowParticipantsAddSplit
+  const d = booking.data
+  if (d && typeof d === 'object' && !Array.isArray(d) && d.allowParticipantsAddSplit != null) {
+    return !!d.allowParticipantsAddSplit
+  }
+  if (typeof d === 'string') {
+    try {
+      const p = JSON.parse(d)
+      return !!(p && typeof p === 'object' && p.allowParticipantsAddSplit)
+    } catch {
+      return false
+    }
+  }
+  return false
+}
+
 const SPLIT_PHONE_MIN_DIGITS = 8
 
 /** ميزانية التقسيم: الإجمالي، مجموع الحصص الحالية، والمتبقي للدعوات الجديدة */
@@ -771,7 +793,7 @@ const MyBookingsPage = () => {
     const st = (booking.status || '').toString()
     if (['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st)) return false
     const initiator = String(booking.memberId || booking.initiatorMemberId || '') === String(m.id)
-    const allowCo = !!(booking?.data?.allowParticipantsAddSplit)
+    const allowCo = getAllowParticipantsAddSplit(booking)
     const isParticipant = !!findPaymentShareForMember(booking, m)
     if (!initiator && !(allowCo && isParticipant)) return false
     const shares = booking.paymentShares || []
@@ -1586,15 +1608,20 @@ const MyBookingsPage = () => {
                         {r.isBooker ? <p className="my-bookings-participants-hint">{c.yourShareAmountsHint}</p> : null}
                       </div>
                       {r.isBooker && filter === 'upcoming' && !r.terminalCancelled && !r.isTournament ? (
-                        <label className="my-bookings-coadd-toggle">
+                        <label
+                          className="my-bookings-coadd-toggle"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <input
                             type="checkbox"
-                            checked={!!(r.booking?.data?.allowParticipantsAddSplit)}
+                            checked={getAllowParticipantsAddSplit(r.booking)}
                             disabled={markingPayAtClub === `coadd-${r.booking.id}`}
                             onChange={(e) => {
                               e.stopPropagation()
                               handleSetAllowCoAddSplit(r.booking, r.club, e.target.checked)
                             }}
+                            onClick={(e) => e.stopPropagation()}
                           />
                           <span>
                             <strong>{c.allowCoAddSplit}</strong>
