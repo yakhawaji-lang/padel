@@ -66,6 +66,9 @@ const GLOBAL_SAVING_PATH_PREFIXES = [
   '/api/invoices/purge',
   '/api/settings/homepage-image',
 ]
+const USER_INTENT_WINDOW_MS = 2000
+let _lastUserIntentAt = 0
+let _userIntentListenersBound = false
 
 function isMutationMethod(method) {
   return MUTATION_METHODS.has(String(method || 'GET').toUpperCase())
@@ -74,6 +77,25 @@ function isMutationMethod(method) {
 function shouldShowGlobalSavingForPath(path) {
   const p = String(path || '')
   return GLOBAL_SAVING_PATH_PREFIXES.some((prefix) => p.startsWith(prefix))
+}
+
+function markUserIntent() {
+  _lastUserIntentAt = Date.now()
+}
+
+function ensureUserIntentListeners() {
+  if (_userIntentListenersBound || typeof window === 'undefined' || typeof document === 'undefined') return
+  _userIntentListenersBound = true
+  const opts = { capture: true, passive: true }
+  window.addEventListener('pointerdown', markUserIntent, opts)
+  window.addEventListener('touchstart', markUserIntent, opts)
+  window.addEventListener('keydown', markUserIntent, opts)
+  document.addEventListener('submit', markUserIntent, { capture: true })
+}
+
+function isRecentUserIntent() {
+  if (typeof window === 'undefined') return true
+  return Date.now() - _lastUserIntentAt <= USER_INTENT_WINDOW_MS
 }
 
 function emitGlobalSaving() {
@@ -115,13 +137,15 @@ export function subscribeGlobalSaving(listener) {
 }
 
 async function fetchJson(path, options = {}) {
+  ensureUserIntentListeners()
   const { __skipGlobalSaving = false, ...fetchOptions } = options || {}
   const method = String(fetchOptions.method || 'GET').toUpperCase()
   const actorHeaders = needsDataActorHeaders(path, method) ? getDataActorHeaders() : {}
   const shouldTrackSaving =
     isMutationMethod(method) &&
     !__skipGlobalSaving &&
-    shouldShowGlobalSavingForPath(path)
+    shouldShowGlobalSavingForPath(path) &&
+    isRecentUserIntent()
   if (shouldTrackSaving) trackGlobalSavingStart()
   try {
     const res = await fetch(`${API_URL}${path}`, {
