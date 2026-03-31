@@ -1062,18 +1062,50 @@ router.post('/record-payment', async (req, res) => {
     }
     if (!shareRows?.length) return res.status(404).json({ error: 'Share not found' })
     const share = shareRows[0]
+    let resolvedMemberId = share.member_id ? String(share.member_id) : null
+    let resolvedMemberName = share.member_name ? String(share.member_name) : null
+
     async function syncShareDisplayNameFromMember() {
-      const mid = share.member_id
+      const mid = resolvedMemberId
       if (!mid) return
       const mr = await query('SELECT name FROM members WHERE id = ? AND deleted_at IS NULL', [String(mid)])
       const n = mr?.rows?.[0]?.name
       if (n && String(n).trim()) {
+        resolvedMemberName = String(n).trim().substring(0, 255)
         await query(
-          'UPDATE booking_payment_shares SET member_name = ? WHERE id = ? AND club_id = ?',
-          [String(n).trim().substring(0, 255), share.id, clubId]
+          'UPDATE booking_payment_shares SET member_name = ?, participant_type = ? WHERE id = ? AND club_id = ?',
+          [resolvedMemberName, 'registered', share.id, clubId]
         )
       }
     }
+
+    async function attachShareToActorMemberIfMatched() {
+      if (resolvedMemberId) return
+      const actor = getActorFromRequest(req)
+      const at = String(actor.actorType || '').toLowerCase()
+      if (at !== 'member' || !actor.actorId) return
+      const actorMemberId = String(actor.actorId)
+      let phoneRaw = ''
+      try {
+        const mr = await query('SELECT mobile, phone, name FROM members WHERE id = ? AND deleted_at IS NULL', [actorMemberId])
+        phoneRaw = mr?.rows?.[0]?.mobile || mr?.rows?.[0]?.phone || ''
+        const actorName = String(mr?.rows?.[0]?.name || '').trim()
+        if (actorName) resolvedMemberName = actorName
+      } catch (_) {}
+      if (!shareRowBelongsToMember(share, actorMemberId, phoneRaw)) return
+      try {
+        await query(
+          `UPDATE booking_payment_shares
+           SET member_id = ?, participant_type = 'registered', member_name = COALESCE(NULLIF(member_name, ''), ?)
+           WHERE id = ? AND club_id = ? AND (member_id IS NULL OR member_id = '')`,
+          [actorMemberId, resolvedMemberName || null, share.id, clubId]
+        )
+        resolvedMemberId = actorMemberId
+        await ensureMemberJoinedClub(actorMemberId, clubId)
+      } catch (_) {}
+    }
+
+    await attachShareToActorMemberIfMatched()
     const bid = share.booking_id
     const pmRaw = String(paymentMethod || '').toLowerCase().trim()
     const isWalletPay = pmRaw === 'wallet'
@@ -1084,7 +1116,7 @@ router.post('/record-payment', async (req, res) => {
       const actor = getActorFromRequest(req)
       const mid = actor.actorId ? String(actor.actorId) : ''
       if (!mid) return res.status(401).json({ error: 'Member authentication required for wallet payment' })
-      if (!share.member_id || String(share.member_id) !== mid) {
+      if (!resolvedMemberId || String(resolvedMemberId) !== mid) {
         return res.status(403).json({ error: 'Wallet payment is only available for your own registered share' })
       }
       if (share.paid_at) return res.status(400).json({ error: 'Share already paid' })
@@ -1132,8 +1164,8 @@ router.post('/record-payment', async (req, res) => {
           shareId: share.id,
           amount: share.amount,
           currency: share.currency,
-          memberId: share.member_id,
-          memberName: share.member_name,
+          memberId: resolvedMemberId,
+          memberName: resolvedMemberName,
           phone: share.phone,
           paymentMethod: 'wallet',
           paymentReference: `wallet:${share.id}`,
@@ -1186,8 +1218,8 @@ router.post('/record-payment', async (req, res) => {
           shareId: share.id,
           amount: share.amount,
           currency: share.currency,
-          memberId: share.member_id,
-          memberName: share.member_name,
+          memberId: resolvedMemberId,
+          memberName: resolvedMemberName,
           phone: share.phone,
           paymentMethod: isElectronic ? 'electronic' : 'other',
           paymentReference: paymentReference || null,
