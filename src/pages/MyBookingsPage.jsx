@@ -77,7 +77,7 @@ function getSplitBudgetForBooking(booking) {
   return { total, activeSum, remaining }
 }
 
-/** Paid vs total split: outstanding = unpaid share amounts + any gap before full booking total is allocated */
+/** Paid vs total split: outstanding = unpaid/refunded active shares only (exclude removed/unallocated gaps). */
 function getSplitPaymentProgress(booking) {
   const total = parseFloat(booking?.totalAmount ?? booking?.total_amount ?? 0) || 0
   const shares = Array.isArray(booking?.paymentShares) ? booking.paymentShares : []
@@ -101,9 +101,9 @@ function getSplitPaymentProgress(booking) {
       ((sh.refundedAt || sh.refunded_at) ? parseFloat(sh.amount) || 0 : 0),
     0
   )
-  const unallocated = Math.max(0, total - allocated)
   // Refunded shares were previously collected then returned; they must reappear as amount to settle.
-  const outstanding = Math.max(0, unpaidSum + refundedSum + unallocated)
+  // Do not include (total - allocated): removed participants should not keep a fake remainder banner.
+  const outstanding = Math.max(0, unpaidSum + refundedSum)
   return {
     total,
     allocated,
