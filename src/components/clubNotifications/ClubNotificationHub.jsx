@@ -85,9 +85,9 @@ function writeAck(clubId, ack) {
 }
 
 /**
- * @param {{ clubId: string, language: string, mode: 'admin' | 'public', showUi: boolean, showTicker?: boolean }} props
+ * @param {{ clubId: string, language: string, mode: 'admin' | 'public', showUi: boolean, showTicker?: boolean, docked?: boolean, children?: import('react').ReactNode }} props
  */
-export default function ClubNotificationHub({ clubId, language, mode, showUi, showTicker = true }) {
+export default function ClubNotificationHub({ clubId, language, mode, showUi, showTicker = true, docked = false, children = null }) {
   const navigate = useNavigate()
   const [summary, setSummary] = useState(null)
   const [expanded, setExpanded] = useState(false)
@@ -216,10 +216,11 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
   if (!showUi) return null
 
   const railUnread = hasUnread || tickerStale
+  const tickerPlacementClass = docked ? 'cn-ticker--bar' : 'cn-ticker--fixed'
   const tickerEl =
     showTicker && tickerParts.length > 0 && (tickerStale || hasUnread) ? (
       <div
-        className={`cn-ticker cn-ticker--fixed ${reduceMotion ? 'cn-ticker--no-motion' : ''} ${tickerStale ? 'cn-ticker--urgent' : ''}`}
+        className={`cn-ticker ${tickerPlacementClass} ${reduceMotion ? 'cn-ticker--no-motion' : ''} ${tickerStale ? 'cn-ticker--urgent' : ''}`}
         role="region"
         aria-label={t.hubTitle}
       >
@@ -237,22 +238,11 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
       </div>
     ) : null
 
-  return (
-    <>
-      {tickerEl ? <div className="cn-ticker-spacer" aria-hidden="true" /> : null}
-      {tickerEl}
+  const asideClass = `cn-hub ${docked ? 'cn-hub--docked' : ''} ${!docked && tickerEl ? 'cn-hub--has-ticker' : ''} ${language === 'ar' ? 'cn-hub--rtl' : ''} ${expanded ? 'cn-hub--expanded' : ''}`
 
-      {expanded ? (
-        <div
-          className="cn-hub__backdrop"
-          role="presentation"
-          aria-hidden="true"
-          onClick={() => setExpanded(false)}
-        />
-      ) : null}
-
+  const asideEl = (
       <aside
-        className={`cn-hub ${tickerEl ? 'cn-hub--has-ticker' : ''} ${language === 'ar' ? 'cn-hub--rtl' : ''} ${expanded ? 'cn-hub--expanded' : ''}`}
+        className={asideClass}
         aria-label={t.hubTitle}
         dir={language === 'ar' ? 'rtl' : 'ltr'}
       >
@@ -338,6 +328,45 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
           </div>
         </div>
       </aside>
+  )
+
+  if (docked) {
+    return (
+      <div className="cn-admin-shell">
+        {tickerEl}
+        <div className="cn-admin-shell__row">
+          <div className="cn-admin-shell__main">
+            {expanded ? (
+              <div
+                className="cn-hub__backdrop cn-hub__backdrop--docked"
+                role="presentation"
+                aria-hidden="true"
+                onClick={() => setExpanded(false)}
+              />
+            ) : null}
+            {children}
+          </div>
+          {asideEl}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {!docked && tickerEl ? <div className="cn-ticker-spacer" aria-hidden="true" /> : null}
+      {!docked ? tickerEl : null}
+
+      {expanded ? (
+        <div
+          className="cn-hub__backdrop"
+          role="presentation"
+          aria-hidden="true"
+          onClick={() => setExpanded(false)}
+        />
+      ) : null}
+
+      {asideEl}
     </>
   )
 }

@@ -25,8 +25,79 @@
   overflow-x: hidden;
 }
 
-.club-public-page--notify {
-  padding-inline-end: max(16px, calc(48px + 14px));
+.club-public-floating-access {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  inset-inline-end: max(12px, env(safe-area-inset-right));
+  z-index: 1000;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: min(440px, 94vw);
+  pointer-events: none;
+}
+
+.club-public-floating-access > * {
+  pointer-events: auto;
+}
+
+.club-public-floating-access__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  cursor: pointer;
+  color: #0f172a;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.club-public-floating-access__btn:hover {
+  background: #fff;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.1);
+}
+
+.club-public-floating-access__social {
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
+}
+
+.club-public-floating-access__login {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.club-public-floating-access__login:hover {
+  background: #fff;
+}
+
+.club-public-floating-access__account {
+  display: flex;
+  align-items: center;
+}
+
+.club-public-page.commercial .club-public-floating-access .member-account-dropdown .member-account-trigger {
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.07);
 }
 
 .club-public-header {

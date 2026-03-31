@@ -141,52 +141,54 @@ function ClubAdminPanel() {
   const section = location.pathname.split('/').filter(Boolean).pop() || 'dashboard'
 
   return (
-    <div className={`club-admin-panel club-admin-panel--${section} club-admin-panel--notify ${language === 'ar' ? 'rtl' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-      <div className="club-admin-content">
-        <ClubNotificationHub
-          clubId={clubId}
-          language={language}
-          mode="admin"
-          showUi
-        />
-        <ClubAdminHeader 
-          club={club}
-          language={language}
-          onLanguageChange={setLanguage}
-        />
-        {club.status === 'pending' && (
-          <div className="club-pending-banner" role="status">
-            <span className="club-pending-icon">⏳</span>
-            <div className="club-pending-content">
-              <strong>{language === 'en' ? 'Club pending approval' : 'النادي بانتظار الموافقة'}</strong>
-              <p>{language === 'en' ? 'Your registration is under review. You can explore the dashboard and prepare your club. Full access will be enabled once the platform admin approves your club.' : 'تسجيل ناديك قيد المراجعة. يمكنك استكشاف لوحة التحكم وإعداد النادي. سيتم تفعيل الوصول الكامل بعد موافقة مدير المنصة.'}</p>
-            </div>
-          </div>
-        )}
-        {club.status !== 'pending' && (
-          <ClubEmailVerificationBanner
+    <div className={`club-admin-panel club-admin-panel--${section} ${language === 'ar' ? 'rtl' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+      <ClubNotificationHub
+        clubId={clubId}
+        language={language}
+        mode="admin"
+        showUi
+        docked
+      >
+        <div className="club-admin-content">
+          <ClubAdminHeader 
             club={club}
             language={language}
-            onVerified={() => { setClub(prev => prev ? { ...prev, emailVerified: true } : null); loadData(true) }}
+            onLanguageChange={setLanguage}
           />
-        )}
-        <main className="club-admin-main" data-section={section}>
-        <Routes>
-          <Route path="/" element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<ClubPageGuard permission="dashboard"><ClubDashboard club={club} /></ClubPageGuard>} />
-          <Route path="members" element={<ClubPageGuard permission="members"><ClubMembersManagement club={club} language={language} /></ClubPageGuard>} />
-          <Route path="bookings" element={<ClubPageGuard permission="dashboard"><ClubBookingsManagement club={club} language={language} onRefresh={() => loadData(true)} /></ClubPageGuard>} />
-          <Route path="accounting" element={<ClubPageGuard permission="accounting"><ClubAccountingHub club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
-          <Route path="offers" element={<ClubPageGuard permission="offers"><ClubOffersManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
-          <Route path="store" element={<ClubPageGuard permission="store"><ClubStoreManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
-          <Route path="booking-prices" element={<ClubPageGuard permission="settings"><ClubBookingPrices club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
-          <Route path="booking-policies" element={<ClubPageGuard permission="settings"><ClubBookingPoliciesPage club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
-          <Route path="payment-settings" element={<ClubPageGuard permission="settings"><ClubPaymentSettingsPage club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
-          <Route path="settings" element={<ClubPageGuard permission="settings"><ClubSettings club={club} language={language} onUpdateClub={handleClubUpdate} onDefaultLanguageChange={(lang) => { setLanguage(lang); setAppLanguage(lang); if (clubId) setClubLanguage(clubId, lang) }} /></ClubPageGuard>} />
-          <Route path="users" element={<ClubPageGuard permission="users"><ClubUsersManagement club={club} onUpdateClub={handleClubUpdate} language={language} /></ClubPageGuard>} />
-        </Routes>
-        </main>
-      </div>
+          {club.status === 'pending' && (
+            <div className="club-pending-banner" role="status">
+              <span className="club-pending-icon">⏳</span>
+              <div className="club-pending-content">
+                <strong>{language === 'en' ? 'Club pending approval' : 'النادي بانتظار الموافقة'}</strong>
+                <p>{language === 'en' ? 'Your registration is under review. You can explore the dashboard and prepare your club. Full access will be enabled once the platform admin approves your club.' : 'تسجيل ناديك قيد المراجعة. يمكنك استكشاف لوحة التحكم وإعداد النادي. سيتم تفعيل الوصول الكامل بعد موافقة مدير المنصة.'}</p>
+              </div>
+            </div>
+          )}
+          {club.status !== 'pending' && (
+            <ClubEmailVerificationBanner
+              club={club}
+              language={language}
+              onVerified={() => { setClub(prev => prev ? { ...prev, emailVerified: true } : null); loadData(true) }}
+            />
+          )}
+          <main className="club-admin-main" data-section={section}>
+          <Routes>
+            <Route path="/" element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<ClubPageGuard permission="dashboard"><ClubDashboard club={club} /></ClubPageGuard>} />
+            <Route path="members" element={<ClubPageGuard permission="members"><ClubMembersManagement club={club} language={language} /></ClubPageGuard>} />
+            <Route path="bookings" element={<ClubPageGuard permission="dashboard"><ClubBookingsManagement club={club} language={language} onRefresh={() => loadData(true)} /></ClubPageGuard>} />
+            <Route path="accounting" element={<ClubPageGuard permission="accounting"><ClubAccountingHub club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
+            <Route path="offers" element={<ClubPageGuard permission="offers"><ClubOffersManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
+            <Route path="store" element={<ClubPageGuard permission="store"><ClubStoreManagement club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
+            <Route path="booking-prices" element={<ClubPageGuard permission="settings"><ClubBookingPrices club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
+            <Route path="booking-policies" element={<ClubPageGuard permission="settings"><ClubBookingPoliciesPage club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
+            <Route path="payment-settings" element={<ClubPageGuard permission="settings"><ClubPaymentSettingsPage club={club} language={language} onUpdateClub={handleClubUpdate} /></ClubPageGuard>} />
+            <Route path="settings" element={<ClubPageGuard permission="settings"><ClubSettings club={club} language={language} onUpdateClub={handleClubUpdate} onDefaultLanguageChange={(lang) => { setLanguage(lang); setAppLanguage(lang); if (clubId) setClubLanguage(clubId, lang) }} /></ClubPageGuard>} />
+            <Route path="users" element={<ClubPageGuard permission="users"><ClubUsersManagement club={club} onUpdateClub={handleClubUpdate} language={language} /></ClubPageGuard>} />
+          </Routes>
+          </main>
+        </div>
+      </ClubNotificationHub>
     </div>
   )
 }

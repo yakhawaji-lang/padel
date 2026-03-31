@@ -11,7 +11,6 @@ import LanguageIcon from '../components/LanguageIcon'
 import CalendarPicker from '../components/CalendarPicker'
 import SocialIcon from '../components/SocialIcon'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
-import { getClubAdminSession } from '../storage/clubAuth'
 import MemberAccountDropdown from '../components/MemberAccountDropdown'
 import BookingCountdownCard from '../components/BookingCountdownCard'
 import BookingPaymentShare from '../components/BookingPaymentShare'
@@ -25,7 +24,6 @@ import { memberRelatesToCourtBooking } from '../utils/paymentShareMemberMatch.js
 import { isTerminalBookingStatus } from '../utils/bookingMemberCancel'
 import '../components/BookingPaymentShare.css'
 import { CLUB_PUBLIC_TRANSLATIONS } from './clubPublicPageStrings.js'
-import ClubNotificationHub from '../components/clubNotifications/ClubNotificationHub'
 import ClubPresenceBeacon from '../components/clubNotifications/ClubPresenceBeacon'
 
 const getClubBookings = (clubId) => {
@@ -1070,9 +1068,6 @@ const ClubPublicPage = () => {
   const clubName = language === 'ar' && club.nameAr ? club.nameAr : club.name
   const tagline = language === 'ar' ? (club.taglineAr || club.tagline) : (club.tagline || club.taglineAr)
   const address = club.address ? (language === 'ar' && club.addressAr ? club.addressAr : club.address) : null
-  const clubAdminSession = getClubAdminSession()
-  const isClubAdmin = clubAdminSession && String(clubAdminSession.clubId) === String(clubId)
-
   const heroBgColor = club?.settings?.heroBgColor || '#ffffff'
   const heroBgOpacity = Math.min(1, Math.max(0, (club?.settings?.heroBgOpacity ?? 85) / 100))
   const heroBgStyle = (() => {
@@ -1339,17 +1334,45 @@ const ClubPublicPage = () => {
   }
 
   return (
-    <div className={`club-public-page commercial${isClubAdmin ? ' club-public-page--notify' : ''}`}>
+    <div className="club-public-page commercial">
       <ClubPresenceBeacon clubId={clubId} />
-      {isClubAdmin && (
-        <ClubNotificationHub
-          clubId={clubId}
-          language={language}
-          mode="public"
-          showUi
-          showTicker={false}
-        />
-      )}
+      <div className="club-public-floating-access" aria-label={language === 'en' ? 'Page actions' : 'إجراءات الصفحة'}>
+        {(Array.isArray(club?.settings?.socialLinks) ? club.settings.socialLinks : []).filter(s => s?.url).slice(0, 5).map((item, idx) => (
+          <SocialIcon
+            key={idx}
+            platform={item.platform || 'facebook'}
+            url={item.url}
+            iconColor={item.iconColor || '#ffffff'}
+            textColor={item.textColor || '#334155'}
+            size={28}
+            className="club-public-floating-access__social"
+          />
+        ))}
+        <button
+          type="button"
+          className="club-public-floating-access__btn"
+          onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
+          title={language === 'en' ? 'العربية' : 'English'}
+          aria-label={language === 'en' ? 'Switch to Arabic' : 'التبديل للإنجليزية'}
+        >
+          <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} />
+        </button>
+        {platformUser ? (
+          <MemberAccountDropdown
+            member={platformUser}
+            onUpdate={() => setPlatformUser(getCurrentPlatformUser())}
+            language={language}
+            clubId={clubId}
+            className="club-public-floating-access__account"
+            isCoach={club && (club?.memberCoaches || []).some(mc => String(mc) === String(platformUser?.id))}
+            openProfileEditSignal={openProfileEditSignal}
+          />
+        ) : (
+          <Link to={`/login?join=${clubId}`} className="club-public-floating-access__login">
+            {c.loginPlatform}
+          </Link>
+        )}
+      </div>
       {bookingSuccessId && (
         <div className="club-public-booking-success-banner" role="alert">
           <span>{c.bookingSuccess}</span>
@@ -1479,58 +1502,6 @@ const ClubPublicPage = () => {
           </div>
         </div>
       )}
-      <header
-        className={`club-public-header${(club?.settings?.headerBgColor || club?.settings?.headerTextColor) ? ' has-custom-header-colors' : ''}`}
-        style={{
-          ...(club?.settings?.headerBgColor && { background: club.settings.headerBgColor }),
-          ...(club?.settings?.headerTextColor && { color: club.settings.headerTextColor })
-        }}
-      >
-        <div className="club-public-header-inner">
-          <div className="club-public-header-left">
-            {platformUser ? (
-              <MemberAccountDropdown
-                member={platformUser}
-                onUpdate={() => setPlatformUser(getCurrentPlatformUser())}
-                language={language}
-                clubId={clubId}
-                className="club-public-member-account"
-                isCoach={club && (club?.memberCoaches || []).some(mc => String(mc) === String(platformUser?.id))}
-                openProfileEditSignal={openProfileEditSignal}
-              />
-            ) : (
-              <div className="club-public-auth-links">
-                <Link to={`/login?join=${clubId}`} className="club-public-login-link">{c.loginPlatform}</Link>
-              </div>
-            )}
-          </div>
-          <div className="club-public-header-social">
-            {(Array.isArray(club?.settings?.socialLinks) ? club.settings.socialLinks : []).filter(s => s?.url).map((item, idx) => (
-              <SocialIcon
-                key={idx}
-                platform={item.platform || 'facebook'}
-                url={item.url}
-                iconColor={item.iconColor || '#ffffff'}
-                textColor={item.textColor || '#333333'}
-                size={36}
-                className="club-public-social-icon"
-              />
-            ))}
-          </div>
-          <div className="club-public-header-right">
-          <button
-            type="button"
-            className="club-public-lang"
-            onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
-            title={language === 'en' ? 'العربية' : 'English'}
-            aria-label={language === 'en' ? 'Switch to Arabic' : 'التبديل للإنجليزية'}
-          >
-            <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} />
-          </button>
-          </div>
-        </div>
-      </header>
-
       {platformUser?.profileIncomplete && (
         <section className="club-public-profile-incomplete-banner" role="region" aria-live="polite">
           <div className="club-public-profile-incomplete-inner">
