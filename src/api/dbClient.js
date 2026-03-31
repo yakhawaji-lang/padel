@@ -52,19 +52,73 @@ function needsDataActorHeaders(path, method) {
   return false
 }
 
-async function fetchJson(path, options = {}) {
-  const actorHeaders = needsDataActorHeaders(path, options.method) ? getDataActorHeaders() : {}
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...actorHeaders, ...options.headers }
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    const e = new Error(err.error || res.statusText)
-    e.status = res.status
-    throw e
+const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+let _globalSavingPending = 0
+const _globalSavingListeners = new Set()
+
+function isMutationMethod(method) {
+  return MUTATION_METHODS.has(String(method || 'GET').toUpperCase())
+}
+
+function emitGlobalSaving() {
+  const snapshot = {
+    pendingCount: Math.max(0, _globalSavingPending),
+    isSaving: _globalSavingPending > 0,
+    changedAt: Date.now(),
   }
-  return res.json()
+  _globalSavingListeners.forEach((fn) => {
+    try {
+      fn(snapshot)
+    } catch {
+      // ignore listener failures
+    }
+  })
+}
+
+function trackGlobalSavingStart() {
+  _globalSavingPending += 1
+  emitGlobalSaving()
+}
+
+function trackGlobalSavingEnd() {
+  _globalSavingPending = Math.max(0, _globalSavingPending - 1)
+  emitGlobalSaving()
+}
+
+export function subscribeGlobalSaving(listener) {
+  if (typeof listener !== 'function') return () => {}
+  _globalSavingListeners.add(listener)
+  listener({
+    pendingCount: Math.max(0, _globalSavingPending),
+    isSaving: _globalSavingPending > 0,
+    changedAt: Date.now(),
+  })
+  return () => {
+    _globalSavingListeners.delete(listener)
+  }
+}
+
+async function fetchJson(path, options = {}) {
+  const { __skipGlobalSaving = false, ...fetchOptions } = options || {}
+  const method = String(fetchOptions.method || 'GET').toUpperCase()
+  const actorHeaders = needsDataActorHeaders(path, method) ? getDataActorHeaders() : {}
+  const shouldTrackSaving = isMutationMethod(method) && !__skipGlobalSaving
+  if (shouldTrackSaving) trackGlobalSavingStart()
+  try {
+    const res = await fetch(`${API_URL}${path}`, {
+      ...fetchOptions,
+      headers: { 'Content-Type': 'application/json', ...actorHeaders, ...fetchOptions.headers }
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      const e = new Error(err.error || res.statusText)
+      e.status = res.status
+      throw e
+    }
+    return res.json()
+  } finally {
+    if (shouldTrackSaving) trackGlobalSavingEnd()
+  }
 }
 
 /** Retry only on server/gateway errors (502/503/504, 500 deadlock). Do NOT retry on client errors (e.g. ERR_INSUFFICIENT_RESOURCES) to avoid request storms. */

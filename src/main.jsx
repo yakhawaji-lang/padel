@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { loadClubsAsync, loadClubs, initBackendStorage } from './storage/adminStorage.js'
 import { initAppSettingsStorage } from './storage/appSettingsStorage.js'
+import GlobalSavingOverlay from './components/GlobalSavingOverlay'
 import './index.css'
 
 /** Ensure all number inputs and .western-numerals elements use Western numerals (0-9) across the system */
@@ -100,6 +101,7 @@ function Root() {
           <Route path="/club/:clubId/*" element={<App />} />
         </Routes>
       </Suspense>
+      <GlobalSavingOverlay />
     </BrowserRouter>
   )
 }
