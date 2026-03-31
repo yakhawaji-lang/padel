@@ -66,13 +66,13 @@ export default function GlobalSavingOverlay() {
   const text = useMemo(() => {
     if (lang === 'ar') {
       return {
-        title: 'جارٍ حفظ البيانات',
-        body: 'يرجى الانتظار حتى تأكيد الحفظ من قاعدة البيانات',
+        title: 'لحظات من فضلك... مفاجأة جميلة قادمة',
+        body: 'نُجهّز بياناتك الآن بعناية، وسيظهر كل شيء خلال ثوانٍ',
       }
     }
     return {
-      title: 'Saving your data',
-      body: 'Please wait until database save is confirmed',
+      title: 'Just a few moments... something great is on the way',
+      body: 'We are carefully preparing your data, and it will be ready in seconds',
     }
   }, [lang])
 
