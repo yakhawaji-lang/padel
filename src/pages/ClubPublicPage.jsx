@@ -13,6 +13,7 @@ import SocialIcon from '../components/SocialIcon'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { getClubAdminSession } from '../storage/clubAuth'
 import MemberAccountDropdown from '../components/MemberAccountDropdown'
+import BookingCountdownCard from '../components/BookingCountdownCard'
 import BookingPaymentShare from '../components/BookingPaymentShare'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import { isTournamentWithoutMembers, kingTournamentReservesCourt, kingTournamentReservesCourtIds, getTournamentTeamsDetail } from '../utils/tournamentHelpers'
@@ -20,6 +21,7 @@ import { getMergedWindowsForDate, getPublicBookingTimeSlots, coversBookingInterv
 import { getEffectivePaymentChannels, pickFirstPaymentMethod } from '../utils/paymentChannels'
 import { UnifiedPaymentMethodPicker, UnifiedWalletRemainderPicker } from '../components/UnifiedPaymentOptions'
 import './ClubPublicPage.css'
+import { memberRelatesToCourtBooking } from '../utils/paymentShareMemberMatch.js'
 import { isTerminalBookingStatus } from '../utils/bookingMemberCancel'
 import '../components/BookingPaymentShare.css'
 import { CLUB_PUBLIC_TRANSLATIONS } from './clubPublicPageStrings.js'
@@ -295,6 +297,7 @@ const ClubPublicPage = () => {
   const [splitInviteActionBusy, setSplitInviteActionBusy] = useState(false)
   /** Booking date/time for split-invite WhatsApp text after modal closes */
   const [splitInviteSchedule, setSplitInviteSchedule] = useState(null)
+  const bookingsSectionRef = React.useRef(null)
   const [activeLock, setActiveLock] = useState(null)
   const [activeLockRemainingSeconds, setActiveLockRemainingSeconds] = useState(null)
   const [activeLocks, setActiveLocks] = useState([])
@@ -592,7 +595,8 @@ const ClubPublicPage = () => {
   useEffect(() => {
     if (!bookingSuccessId) return
     const t = setTimeout(() => setBookingSuccessId(null), 8000)
-    return () => { clearTimeout(t) }
+    const scrollT = setTimeout(() => bookingsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 400)
+    return () => { clearTimeout(t); clearTimeout(scrollT) }
   }, [bookingSuccessId])
 
   useEffect(() => {
@@ -610,6 +614,18 @@ const ClubPublicPage = () => {
     const n = new Date()
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
   }, [])
+
+  const courtBookings = useMemo(() => {
+    if (!platformUser?.id) return []
+    return bookings
+      .filter(b => !b.isTournament && (b.date || b.startDate))
+      .filter(b => !isTerminalBookingStatus(b?.status))
+      .filter((b) => memberRelatesToCourtBooking(b, platformUser))
+      .map(b => ({ ...b, dateStr: (b.date || b.startDate || '').toString().split('T')[0] }))
+      .filter(b => b.dateStr >= today)
+      .sort((a, b) => a.dateStr.localeCompare(b.dateStr) || (a.startTime || '').localeCompare(b.startTime || ''))
+      .slice(0, 30)
+  }, [bookings, today, platformUser])
 
   const tournamentBookings = useMemo(() =>
     bookings.filter(b => b.isTournament && (b.date || b.startDate))
@@ -1578,10 +1594,17 @@ const ClubPublicPage = () => {
           <div className="club-public-section-inner">
             <div className="club-public-court-booking-header">
               <label className="club-public-court-booking-date-label">{c.selectDate}</label>
-              {isMember && (club?.memberCoaches || []).some(mc => String(mc) === String(platformUser?.id)) && (
-                <Link to={`/clubs/${clubId}/coach`} className="club-public-coach-link">
-                  🏸 {language === 'en' ? 'Coach Dashboard' : 'لوحة المدرب'}
-                </Link>
+              {isMember && (
+                <>
+                  <Link to={`/my-bookings?from=${clubId}`} className="club-public-my-bookings-link">
+                    📅 {language === 'en' ? 'My Bookings' : 'حجوزاتي'}
+                  </Link>
+                  {(club?.memberCoaches || []).some(mc => String(mc) === String(platformUser?.id)) && (
+                    <Link to={`/clubs/${clubId}/coach`} className="club-public-coach-link">
+                      🏸 {language === 'en' ? 'Coach Dashboard' : 'لوحة المدرب'}
+                    </Link>
+                  )}
+                </>
               )}
               <CalendarPicker
                 value={courtGridDate}
@@ -2404,6 +2427,43 @@ const ClubPublicPage = () => {
           </div>
           )
         })()}
+
+        <section ref={bookingsSectionRef} className="club-public-section club-public-upcoming-block">
+          <div className="club-public-section-inner">
+            <h2 className="section-heading club-public-upcoming-heading">
+              <span className="section-heading-icon">📅</span>
+              {platformUser ? (language === 'en' ? 'My Bookings' : 'حجوزاتي') : (language === 'en' ? 'Your Bookings' : 'حجوزاتك')}
+            </h2>
+            {!platformUser ? (
+              <div className="club-public-upcoming-login-cta">
+                <p className="club-public-upcoming-login-text">{language === 'en' ? 'Log in to see your bookings' : 'سجّل دخولك لرؤية حجوزاتك'}</p>
+                <Link to={`/login?join=${clubId}`} className="club-public-upcoming-login-btn">{c.loginPlatform}</Link>
+              </div>
+            ) : courtBookings.length === 0 ? (
+              <p className="club-public-no-data club-public-upcoming-empty">{c.bookingsEmpty}</p>
+            ) : (
+              <>
+                <div className="club-public-upcoming-countdown">
+                  <div className="club-public-upcoming-countdown-grid">
+                    {courtBookings.map((b, i) => (
+                      <BookingCountdownCard
+                        key={b.id || i}
+                        booking={b}
+                        formatDate={formatDate}
+                        language={language}
+                        to={
+                          platformUser && clubId && b.id
+                            ? `/my-bookings?from=${encodeURIComponent(clubId)}&booking=${encodeURIComponent(String(b.id))}`
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </section>
 
         <section className="club-public-section club-public-court-prices">
           <div className="club-public-section-inner">
