@@ -137,6 +137,10 @@ function labelsForLang(lang) {
     viewers: 'Visitors now',
     tickerSep: ' · ',
     reducedMotion: 'Disable motion',
+    soundOn: 'Bell sound on',
+    soundOff: 'Bell sound muted',
+    soundMuteAria: 'Mute notification bell',
+    soundUnmuteAria: 'Enable notification bell',
   }
   const ar = {
     hubTitle: 'الإشعارات',
@@ -160,6 +164,10 @@ function labelsForLang(lang) {
     viewers: 'الزوار الآن',
     tickerSep: ' · ',
     reducedMotion: 'تقليل الحركة',
+    soundOn: 'صوت الجرس مفعّل',
+    soundOff: 'صوت الجرس مكتوم',
+    soundMuteAria: 'كتم صوت جرس الإشعارات',
+    soundUnmuteAria: 'تشغيل صوت جرس الإشعارات',
   }
   return lang === 'ar' ? ar : en
 }
@@ -181,6 +189,64 @@ function writeAck(clubId, ack) {
   } catch { /* ignore */ }
 }
 
+const SOUND_MUTED_KEY = 'playtix_notify_sound_muted'
+
+function readSoundMuted() {
+  try {
+    return localStorage.getItem(SOUND_MUTED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writeSoundMuted(muted) {
+  try {
+    localStorage.setItem(SOUND_MUTED_KEY, muted ? '1' : '0')
+  } catch { /* ignore */ }
+}
+
+let bellAudioCtx = null
+
+/** جرس مزدوج واضح — Web Audio (لا ملفات خارجية). */
+function playNotificationBell() {
+  const Ctx = window.AudioContext || window.webkitAudioContext
+  if (!Ctx) return
+  try {
+    if (!bellAudioCtx || bellAudioCtx.state === 'closed') bellAudioCtx = new Ctx()
+    const ctx = bellAudioCtx
+    if (ctx.state === 'suspended') void ctx.resume()
+
+    const strike = (offsetSec) => {
+      const t0 = ctx.currentTime + offsetSec
+      const master = ctx.createGain()
+      master.connect(ctx.destination)
+      master.gain.setValueAtTime(0.0001, t0)
+      master.gain.exponentialRampToValueAtTime(0.55, t0 + 0.04)
+      master.gain.exponentialRampToValueAtTime(0.12, t0 + 0.4)
+      master.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.35)
+
+      const freqs = [783.99, 1046.5, 1318.51]
+      const amps = [0.28, 0.18, 0.11]
+      freqs.forEach((f, i) => {
+        const osc = ctx.createOscillator()
+        osc.type = i === 0 ? 'triangle' : 'sine'
+        osc.frequency.setValueAtTime(f, t0)
+        const g = ctx.createGain()
+        g.gain.setValueAtTime(amps[i], t0)
+        osc.connect(g)
+        g.connect(master)
+        osc.start(t0)
+        osc.stop(t0 + 1.4)
+      })
+    }
+
+    strike(0)
+    strike(0.42)
+  } catch {
+    /* قد يحظر المتصفح التشغيل قبل تفاعل المستخدم */
+  }
+}
+
 /**
  * @param {{ clubId: string, language: string, mode: 'admin' | 'public', showUi: boolean, showTicker?: boolean, docked?: boolean, children?: import('react').ReactNode }} props
  */
@@ -190,8 +256,10 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
   const [expanded, setExpanded] = useState(false)
   const [err, setErr] = useState(null)
   const [ackTick, setAckTick] = useState(0)
+  const [soundMuted, setSoundMuted] = useState(() => readSoundMuted())
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
   const pollRef = useRef(null)
+  const prevPollCountsRef = useRef(null)
 
   const t = useMemo(() => labelsForLang(language), [language])
 
@@ -261,6 +329,49 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
     setExpanded(false)
     setAckTick((x) => x + 1)
   }, [clubId, summary, counts])
+
+  /** عند فتح بند (تنفيذ/انتقال) نعتبر الفئة مُقرأة فيزول الوميض عنها */
+  const ackCategoryRead = useCallback(
+    (catKey) => {
+      if (!summary?.fingerprint) return
+      const current = readAck(clubId)
+      const n = Number(counts[catKey] ?? 0) || 0
+      const catAck = { ...current.catAck, [catKey]: n }
+      writeAck(clubId, { fingerprint: summary.fingerprint, catAck })
+      setAckTick((x) => x + 1)
+    },
+    [clubId, summary, counts]
+  )
+
+  const toggleSoundMuted = useCallback((e) => {
+    e?.stopPropagation?.()
+    const next = !readSoundMuted()
+    writeSoundMuted(next)
+    setSoundMuted(next)
+  }, [])
+
+  useEffect(() => {
+    if (!showUi || !summary?.counts) return
+    const prev = prevPollCountsRef.current
+    const snap = {}
+    for (const c of CAT_DEFS) {
+      snap[c.key] = Number(counts[c.key] ?? 0) || 0
+    }
+    if (!prev) {
+      prevPollCountsRef.current = snap
+      return
+    }
+    let anyIncrease = false
+    for (const c of CAT_DEFS) {
+      if (snap[c.key] > (prev[c.key] ?? 0)) {
+        anyIncrease = true
+        break
+      }
+    }
+    prevPollCountsRef.current = snap
+    if (!anyIncrease || soundMuted) return
+    playNotificationBell()
+  }, [summary, counts, showUi, soundMuted])
 
   const goAdmin = useCallback(
     (pathSeg, search = '') => {
@@ -344,50 +455,96 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
         aria-label={t.hubTitle}
         dir={language === 'ar' ? 'rtl' : 'ltr'}
       >
-        <button
-          type="button"
-          className={`cn-hub__rail ${railUnread ? 'cn-hub__rail--pulse' : ''} ${reduceMotion ? 'cn-hub__rail--no-pulse' : ''}`}
-          onClick={() => setExpanded((e) => !e)}
-          title={t.hubTitle}
-          aria-expanded={expanded}
+        <div
+          className={`cn-hub__rail-wrap ${railUnread ? 'cn-hub__rail-wrap--pulse' : ''} ${reduceMotion ? 'cn-hub__rail-wrap--no-pulse' : ''}`}
         >
-          <span className="cn-hub__rail-bell" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-          </span>
-          <span className="cn-hub__rail-stack">
-            {GROUP_ORDER.map((g) => (
-              <div key={g} className={`cn-hub__rail-group cn-hub__rail-group--${g}`}>
-                {(grouped[g] || []).map((c) => {
-                  const n = Number(counts[c.key] ?? 0) || 0
-                  const u = unreadByCat[c.id]
-                  const isZero = n <= 0
-                  return (
-                    <span
-                      key={c.id}
-                      className={`cn-hub__rail-seg ${isZero ? 'cn-hub__rail-seg--zero' : ''} ${u ? 'cn-hub__rail-seg--unread' : ''} ${reduceMotion ? 'cn-hub__rail-seg--no-blink' : ''}`}
-                      style={{ '--cn-color': c.color }}
-                    >
-                      <span className="cn-hub__rail-seg-icon">
-                        <NotificationCategoryIcon id={c.id} size={12} />
+          <button
+            type="button"
+            className="cn-hub__rail-trigger"
+            onClick={() => setExpanded((e) => !e)}
+            title={t.hubTitle}
+            aria-expanded={expanded}
+          >
+            <span className="cn-hub__rail-bell" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+            </span>
+            <span className="cn-hub__rail-stack">
+              {GROUP_ORDER.map((g) => (
+                <div key={g} className={`cn-hub__rail-group cn-hub__rail-group--${g}`}>
+                  {(grouped[g] || []).map((c) => {
+                    const n = Number(counts[c.key] ?? 0) || 0
+                    const u = unreadByCat[c.id]
+                    const isZero = n <= 0
+                    return (
+                      <span
+                        key={c.id}
+                        className={`cn-hub__rail-seg ${isZero ? 'cn-hub__rail-seg--zero' : ''} ${u ? 'cn-hub__rail-seg--unread' : ''} ${reduceMotion ? 'cn-hub__rail-seg--no-blink' : ''}`}
+                        style={{ '--cn-color': c.color }}
+                      >
+                        <span className="cn-hub__rail-seg-icon">
+                          <NotificationCategoryIcon id={c.id} size={12} />
+                        </span>
+                        <span className="cn-hub__rail-seg-num">{n > 99 ? '99+' : String(n)}</span>
                       </span>
-                      <span className="cn-hub__rail-seg-num">{n > 99 ? '99+' : String(n)}</span>
-                    </span>
-                  )
-                })}
-              </div>
-            ))}
-          </span>
-        </button>
+                    )
+                  })}
+                </div>
+              ))}
+            </span>
+          </button>
+          <button
+            type="button"
+            className={`cn-hub__sound-btn ${soundMuted ? 'cn-hub__sound-btn--muted' : ''}`}
+            onClick={toggleSoundMuted}
+            title={soundMuted ? t.soundUnmuteAria : t.soundMuteAria}
+            aria-label={soundMuted ? t.soundUnmuteAria : t.soundMuteAria}
+            aria-pressed={soundMuted}
+          >
+            {soundMuted ? (
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+                <path d="m22 9-6 6M16 9l6 6" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a9 9 0 0 1 0 14.14" />
+              </svg>
+            )}
+          </button>
+        </div>
 
         <div className="cn-hub__drawer">
           <div className="cn-hub__drawer-head">
             <h2 className="cn-hub__title">{t.hubTitle}</h2>
-            <button type="button" className="cn-hub__close" onClick={() => setExpanded(false)} aria-label="Close">
-              ×
-            </button>
+            <div className="cn-hub__drawer-head-actions">
+              <button
+                type="button"
+                className={`cn-hub__drawer-sound ${soundMuted ? 'cn-hub__drawer-sound--muted' : ''}`}
+                onClick={toggleSoundMuted}
+                title={soundMuted ? t.soundUnmuteAria : t.soundMuteAria}
+                aria-label={soundMuted ? t.soundUnmuteAria : t.soundMuteAria}
+                aria-pressed={soundMuted}
+              >
+                {soundMuted ? (
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+                    <path d="m22 9-6 6M16 9l6 6" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a9 9 0 0 1 0 14.14" />
+                  </svg>
+                )}
+              </button>
+              <button type="button" className="cn-hub__close" onClick={() => setExpanded(false)} aria-label="Close">
+                ×
+              </button>
+            </div>
           </div>
           {err && <p className="cn-hub__err">{err}</p>}
           <div className="cn-hub__body">
@@ -404,6 +561,7 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
                           type="button"
                           className={`cn-hub__row ${n <= 0 ? 'cn-hub__row--zero' : ''} ${u ? 'cn-hub__row--unread' : ''} ${reduceMotion ? 'cn-hub__row--no-blink' : ''}`}
                           onClick={() => {
+                            ackCategoryRead(c.key)
                             if (mode === 'admin') goAdmin(c.adminPath, c.adminSearch || '')
                           }}
                           style={{ '--cn-accent': c.color }}
