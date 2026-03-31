@@ -102,7 +102,21 @@ router.get('/', async (req, res) => {
     }
     sql += ' ORDER BY ci.issued_at DESC, ci.id DESC LIMIT ? OFFSET ?'
     params.push(limit, offset)
-    const { rows } = await query(sql, params)
+    let rows = []
+    try {
+      const r = await query(sql, params)
+      rows = r.rows || []
+    } catch (qErr) {
+      const msg = String(qErr?.message || '')
+      // بعض البيئات القديمة لا تحتوي members.deleted_at — نعيد المحاولة بدون هذا الشرط.
+      if (!msg.includes('deleted_at')) throw qErr
+      const sqlNoMembersDeletedAt = sql
+        .replace(/mcnt\.deleted_at IS NULL\s+AND\s+/g, '')
+        .replace(/mname\.deleted_at IS NULL\s+AND\s+/g, '')
+        .replace(/mid\.deleted_at IS NULL\s+AND\s+/g, '')
+      const r2 = await query(sqlNoMembersDeletedAt, params)
+      rows = r2.rows || []
+    }
     res.json({ ok: true, invoices: rows || [], invoicingEnabled: true })
   } catch (e) {
     console.error('invoices list error:', e)
