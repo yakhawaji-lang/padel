@@ -1295,8 +1295,33 @@ router.post('/record-remainder-payment', async (req, res) => {
       [bookingId, clubId]
     )
     // Refunded active shares are also outstanding and should be payable again.
-    const unpaid = (shareRows || []).filter((s) => !s.removed_at && (!s.paid_at || s.refunded_at))
-    if (unpaid.length === 0) return res.status(400).json({ error: 'No unpaid shares' })
+    let unpaid = (shareRows || []).filter((s) => !s.removed_at && (!s.paid_at || s.refunded_at))
+    if (unpaid.length === 0) {
+      // Fallback: بعض الحجوزات يكون عليها متبقٍ في booking totals بدون صفوف حصص غير مدفوعة.
+      // ننشئ صف تسوية للحفاظ على إمكانية "دفع المتبقي" بدل فشل المستخدم برسالة No unpaid shares.
+      const { rows: br } = await query(
+        `SELECT total_amount, paid_amount FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
+        [bookingId, clubId]
+      )
+      const totalAmount = parseFloat(br?.[0]?.total_amount) || 0
+      const paidAmount = parseFloat(br?.[0]?.paid_amount) || 0
+      const bookingRemaining = Math.round(Math.max(0, totalAmount - paidAmount) * 100) / 100
+      if (bookingRemaining > 0.009) {
+        let payerName = null
+        try {
+          const mr = await query('SELECT name FROM members WHERE id = ? AND deleted_at IS NULL', [String(memberId)])
+          payerName = mr?.rows?.[0]?.name ? String(mr.rows[0].name).trim().substring(0, 255) : null
+        } catch (_) {}
+        const ins = await query(
+          `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, amount)
+           VALUES (?, ?, 'registered', ?, ?, ?)`,
+          [bookingId, clubId, String(memberId), payerName, bookingRemaining]
+        )
+        unpaid = [{ id: ins.insertId, amount: bookingRemaining, paid_at: null, refunded_at: null, removed_at: null }]
+      } else {
+        return res.status(400).json({ error: 'No unpaid shares' })
+      }
+    }
     const totalRemainder = Math.round(unpaid.reduce((a, s) => a + (parseFloat(s.amount) || 0), 0) * 100) / 100
     if (totalRemainder <= 0.009) return res.status(400).json({ error: 'Nothing to pay' })
 
