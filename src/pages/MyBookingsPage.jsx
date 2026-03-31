@@ -62,6 +62,7 @@ function getAllowParticipantsAddSplit(booking) {
 }
 
 const SPLIT_PHONE_MIN_DIGITS = 8
+const SPLIT_PHONE_LOOKUP_MIN_DIGITS = 9
 
 /** ميزانية التقسيم: الإجمالي، مجموع الحصص الحالية، والمتبقي للدعوات الجديدة */
 function getSplitBudgetForBooking(booking) {
@@ -286,6 +287,7 @@ const MyBookingsPage = () => {
   const [addSplitFavorites, setAddSplitFavorites] = useState([])
   const [addSplitFavoritesLoading, setAddSplitFavoritesLoading] = useState(false)
   const [addSplitContactBusy, setAddSplitContactBusy] = useState(false)
+  const addSplitLookupSeqRef = React.useRef(0)
   const [trainingInvites, setTrainingInvites] = useState([])
   const [dismissingInviteId, setDismissingInviteId] = useState(null)
   const [walletByClub, setWalletByClub] = useState({})
@@ -460,7 +462,7 @@ const MyBookingsPage = () => {
     const name = (f?.name || '').trim()
     setAddSplitPeople((prev) => {
       const emptyIdx = prev.findIndex((row) => !String(row.phone || '').trim())
-      const entry = name ? { phone: p, name } : { phone: p }
+      const entry = name ? { phone: p, name, lookupState: 'registered' } : { phone: p, lookupState: 'checking' }
       if (emptyIdx >= 0) {
         const next = [...prev]
         next[emptyIdx] = entry
@@ -478,14 +480,80 @@ const MyBookingsPage = () => {
       for (const pi of list) {
         const emptyIdx = next.findIndex((r) => !String(r.phone || '').trim())
         if (emptyIdx >= 0) {
-          next[emptyIdx] = { phone: pi }
+          next[emptyIdx] = { phone: pi, lookupState: 'checking' }
         } else {
-          next = [...next, { phone: pi }]
+          next = [...next, { phone: pi, lookupState: 'checking' }]
         }
       }
       return next
     })
   }
+
+  const resolveSplitPersonByPhone = React.useCallback(async (clubId, row, seq, rowIndex) => {
+    const rawPhone = String(row?.phone || '').trim()
+    const digits = splitPhoneDigits(rawPhone)
+    if (!clubId || digits.length < SPLIT_PHONE_LOOKUP_MIN_DIGITS) return
+    try {
+      const res = await bookingApi.resolveMemberByPhone({ clubId, phone: rawPhone })
+      if (addSplitLookupSeqRef.current !== seq) return
+      setAddSplitPeople((prev) => {
+        if (!Array.isArray(prev) || !prev[rowIndex]) return prev
+        const current = prev[rowIndex]
+        const currentDigits = splitPhoneDigits(current?.phone || '')
+        if (currentDigits !== digits) return prev
+        const next = [...prev]
+        if (res?.member?.id) {
+          next[rowIndex] = {
+            ...current,
+            memberId: String(res.member.id),
+            name: String(res.member.name || res.member.email || current.name || '').trim(),
+            participantType: 'registered',
+            lookupState: 'registered',
+          }
+        } else {
+          next[rowIndex] = {
+            ...current,
+            memberId: undefined,
+            participantType: 'unregistered',
+            lookupState: 'new',
+          }
+        }
+        return next
+      })
+    } catch {
+      if (addSplitLookupSeqRef.current !== seq) return
+      setAddSplitPeople((prev) => {
+        if (!Array.isArray(prev) || !prev[rowIndex]) return prev
+        const current = prev[rowIndex]
+        if (splitPhoneDigits(current?.phone || '') !== digits) return prev
+        const next = [...prev]
+        next[rowIndex] = {
+          ...current,
+          lookupState: 'new',
+          memberId: undefined,
+          participantType: 'unregistered',
+        }
+        return next
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!addSplitForBookingId || addSplitStep !== 1) return
+    const entry = bookings.find((x) => String(x.booking?.id) === String(addSplitForBookingId))
+    const clubId = entry?.club?.id
+    if (!clubId) return
+    const seq = Date.now()
+    addSplitLookupSeqRef.current = seq
+    const timer = setTimeout(() => {
+      addSplitPeople.forEach((row, idx) => {
+        const digits = splitPhoneDigits(row?.phone || '')
+        if (digits.length < SPLIT_PHONE_LOOKUP_MIN_DIGITS) return
+        resolveSplitPersonByPhone(clubId, row, seq, idx)
+      })
+    }, 260)
+    return () => clearTimeout(timer)
+  }, [addSplitPeople, addSplitForBookingId, addSplitStep, bookings, resolveSplitPersonByPhone])
 
   const pickPhonesForSplit = async () => {
     setAddSplitContactBusy(true)
@@ -1104,6 +1172,8 @@ const MyBookingsPage = () => {
       collected.push({
         phone,
         name: String(row.name || '').trim(),
+        memberId: row.memberId ? String(row.memberId) : undefined,
+        participantType: row.memberId ? 'registered' : 'unregistered',
         amount: '',
       })
     }
@@ -1153,11 +1223,19 @@ const MyBookingsPage = () => {
 
   const submitAddSplit = async (booking, club) => {
     if (!club?.id || !booking?.id || !member?.id) return
-    const rows = addSplitRows.map((row) => ({
-      type: 'unregistered',
-      phone: (row.phone || '').trim(),
-      amount: parseFloat(String(row.amount).replace(',', '.')) || 0,
-    })).filter((row) => row.phone && row.amount > 0)
+    const rows = addSplitRows
+      .map((row) => {
+        const amount = parseFloat(String(row.amount).replace(',', '.')) || 0
+        const phone = (row.phone || '').trim()
+        const isRegistered = !!row.memberId
+        return {
+          type: isRegistered ? 'registered' : 'unregistered',
+          phone,
+          ...(isRegistered ? { memberId: row.memberId, memberName: row.name || undefined } : {}),
+          amount,
+        }
+      })
+      .filter((row) => row.phone && row.amount > 0)
     if (rows.length === 0) {
       window.alert(c.splitAmountsInvalid)
       return
@@ -2165,11 +2243,45 @@ const MyBookingsPage = () => {
                                         onChange={(e) =>
                                           setAddSplitPeople((prev) =>
                                             prev.map((x, j) =>
-                                              j === ri ? { ...x, phone: e.target.value } : x
+                                              j === ri
+                                                ? {
+                                                    ...x,
+                                                    phone: e.target.value,
+                                                    name: splitPhoneDigits(e.target.value).length >= SPLIT_PHONE_LOOKUP_MIN_DIGITS ? x.name : '',
+                                                    memberId: splitPhoneDigits(e.target.value).length >= SPLIT_PHONE_LOOKUP_MIN_DIGITS ? x.memberId : undefined,
+                                                    participantType: splitPhoneDigits(e.target.value).length >= SPLIT_PHONE_LOOKUP_MIN_DIGITS ? x.participantType : undefined,
+                                                    lookupState:
+                                                      splitPhoneDigits(e.target.value).length >= SPLIT_PHONE_LOOKUP_MIN_DIGITS
+                                                        ? 'checking'
+                                                        : undefined,
+                                                  }
+                                                : x
                                             )
                                           )}
                                       />
                                     </div>
+                                    {splitPhoneDigits(row.phone).length >= SPLIT_PHONE_LOOKUP_MIN_DIGITS ? (
+                                      <div
+                                        className={`my-bookings-add-split-person-status ${
+                                          row.lookupState === 'registered'
+                                            ? 'is-registered'
+                                            : row.lookupState === 'checking'
+                                              ? 'is-checking'
+                                              : 'is-new'
+                                        }`}
+                                        role="status"
+                                      >
+                                        {row.lookupState === 'registered'
+                                          ? (language === 'en'
+                                              ? `Member found: ${row.name || row.phone}`
+                                              : `تم العثور على عضو: ${row.name || row.phone}`)
+                                          : row.lookupState === 'checking'
+                                            ? (language === 'en' ? 'Checking platform member...' : 'جارٍ التحقق من العضو في المنصة...')
+                                            : (language === 'en'
+                                                ? 'New participant: invite will be sent as guest'
+                                                : 'مشارك جديد: سيتم الإرسال له كضيف')}
+                                      </div>
+                                    ) : null}
                                     <button
                                       type="button"
                                       className="my-bookings-add-split-person-remove"

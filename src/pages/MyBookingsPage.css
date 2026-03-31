@@ -1203,6 +1203,35 @@
   min-width: 0;
 }
 
+.my-bookings-add-split-person-status {
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  border: 1px solid var(--mb-border);
+  background: var(--mb-surface);
+  color: var(--mb-text-muted);
+}
+
+.my-bookings-add-split-person-status.is-registered {
+  color: #065f46;
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+}
+
+.my-bookings-add-split-person-status.is-checking {
+  color: #334155;
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.my-bookings-add-split-person-status.is-new {
+  color: #92400e;
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
 .my-bookings-add-split-person-phone {
   width: 100%;
   padding: 8px 10px;
