@@ -216,6 +216,21 @@ const tournamentAccentHue = (tournamentId) => {
   return h % 360
 }
 
+const getRemainingSeconds = (expiresAt) => {
+  if (!expiresAt) return null
+  const ts = new Date(expiresAt).getTime()
+  if (!Number.isFinite(ts)) return null
+  return Math.max(0, Math.ceil((ts - Date.now()) / 1000))
+}
+
+const formatCountdownMmSs = (seconds) => {
+  if (seconds == null || Number.isNaN(Number(seconds))) return '--:--'
+  const sec = Math.max(0, Number(seconds) || 0)
+  const mm = Math.floor(sec / 60)
+  const ss = sec % 60
+  return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
+}
+
 const getTimeSlotsForClub = (club, dateStr) =>
   getPublicBookingTimeSlots(club?.settings, dateStr, PUBLIC_SLOT_STEP_MINUTES)
 
@@ -284,6 +299,7 @@ const ClubPublicPage = () => {
   const [splitInviteSchedule, setSplitInviteSchedule] = useState(null)
   const bookingsSectionRef = React.useRef(null)
   const [activeLock, setActiveLock] = useState(null)
+  const [activeLockRemainingSeconds, setActiveLockRemainingSeconds] = useState(null)
   const [activeLocks, setActiveLocks] = useState([])
   const [lockError, setLockError] = useState(null)
   const [loadRetrying, setLoadRetrying] = useState(false)
@@ -1013,6 +1029,19 @@ const ClubPublicPage = () => {
       setLoadRetrying(false)
     }
   }, [clubId, loadRetrying])
+
+  useEffect(() => {
+    if (!activeLock?.expiresAt) {
+      setActiveLockRemainingSeconds(null)
+      return
+    }
+    const tick = () => {
+      setActiveLockRemainingSeconds(getRemainingSeconds(activeLock.expiresAt))
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [activeLock?.expiresAt])
 
   if (!club) {
     return (
@@ -2036,7 +2065,9 @@ const ClubPublicPage = () => {
               </div>
               {activeLock && (
                 <p className="club-public-booking-lock-notice">
-                  {language === 'en' ? '⏱ Slot reserved. Complete booking before the hold expires.' : '⏱ الوقت محجوز. أكمل الحجز قبل انتهاء الحجز المؤقت.'}
+                  {language === 'en'
+                    ? `⏱ Slot reserved. Complete booking before the hold expires (${formatCountdownMmSs(activeLockRemainingSeconds)}).`
+                    : `⏱ الوقت محجوز. أكمل الحجز قبل انتهاء الحجز المؤقت (${formatCountdownMmSs(activeLockRemainingSeconds)}).`}
                 </p>
               )}
               <div className="club-public-booking-modal-actions">
