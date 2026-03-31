@@ -5569,27 +5569,6 @@ function App({ currentUser }) {
                   <div className="section">
                     <div className="section-header">
                       <h2>{t.members} ({members.length})</h2>
-                      <button className="btn-primary" onClick={() => {
-                        const name = prompt(t.memberName + ':')
-                        if (name && name.trim()) {
-                          const newMember = {
-                            id: members.length > 0 ? Math.max(...members.map(m => m.id)) + 1 : 1,
-                            name: name.trim(),
-                            totalGames: 0,
-                            totalWins: 0,
-                            totalLosses: 0,
-                            totalDraws: 0,
-                            totalPoints: 0,
-                            tournamentsPlayed: 0,
-                            tournamentsWon: 0,
-                            lastTournamentId: undefined,
-                            pointsHistory: []
-                          }
-                          setMembers([...members, newMember])
-                        }
-                      }}>
-                        {t.addMember}
-                      </button>
                     </div>
                     {members.length > 0 && (
                       <>
