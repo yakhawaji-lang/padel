@@ -17,6 +17,101 @@ const CAT_DEFS = [
   { id: 'viewers', key: 'viewers', group: 'live', color: '#0d9488', adminPath: 'dashboard', adminSearch: '' },
 ]
 
+/** أيقونات خطية ثابتة لكل فئة إشعار (شريط جانبي + لوحة) */
+function NotificationCategoryIcon({ id, size = 14 }) {
+  const stroke = 'currentColor'
+  const s = {
+    width: size,
+    height: size,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke,
+    strokeWidth: 2,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+  }
+  switch (id) {
+    case 'locksActive':
+      return (
+        <svg {...s} aria-hidden>
+          <rect x="5" y="11" width="14" height="10" rx="2" ry="2" />
+          <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+        </svg>
+      )
+    case 'bookingCompleteFlow':
+      return (
+        <svg {...s} aria-hidden>
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+          <path d="M8 2v4M16 2v4M3 10h18" />
+          <path d="m9 16 2 2 4-4" />
+        </svg>
+      )
+    case 'bookingAwaitingPayments':
+      return (
+        <svg {...s} aria-hidden>
+          <rect x="2" y="5" width="20" height="14" rx="2" />
+          <path d="M2 10h20" />
+          <path d="M6 15h4M14 15h.01" />
+        </svg>
+      )
+    case 'bookingExpiredWithPayment':
+      return (
+        <svg {...s} aria-hidden>
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+          <path d="M12 9v4M12 17h.01" strokeWidth="2.25" />
+        </svg>
+      )
+    case 'refundRequests':
+      return (
+        <svg {...s} aria-hidden>
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+          <path d="M21 3v5h-5" />
+          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+          <path d="M8 16H3v5" />
+        </svg>
+      )
+    case 'storeSalesRecent':
+      return (
+        <svg {...s} aria-hidden>
+          <circle cx="9" cy="21" r="1" />
+          <circle cx="20" cy="21" r="1" />
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+        </svg>
+      )
+    case 'storeLowStock':
+      return (
+        <svg {...s} aria-hidden>
+          <path d="m21 16-4-4-4 4" />
+          <path d="M17 12v9" />
+          <path d="M3 3h8l2 6h9" />
+          <path d="M3 12h5" />
+        </svg>
+      )
+    case 'newMembers':
+      return (
+        <svg {...s} aria-hidden>
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M19 8v6M22 11h-6" />
+        </svg>
+      )
+    case 'viewers':
+      return (
+        <svg {...s} aria-hidden>
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      )
+    default:
+      return (
+        <svg {...s} aria-hidden>
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 16v-4M12 8h.01" />
+        </svg>
+      )
+  }
+}
+
 function labelsForLang(lang) {
   const en = {
     hubTitle: 'Notifications',
@@ -271,7 +366,10 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
                   className={`cn-hub__rail-seg ${u ? 'cn-hub__rail-seg--unread' : ''} ${reduceMotion ? 'cn-hub__rail-seg--no-blink' : ''}`}
                   style={{ '--cn-color': c.color }}
                 >
-                  {n > 99 ? '99+' : n}
+                  <span className="cn-hub__rail-seg-icon">
+                    <NotificationCategoryIcon id={c.id} size={13} />
+                  </span>
+                  <span className="cn-hub__rail-seg-num">{n > 99 ? '99+' : n}</span>
                 </span>
               )
             })}
@@ -310,7 +408,10 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
                           style={{ '--cn-accent': c.color }}
                         >
                           <span className="cn-hub__badge" style={{ background: c.color }}>
-                            {n > 99 ? '99+' : n}
+                            <span className="cn-hub__badge-icon" aria-hidden>
+                              <NotificationCategoryIcon id={c.id} size={15} />
+                            </span>
+                            <span className="cn-hub__badge-count">{n > 99 ? '99+' : n}</span>
                           </span>
                           <span className="cn-hub__row-label">{t[c.key] || c.key}</span>
                           {mode === 'admin' ? <span className="cn-hub__chev">›</span> : null}
