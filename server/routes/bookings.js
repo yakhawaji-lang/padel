@@ -175,6 +175,57 @@ async function resolveMemberIdForShareWalletFromPhone(clubId, sharePhone) {
   return mid
 }
 
+async function ensureMemberJoinedClub(memberId, clubId) {
+  const mid = String(memberId || '').trim()
+  const cid = String(clubId || '').trim()
+  if (!mid || !cid) return
+  try {
+    await query(`INSERT IGNORE INTO member_clubs (member_id, club_id) VALUES (?, ?)`, [mid, cid])
+  } catch (_) {
+    // optional best effort
+  }
+}
+
+async function lookupMemberByPhoneForClub(clubId, phoneRaw) {
+  const phoneDigits = digitsOnlyPhone(phoneRaw)
+  if (phoneDigits.length < 8) return { member: null, ambiguous: false, inClub: false }
+  let rows = []
+  try {
+    const r = await query(
+      `SELECT id, name, email, mobile, phone FROM members WHERE deleted_at IS NULL`,
+      []
+    )
+    rows = r.rows || []
+  } catch {
+    const r = await query(`SELECT id, name, email, mobile, phone FROM members`, [])
+    rows = r.rows || []
+  }
+  const matches = (rows || []).filter((m) => memberMobileMatchesSharePhone(phoneRaw, m?.mobile || m?.phone || ''))
+  if (matches.length !== 1) return { member: null, ambiguous: matches.length > 1, inClub: false }
+  const member = matches[0]
+  let inClub = false
+  try {
+    const r = await query(
+      `SELECT 1 FROM member_clubs WHERE member_id = ? AND club_id = ? LIMIT 1`,
+      [String(member.id), String(clubId)]
+    )
+    inClub = !!r?.rows?.length
+  } catch {
+    inClub = false
+  }
+  return {
+    member: {
+      id: String(member.id),
+      name: member.name || null,
+      email: member.email || null,
+      mobile: member.mobile || null,
+      phone: member.phone || null,
+    },
+    ambiguous: false,
+    inClub,
+  }
+}
+
 /** Split participant: same member id or matching phone tail (invite rows). */
 function shareRowBelongsToMember(row, memberId, memberPhoneRaw) {
   if (!row || !memberId) return false
@@ -620,6 +671,9 @@ router.post('/confirm', async (req, res) => {
       bookerShareRowId = insShare.insertId
     }
     for (const s of paymentShares || []) {
+      if (s?.memberId) {
+        await ensureMemberJoinedClub(s.memberId, clubId)
+      }
       const token = `inv_${crypto.randomBytes(16).toString('hex')}`
       const isUnregistered = s.type === 'unregistered'
       const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
@@ -925,6 +979,9 @@ router.post('/join-training', async (req, res) => {
     const jtStart = b.start_time || b.time_slot || data.startTime || ''
     const jtEnd = b.end_time || data.endTime || ''
     for (const s of paymentShares || []) {
+      if (s?.memberId) {
+        await ensureMemberJoinedClub(s.memberId, clubId)
+      }
       const token = `inv_${crypto.randomBytes(16).toString('hex')}`
       const isUnregistered = s.type === 'unregistered'
       const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
@@ -2334,6 +2391,9 @@ router.post('/add-split-participants', async (req, res) => {
     } catch (_) {}
     const created = []
     for (const s of paymentShares) {
+      if (s?.memberId) {
+        await ensureMemberJoinedClub(s.memberId, clubId)
+      }
       const token = `inv_${crypto.randomBytes(16).toString('hex')}`
       const isUnregistered = s.type === 'unregistered'
       const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
@@ -2375,6 +2435,19 @@ router.post('/add-split-participants', async (req, res) => {
     res.json({ ok: true, paymentShares: created, ...rec })
   } catch (e) {
     console.error('bookings add-split-participants error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** POST /api/bookings/resolve-member-by-phone — check platform member by full phone and club link status */
+router.post('/resolve-member-by-phone', async (req, res) => {
+  try {
+    const { clubId, phone } = req.body || {}
+    if (!clubId || !phone) return res.status(400).json({ error: 'clubId and phone required' })
+    const r = await lookupMemberByPhoneForClub(clubId, phone)
+    res.json({ ok: true, ...r })
+  } catch (e) {
+    console.error('bookings resolve-member-by-phone error:', e)
     res.status(500).json({ error: dbError(e) })
   }
 })

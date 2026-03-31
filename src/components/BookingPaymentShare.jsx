@@ -123,6 +123,8 @@ export default function BookingPaymentShare({
   const [contactsBusy, setContactsBusy] = useState(false)
   const [favoriteIds, setFavoriteIds] = useState(new Set())
   const [favoritesLoading, setFavoritesLoading] = useState(false)
+  const [remotePhoneMatch, setRemotePhoneMatch] = useState(null)
+  const [remotePhoneMatchLoading, setRemotePhoneMatchLoading] = useState(false)
 
   const t = useCallback((en, ar) => (language === 'ar' ? ar : en), [language])
 
@@ -189,6 +191,48 @@ export default function BookingPaymentShare({
     if (!aFav && bFav) return 1
     return 0
   })
+  const resolvedMatches = useMemo(() => {
+    const list = [...favoritesFirst]
+    const remote = remotePhoneMatch?.member
+    if (remote?.id && !list.some((m) => String(m?.id) === String(remote.id))) {
+      list.push({
+        id: remote.id,
+        name: remote.name || remote.email || remote.id,
+        email: remote.email || '',
+        mobile: remote.mobile || remote.phone || '',
+        phone: remote.phone || remote.mobile || '',
+      })
+    }
+    return list
+  }, [favoritesFirst, remotePhoneMatch])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!clubId || !hasFullPhone) {
+      setRemotePhoneMatch(null)
+      setRemotePhoneMatchLoading(false)
+      return () => {
+        cancelled = true
+      }
+    }
+    setRemotePhoneMatchLoading(true)
+    const timer = setTimeout(async () => {
+      try {
+        const r = await bookingApi.resolveMemberByPhone({ clubId, phone: memberSearchQuery })
+        if (!cancelled) {
+          setRemotePhoneMatch(r?.member ? { member: r.member, inClub: !!r.inClub } : null)
+        }
+      } catch (_) {
+        if (!cancelled) setRemotePhoneMatch(null)
+      } finally {
+        if (!cancelled) setRemotePhoneMatchLoading(false)
+      }
+    }, 220)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [clubId, hasFullPhone, memberSearchQuery])
 
   const totalShared = shares.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
   const remaining = Math.max(0, totalPrice - totalShared)
@@ -465,14 +509,14 @@ export default function BookingPaymentShare({
                         if (e.key !== 'Enter') return
                         e.preventDefault()
                         if (atShareCap || !hasFullPhone) return
-                        if (filteredBySearch.length === 1) {
-                          const m0 = filteredBySearch[0]
+                        if (resolvedMatches.length === 1) {
+                          const m0 = resolvedMatches[0]
                           if (addedMemberIds.has(String(m0.id))) {
                             setContactError(t('This participant is already in the split.', 'هذا المشارك مضاف مسبقاً في المشاركة.'))
                             return
                           }
                           addRegistered(m0)
-                        } else if (filteredBySearch.length === 0) {
+                        } else if (resolvedMatches.length === 0) {
                           addUnregistered(memberSearchQuery)
                         }
                       }}
@@ -506,9 +550,9 @@ export default function BookingPaymentShare({
                   ) : null}
 
                   {hasFullPhone ? (
-                    filteredBySearch.length > 0 ? (
+                    resolvedMatches.length > 0 ? (
                       <ul className="booking-payment-share-unified-match-list" role="list">
-                        {favoritesFirst.map((m) => {
+                        {resolvedMatches.map((m) => {
                           const phone = m?.mobile || m?.phone || ''
                           const waAmt = previewShareForGather
                           const waLink = buildWhatsAppLinkForRegistered(phone, clubName, dateStr, startTime, waAmt, currency, language, clubId)
@@ -574,6 +618,10 @@ export default function BookingPaymentShare({
                           )
                         })}
                       </ul>
+                    ) : remotePhoneMatchLoading ? (
+                      <p className="booking-payment-share-empty booking-payment-share-empty--unified">
+                        {t('Checking PlayTix members...', 'جارٍ التحقق من أعضاء المنصة...')}
+                      </p>
                     ) : phoneTailAlreadyInShares(searchTail) ? (
                       <div className="booking-payment-share-unified-match booking-payment-share-unified-match--already booking-payment-share-unified-match--guest">
                         <div className="booking-payment-share-unified-match-info">

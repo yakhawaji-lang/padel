@@ -722,6 +722,13 @@ export async function addSplitParticipants({ bookingId, clubId, memberId, paymen
   })
 }
 
+export async function resolveMemberByPhone({ clubId, phone }) {
+  return fetchJson('/api/bookings/resolve-member-by-phone', {
+    method: 'POST',
+    body: JSON.stringify({ clubId, phone }),
+  })
+}
+
 /** Booker: allow other split participants to add people to the payment split */
 export async function setAllowCoAddSplit({ bookingId, clubId, memberId, allow }) {
   return fetchJson('/api/bookings/set-allow-co-add-split', {
