@@ -1,0 +1,11 @@
+# PlayTix /app — SPA routing when Apache serves public_html/app/ directly.
+# Prevents 403 on /app/ when directory listing is disabled and fixes client-side routes.
+DirectoryIndex index.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /app/
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule . index.html [L]
+</IfModule>

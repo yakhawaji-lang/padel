@@ -15,6 +15,7 @@ const root = join(__dirname, '..')
 const distPath = join(root, 'dist')
 const distIndex = join(distPath, 'index.html')
 const outputDir = join(root, 'deploy-public_html')
+const appSpaHtaccess = join(root, 'scripts', 'hostinger-app-spa.htaccess')
 
 console.log('[prepare-public-html] Building...')
 execSync('npm run build', { stdio: 'inherit', cwd: root })
@@ -44,6 +45,10 @@ if (existsSync(srcAssets)) {
 }
 const logo = join(distPath, 'logo-playtix.png')
 if (existsSync(logo)) copyFileSync(logo, join(appDir, 'logo-playtix.png'))
+if (existsSync(appSpaHtaccess)) {
+  copyFileSync(appSpaHtaccess, join(appDir, '.htaccess'))
+  console.log('[prepare-public-html] Wrote app/.htaccess (SPA + DirectoryIndex)')
+}
 
 console.log('[prepare-public-html] Done! Upload contents of deploy-public_html/ to Hostinger public_html')
 console.log('  Path:', outputDir)

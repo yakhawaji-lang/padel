@@ -10,6 +10,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const distPath = join(__dirname, 'dist')
 const distIndex = join(distPath, 'index.html')
 const root = __dirname
+const appSpaHtaccess = join(root, 'scripts', 'hostinger-app-spa.htaccess')
 
 console.log('[server.js] Starting... cwd=%s', process.cwd())
 
@@ -71,6 +72,13 @@ if (existsSync(distIndex) && deployTargets.length > 0) {
       }
       const logo = join(distPath, 'logo-playtix.png')
       if (existsSync(logo)) copyFileSync(logo, join(appDir, 'logo-playtix.png'))
+      if (existsSync(appSpaHtaccess)) {
+        try {
+          copyFileSync(appSpaHtaccess, join(appDir, '.htaccess'))
+        } catch (e) {
+          console.warn('[server.js] Could not copy app .htaccess:', e.message)
+        }
+      }
       console.log('[server.js] SPA copied to', appDir)
       return true
     } catch (e) {

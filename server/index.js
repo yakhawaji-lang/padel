@@ -126,7 +126,7 @@ const distPath = join(__dirname, '..', 'dist')
 const distIndex = join(distPath, 'index.html')
 if (existsSync(distIndex)) {
   const staticOpts = {
-    index: false,
+    index: 'index.html',
     setHeaders: (res, filePath) => {
       if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
         res.setHeader('Content-Type', 'application/javascript')
