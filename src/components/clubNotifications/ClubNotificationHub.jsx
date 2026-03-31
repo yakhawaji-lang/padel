@@ -85,9 +85,9 @@ function writeAck(clubId, ack) {
 }
 
 /**
- * @param {{ clubId: string, language: string, mode: 'admin' | 'public', showUi: boolean }} props
+ * @param {{ clubId: string, language: string, mode: 'admin' | 'public', showUi: boolean, showTicker?: boolean }} props
  */
-export default function ClubNotificationHub({ clubId, language, mode, showUi }) {
+export default function ClubNotificationHub({ clubId, language, mode, showUi, showTicker = true }) {
   const navigate = useNavigate()
   const [summary, setSummary] = useState(null)
   const [expanded, setExpanded] = useState(false)
@@ -144,6 +144,15 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi }) 
     window.addEventListener('clubs-synced', onSync)
     return () => window.removeEventListener('clubs-synced', onSync)
   }, [load, showUi])
+
+  useEffect(() => {
+    if (!expanded) return undefined
+    const onKey = (e) => {
+      if (e.key === 'Escape') setExpanded(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [expanded])
 
   const markAllRead = useCallback(() => {
     if (!summary?.fingerprint) return
@@ -208,30 +217,39 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi }) 
 
   const railUnread = hasUnread || tickerStale
   const tickerEl =
-    tickerParts.length > 0 && (tickerStale || hasUnread) ? (
-        <div
-          className={`cn-ticker cn-ticker--fixed ${reduceMotion ? 'cn-ticker--no-motion' : ''} ${tickerStale ? 'cn-ticker--urgent' : ''}`}
-          role="region"
-          aria-label={t.hubTitle}
-        >
-          <div className="cn-ticker__inner">
-            <span className="cn-ticker__label">{t.liveNow}</span>
-            <div className="cn-ticker__track" aria-live="polite">
-              <div className="cn-ticker__marquee">
-                {(tickerParts.join(t.tickerSep) + t.tickerSep).repeat(3)}
-              </div>
+    showTicker && tickerParts.length > 0 && (tickerStale || hasUnread) ? (
+      <div
+        className={`cn-ticker cn-ticker--fixed ${reduceMotion ? 'cn-ticker--no-motion' : ''} ${tickerStale ? 'cn-ticker--urgent' : ''}`}
+        role="region"
+        aria-label={t.hubTitle}
+      >
+        <div className="cn-ticker__inner">
+          <span className="cn-ticker__label">{t.liveNow}</span>
+          <div className="cn-ticker__track" aria-live="polite">
+            <div className="cn-ticker__marquee">
+              {(tickerParts.join(t.tickerSep) + t.tickerSep).repeat(3)}
             </div>
-            <button type="button" className="cn-ticker__cta" onClick={() => setExpanded(true)}>
-              {t.openFeed}
-            </button>
           </div>
+          <button type="button" className="cn-ticker__cta" onClick={() => setExpanded(true)}>
+            {t.openFeed}
+          </button>
         </div>
+      </div>
     ) : null
 
   return (
     <>
       {tickerEl ? <div className="cn-ticker-spacer" aria-hidden="true" /> : null}
       {tickerEl}
+
+      {expanded ? (
+        <div
+          className="cn-hub__backdrop"
+          role="presentation"
+          aria-hidden="true"
+          onClick={() => setExpanded(false)}
+        />
+      ) : null}
 
       <aside
         className={`cn-hub ${tickerEl ? 'cn-hub--has-ticker' : ''} ${language === 'ar' ? 'cn-hub--rtl' : ''} ${expanded ? 'cn-hub--expanded' : ''}`}
@@ -245,22 +263,33 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi }) 
           title={t.hubTitle}
           aria-expanded={expanded}
         >
-          {CAT_DEFS.map((c) => {
-            const n = Number(counts[c.key] ?? 0) || 0
-            if (n <= 0) return null
-            const u = unreadByCat[c.id]
-            return (
-              <span
-                key={c.id}
-                className={`cn-hub__rail-seg ${u ? 'cn-hub__rail-seg--unread' : ''} ${reduceMotion ? 'cn-hub__rail-seg--no-blink' : ''}`}
-                style={{ '--cn-color': c.color }}
-                data-count={n > 99 ? '99+' : n}
-              />
-            )
-          })}
-          {CAT_DEFS.every((c) => !Number(counts[c.key] ?? 0)) && (
-            <span className="cn-hub__rail-seg cn-hub__rail-seg--empty" style={{ '--cn-color': '#94a3b8' }} data-count="0" />
-          )}
+          <span className="cn-hub__rail-bell" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+          </span>
+          <span className="cn-hub__rail-stack">
+            {CAT_DEFS.map((c) => {
+              const n = Number(counts[c.key] ?? 0) || 0
+              if (n <= 0) return null
+              const u = unreadByCat[c.id]
+              return (
+                <span
+                  key={c.id}
+                  className={`cn-hub__rail-seg ${u ? 'cn-hub__rail-seg--unread' : ''} ${reduceMotion ? 'cn-hub__rail-seg--no-blink' : ''}`}
+                  style={{ '--cn-color': c.color }}
+                >
+                  {n > 99 ? '99+' : n}
+                </span>
+              )
+            })}
+            {CAT_DEFS.every((c) => !Number(counts[c.key] ?? 0)) && (
+              <span className="cn-hub__rail-seg cn-hub__rail-seg--empty" style={{ '--cn-color': '#64748b' }}>
+                —
+              </span>
+            )}
+          </span>
         </button>
 
         <div className="cn-hub__drawer">

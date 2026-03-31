@@ -13,9 +13,9 @@
   background: #f0f4f8;
 }
 
-/* Room for fixed notification rail (5mm strip + badge overflow) */
+/* Room for fixed notification rail */
 .club-admin-panel--notify .club-admin-main {
-  padding-inline-end: max(24px, calc(5mm + 40px));
+  padding-inline-end: max(24px, calc(48px + 40px));
 }
 
 .club-admin-content {

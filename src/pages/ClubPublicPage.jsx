@@ -1347,6 +1347,7 @@ const ClubPublicPage = () => {
           language={language}
           mode="public"
           showUi
+          showTicker={false}
         />
       )}
       {bookingSuccessId && (
