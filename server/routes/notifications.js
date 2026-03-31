@@ -63,6 +63,19 @@ router.get('/club/:clubId/summary', async (req, res) => {
     [clubId]
   )
 
+  /** حجوزات جارية اليوم: الوقت الحالي داخل [start_time, end_time) */
+  const bookingsActiveNow = await safeCount(
+    `SELECT COUNT(*) AS c FROM club_bookings 
+     WHERE club_id = ? AND deleted_at IS NULL 
+     AND booking_date = CURDATE()
+     AND start_time IS NOT NULL AND TRIM(start_time) <> ''
+     AND end_time IS NOT NULL AND TRIM(end_time) <> ''
+     AND TIME(NOW()) >= CAST(TRIM(start_time) AS TIME)
+     AND TIME(NOW()) < CAST(TRIM(end_time) AS TIME)
+     AND LOWER(COALESCE(status,'')) IN ('confirmed','partially_paid','pending_payments')`,
+    [clubId]
+  )
+
   const bookingCompleteFlow = await safeCount(
     `SELECT COUNT(*) AS c FROM club_bookings 
      WHERE club_id = ? AND deleted_at IS NULL 
@@ -121,6 +134,7 @@ router.get('/club/:clubId/summary', async (req, res) => {
   const counts = {
     viewers,
     locksActive,
+    bookingsActiveNow,
     bookingCompleteFlow,
     bookingAwaitingPayments,
     bookingExpiredWithPayment,

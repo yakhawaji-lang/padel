@@ -6,6 +6,7 @@ import './ClubNotificationHub.css'
 const POLL_MS = 25000
 
 const CAT_DEFS = [
+  { id: 'bookingsActiveNow', key: 'bookingsActiveNow', group: 'bookings', color: '#0ea5e9', adminPath: 'bookings', adminSearch: '' },
   { id: 'locksActive', key: 'locksActive', group: 'bookings', color: '#0284c7', adminPath: 'bookings', adminSearch: '' },
   { id: 'bookingCompleteFlow', key: 'bookingCompleteFlow', group: 'bookings', color: '#7c3aed', adminPath: 'bookings', adminSearch: '' },
   { id: 'bookingAwaitingPayments', key: 'bookingAwaitingPayments', group: 'bookings', color: '#d97706', adminPath: 'bookings', adminSearch: '' },
@@ -33,6 +34,14 @@ function NotificationCategoryIcon({ id, size = 14 }) {
     strokeLinejoin: 'round',
   }
   switch (id) {
+    case 'bookingsActiveNow':
+      return (
+        <svg {...s} aria-hidden>
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 2v2M12 20v2M2 12h2M20 12h2" />
+          <path d="M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" opacity="0.85" />
+        </svg>
+      )
     case 'locksActive':
       return (
         <svg {...s} aria-hidden>
@@ -126,6 +135,7 @@ function labelsForLang(lang) {
     groupStore: 'Store',
     groupMembers: 'Members',
     groupLive: 'Live',
+    bookingsActiveNow: 'Ongoing bookings (on court now)',
     locksActive: 'Active slot holds',
     bookingCompleteFlow: 'Bookings to complete',
     bookingAwaitingPayments: 'Awaiting payment completion',
@@ -153,6 +163,7 @@ function labelsForLang(lang) {
     groupStore: 'المتجر',
     groupMembers: 'الأعضاء',
     groupLive: 'مباشر',
+    bookingsActiveNow: 'حجوزات قائمة (جارية على الملعب الآن)',
     locksActive: 'جاري حجز (حجز مؤقت)',
     bookingCompleteFlow: 'استكمال حجز',
     bookingAwaitingPayments: 'بانتظار إكمال الدفعات',
@@ -205,43 +216,90 @@ function writeSoundMuted(muted) {
   } catch { /* ignore */ }
 }
 
-let bellAudioCtx = null
+let sharedAudioCtx = null
 
-/** جرس مزدوج واضح — Web Audio (لا ملفات خارجية). */
-function playNotificationBell() {
+function getSharedAudioContext() {
   const Ctx = window.AudioContext || window.webkitAudioContext
-  if (!Ctx) return
+  if (!Ctx) return null
+  if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') sharedAudioCtx = new Ctx()
+  return sharedAudioCtx
+}
+
+/** نغمة واحدة قصيرة — Web Audio */
+function playTone(ctx, tStart, freq, durationSec, type, peakGain, freqEnd = null) {
+  const osc = ctx.createOscillator()
+  const g = ctx.createGain()
+  osc.type = type
+  osc.frequency.setValueAtTime(freq, tStart)
+  if (freqEnd != null && Math.abs(freqEnd - freq) > 1) {
+    osc.frequency.exponentialRampToValueAtTime(Math.max(60, freqEnd), tStart + durationSec * 0.92)
+  }
+  g.gain.setValueAtTime(0.0001, tStart)
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peakGain), tStart + 0.02)
+  g.gain.exponentialRampToValueAtTime(0.0001, tStart + durationSec)
+  osc.connect(g)
+  g.connect(ctx.destination)
+  osc.start(tStart)
+  osc.stop(tStart + durationSec + 0.05)
+}
+
+/**
+ * صوت مميز لكل فئة إشعار (بدون ملفات خارجية).
+ * @param {string} catKey — مفتاح من CAT_DEFS.key
+ */
+function playNotificationSound(catKey) {
+  const ctx = getSharedAudioContext()
+  if (!ctx) return
   try {
-    if (!bellAudioCtx || bellAudioCtx.state === 'closed') bellAudioCtx = new Ctx()
-    const ctx = bellAudioCtx
     if (ctx.state === 'suspended') void ctx.resume()
-
-    const strike = (offsetSec) => {
-      const t0 = ctx.currentTime + offsetSec
-      const master = ctx.createGain()
-      master.connect(ctx.destination)
-      master.gain.setValueAtTime(0.0001, t0)
-      master.gain.exponentialRampToValueAtTime(0.55, t0 + 0.04)
-      master.gain.exponentialRampToValueAtTime(0.12, t0 + 0.4)
-      master.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.35)
-
-      const freqs = [783.99, 1046.5, 1318.51]
-      const amps = [0.28, 0.18, 0.11]
-      freqs.forEach((f, i) => {
-        const osc = ctx.createOscillator()
-        osc.type = i === 0 ? 'triangle' : 'sine'
-        osc.frequency.setValueAtTime(f, t0)
-        const g = ctx.createGain()
-        g.gain.setValueAtTime(amps[i], t0)
-        osc.connect(g)
-        g.connect(master)
-        osc.start(t0)
-        osc.stop(t0 + 1.4)
-      })
+    const t0 = ctx.currentTime
+    switch (catKey) {
+      case 'bookingsActiveNow':
+        playTone(ctx, t0, 523.25, 0.24, 'sine', 0.1)
+        playTone(ctx, t0 + 0.11, 659.25, 0.28, 'sine', 0.085)
+        break
+      case 'locksActive':
+        playTone(ctx, t0, 1850, 0.04, 'square', 0.042)
+        playTone(ctx, t0 + 0.055, 2200, 0.038, 'square', 0.036)
+        break
+      case 'bookingCompleteFlow':
+        playTone(ctx, t0, 392, 0.11, 'triangle', 0.095)
+        playTone(ctx, t0 + 0.1, 493.88, 0.11, 'triangle', 0.085)
+        playTone(ctx, t0 + 0.2, 587.33, 0.16, 'triangle', 0.09)
+        break
+      case 'bookingAwaitingPayments':
+        playTone(ctx, t0, 196, 0.18, 'sine', 0.12)
+        playTone(ctx, t0 + 0.2, 246.94, 0.22, 'sine', 0.1)
+        break
+      case 'bookingExpiredWithPayment':
+        playTone(ctx, t0, 300, 0.14, 'sawtooth', 0.065, 165)
+        playTone(ctx, t0 + 0.16, 260, 0.18, 'sawtooth', 0.055, 140)
+        break
+      case 'refundRequests':
+        playTone(ctx, t0, 523.25, 0.12, 'sine', 0.09, 349.23)
+        playTone(ctx, t0 + 0.14, 392, 0.18, 'sine', 0.08, 261.63)
+        break
+      case 'storeSalesRecent':
+        playTone(ctx, t0, 783.99, 0.08, 'sine', 0.11)
+        playTone(ctx, t0 + 0.09, 1046.5, 0.1, 'sine', 0.095)
+        playTone(ctx, t0 + 0.2, 1318.51, 0.12, 'sine', 0.075)
+        break
+      case 'storeLowStock':
+        playTone(ctx, t0, 880, 0.1, 'triangle', 0.085, 523.25)
+        playTone(ctx, t0 + 0.12, 659.25, 0.15, 'triangle', 0.07, 392)
+        break
+      case 'newMembers':
+        playTone(ctx, t0, 329.63, 0.1, 'sine', 0.08)
+        playTone(ctx, t0 + 0.08, 415.3, 0.1, 'sine', 0.09)
+        playTone(ctx, t0 + 0.16, 523.25, 0.12, 'sine', 0.095)
+        playTone(ctx, t0 + 0.28, 659.25, 0.18, 'sine', 0.075)
+        break
+      case 'viewers':
+        playTone(ctx, t0, 987.77, 0.065, 'sine', 0.055)
+        break
+      default:
+        playTone(ctx, t0, 659.25, 0.14, 'sine', 0.085)
     }
-
-    strike(0)
-    strike(0.42)
   } catch {
     /* قد يحظر المتصفح التشغيل قبل تفاعل المستخدم */
   }
@@ -361,16 +419,16 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
       prevPollCountsRef.current = snap
       return
     }
-    let anyIncrease = false
+    let increasedKey = null
     for (const c of CAT_DEFS) {
       if (snap[c.key] > (prev[c.key] ?? 0)) {
-        anyIncrease = true
+        increasedKey = c.key
         break
       }
     }
     prevPollCountsRef.current = snap
-    if (!anyIncrease || soundMuted) return
-    playNotificationBell()
+    if (!increasedKey || soundMuted) return
+    playNotificationSound(increasedKey)
   }, [summary, counts, showUi, soundMuted])
 
   const goAdmin = useCallback(
@@ -424,7 +482,6 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
 
   if (!showUi) return null
 
-  const railUnread = hasUnread || tickerStale
   const tickerPlacementClass = docked ? 'cn-ticker--bar' : 'cn-ticker--fixed'
   const tickerEl =
     showTicker && tickerParts.length > 0 && (tickerStale || hasUnread) ? (
@@ -455,9 +512,7 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
         aria-label={t.hubTitle}
         dir={language === 'ar' ? 'rtl' : 'ltr'}
       >
-        <div
-          className={`cn-hub__rail-wrap ${railUnread ? 'cn-hub__rail-wrap--pulse' : ''} ${reduceMotion ? 'cn-hub__rail-wrap--no-pulse' : ''}`}
-        >
+        <div className="cn-hub__rail-wrap">
           <button
             type="button"
             className="cn-hub__rail-trigger"
