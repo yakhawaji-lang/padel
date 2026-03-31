@@ -8,6 +8,48 @@ import * as invoiceService from '../services/invoiceService.js'
 
 const router = Router()
 
+function digitsOnlyPhone(v) {
+  return String(v || '').replace(/\D/g, '')
+}
+
+function phonesLikelySame(a, b) {
+  const da = digitsOnlyPhone(a)
+  const db = digitsOnlyPhone(b)
+  if (da.length < 8 || db.length < 8) return false
+  return da.slice(-9) === db.slice(-9) || da.slice(-8) === db.slice(-8)
+}
+
+async function enrichMissingInvoiceCustomersByPhone(rows) {
+  const list = Array.isArray(rows) ? rows : []
+  const targets = list.filter((r) => {
+    const noMember = !String(r?.customer_member_id || '').trim()
+    const hasPhone = !!String(r?.customer_phone || '').trim()
+    return noMember && hasPhone && String(r?.source_type || '').toLowerCase() === 'booking_share'
+  })
+  if (!targets.length) return list
+
+  let members = []
+  try {
+    const r = await query(`SELECT id, name, mobile, phone FROM members WHERE deleted_at IS NULL`, [])
+    members = r.rows || []
+  } catch (e) {
+    if (!String(e?.message || '').includes('deleted_at')) throw e
+    const r = await query(`SELECT id, name, mobile, phone FROM members`, [])
+    members = r.rows || []
+  }
+
+  for (const inv of targets) {
+    const matches = (members || []).filter((m) => phonesLikelySame(inv.customer_phone, m?.mobile || m?.phone || ''))
+    if (matches.length !== 1) continue
+    const m = matches[0]
+    inv.customer_member_id = String(m.id || '')
+    if (!String(inv.customer_name || '').trim()) {
+      inv.customer_name = String(m.name || '').trim() || inv.customer_name
+    }
+  }
+  return list
+}
+
 function num(v, d, max) {
   const n = parseInt(String(v), 10)
   if (Number.isNaN(n) || n < 0) return d
@@ -117,6 +159,7 @@ router.get('/', async (req, res) => {
       const r2 = await query(sqlNoMembersDeletedAt, params)
       rows = r2.rows || []
     }
+    rows = await enrichMissingInvoiceCustomersByPhone(rows || [])
     res.json({ ok: true, invoices: rows || [], invoicingEnabled: true })
   } catch (e) {
     console.error('invoices list error:', e)
