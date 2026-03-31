@@ -275,8 +275,8 @@
 .cn-hub__rail-stack {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 7px;
+  align-items: stretch;
+  gap: 8px;
   width: 100%;
   flex: 1 1 auto;
   min-height: 0;
@@ -284,6 +284,43 @@
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+}
+
+/* مجموعات الشريط — خلفية مميزة لكل قسم (حجوزات / مدفوعات / …) */
+.cn-hub__rail-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 6px 3px 7px;
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.cn-hub__rail-group--bookings {
+  background: rgba(56, 189, 248, 0.11);
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.28);
+}
+
+.cn-hub__rail-group--payments {
+  background: rgba(244, 114, 182, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(244, 114, 182, 0.3);
+}
+
+.cn-hub__rail-group--store {
+  background: rgba(52, 211, 153, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.28);
+}
+
+.cn-hub__rail-group--members {
+  background: rgba(129, 140, 248, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.32);
+}
+
+.cn-hub__rail-group--live {
+  background: rgba(45, 212, 191, 0.11);
+  box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.3);
 }
 
 .cn-hub__rail--pulse {
@@ -307,12 +344,12 @@
 .cn-hub__rail-seg {
   flex: 0 0 auto;
   width: 100%;
-  max-width: 36px;
-  min-height: 44px;
-  border-radius: 10px;
+  max-width: 38px;
+  min-height: 38px;
+  border-radius: 9px;
   background: var(--cn-color, #64748b);
   color: #fff;
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.02em;
@@ -320,11 +357,22 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 6px 4px 5px;
+  gap: 3px;
+  padding: 5px 3px 4px;
   box-shadow:
     0 3px 10px rgba(0, 0, 0, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.cn-hub__rail-seg--zero {
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.cn-hub__rail-seg--zero .cn-hub__rail-seg-num {
+  opacity: 0.78;
+  font-weight: 700;
 }
 
 .cn-hub__rail-seg-icon {
@@ -356,19 +404,6 @@
     filter: brightness(1.12);
     box-shadow: 0 0 12px rgba(255, 255, 255, 0.35);
   }
-}
-
-.cn-hub__rail-seg--empty {
-  opacity: 0.55;
-  min-height: 36px;
-  flex-direction: row;
-  padding: 0;
-  gap: 0;
-  font-weight: 600;
-  font-size: 0.8rem;
-  background: rgba(148, 163, 184, 0.22);
-  color: rgba(248, 250, 252, 0.65);
-  box-shadow: inset 0 0 0 1px rgba(248, 250, 252, 0.12);
 }
 
 .cn-hub__drawer {
@@ -454,21 +489,71 @@
 .cn-hub__group {
   margin-bottom: 12px;
   padding: 12px 12px 10px;
-  background: #fff;
   border-radius: 14px;
-  border: 1px solid rgba(226, 232, 240, 0.95);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  border-width: 1px;
+  border-style: solid;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+
+.cn-hub__group--bookings {
+  background: linear-gradient(180deg, #eff6ff 0%, #f8fafc 100%);
+  border-color: rgba(59, 130, 246, 0.28);
+}
+
+.cn-hub__group--payments {
+  background: linear-gradient(180deg, #fdf2f8 0%, #fafafa 100%);
+  border-color: rgba(236, 72, 153, 0.28);
+}
+
+.cn-hub__group--store {
+  background: linear-gradient(180deg, #ecfdf5 0%, #f8fafc 100%);
+  border-color: rgba(16, 185, 129, 0.28);
+}
+
+.cn-hub__group--members {
+  background: linear-gradient(180deg, #eef2ff 0%, #fafafa 100%);
+  border-color: rgba(99, 102, 241, 0.28);
+}
+
+.cn-hub__group--live {
+  background: linear-gradient(180deg, #f0fdfa 0%, #f8fafc 100%);
+  border-color: rgba(20, 184, 166, 0.3);
 }
 
 .cn-hub__group-title {
   margin: 0 0 10px 2px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom-width: 1px;
+  border-bottom-style: solid;
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #64748b;
   font-weight: 700;
+}
+
+.cn-hub__group--bookings .cn-hub__group-title {
+  color: #1d4ed8;
+  border-bottom-color: rgba(59, 130, 246, 0.22);
+}
+
+.cn-hub__group--payments .cn-hub__group-title {
+  color: #be185d;
+  border-bottom-color: rgba(236, 72, 153, 0.22);
+}
+
+.cn-hub__group--store .cn-hub__group-title {
+  color: #047857;
+  border-bottom-color: rgba(16, 185, 129, 0.22);
+}
+
+.cn-hub__group--members .cn-hub__group-title {
+  color: #4338ca;
+  border-bottom-color: rgba(99, 102, 241, 0.22);
+}
+
+.cn-hub__group--live .cn-hub__group-title {
+  color: #0f766e;
+  border-bottom-color: rgba(20, 184, 166, 0.25);
 }
 
 .cn-hub__list {
@@ -501,6 +586,11 @@
   border-color: color-mix(in srgb, var(--cn-accent, #3b82f6) 45%, #e2e8f0);
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.07);
   background: #fff;
+}
+
+.cn-hub__row--zero .cn-hub__badge-count {
+  opacity: 0.82;
+  font-weight: 700;
 }
 
 .cn-hub__row:focus-visible {

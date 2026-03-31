@@ -17,6 +17,8 @@ const CAT_DEFS = [
   { id: 'viewers', key: 'viewers', group: 'live', color: '#0d9488', adminPath: 'dashboard', adminSearch: '' },
 ]
 
+const GROUP_ORDER = ['bookings', 'payments', 'store', 'members', 'live']
+
 /** أيقونات خطية ثابتة لكل فئة إشعار (شريط جانبي + لوحة) */
 function NotificationCategoryIcon({ id, size = 14 }) {
   const stroke = 'currentColor'
@@ -356,28 +358,27 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
             </svg>
           </span>
           <span className="cn-hub__rail-stack">
-            {CAT_DEFS.map((c) => {
-              const n = Number(counts[c.key] ?? 0) || 0
-              if (n <= 0) return null
-              const u = unreadByCat[c.id]
-              return (
-                <span
-                  key={c.id}
-                  className={`cn-hub__rail-seg ${u ? 'cn-hub__rail-seg--unread' : ''} ${reduceMotion ? 'cn-hub__rail-seg--no-blink' : ''}`}
-                  style={{ '--cn-color': c.color }}
-                >
-                  <span className="cn-hub__rail-seg-icon">
-                    <NotificationCategoryIcon id={c.id} size={13} />
-                  </span>
-                  <span className="cn-hub__rail-seg-num">{n > 99 ? '99+' : n}</span>
-                </span>
-              )
-            })}
-            {CAT_DEFS.every((c) => !Number(counts[c.key] ?? 0)) && (
-              <span className="cn-hub__rail-seg cn-hub__rail-seg--empty" style={{ '--cn-color': '#64748b' }}>
-                —
-              </span>
-            )}
+            {GROUP_ORDER.map((g) => (
+              <div key={g} className={`cn-hub__rail-group cn-hub__rail-group--${g}`}>
+                {(grouped[g] || []).map((c) => {
+                  const n = Number(counts[c.key] ?? 0) || 0
+                  const u = unreadByCat[c.id]
+                  const isZero = n <= 0
+                  return (
+                    <span
+                      key={c.id}
+                      className={`cn-hub__rail-seg ${isZero ? 'cn-hub__rail-seg--zero' : ''} ${u ? 'cn-hub__rail-seg--unread' : ''} ${reduceMotion ? 'cn-hub__rail-seg--no-blink' : ''}`}
+                      style={{ '--cn-color': c.color }}
+                    >
+                      <span className="cn-hub__rail-seg-icon">
+                        <NotificationCategoryIcon id={c.id} size={12} />
+                      </span>
+                      <span className="cn-hub__rail-seg-num">{n > 99 ? '99+' : String(n)}</span>
+                    </span>
+                  )
+                })}
+              </div>
+            ))}
           </span>
         </button>
 
@@ -390,8 +391,8 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
           </div>
           {err && <p className="cn-hub__err">{err}</p>}
           <div className="cn-hub__body">
-            {['bookings', 'payments', 'store', 'members', 'live'].map((g) => (
-              <div key={g} className="cn-hub__group">
+            {GROUP_ORDER.map((g) => (
+              <div key={g} className={`cn-hub__group cn-hub__group--${g}`}>
                 <h3 className="cn-hub__group-title">{groupTitle(g)}</h3>
                 <ul className="cn-hub__list">
                   {(grouped[g] || []).map((c) => {
@@ -401,7 +402,7 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
                       <li key={c.id}>
                         <button
                           type="button"
-                          className={`cn-hub__row ${u ? 'cn-hub__row--unread' : ''} ${reduceMotion ? 'cn-hub__row--no-blink' : ''}`}
+                          className={`cn-hub__row ${n <= 0 ? 'cn-hub__row--zero' : ''} ${u ? 'cn-hub__row--unread' : ''} ${reduceMotion ? 'cn-hub__row--no-blink' : ''}`}
                           onClick={() => {
                             if (mode === 'admin') goAdmin(c.adminPath, c.adminSearch || '')
                           }}
@@ -411,7 +412,7 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
                             <span className="cn-hub__badge-icon" aria-hidden>
                               <NotificationCategoryIcon id={c.id} size={15} />
                             </span>
-                            <span className="cn-hub__badge-count">{n > 99 ? '99+' : n}</span>
+                            <span className="cn-hub__badge-count">{n > 99 ? '99+' : String(n)}</span>
                           </span>
                           <span className="cn-hub__row-label">{t[c.key] || c.key}</span>
                           {mode === 'admin' ? <span className="cn-hub__chev">›</span> : null}
