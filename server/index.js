@@ -31,6 +31,7 @@ import clubsRouter from './routes/clubs.js'
 import settingsUploadRouter from './routes/settingsUpload.js'
 import galleryRouter from './routes/gallery.js'
 import emailRouter from './routes/email.js'
+import notificationsRouter from './routes/notifications.js'
 import { isConnected, getDbDiagnostics, getCurrentDatabase } from './db/pool.js'
 import { startBookingJobs } from './jobs/bookingJobs.js'
 
@@ -57,6 +58,7 @@ app.use('/api/invoices', invoicesRouter)
 app.use('/api/clubs', clubsRouter)
 app.use('/api/gallery', galleryRouter)
 app.use('/api/email', emailRouter)
+app.use('/api/notifications', notificationsRouter)
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, db: isConnected() })

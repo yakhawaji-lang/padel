@@ -19,6 +19,7 @@ import ClubBookingsManagement from './pages/ClubBookingsManagement'
 import ClubAccountingHub from './pages/ClubAccountingHub'
 import ClubPageGuard from '../components/ClubPageGuard'
 import ClubEmailVerificationBanner from './components/ClubEmailVerificationBanner'
+import ClubNotificationHub from '../components/clubNotifications/ClubNotificationHub'
 import { loadClubs, saveClubs, getClubById, syncMembersToClubsManually, refreshClubsFromApi } from '../storage/adminStorage'
 import { saveClubSettings } from '../api/dbClient'
 
@@ -140,12 +141,19 @@ function ClubAdminPanel() {
   const section = location.pathname.split('/').filter(Boolean).pop() || 'dashboard'
 
   return (
-    <div className={`club-admin-panel club-admin-panel--${section} ${language === 'ar' ? 'rtl' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+    <div className={`club-admin-panel club-admin-panel--${section} club-admin-panel--notify ${language === 'ar' ? 'rtl' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
       <div className="club-admin-content">
         <ClubAdminHeader 
           club={club}
           language={language}
           onLanguageChange={setLanguage}
+        />
+        <ClubNotificationHub
+          clubId={clubId}
+          language={language}
+          mode="admin"
+          showUi
+          tickerPlacement="below-header"
         />
         {club.status === 'pending' && (
           <div className="club-pending-banner" role="status">

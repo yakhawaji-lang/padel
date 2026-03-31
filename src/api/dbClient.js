@@ -903,6 +903,26 @@ export async function verifyPhoneChange(memberId, newPhone, code) {
   })
 }
 
+// ---- Club notifications (live summary + presence) ----
+
+export async function fetchClubNotificationSummary(clubId) {
+  if (!clubId) return { ok: false, counts: {} }
+  try {
+    return await fetchJson(`/api/notifications/club/${encodeURIComponent(clubId)}/summary`, { __skipGlobalSaving: true })
+  } catch {
+    return { ok: false, counts: {} }
+  }
+}
+
+export async function postClubPresence(clubId, sessionId) {
+  if (!clubId) return { ok: false }
+  return fetchJson(`/api/notifications/club/${encodeURIComponent(clubId)}/presence`, {
+    method: 'POST',
+    body: JSON.stringify({ sessionId: sessionId || null }),
+    __skipGlobalSaving: true,
+  })
+}
+
 // ---- Health check ----
 
 export async function healthCheck() {

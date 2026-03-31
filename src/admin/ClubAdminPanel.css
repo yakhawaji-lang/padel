@@ -13,6 +13,11 @@
   background: #f0f4f8;
 }
 
+/* Room for fixed notification rail (5mm strip + badge overflow) */
+.club-admin-panel--notify .club-admin-main {
+  padding-inline-end: max(24px, calc(5mm + 40px));
+}
+
 .club-admin-content {
   flex: 1;
   display: flex;

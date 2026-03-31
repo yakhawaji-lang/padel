@@ -25,6 +25,8 @@ import { memberRelatesToCourtBooking } from '../utils/paymentShareMemberMatch.js
 import { isTerminalBookingStatus } from '../utils/bookingMemberCancel'
 import '../components/BookingPaymentShare.css'
 import { CLUB_PUBLIC_TRANSLATIONS } from './clubPublicPageStrings.js'
+import ClubNotificationHub from '../components/clubNotifications/ClubNotificationHub'
+import ClubPresenceBeacon from '../components/clubNotifications/ClubPresenceBeacon'
 
 const getClubBookings = (clubId) => {
   try {
@@ -1337,7 +1339,7 @@ const ClubPublicPage = () => {
   }
 
   return (
-    <div className="club-public-page commercial">
+    <div className={`club-public-page commercial${isClubAdmin ? ' club-public-page--notify' : ''}`}>
       {bookingSuccessId && (
         <div className="club-public-booking-success-banner" role="alert">
           <span>{c.bookingSuccess}</span>
@@ -1518,6 +1520,17 @@ const ClubPublicPage = () => {
           </div>
         </div>
       </header>
+
+      <ClubPresenceBeacon clubId={clubId} />
+      {isClubAdmin && (
+        <ClubNotificationHub
+          clubId={clubId}
+          language={language}
+          mode="public"
+          showUi
+          tickerPlacement="below-header"
+        />
+      )}
 
       {platformUser?.profileIncomplete && (
         <section className="club-public-profile-incomplete-banner" role="region" aria-live="polite">

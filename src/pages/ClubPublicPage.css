@@ -25,6 +25,10 @@
   overflow-x: hidden;
 }
 
+.club-public-page--notify {
+  padding-inline-end: max(16px, calc(5mm + 36px));
+}
+
 .club-public-header {
   background: #ffffff;
   border-bottom: 1px solid #e2e8f0;
