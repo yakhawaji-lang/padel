@@ -55,9 +55,25 @@ function needsDataActorHeaders(path, method) {
 const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 let _globalSavingPending = 0
 const _globalSavingListeners = new Set()
+const GLOBAL_SAVING_PATH_PREFIXES = [
+  '/api/bookings/',
+  '/api/data',
+  '/api/store',
+  '/api/matches',
+  '/api/member-stats',
+  '/api/tournament-summaries',
+  '/api/clubs/join',
+  '/api/invoices/purge',
+  '/api/settings/homepage-image',
+]
 
 function isMutationMethod(method) {
   return MUTATION_METHODS.has(String(method || 'GET').toUpperCase())
+}
+
+function shouldShowGlobalSavingForPath(path) {
+  const p = String(path || '')
+  return GLOBAL_SAVING_PATH_PREFIXES.some((prefix) => p.startsWith(prefix))
 }
 
 function emitGlobalSaving() {
@@ -102,7 +118,10 @@ async function fetchJson(path, options = {}) {
   const { __skipGlobalSaving = false, ...fetchOptions } = options || {}
   const method = String(fetchOptions.method || 'GET').toUpperCase()
   const actorHeaders = needsDataActorHeaders(path, method) ? getDataActorHeaders() : {}
-  const shouldTrackSaving = isMutationMethod(method) && !__skipGlobalSaving
+  const shouldTrackSaving =
+    isMutationMethod(method) &&
+    !__skipGlobalSaving &&
+    shouldShowGlobalSavingForPath(path)
   if (shouldTrackSaving) trackGlobalSavingStart()
   try {
     const res = await fetch(`${API_URL}${path}`, {
