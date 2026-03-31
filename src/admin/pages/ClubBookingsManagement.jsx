@@ -13,6 +13,7 @@ import {
   hasMemberSelfCancelFlag,
   shareHasMemberRefundPending,
   bookingHasRefundRequestPending,
+  bookingRefundPendingPriorityMs,
 } from '../../utils/bookingMemberCancel'
 import './club-pages-common.css'
 import './BookingsManagement.css'
@@ -141,9 +142,10 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       ...b,
       dateStr: (b.date || b.startDate || '').toString().split('T')[0],
     }))
-    const target = [...withDate]
-      .sort((a, b) => String(b.dateStr || '').localeCompare(String(a.dateStr || '')))
-      .find((b) => bookingHasRefundRequestPending(b))
+    const pending = withDate.filter((b) => bookingHasRefundRequestPending(b))
+    const target = [...pending].sort(
+      (a, b) => bookingRefundPendingPriorityMs(b) - bookingRefundPendingPriorityMs(a)
+    )[0]
 
     const next = new URLSearchParams(searchParams)
     next.delete('focusRefund')

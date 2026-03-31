@@ -40,11 +40,8 @@ export function shareHasMemberRefundPending(share, booking) {
   const isRefunded = !!(share.refundedAt || share.refunded_at)
   const isRemoved = !!(share.removedAt || share.removed_at)
   if (isRefunded || isRemoved) return false
+  /** Club must still act: rely on persisted request timestamp (not stale JSON-only flags). */
   if (share.memberRefundRequestedAt || share.member_refund_requested_at) return true
-  const d = bookingJsonData(booking)
-  const flag = booking?.splitMemberRefundPending ?? d.splitMemberRefundPending
-  const sid = booking?.splitMemberRefundShareId ?? d.splitMemberRefundShareId
-  if (flag && sid != null && sid !== '' && String(sid) === String(share.id ?? '')) return true
   return false
 }
 
@@ -56,14 +53,48 @@ export function bookingHasPendingMemberShareRefund(booking) {
 }
 
 /**
- * Booking needs club refund attention: cancelled awaiting club acknowledgment/fulfillment,
- * or a split participant requested a refund and the share is still pending.
+ * True when a refund still needs club action (not yet fulfilled by the club).
+ * Excludes completed club refunds and share rows already refunded/fulfilled.
  */
 export function bookingHasRefundRequestPending(booking) {
   if (!booking) return false
+  const d = bookingJsonData(booking)
+  if (d.clubRefundFulfilledAt || booking.clubRefundFulfilledAt) return false
   const st = (booking.status || '').toString().trim().toLowerCase().replace(/-/g, '_')
   if (st === 'cancelled_awaiting_refund_ack') return true
-  return bookingHasPendingMemberShareRefund(booking)
+  if (bookingHasPendingMemberShareRefund(booking)) return true
+  return bookingNeedsClubRefundFollowUp(booking)
+}
+
+/**
+ * Milliseconds for sorting: newest active refund request first (share request time, then booking updates).
+ */
+export function bookingRefundPendingPriorityMs(booking) {
+  if (!booking || !bookingHasRefundRequestPending(booking)) return 0
+  let latest = 0
+  const shares = Array.isArray(booking.paymentShares) ? booking.paymentShares : []
+  for (const s of shares) {
+    if (!shareHasMemberRefundPending(s, booking)) continue
+    const raw = s.memberRefundRequestedAt || s.member_refund_requested_at
+    if (!raw) continue
+    const ms = Date.parse(String(raw))
+    if (Number.isFinite(ms) && ms > latest) latest = ms
+  }
+  const d = bookingJsonData(booking)
+  const st = (booking.status || '').toString().toLowerCase()
+  if (st === 'cancelled_awaiting_refund_ack' || bookingNeedsClubRefundFollowUp(booking)) {
+    for (const raw of [booking.updatedAt, booking.updated_at, d.memberRefundRequestedAt]) {
+      if (!raw) continue
+      const ms = Date.parse(String(raw))
+      if (Number.isFinite(ms) && ms > latest) latest = ms
+    }
+  }
+  const dateStr = (booking.date || booking.startDate || booking.bookingDate || '').toString().split('T')[0]
+  if (dateStr && latest === 0) {
+    const ms = Date.parse(`${dateStr}T12:00:00`)
+    if (Number.isFinite(ms)) latest = ms
+  }
+  return latest
 }
 
 /** True when booking `data` or top-level marks member self-cancel (from API / local). */
@@ -112,6 +143,7 @@ export function bookingHasCollectedPayment(booking) {
  */
 export function bookingNeedsClubRefundFollowUp(booking) {
   const d = bookingJsonData(booking)
+  if (d.clubRefundFulfilledAt || booking?.clubRefundFulfilledAt) return false
   const st = (booking?.status || '')
     .toString()
     .trim()
@@ -119,7 +151,6 @@ export function bookingNeedsClubRefundFollowUp(booking) {
     .replace(/-/g, '_')
     .replace(/\s+/g, '_')
   if (st === 'cancelled_awaiting_refund_ack') return true
-  if (d.clubRefundFulfilledAt) return false
   const hasIntent = !!(
     d.memberRefundPreference ||
     d.memberSelfCancel ||
