@@ -30,6 +30,24 @@ router.get('/', async (req, res) => {
         COALESCE(
           NULLIF(TRIM(ci.customer_name), ''),
           NULLIF(TRIM(bps.member_name), ''),
+          CASE
+            WHEN bps.member_id IS NULL AND bps.phone IS NOT NULL AND bps.phone <> '' AND (
+              SELECT COUNT(*)
+              FROM members mcnt
+              WHERE mcnt.deleted_at IS NULL
+                AND RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(mcnt.mobile, mcnt.phone, ''), '+', ''), ' ', ''), '-', ''), '(', ''), ')', ''), 9) =
+                    RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(bps.phone, ''), '+', ''), ' ', ''), '-', ''), '(', ''), ')', ''), 9)
+            ) = 1
+            THEN (
+              SELECT NULLIF(TRIM(mname.name), '')
+              FROM members mname
+              WHERE mname.deleted_at IS NULL
+                AND RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(mname.mobile, mname.phone, ''), '+', ''), ' ', ''), '-', ''), '(', ''), ')', ''), 9) =
+                    RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(bps.phone, ''), '+', ''), ' ', ''), '-', ''), '(', ''), ')', ''), 9)
+              LIMIT 1
+            )
+            ELSE NULL
+          END,
           NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(cb.data, '$.customerName'))), ''),
           NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(cb.data, '$.customer'))), ''),
           NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(cb.data, '$.memberName'))), '')
@@ -43,6 +61,23 @@ router.get('/', async (req, res) => {
         COALESCE(
           NULLIF(TRIM(ci.customer_member_id), ''),
           NULLIF(TRIM(bps.member_id), ''),
+          CASE
+            WHEN bps.member_id IS NULL AND bps.phone IS NOT NULL AND bps.phone <> '' AND (
+              SELECT COUNT(*)
+              FROM members mcnt
+              WHERE mcnt.deleted_at IS NULL
+                AND RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(mcnt.mobile, mcnt.phone, ''), '+', ''), ' ', ''), '-', ''), '(', ''), ')', ''), 9) =
+                    RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(bps.phone, ''), '+', ''), ' ', ''), '-', ''), '(', ''), ')', ''), 9)
+            ) = 1
+            THEN (
+              SELECT MIN(mid.id)
+              FROM members mid
+              WHERE mid.deleted_at IS NULL
+                AND RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(mid.mobile, mid.phone, ''), '+', ''), ' ', ''), '-', ''), '(', ''), ')', ''), 9) =
+                    RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(bps.phone, ''), '+', ''), ' ', ''), '-', ''), '(', ''), ')', ''), 9)
+            )
+            ELSE NULL
+          END,
           NULLIF(TRIM(cb.member_id), '')
         ) AS customer_member_id,
         bps.participant_type AS share_participant_type,
