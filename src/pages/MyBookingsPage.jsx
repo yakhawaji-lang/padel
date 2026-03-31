@@ -460,9 +460,18 @@ const MyBookingsPage = () => {
     const p = (f?.phone || '').trim()
     if (!p) return
     const name = (f?.name || '').trim()
+    const favoriteMemberId = f?.id != null ? String(f.id) : ''
     setAddSplitPeople((prev) => {
       const emptyIdx = prev.findIndex((row) => !String(row.phone || '').trim())
-      const entry = name ? { phone: p, name, lookupState: 'registered' } : { phone: p, lookupState: 'checking' }
+      const entry =
+        name
+          ? {
+              phone: p,
+              name,
+              ...(favoriteMemberId ? { memberId: favoriteMemberId, participantType: 'registered' } : {}),
+              lookupState: 'registered',
+            }
+          : { phone: p, lookupState: 'checking' }
       if (emptyIdx >= 0) {
         const next = [...prev]
         next[emptyIdx] = entry
