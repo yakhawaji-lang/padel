@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { getClubMembersFromStorage, upsertMember, removeMemberFromClubs, deleteMember, refreshClubsFromApi, setMemberCoach } from '../../storage/adminStorage'
 import { getAppLanguage } from '../../storage/languageStorage'
 import './club-pages-common.css'
@@ -23,15 +22,12 @@ function Modal({ title, onClose, children }) {
 
 const ClubMembersManagement = ({ club, language: langProp }) => {
   const language = langProp || getAppLanguage()
-  const navigate = useNavigate()
   const [refreshKey, setRefreshKey] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
   const [editingMember, setEditingMember] = useState(null)
   const [editForm, setEditForm] = useState({ name: '', email: '', mobile: '', password: '' })
   const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [addForm, setAddForm] = useState({ name: '', email: '', mobile: '', password: '' })
   const [togglingCoach, setTogglingCoach] = useState(null)
   const [localCoachIds, setLocalCoachIds] = useState(() => new Set())
 
@@ -154,29 +150,6 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
     }
   }
 
-  const handleAddNewMember = async (e) => {
-    e.preventDefault()
-    if (!addForm.name?.trim() || !addForm.email?.trim()) return
-    const newMember = {
-      id: 'member-' + Date.now(),
-      name: addForm.name.trim(),
-      email: addForm.email.trim(),
-      mobile: (addForm.mobile || '').trim(),
-      phone: (addForm.mobile || '').trim(),
-      password: addForm.password || '',
-      clubIds: [club.id],
-      role: 'member',
-      createdAt: new Date().toISOString()
-    }
-    const result = await upsertMember(newMember)
-    if (result) {
-      setRefreshKey(k => k + 1)
-      setShowAddModal(false)
-      setAddForm({ name: '', email: '', mobile: '', password: '' })
-      window.dispatchEvent(new CustomEvent('clubs-synced'))
-    }
-  }
-
   if (!club) {
     return (
       <div className="club-admin-page">
@@ -201,9 +174,6 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
         <div className="cxp-header-actions">
           <button type="button" className="cxp-btn cxp-btn--secondary" onClick={handleRefresh} disabled={refreshing} title={t('Refresh from database', 'تحديث من قاعدة البيانات', language)}>
             {refreshing ? '⋯' : '↻'} {t('Refresh', 'تحديث', language)}
-          </button>
-          <button type="button" className="cxp-btn cxp-btn--primary" onClick={() => setShowAddModal(true)}>
-            + {t('Add Member', 'إضافة عضو', language)}
           </button>
         </div>
       </header>
@@ -287,33 +257,6 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
             </div>
           ))}
         </div>
-      )}
-
-      {showAddModal && (
-        <Modal title={t('Add Member', 'إضافة عضو', language)} onClose={() => { setShowAddModal(false); setAddForm({ name: '', email: '', mobile: '', password: '' }) }}>
-          <form onSubmit={handleAddNewMember}>
-            <div className="cxp-form-group">
-              <label>{t('Name', 'الاسم', language)} *</label>
-              <input type="text" value={addForm.name} onChange={e => setAddForm({ ...addForm, name: e.target.value })} required />
-            </div>
-            <div className="cxp-form-group">
-              <label>{t('Email', 'البريد', language)} *</label>
-              <input type="email" value={addForm.email} onChange={e => setAddForm({ ...addForm, email: e.target.value })} required />
-            </div>
-            <div className="cxp-form-group">
-              <label>{t('Phone', 'الهاتف', language)}</label>
-              <input type="text" value={addForm.mobile} onChange={e => setAddForm({ ...addForm, mobile: e.target.value })} placeholder="+966..." />
-            </div>
-            <div className="cxp-form-group">
-              <label>{t('Password', 'كلمة المرور', language)}</label>
-              <input type="password" value={addForm.password} onChange={e => setAddForm({ ...addForm, password: e.target.value })} placeholder="••••••••" minLength={6} />
-            </div>
-            <div className="cxp-form-actions">
-              <button type="button" className="cxp-btn cxp-btn--secondary" onClick={() => { setShowAddModal(false); setAddForm({ name: '', email: '', mobile: '', password: '' }) }}>{t('Cancel', 'إلغاء', language)}</button>
-              <button type="submit" className="cxp-btn cxp-btn--primary">{t('Save', 'حفظ', language)}</button>
-            </div>
-          </form>
-        </Modal>
       )}
 
       {editingMember && (
