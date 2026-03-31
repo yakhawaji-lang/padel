@@ -1340,6 +1340,15 @@ const ClubPublicPage = () => {
 
   return (
     <div className={`club-public-page commercial${isClubAdmin ? ' club-public-page--notify' : ''}`}>
+      <ClubPresenceBeacon clubId={clubId} />
+      {isClubAdmin && (
+        <ClubNotificationHub
+          clubId={clubId}
+          language={language}
+          mode="public"
+          showUi
+        />
+      )}
       {bookingSuccessId && (
         <div className="club-public-booking-success-banner" role="alert">
           <span>{c.bookingSuccess}</span>
@@ -1520,17 +1529,6 @@ const ClubPublicPage = () => {
           </div>
         </div>
       </header>
-
-      <ClubPresenceBeacon clubId={clubId} />
-      {isClubAdmin && (
-        <ClubNotificationHub
-          clubId={clubId}
-          language={language}
-          mode="public"
-          showUi
-          tickerPlacement="below-header"
-        />
-      )}
 
       {platformUser?.profileIncomplete && (
         <section className="club-public-profile-incomplete-banner" role="region" aria-live="polite">

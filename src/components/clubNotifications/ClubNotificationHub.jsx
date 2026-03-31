@@ -85,9 +85,9 @@ function writeAck(clubId, ack) {
 }
 
 /**
- * @param {{ clubId: string, language: string, mode: 'admin' | 'public', showUi: boolean, tickerPlacement?: 'below-header' | 'fixed' }} props
+ * @param {{ clubId: string, language: string, mode: 'admin' | 'public', showUi: boolean }} props
  */
-export default function ClubNotificationHub({ clubId, language, mode, showUi, tickerPlacement = 'fixed' }) {
+export default function ClubNotificationHub({ clubId, language, mode, showUi }) {
   const navigate = useNavigate()
   const [summary, setSummary] = useState(null)
   const [expanded, setExpanded] = useState(false)
@@ -210,7 +210,7 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, ti
   const tickerEl =
     tickerParts.length > 0 && (tickerStale || hasUnread) ? (
         <div
-          className={`cn-ticker cn-ticker--${tickerPlacement} ${reduceMotion ? 'cn-ticker--no-motion' : ''} ${tickerStale ? 'cn-ticker--urgent' : ''}`}
+          className={`cn-ticker cn-ticker--fixed ${reduceMotion ? 'cn-ticker--no-motion' : ''} ${tickerStale ? 'cn-ticker--urgent' : ''}`}
           role="region"
           aria-label={t.hubTitle}
         >
@@ -230,10 +230,11 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, ti
 
   return (
     <>
+      {tickerEl ? <div className="cn-ticker-spacer" aria-hidden="true" /> : null}
       {tickerEl}
 
       <aside
-        className={`cn-hub ${language === 'ar' ? 'cn-hub--rtl' : ''} ${expanded ? 'cn-hub--expanded' : ''}`}
+        className={`cn-hub ${tickerEl ? 'cn-hub--has-ticker' : ''} ${language === 'ar' ? 'cn-hub--rtl' : ''} ${expanded ? 'cn-hub--expanded' : ''}`}
         aria-label={t.hubTitle}
         dir={language === 'ar' ? 'rtl' : 'ltr'}
       >

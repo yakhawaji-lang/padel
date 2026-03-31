@@ -2,27 +2,29 @@
 
 .cn-ticker {
   --cn-ticker-h: 40px;
-  background: linear-gradient(90deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  background: #1a1d23;
   color: #f8fafc;
   font-size: 0.8125rem;
   font-weight: 600;
   border-bottom: 1px solid rgba(148, 163, 184, 0.35);
   z-index: 9500;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .cn-ticker--fixed {
   position: fixed;
-  top: 0;
+  top: env(safe-area-inset-top, 0px);
   left: 0;
   right: 0;
   height: var(--cn-ticker-h);
 }
 
-.cn-ticker--below-header {
-  position: sticky;
-  top: 0;
-  height: var(--cn-ticker-h);
+.cn-ticker-spacer {
+  width: 100%;
+  height: calc(var(--cn-ticker-h) + env(safe-area-inset-top, 0px));
+  flex-shrink: 0;
+  pointer-events: none;
 }
 
 .cn-ticker--urgent {
@@ -93,6 +95,7 @@
 
 /* Fixed rail: 5mm + protruding badges */
 .cn-hub {
+  --cn-ticker-h: 40px;
   position: fixed;
   top: 0;
   bottom: 0;
@@ -110,6 +113,10 @@
 
 .cn-hub--rtl {
   flex-direction: row-reverse;
+}
+
+.cn-hub--has-ticker .cn-hub__rail {
+  padding-block-start: calc(72px + var(--cn-ticker-h) + env(safe-area-inset-top, 0px));
 }
 
 .cn-hub__rail {

@@ -143,17 +143,16 @@ function ClubAdminPanel() {
   return (
     <div className={`club-admin-panel club-admin-panel--${section} club-admin-panel--notify ${language === 'ar' ? 'rtl' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
       <div className="club-admin-content">
-        <ClubAdminHeader 
-          club={club}
-          language={language}
-          onLanguageChange={setLanguage}
-        />
         <ClubNotificationHub
           clubId={clubId}
           language={language}
           mode="admin"
           showUi
-          tickerPlacement="below-header"
+        />
+        <ClubAdminHeader 
+          club={club}
+          language={language}
+          onLanguageChange={setLanguage}
         />
         {club.status === 'pending' && (
           <div className="club-pending-banner" role="status">
