@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { loadClubs, getClubById, getClubMembersFromStorage, getAllMembersFromStorage, deleteBookingFromClub, updateBookingInClub } from '../../storage/adminStorage'
 import { resolvePaymentShareDisplayName } from '../../utils/paymentShareMemberMatch'
 import * as bookingApi from '../../api/dbClient'
@@ -11,6 +12,7 @@ import {
   bookingJsonData,
   hasMemberSelfCancelFlag,
   shareHasMemberRefundPending,
+  bookingHasRefundRequestPending,
 } from '../../utils/bookingMemberCancel'
 import './club-pages-common.css'
 import './BookingsManagement.css'
@@ -36,7 +38,18 @@ function classifyAdminBooking(b) {
   return 'court'
 }
 
+/** Which bookings tab lists this row (matches filter state in this page). */
+function refundFocusFilterForBooking(b, today) {
+  const dateStr = (b.date || b.startDate || '').toString().split('T')[0]
+  const status = (b.status || '').toString().toLowerCase()
+  if (status === 'expired') return 'deadline_expired'
+  if (isTerminalBookingStatus(b.status) && status !== 'expired') return 'memberCancelled'
+  if ((dateStr || '') >= today) return 'upcoming'
+  return 'past'
+}
+
 const ClubBookingsManagement = ({ club, language, onRefresh }) => {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [bookings, setBookings] = useState([])
   const [filter, setFilter] = useState('upcoming')
   const [typeFilter, setTypeFilter] = useState('all')
@@ -45,6 +58,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
   const [editForm, setEditForm] = useState({})
   const [expandedPaymentId, setExpandedPaymentId] = useState(null)
   const [splitExtendMinutesDraft, setSplitExtendMinutesDraft] = useState({})
+  const [refundSpotlightBookingId, setRefundSpotlightBookingId] = useState(null)
+  const spotlightHandledRef = useRef(null)
 
   const refreshFromCache = () => {
     loadClubs()
@@ -116,6 +131,52 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     }
     return { upcoming: upcomingL, past: pastL, deadlineExpired, memberCancelled, displayed: disp, typeCounts: counts }
   }, [bookings, filter, typeFilter, today])
+
+  useEffect(() => {
+    const raw = searchParams.get('focusRefund')
+    if (raw !== '1' && raw !== 'true') return
+    if (!bookings.length) return
+
+    const withDate = bookings.map((b) => ({
+      ...b,
+      dateStr: (b.date || b.startDate || '').toString().split('T')[0],
+    }))
+    const target = [...withDate]
+      .sort((a, b) => String(b.dateStr || '').localeCompare(String(a.dateStr || '')))
+      .find((b) => bookingHasRefundRequestPending(b))
+
+    const next = new URLSearchParams(searchParams)
+    next.delete('focusRefund')
+    setSearchParams(next, { replace: true })
+
+    if (!target?.id) return
+
+    setFilter(refundFocusFilterForBooking(target, today))
+    setExpandedPaymentId(target.id)
+    setRefundSpotlightBookingId(String(target.id))
+  }, [bookings, searchParams, setSearchParams, today])
+
+  useEffect(() => {
+    if (!refundSpotlightBookingId) return
+    if (spotlightHandledRef.current === refundSpotlightBookingId) return
+    if (!displayed.some((b) => String(b.id) === refundSpotlightBookingId)) return
+    spotlightHandledRef.current = refundSpotlightBookingId
+
+    const sid = refundSpotlightBookingId
+    const t = window.setTimeout(() => {
+      const el = document.getElementById(`admin-booking-row-${sid}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.classList.add('booking-row--refund-spotlight')
+        window.setTimeout(() => el.classList.remove('booking-row--refund-spotlight'), 4000)
+      }
+      window.setTimeout(() => {
+        setRefundSpotlightBookingId(null)
+        spotlightHandledRef.current = null
+      }, 4200)
+    }, 280)
+    return () => clearTimeout(t)
+  }, [refundSpotlightBookingId, displayed])
 
   const bookingStats = useMemo(() => {
     const withDate = bookings.map(b => ({
@@ -1069,7 +1130,10 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                           : ''
                   return (
                     <React.Fragment key={b.id || i}>
-                      <tr className={[rowEnded ? 'booking-row-cancelled' : rowAwaitingRefundAck ? 'booking-row-awaiting-refund' : '', `booking-row--kind-${kindBadgeClass}`].filter(Boolean).join(' ')}>
+                      <tr
+                        id={b.id ? `admin-booking-row-${b.id}` : undefined}
+                        className={[rowEnded ? 'booking-row-cancelled' : rowAwaitingRefundAck ? 'booking-row-awaiting-refund' : '', `booking-row--kind-${kindBadgeClass}`].filter(Boolean).join(' ')}
+                      >
                         <td>{formatDate(b.dateStr)}</td>
                         <td className="bookings-cell-time">{(b.startTime || '') + (b.endTime ? ` – ${b.endTime}` : '')}</td>
                         <td>

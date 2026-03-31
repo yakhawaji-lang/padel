@@ -55,6 +55,17 @@ export function bookingHasPendingMemberShareRefund(booking) {
   return shares.some((s) => shareHasMemberRefundPending(s, booking))
 }
 
+/**
+ * Booking needs club refund attention: cancelled awaiting club acknowledgment/fulfillment,
+ * or a split participant requested a refund and the share is still pending.
+ */
+export function bookingHasRefundRequestPending(booking) {
+  if (!booking) return false
+  const st = (booking.status || '').toString().trim().toLowerCase().replace(/-/g, '_')
+  if (st === 'cancelled_awaiting_refund_ack') return true
+  return bookingHasPendingMemberShareRefund(booking)
+}
+
 /** True when booking `data` or top-level marks member self-cancel (from API / local). */
 export function hasMemberSelfCancelFlag(booking) {
   const d = bookingJsonData(booking)

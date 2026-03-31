@@ -6,15 +6,15 @@ import './ClubNotificationHub.css'
 const POLL_MS = 25000
 
 const CAT_DEFS = [
-  { id: 'locksActive', key: 'locksActive', group: 'bookings', color: '#0284c7', adminPath: 'bookings' },
-  { id: 'bookingCompleteFlow', key: 'bookingCompleteFlow', group: 'bookings', color: '#7c3aed', adminPath: 'bookings' },
-  { id: 'bookingAwaitingPayments', key: 'bookingAwaitingPayments', group: 'bookings', color: '#d97706', adminPath: 'bookings' },
-  { id: 'bookingExpiredWithPayment', key: 'bookingExpiredWithPayment', group: 'bookings', color: '#dc2626', adminPath: 'bookings' },
-  { id: 'refundRequests', key: 'refundRequests', group: 'payments', color: '#db2777', adminPath: 'accounting' },
-  { id: 'storeSalesRecent', key: 'storeSalesRecent', group: 'store', color: '#059669', adminPath: 'store' },
-  { id: 'storeLowStock', key: 'storeLowStock', group: 'store', color: '#ea580c', adminPath: 'store' },
-  { id: 'newMembers', key: 'newMembers', group: 'members', color: '#4f46e5', adminPath: 'members' },
-  { id: 'viewers', key: 'viewers', group: 'live', color: '#0d9488', adminPath: 'dashboard' },
+  { id: 'locksActive', key: 'locksActive', group: 'bookings', color: '#0284c7', adminPath: 'bookings', adminSearch: '' },
+  { id: 'bookingCompleteFlow', key: 'bookingCompleteFlow', group: 'bookings', color: '#7c3aed', adminPath: 'bookings', adminSearch: '' },
+  { id: 'bookingAwaitingPayments', key: 'bookingAwaitingPayments', group: 'bookings', color: '#d97706', adminPath: 'bookings', adminSearch: '' },
+  { id: 'bookingExpiredWithPayment', key: 'bookingExpiredWithPayment', group: 'bookings', color: '#dc2626', adminPath: 'bookings', adminSearch: '' },
+  { id: 'refundRequests', key: 'refundRequests', group: 'payments', color: '#db2777', adminPath: 'bookings', adminSearch: '?focusRefund=1' },
+  { id: 'storeSalesRecent', key: 'storeSalesRecent', group: 'store', color: '#059669', adminPath: 'store', adminSearch: '' },
+  { id: 'storeLowStock', key: 'storeLowStock', group: 'store', color: '#ea580c', adminPath: 'store', adminSearch: '' },
+  { id: 'newMembers', key: 'newMembers', group: 'members', color: '#4f46e5', adminPath: 'members', adminSearch: '' },
+  { id: 'viewers', key: 'viewers', group: 'live', color: '#0d9488', adminPath: 'dashboard', adminSearch: '' },
 ]
 
 function labelsForLang(lang) {
@@ -166,8 +166,9 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
   }, [clubId, summary, counts])
 
   const goAdmin = useCallback(
-    (pathSeg) => {
-      navigate(`/admin/club/${encodeURIComponent(clubId)}/${pathSeg}`)
+    (pathSeg, search = '') => {
+      const q = search && !search.startsWith('?') ? `?${search}` : search
+      navigate(`/admin/club/${encodeURIComponent(clubId)}/${pathSeg}${q}`)
       setExpanded(false)
     },
     [clubId, navigate]
@@ -304,7 +305,7 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
                           type="button"
                           className={`cn-hub__row ${u ? 'cn-hub__row--unread' : ''} ${reduceMotion ? 'cn-hub__row--no-blink' : ''}`}
                           onClick={() => {
-                            if (mode === 'admin') goAdmin(c.adminPath)
+                            if (mode === 'admin') goAdmin(c.adminPath, c.adminSearch || '')
                           }}
                           style={{ '--cn-accent': c.color }}
                         >
