@@ -76,6 +76,21 @@ router.get('/club/:clubId/summary', async (req, res) => {
     [clubId]
   )
 
+  /**
+   * حجوزات مكتملة اليوم: مؤكدة (أو مدفوعة جزئياً) ولم ينتهِ وقت الحجز بعد.
+   * تبقى في العدّاد حتى TIME(NOW()) >= end_time لذلك اليوم.
+   */
+  const completedBookingsToday = await safeCount(
+    `SELECT COUNT(*) AS c FROM club_bookings 
+     WHERE club_id = ? AND deleted_at IS NULL 
+     AND booking_date = CURDATE()
+     AND start_time IS NOT NULL AND TRIM(start_time) <> ''
+     AND end_time IS NOT NULL AND TRIM(end_time) <> ''
+     AND TIME(NOW()) < CAST(TRIM(end_time) AS TIME)
+     AND LOWER(COALESCE(status,'')) IN ('confirmed','partially_paid')`,
+    [clubId]
+  )
+
   const bookingCompleteFlow = await safeCount(
     `SELECT COUNT(*) AS c FROM club_bookings 
      WHERE club_id = ? AND deleted_at IS NULL 
@@ -135,6 +150,7 @@ router.get('/club/:clubId/summary', async (req, res) => {
     viewers,
     locksActive,
     bookingsActiveNow,
+    completedBookingsToday,
     bookingCompleteFlow,
     bookingAwaitingPayments,
     bookingExpiredWithPayment,

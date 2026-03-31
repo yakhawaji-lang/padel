@@ -7,6 +7,7 @@ const POLL_MS = 25000
 
 const CAT_DEFS = [
   { id: 'bookingsActiveNow', key: 'bookingsActiveNow', group: 'bookings', color: '#0ea5e9', adminPath: 'bookings', adminSearch: '' },
+  { id: 'completedBookingsToday', key: 'completedBookingsToday', group: 'bookings', color: '#22c55e', adminPath: 'bookings', adminSearch: '' },
   { id: 'locksActive', key: 'locksActive', group: 'bookings', color: '#0284c7', adminPath: 'bookings', adminSearch: '' },
   { id: 'bookingCompleteFlow', key: 'bookingCompleteFlow', group: 'bookings', color: '#7c3aed', adminPath: 'bookings', adminSearch: '' },
   { id: 'bookingAwaitingPayments', key: 'bookingAwaitingPayments', group: 'bookings', color: '#d97706', adminPath: 'bookings', adminSearch: '' },
@@ -40,6 +41,14 @@ function NotificationCategoryIcon({ id, size = 14 }) {
           <circle cx="12" cy="12" r="3" />
           <path d="M12 2v2M12 20v2M2 12h2M20 12h2" />
           <path d="M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" opacity="0.85" />
+        </svg>
+      )
+    case 'completedBookingsToday':
+      return (
+        <svg {...s} aria-hidden>
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+          <path d="M8 2v4M16 2v4M3 10h18" />
+          <path d="m9 12 2 2 4-4" />
         </svg>
       )
     case 'locksActive':
@@ -136,6 +145,7 @@ function labelsForLang(lang) {
     groupMembers: 'Members',
     groupLive: 'Live',
     bookingsActiveNow: 'Ongoing bookings (on court now)',
+    completedBookingsToday: 'Completed bookings today (until slot ends)',
     locksActive: 'Active slot holds',
     bookingCompleteFlow: 'Bookings to complete',
     bookingAwaitingPayments: 'Awaiting payment completion',
@@ -164,6 +174,7 @@ function labelsForLang(lang) {
     groupMembers: 'الأعضاء',
     groupLive: 'مباشر',
     bookingsActiveNow: 'حجوزات قائمة (جارية على الملعب الآن)',
+    completedBookingsToday: 'حجوزات مكتملة اليوم (حتى انتهاء الوقت)',
     locksActive: 'جاري حجز (حجز مؤقت)',
     bookingCompleteFlow: 'استكمال حجز',
     bookingAwaitingPayments: 'بانتظار إكمال الدفعات',
@@ -264,6 +275,12 @@ function scheduleCategoryTones(ctx, catKey, t0) {
     case 'bookingsActiveNow':
       playTone(ctx, t0, 523.25, 0.24, 'sine', 0.1)
       playTone(ctx, t0 + 0.11, 659.25, 0.28, 'sine', 0.085)
+      break
+    case 'completedBookingsToday':
+      playTone(ctx, t0, 440, 0.06, 'triangle', 0.1)
+      playTone(ctx, t0 + 0.065, 554.37, 0.06, 'triangle', 0.095)
+      playTone(ctx, t0 + 0.13, 659.25, 0.07, 'triangle', 0.09)
+      playTone(ctx, t0 + 0.22, 880, 0.18, 'sine', 0.07)
       break
     case 'locksActive':
       playTone(ctx, t0, 1850, 0.04, 'square', 0.042)
