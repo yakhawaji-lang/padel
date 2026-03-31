@@ -38,6 +38,27 @@ export function findPaymentShareForMember(booking, member) {
   )
 }
 
+/** مجموع مبالغ الحصص النشطة المسجّلة كمدفوعة (بدون مزال/مسترد). */
+export function sumActivePaidShareAmounts(paymentShares) {
+  if (!Array.isArray(paymentShares)) return 0
+  return paymentShares.reduce((sum, s) => {
+    if (s.removedAt || s.removed_at) return sum
+    if (!(s.paidAt || s.paid_at)) return sum
+    if (s.refundedAt || s.refunded_at) return sum
+    return sum + (parseFloat(s.amount) || 0)
+  }, 0)
+}
+
+/**
+ * يتزامن مع club_bookings.paid_amount عندما يتقدّم الدفع في الخادم (مثلاً تسوية متبقي من المحفظة)
+ * بينما قائمة الحصص في العميل قديمة أو لا تعكس كل صفوف الدفع.
+ */
+export function effectiveSplitPaidSum(booking) {
+  const fromShares = sumActivePaidShareAmounts(booking?.paymentShares)
+  const fromBooking = parseFloat(booking?.paidAmount ?? booking?.paid_amount ?? 0) || 0
+  return Math.round(Math.max(fromShares, fromBooking) * 100) / 100
+}
+
 /** member_name في DB قد يكون فارغاً أو يشبه رقماً — نعرض اسم العضو من دليل الأعضاء إن وُجد memberId */
 export function shareDisplayLooksLikePhone(str) {
   if (!str || typeof str !== 'string') return false

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { loadClubs, getClubById, getClubMembersFromStorage, getAllMembersFromStorage, deleteBookingFromClub, updateBookingInClub } from '../../storage/adminStorage'
-import { resolvePaymentShareDisplayName } from '../../utils/paymentShareMemberMatch'
+import { resolvePaymentShareDisplayName, effectiveSplitPaidSum } from '../../utils/paymentShareMemberMatch'
 import * as bookingApi from '../../api/dbClient'
 import CalendarPicker from '../../components/CalendarPicker'
 import { calculateBookingPrice } from '../../utils/bookingPricing'
@@ -17,16 +17,6 @@ import {
 } from '../../utils/bookingMemberCancel'
 import './club-pages-common.css'
 import './BookingsManagement.css'
-
-function sumActivePaidShares(paymentShares) {
-  if (!Array.isArray(paymentShares)) return 0
-  return paymentShares.reduce((sum, s) => {
-    if (s.removedAt || s.removed_at) return sum
-    if (!(s.paidAt || s.paid_at)) return sum
-    if (s.refundedAt || s.refunded_at) return sum
-    return sum + (parseFloat(s.amount) || 0)
-  }, 0)
-}
 
 /** Admin list: court rental vs coach training vs tournament (king / social). */
 function classifyAdminBooking(b) {
@@ -209,7 +199,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
         upcomingN += 1
         if (ds <= weekEndStr) weekUpcoming += 1
       }
-      const paid = parseFloat(b.paidAmount ?? b.paid_amount) || 0
+      const paid = effectiveSplitPaidSum(b)
       collected += paid
       const totRaw = b.totalAmount ?? b.total_amount
       const tot = parseFloat(totRaw)
@@ -1104,7 +1094,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                   const hasShares = paymentShares.length > 0
                   const currency = priceInfo.currency || club?.settings?.currency || 'SAR'
                   const totalAmount = b.totalAmount ?? b.total_amount ?? priceInfo.price ?? 0
-                  const paidSumForPanel = sumActivePaidShares(paymentShares)
+                  const paidSumForPanel = effectiveSplitPaidSum(b)
                   const remainingForPanel = Math.max(0, (parseFloat(totalAmount) || 0) - paidSumForPanel)
                   const incompleteSplit =
                     hasShares &&

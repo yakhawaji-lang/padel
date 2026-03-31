@@ -1294,8 +1294,16 @@ router.post('/record-remainder-payment', async (req, res) => {
       `SELECT id, amount, paid_at, refunded_at, removed_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
       [bookingId, clubId]
     )
-    // Refunded active shares are also outstanding and should be payable again.
-    let unpaid = (shareRows || []).filter((s) => !s.removed_at && (!s.paid_at || s.refunded_at))
+    // Shares that still owe: not removed, and not in a clean "paid & not refunded" state.
+    const shareList = shareRows || []
+    const isOutstandingShare = (s) => !s.removed_at && (!s.paid_at || s.refunded_at)
+    // Prefer settling participants who never paid yet — avoids wrongly re-paying refunded+paid rows
+    // (e.g. stale removed_at) while another row is still at_club / unpaid.
+    const neverPaidActive = (s) => !s.removed_at && !s.paid_at && !s.refunded_at
+    let unpaid = shareList.filter(isOutstandingShare)
+    const preferred = shareList.filter(neverPaidActive)
+    if (preferred.length > 0) unpaid = preferred
+    unpaid.sort((a, b) => Number(a.id) - Number(b.id))
     if (unpaid.length === 0) {
       // Fallback: بعض الحجوزات يكون عليها متبقٍ في booking totals بدون صفوف حصص غير مدفوعة.
       // ننشئ صف تسوية للحفاظ على إمكانية "دفع المتبقي" بدل فشل المستخدم برسالة No unpaid shares.

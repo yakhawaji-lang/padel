@@ -13,6 +13,7 @@ import {
   resolvePaymentShareDisplayName,
   shareNeedsRefundAcknowledgment,
   isSamePaymentShare,
+  effectiveSplitPaidSum,
 } from '../utils/paymentShareMemberMatch.js'
 import { normalizePhone } from '../utils/phoneNormalize'
 import { buildPayShareAbsoluteUrl, buildWhatsAppHrefForSplitInvite, buildClubPublicAbsoluteUrl } from '../utils/splitInviteLinks'
@@ -36,6 +37,8 @@ function isSplitFullyPaidByAllParticipants(booking) {
   const total = parseFloat(booking.totalAmount ?? booking.price ?? booking.amount) || 0
   const sum = active.reduce((acc, s) => acc + (parseFloat(s.amount) || 0), 0)
   const allPaid = active.every((s) => (s.paidAt || s.paid_at) && !(s.refundedAt || s.refunded_at))
+  const paidEff = effectiveSplitPaidSum(booking)
+  if (total > 0.01 && paidEff >= total - 0.02) return true
   return allPaid && sum >= total - 0.02
 }
 
@@ -77,18 +80,19 @@ function getSplitBudgetForBooking(booking) {
   return { total, activeSum, remaining }
 }
 
-/** Paid vs total split: outstanding = unpaid/refunded active shares only (exclude removed/unallocated gaps). */
+/** Paid vs total split: reconcile paid_sum with club_bookings.paid_amount; remaining vs booking total. */
 function getSplitPaymentProgress(booking) {
   const total = parseFloat(booking?.totalAmount ?? booking?.total_amount ?? 0) || 0
   const shares = Array.isArray(booking?.paymentShares) ? booking.paymentShares : []
   const active = shares.filter((s) => !(s.removedAt || s.removed_at))
   const allocated = active.reduce((s, sh) => s + (parseFloat(sh.amount) || 0), 0)
-  const paidSum = active.reduce(
+  const paidSumShares = active.reduce(
     (s, sh) =>
       s +
       ((sh.paidAt || sh.paid_at) && !(sh.refundedAt || sh.refunded_at) ? parseFloat(sh.amount) || 0 : 0),
     0
   )
+  const paidSum = effectiveSplitPaidSum(booking)
   const unpaidSum = active.reduce(
     (s, sh) =>
       s +
@@ -101,13 +105,15 @@ function getSplitPaymentProgress(booking) {
       ((sh.refundedAt || sh.refunded_at) ? parseFloat(sh.amount) || 0 : 0),
     0
   )
-  // Refunded shares were previously collected then returned; they must reappear as amount to settle.
-  // Do not include (total - allocated): removed participants should not keep a fake remainder banner.
-  const outstanding = Math.max(0, unpaidSum + refundedSum)
+  const shareOutstanding = Math.max(0, unpaidSum + refundedSum)
+  const vsTotalOutstanding = Math.max(0, total - paidSum)
+  const fullyCovered = total > 0.01 && paidSum >= total - 0.02
+  const outstanding = fullyCovered ? 0 : Math.max(shareOutstanding, vsTotalOutstanding)
   return {
     total,
     allocated,
     paidSum,
+    paidSumShares,
     outstanding,
     unpaidCount: active.filter((s) => !(s.paidAt || s.paid_at) || (s.refundedAt || s.refunded_at)).length,
   }
@@ -219,12 +225,13 @@ function getBookingDisplayProps({ booking, club, memberId }, language) {
       parseFloat(booking.totalAmount ?? booking.total_amount ?? booking.amount ?? booking.price ?? 0) || 0
     const paid = parseFloat(booking.paidAmount ?? booking.paid_amount ?? 0) || 0
     if (shares.length > 0) {
-      const paidSum = shares.reduce(
+      const paidSumShares = shares.reduce(
         (s, sh) =>
           s +
           ((sh.paidAt || sh.paid_at) && !(sh.refundedAt || sh.refunded_at) ? parseFloat(sh.amount) || 0 : 0),
         0
       )
+      const paidSum = Math.max(paidSumShares, paid)
       const activeSum = shares.reduce(
         (s, sh) => s + (!(sh.removedAt || sh.removed_at) ? parseFloat(sh.amount) || 0 : 0),
         0
@@ -1412,7 +1419,7 @@ const MyBookingsPage = () => {
     const splitProgress =
       !booking.isTournament && (booking.paymentShares || []).length > 0
         ? getSplitPaymentProgress(booking)
-        : { total: 0, paidSum: 0, outstanding: 0, unpaidCount: 0, allocated: 0 }
+        : { total: 0, paidSum: 0, paidSumShares: 0, outstanding: 0, unpaidCount: 0, allocated: 0 }
     const allowParticipantsSettleRemainder = getAllowParticipantsAddSplit(booking)
     const canViewRemainderActions =
       isBooker || (allowParticipantsSettleRemainder && !!mySplitShare)
