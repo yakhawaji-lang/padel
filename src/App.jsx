@@ -297,7 +297,7 @@ function CalendarBookingTooltip({
 function App({ currentUser }) {
   const { clubId } = useParams()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState('home') // 'home', 'king', 'social', 'members', 'oldTournaments', 'bookings'
+  const [activeTab, setActiveTab] = useState('home') // 'home', 'king', 'social', 'members', 'oldTournaments'
   const [language, setLanguage] = useState(() => getAppLanguage())
   const [currentClub, setCurrentClub] = useState(null) // Current club data loaded from URL
   const [isLoadingClub, setIsLoadingClub] = useState(true) // Loading state for club data
@@ -477,12 +477,10 @@ function App({ currentUser }) {
   }, [hoveredBooking])
 
   useEffect(() => {
-    if (activeTab !== 'bookings') {
-      bookingTooltipAnchorRef.current = null
-      setHoveredBooking(null)
-      setBookingTooltipRect(null)
-      setCalendarDetailBooking(null)
-    }
+    bookingTooltipAnchorRef.current = null
+    setHoveredBooking(null)
+    setBookingTooltipRect(null)
+    setCalendarDetailBooking(null)
   }, [activeTab])
 
   useEffect(() => {
@@ -616,8 +614,9 @@ function App({ currentUser }) {
           setCurrentTournamentId(1)
         }
         
-        const validTabs = ['home', 'king', 'social', 'members', 'oldTournaments', 'bookings']
+        const validTabs = ['home', 'king', 'social', 'members', 'oldTournaments']
         let tabToRestore = savedActiveTab === 'accounting' ? 'home' : savedActiveTab
+        if (tabToRestore === 'bookings') tabToRestore = 'home'
         if (tabToRestore && validTabs.includes(tabToRestore)) {
           setActiveTab(tabToRestore)
         }
@@ -786,11 +785,16 @@ function App({ currentUser }) {
 
   // Switch tab (preserves state; clear viewed tournament when switching between king/social)
   const switchTab = (tab) => {
-    if (tab !== activeTab && (tab === 'king' || tab === 'social' || activeTab === 'king' || activeTab === 'social')) {
+    const next = tab === 'bookings' ? 'home' : tab
+    if (next !== activeTab && (next === 'king' || next === 'social' || activeTab === 'king' || activeTab === 'social')) {
       setViewedTournamentBooking(null)
     }
-    setActiveTab(tab)
+    setActiveTab(next)
   }
+
+  useEffect(() => {
+    if (activeTab === 'bookings') setActiveTab('home')
+  }, [activeTab])
 
   // Toggle language
   const toggleLanguage = () => {
@@ -5075,25 +5079,6 @@ function App({ currentUser }) {
     }
   }
 
-  // When bookings tab is opened: refresh club data from API (to show latest bookings) and load Playtomic if needed
-  useEffect(() => {
-    if (activeTab !== 'bookings') return
-    refreshClubsFromApi().then(() => {
-      const clubs = loadClubs()
-      const club = clubs.find(c => c.id === clubId)
-      if (club) {
-        setCurrentClub(club)
-        const clubBookings = club?.bookings && Array.isArray(club.bookings) ? club.bookings : []
-        const localOnly = clubBookings.filter(b => !b.source || b.source !== 'playtomic')
-        const withIds = mapClubBookingsForLocalState(localOnly)
-        setLocalBookings(withIds)
-      }
-    })
-    if (playtomicBookings.length === 0) {
-      loadPlaytomicBookings()
-    }
-  }, [activeTab, clubId])
-
   // Update merged bookings when local or Playtomic bookings change
   useEffect(() => {
     mergeBookings(localBookings, playtomicBookings)
@@ -5258,7 +5243,17 @@ function App({ currentUser }) {
           </div>
           <div className="header-center">
             <div className="header-title">
-              {activeTab === 'home' ? t.home : activeTab === 'king' ? t.kingOfCourt : activeTab === 'social' ? t.socialTournament : activeTab === 'members' ? t.members : activeTab === 'bookings' ? t.bookings : t.oldTournaments}
+              {activeTab === 'home'
+                ? t.home
+                : activeTab === 'king'
+                  ? t.kingOfCourt
+                  : activeTab === 'social'
+                    ? t.socialTournament
+                    : activeTab === 'members'
+                      ? t.members
+                      : activeTab === 'oldTournaments'
+                        ? t.oldTournaments
+                        : t.home}
             </div>
           </div>
           <div className="header-right">
@@ -5498,13 +5493,6 @@ function App({ currentUser }) {
               <span className="app-top-tab-icon">📅</span>
               <span>{t.oldTournaments}</span>
             </button>
-            <button
-              className={`app-top-tab ${activeTab === 'bookings' ? 'active' : ''}`}
-              onClick={() => switchTab('bookings')}
-            >
-              <span className="app-top-tab-icon">📆</span>
-              <span>{t.bookings}</span>
-            </button>
           </div>
         </div>
         <Link
@@ -5529,18 +5517,6 @@ function App({ currentUser }) {
                   <span className="app-home-card-icon">👥</span>
                   <span className="app-home-card-value">{members.length}</span>
                   <span className="app-home-card-label">{t.totalMembers}</span>
-                  <span className="app-home-card-action">{t.goToSection} →</span>
-                </button>
-                <button type="button" className="app-home-card" onClick={() => switchTab('bookings')}>
-                  <span className="app-home-card-icon">📆</span>
-                  <span className="app-home-card-value">
-                    {bookings.filter(b => {
-                      const today = new Date().toISOString().split('T')[0]
-                      const d = (b.date || b.startDate || '').toString().split('T')[0]
-                      return !b.isTournament && d >= today && !isTerminalBookingStatus(b?.status)
-                    }).length}
-                  </span>
-                  <span className="app-home-card-label">{t.upcomingBookings}</span>
                   <span className="app-home-card-action">{t.goToSection} →</span>
                 </button>
                 <button type="button" className="app-home-card" onClick={() => switchTab('king')}>
@@ -6482,690 +6458,6 @@ function App({ currentUser }) {
                   )}
                 </div>
               </div>
-            </>
-          ) : activeTab === 'bookings' ? (
-            <>
-              {/* Booking View Tabs */}
-              <div className="content-tabs-container">
-                <div className="content-tabs">
-                  <button
-                    className={`content-tab ${bookingView === 'weekly' ? 'active' : ''}`}
-                    onClick={() => setBookingView('weekly')}
-                  >
-                    {language === 'en' ? 'Weekly View' : 'عرض أسبوعي'}
-                  </button>
-                  <button
-                    className={`content-tab ${bookingView === 'courts' ? 'active' : ''}`}
-                    onClick={() => setBookingView('courts')}
-                  >
-                    {language === 'en' ? 'Court View' : 'عرض الملاعب'}
-                  </button>
-                </div>
-              </div>
-
-              {bookingView === 'weekly' ? (
-                <div className="section section-bookings">
-                  <div className="bookings-section-header">
-                    <h2 className="bookings-title">{t.bookings} — {currentClub?.nameAr || currentClub?.name || 'Hala Padel'}</h2>
-                    <div className="bookings-toolbar">
-                      <div className="bookings-toolbar-nav">
-                        <button 
-                          className="btn-secondary btn-nav-prev"
-                          onClick={() => {
-                            const newWeek = new Date(currentWeek)
-                            newWeek.setDate(newWeek.getDate() - selectedDays.length)
-                            setCurrentWeek(newWeek)
-                          }}
-                          title={language === 'en' ? `Previous ${selectedDays.length} days` : `${selectedDays.length} أيام سابقة`}
-                          aria-label={language === 'en' ? `Previous ${selectedDays.length} days` : `${selectedDays.length} أيام سابقة`}
-                        >
-                          <span>{isRTL ? '→' : '←'}</span>
-                          <span className="nav-label-full">{language === 'en' ? (selectedDays.length === 1 ? 'Prev' : `−${selectedDays.length}`) : (selectedDays.length === 1 ? 'السابق' : `−${selectedDays.length}`)}</span>
-                        </button>
-                        <button 
-                          className="btn-secondary btn-nav-today"
-                          onClick={() => setCurrentWeek(new Date())}
-                        >
-                          {language === 'en' ? 'Today' : 'اليوم'}
-                        </button>
-                        <button 
-                          className="btn-secondary btn-nav-next"
-                          onClick={() => {
-                            const newWeek = new Date(currentWeek)
-                            newWeek.setDate(newWeek.getDate() + selectedDays.length)
-                            setCurrentWeek(newWeek)
-                          }}
-                          title={language === 'en' ? `Next ${selectedDays.length} days` : `${selectedDays.length} أيام قادمة`}
-                          aria-label={language === 'en' ? `Next ${selectedDays.length} days` : `${selectedDays.length} أيام قادمة`}
-                        >
-                          <span className="nav-label-full">{language === 'en' ? (selectedDays.length === 1 ? 'Next' : `+${selectedDays.length}`) : (selectedDays.length === 1 ? 'التالي' : `+${selectedDays.length}`)}</span>
-                          <span>{isRTL ? '←' : '→'}</span>
-                        </button>
-                      </div>
-                      <div className="bookings-toolbar-days">
-                        <span className="bookings-days-label">{language === 'en' ? 'Days' : 'الأيام'}</span>
-                        <button 
-                          className="btn-secondary btn-days-value"
-                          onClick={toggleWeeklyViewDays}
-                          title={language === 'en' ? `Show ${selectedDays.length > 1 ? selectedDays.length - 1 : 7} days` : `عرض ${selectedDays.length > 1 ? selectedDays.length - 1 : 7} أيام`}
-                        >
-                          {selectedDays.length}
-                        </button>
-                        {selectedDays.length < 7 && (
-                          <button 
-                            className="btn-secondary btn-days-all"
-                            onClick={maximizeWeeklyView}
-                            title={language === 'en' ? 'Show 7 days' : 'عرض 7 أيام'}
-                          >
-                            {language === 'en' ? '7' : '٧'}
-                          </button>
-                        )}
-                      </div>
-                      <div className="bookings-toolbar-sync">
-                        <button 
-                          type="button"
-                          className="bookings-sync-btn"
-                          onClick={() => loadPlaytomicBookings(true)}
-                          disabled={isLoadingPlaytomic}
-                          title={language === 'en' ? 'Refresh from Playtomic' : 'تحديث من Playtomic'}
-                          aria-label={language === 'en' ? 'Refresh from Playtomic' : 'تحديث من Playtomic'}
-                        >
-                          <span className="bookings-sync-icon" aria-hidden="true">🔄</span>
-                          {isLoadingPlaytomic && <span className="bookings-sync-loading">{language === 'en' ? '…' : '…'}</span>}
-                        </button>
-                        {playtomicLastSync && (
-                          <span className="bookings-last-sync">
-                            {language === 'en' 
-                              ? new Date(playtomicLastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                              : new Date(playtomicLastSync).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })
-                            }
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="bookings-calendar-legend" role="note">
-                      <span className="bookings-calendar-legend__title">{t.calendarLegend}</span>
-                      <div className="bookings-calendar-legend__strip">
-                        <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--court-paid" aria-hidden />{t.calendarLegendCourtPaid}</span>
-                        <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--court-partial" aria-hidden />{t.calendarLegendCourtPartial}</span>
-                        <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--court-refund-pending" aria-hidden />{t.calendarLegendCourtRefundPending}</span>
-                        <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--court-unpaid" aria-hidden />{t.calendarLegendCourtUnpaid}</span>
-                        <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--training" aria-hidden />{t.calendarLegendTraining}</span>
-                        <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--king" aria-hidden />{t.calendarLegendKing}</span>
-                        <span className="bookings-legend-chip"><i className="bookings-legend-swatch bookings-legend-swatch--social" aria-hidden />{t.calendarLegendSocial}</span>
-                      </div>
-                      <p className="bookings-calendar-legend__hint">{t.calendarHoverForDetails}</p>
-                    </div>
-                  </div>
-                
-                {/* Calendar Grid */}
-                <div className="booking-calendar-container">
-                  <div 
-                    className="booking-calendar-grid"
-                    style={{
-                      gridTemplateColumns: `80px repeat(${selectedDays.length}, 1fr)`,
-                      minWidth: `${80 + (selectedDays.length * 150)}px`
-                    }}
-                  >
-                    {/* Time column header */}
-                    <div className="time-column-header"></div>
-                    
-                    {/* Day headers */}
-                    {getDaysOfWeek().map((dayObj, dayIdx) => {
-                      const day = dayObj.date
-                      return (
-                        <div key={dayIdx} className="day-header">
-                          <div className="day-name">
-                            {language === 'ar' 
-                              ? ['الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'][day.getDay() === 0 ? 6 : day.getDay() - 1]
-                              : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][day.getDay() === 0 ? 6 : day.getDay() - 1]
-                            }
-                          </div>
-                          <div className="day-date">
-                            {day.getDate()}/{day.getMonth() + 1}
-                          </div>
-                        </div>
-                      )
-                    })}
-                    
-                    {/* Time slots and grid cells */}
-                    {getTimeSlots().map((timeSlot, timeIdx) => (
-                      <React.Fragment key={timeIdx}>
-                        {/* Time label */}
-                        <div className="time-label">{timeSlot}</div>
-                        
-                        {/* Grid cells for each day */}
-                        {getDaysOfWeek().map((dayObj, dayIdx) => {
-                          const day = dayObj.date
-                          const slotBookings = getBookingsForSlot(day, timeSlot)
-                          const isInDragSelection = dragSelection && 
-                            dragSelection.startCell && 
-                            dragSelection.endCell &&
-                            dragSelection.startCell.day.toDateString() === day.toDateString() &&
-                            timeSlot >= (dragSelection.startTime || '') &&
-                            timeSlot < (dragSelection.endTime || dragSelection.startTime || '')
-                          
-                          // Find the row index for this time slot
-                          const timeSlotIndex = getTimeSlots().indexOf(timeSlot)
-                          
-                          return (
-                            <div
-                              key={`${dayIdx}-${timeIdx}`}
-                              className={`calendar-cell calendar-cell-weekly ${isInDragSelection ? 'drag-selection' : ''}${slotBookings.some((b) => hoveredBooking === b.id) ? ' calendar-cell--booking-hover' : ''}`}
-                              data-date={day.toISOString().split('T')[0]}
-                              data-time={timeSlot}
-                              onMouseDown={(e) => handleGridMouseDown(e, day, timeSlot)}
-                              onMouseMove={(e) => handleGridMouseMove(e, day, timeSlot)}
-                              onMouseUp={handleGridMouseUp}
-                              onTouchStart={(e) => { if (!e.target.closest('.booking-event')) handleGridMouseDown(e, day, timeSlot) }}
-                              onTouchMove={(e) => {
-                                if (!dragSelection?.startCell || !e.touches?.[0]) return
-                                const el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY)
-                                const cell = el?.closest('.calendar-cell-weekly')
-                                if (!cell?.dataset?.date || !cell?.dataset?.time) return
-                                const dayStr = cell.dataset.date
-                                const startDay = dragSelection.startCell?.day
-                                if (!startDay || startDay.toISOString().split('T')[0] !== dayStr) return
-                                handleGridMouseMove(e, new Date(dayStr + 'T12:00:00'), cell.dataset.time)
-                              }}
-                              onTouchEnd={(e) => { handleGridMouseUp(); e.preventDefault() }}
-                              onMouseLeave={() => {
-                                if (dragSelection && !dragSelection.endCell) setDragSelection(null)
-                              }}
-                              style={{ position: 'relative', touchAction: 'manipulation' }}
-                            >
-                              {slotBookings.map((booking) => {
-                                const rowSpan = getBookingRowSpan(booking)
-                                const baseHeight = rowSpan * 30 - 2
-                                const bookingHeight = getBookingMinHeight(booking, baseHeight)
-                                const paymentStatus = getPaymentStatus(booking)
-                                const { laneIndex, laneCount } = getWeeklyBookingLaneLayout(booking, day)
-                                const gap = laneCount > 1 ? 2 : 0
-                                const widthPercent = laneCount > 1 ? (100 / laneCount) : 100
-                                const leftPercent = laneCount > 1 ? laneIndex * widthPercent : 0
-
-                                const isTournamentBooking = !!booking.isTournament
-                                const tournamentKind = booking.tournamentType === 'social' ? 'social' : 'king'
-                                const calKind = getBookingCalendarKind(booking)
-                                const isPlaytomicBk = booking.source === 'playtomic' || booking.id?.toString().startsWith('playtomic_')
-                                let eventClass =
-                                  'booking-event' +
-                                  (laneCount > 1 ? ' booking-event-multiple' : '') +
-                                  (isPlaytomicBk ? ' booking-event--playtomic' : '') +
-                                  (hoveredBooking === booking.id ? ' booking-event--tooltip-open' : '')
-                                if (isTournamentBooking) {
-                                  eventClass += ` booking-event--tournament booking-event--tournament-${tournamentKind}`
-                                } else {
-                                  eventClass += ` booking-event--kind-${calKind}`
-                                  eventClass +=
-                                    paymentStatus === 'refund_pending'
-                                      ? ' booking-event--pay-refund-pending'
-                                      : paymentStatus === 'paid'
-                                        ? ' booking-event--pay-paid'
-                                        : paymentStatus === 'partially_paid'
-                                          ? ' booking-event--pay-partial'
-                                          : ' booking-event--pay-unpaid'
-                                }
-                                const paymentLabelStr = isTournamentBooking
-                                  ? '—'
-                                  : paymentStatus === 'refund_pending'
-                                    ? t.calendarPaymentRefundPending
-                                    : paymentStatus === 'paid'
-                                      ? t.paid
-                                      : paymentStatus === 'partially_paid'
-                                        ? t.partiallyPaid
-                                        : t.notPaid
-                                return (
-                                  <div
-                                    key={booking.id}
-                                    className={eventClass}
-                                    onMouseEnter={(e) => handleCalendarBookingMouseEnter(booking, e)}
-                                    onMouseLeave={handleCalendarBookingMouseLeave}
-                                    onClick={(e) => openBookingCalendarDetail(booking, e)}
-                                    style={{
-                                      position: 'absolute',
-                                      top: 0,
-                                      left: laneCount > 1 ? `calc(${leftPercent}% + ${laneIndex > 0 ? gap : 0}px)` : '2px',
-                                      width: laneCount > 1 ? `calc(${widthPercent}% - ${laneIndex === 0 || laneIndex === laneCount - 1 ? gap : gap * 2}px)` : 'calc(100% - 4px)',
-                                      height: `${bookingHeight}px`,
-                                      minHeight: '28px',
-                                      zIndex: 3 + laneIndex,
-                                      cursor: 'pointer',
-                                      borderRight: laneCount > 1 && laneIndex < laneCount - 1 ? '1px solid rgba(0,0,0,0.06)' : 'none',
-                                      borderRadius: laneCount > 1
-                                        ? (laneIndex === 0 ? '8px 0 0 8px' : laneIndex === laneCount - 1 ? '0 8px 8px 0' : '0')
-                                        : '8px'
-                                    }}
-                                  >
-                                      {!isTournamentBooking && (
-                                      <div className="booking-status-badge">
-                                        {paymentStatus === 'refund_pending' ? '⏳' : paymentStatus === 'paid' ? '✓' : paymentStatus === 'partially_paid' ? '⚠' : '✗'}
-                                      </div>
-                                      )}
-                                      {isTournamentBooking && (
-                                        <div className="booking-tournament-badge" aria-hidden="true">{booking.tournamentType === 'social' ? '👥' : '🏆'}</div>
-                                      )}
-                                      {isPlaytomicBk && (
-                                        <div className="booking-playtomic-corner" aria-hidden>
-                                          P
-                                        </div>
-                                      )}
-                                      <div style={{ overflow: 'hidden', width: '100%' }}>
-                                        <div className="booking-title" style={{ 
-                                          fontSize: `${getFontSizeForDays(laneCount > 1 ? 10 : 11, selectedDays.length)}px`, 
-                                          fontWeight: '600' 
-                                        }}>
-                                          {booking.participants && booking.participants.length > 0 ? (
-                                            <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                                              <div style={{ 
-                                                fontSize: `${getFontSizeForDays(laneCount > 1 ? 9 : 10, selectedDays.length)}px`, 
-                                                fontWeight: '600', 
-                                                marginBottom: '3px',
-                                                whiteSpace: 'nowrap',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis'
-                                              }}>
-                                                {booking.resource}
-                                              </div>
-                                              <div className="booking-participants" style={{
-                                                width: '100%',
-                                                maxWidth: '100%'
-                                              }}>
-                                                {(booking.participants || []).map((p, idx) => (
-                                                  <div 
-                                                    key={idx} 
-                                                    className="booking-participant-name"
-                                                    style={{
-                                                      fontSize: `${getFontSizeForDays(8.5, selectedDays.length)}px`,
-                                                      lineHeight: `${1.2 + (selectedDays.length <= 2 ? 0.2 : 0)}`
-                                                    }}
-                                                  >
-                                                    {typeof p === 'object' ? p.name : p}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          ) : (
-                                            booking.resource
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                            </div>
-                          )
-                        })}
-                      </React.Fragment>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              ) : (
-                <div className="section section-bookings">
-                  <div className="bookings-section-header">
-                    <h2 className="bookings-title">{t.bookings} — {currentClub?.nameAr || currentClub?.name || 'Hala Padel'}</h2>
-                    <div className="bookings-toolbar bookings-toolbar-court">
-                      <div className="bookings-toolbar-nav">
-                        <button
-                          className="btn-secondary btn-nav-prev"
-                          onClick={() => navigateCourtViewDate('prev')}
-                          title={language === 'en' ? 'Previous day' : 'اليوم السابق'}
-                          aria-label={language === 'en' ? 'Previous day' : 'اليوم السابق'}
-                        >
-                          {isRTL ? '→' : '←'}
-                        </button>
-                        <button 
-                          className="btn-secondary btn-nav-today"
-                          onClick={() => setSelectedDateForCourtView(new Date().toISOString().split('T')[0])}
-                        >
-                          {language === 'en' ? 'Today' : 'اليوم'}
-                        </button>
-                        <input
-                          type="date"
-                          value={selectedDateForCourtView}
-                          onChange={(e) => setSelectedDateForCourtView(e.target.value)}
-                          className="search-input bookings-date-input"
-                          aria-label={language === 'en' ? 'Select date' : 'اختر التاريخ'}
-                        />
-                        <button
-                          className="btn-secondary btn-nav-next"
-                          onClick={() => navigateCourtViewDate('next')}
-                          title={language === 'en' ? 'Next day' : 'اليوم التالي'}
-                          aria-label={language === 'en' ? 'Next day' : 'اليوم التالي'}
-                        >
-                          {isRTL ? '←' : '→'}
-                        </button>
-                      </div>
-                      <div className="bookings-toolbar-sync">
-                        <button 
-                          type="button"
-                          className="bookings-sync-btn"
-                          onClick={() => loadPlaytomicBookings(true)}
-                          disabled={isLoadingPlaytomic}
-                          title={language === 'en' ? 'Refresh from Playtomic' : 'تحديث من Playtomic'}
-                          aria-label={language === 'en' ? 'Refresh from Playtomic' : 'تحديث من Playtomic'}
-                        >
-                          <span className="bookings-sync-icon" aria-hidden="true">🔄</span>
-                          {isLoadingPlaytomic && <span className="bookings-sync-loading">…</span>}
-                        </button>
-                        {playtomicLastSync && (
-                          <span className="bookings-last-sync">
-                            {language === 'en' 
-                              ? new Date(playtomicLastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                              : new Date(playtomicLastSync).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })
-                            }
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Court View Calendar Grid */}
-                  <div className="booking-calendar-container">
-                    <div
-                      className={`booking-calendar-grid booking-calendar-grid-courts`}
-                      style={{
-                        gridTemplateColumns: `80px repeat(${getCourts().length}, 1fr)`,
-                        minWidth: `${80 + Math.max(getCourts().length, 1) * 120}px`
-                      }}
-                    >
-                      {/* Time column header */}
-                      <div className="time-column-header"></div>
-                      
-                      {/* Court headers */}
-                      {getCourts().map((court, courtIdx) => (
-                        <div key={courtIdx} className="day-header">
-                          <div className="day-name">{court}</div>
-                        </div>
-                      ))}
-                      
-                      {/* Time slots and grid cells */}
-                      {getTimeSlots().map((timeSlot, timeIdx) => (
-                        <React.Fragment key={timeIdx}>
-                          {/* Time label */}
-                          <div className="time-label">{timeSlot}</div>
-                          
-                          {/* Grid cells for each court */}
-                          {getCourts().map((court, courtIdx) => {
-                            const slotBookings = getBookingsForCourtSlot(court, timeSlot, selectedDateForCourtView)
-                            const isInDragSelection = dragSelection && 
-                              dragSelection.startCell && 
-                              dragSelection.endCell &&
-                              dragSelection.startCell.court === court &&
-                              dragSelection.startCell.date === selectedDateForCourtView &&
-                              timeSlot >= (dragSelection.startTime || '') &&
-                              timeSlot < (dragSelection.endTime || dragSelection.startTime || '')
-                            
-                            return (
-                              <div
-                                key={`${courtIdx}-${timeIdx}`}
-                                className={`calendar-cell calendar-cell-court ${isInDragSelection ? 'drag-selection' : ''}${slotBookings.some((b) => hoveredBooking === b.id) ? ' calendar-cell--booking-hover' : ''}`}
-                                data-court={court}
-                                data-date={selectedDateForCourtView}
-                                data-time={timeSlot}
-                                onMouseDown={(e) => handleCourtGridMouseDown(e, court, timeSlot, selectedDateForCourtView)}
-                                onMouseMove={(e) => handleCourtGridMouseMove(e, court, timeSlot, selectedDateForCourtView)}
-                                onMouseUp={handleCourtGridMouseUp}
-                                onTouchStart={(e) => { if (!e.target.closest('.booking-event')) handleCourtGridMouseDown(e, court, timeSlot, selectedDateForCourtView) }}
-                                onTouchMove={(e) => {
-                                  if (!dragSelection?.startCell || !e.touches?.[0]) return
-                                  const el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY)
-                                  const cell = el?.closest('.calendar-cell-court')
-                                  if (!cell?.dataset?.court || !cell?.dataset?.date || !cell?.dataset?.time) return
-                                  const startCourt = dragSelection.startCell?.court
-                                  const startDate = dragSelection.startCell?.date
-                                  if (startCourt !== cell.dataset.court || startDate !== cell.dataset.date) return
-                                  handleCourtGridMouseMove(e, cell.dataset.court, cell.dataset.time, cell.dataset.date)
-                                }}
-                                onTouchEnd={(e) => { handleCourtGridMouseUp(); e.preventDefault() }}
-                                onMouseLeave={() => {
-                                  if (dragSelection && !dragSelection.endCell) setDragSelection(null)
-                                }}
-                                style={{ position: 'relative', touchAction: 'manipulation' }}
-                              >
-                                {slotBookings.map(booking => {
-                                  const rowSpan = getBookingRowSpan(booking)
-                                  const baseHeight = rowSpan * 30 - 2
-                                  const bookingHeight = getBookingMinHeight(booking, baseHeight)
-                                  const paymentStatus = getPaymentStatus(booking)
-                                  const isTournamentBooking = !!booking.isTournament
-                                  const tournamentKind = booking.tournamentType === 'social' ? 'social' : 'king'
-                                  const calKind = getBookingCalendarKind(booking)
-                                  const isPlaytomicBk = booking.source === 'playtomic' || booking.id?.toString().startsWith('playtomic_')
-                                  let eventClass =
-                                    'booking-event' +
-                                    (isPlaytomicBk ? ' booking-event--playtomic' : '') +
-                                    (hoveredBooking === booking.id ? ' booking-event--tooltip-open' : '')
-                                  if (isTournamentBooking) {
-                                    eventClass += ` booking-event--tournament booking-event--tournament-${tournamentKind}`
-                                  } else {
-                                    eventClass += ` booking-event--kind-${calKind}`
-                                    eventClass +=
-                                      paymentStatus === 'refund_pending'
-                                        ? ' booking-event--pay-refund-pending'
-                                        : paymentStatus === 'paid'
-                                          ? ' booking-event--pay-paid'
-                                          : paymentStatus === 'partially_paid'
-                                            ? ' booking-event--pay-partial'
-                                            : ' booking-event--pay-unpaid'
-                                  }
-                                  const paymentLabelStr = isTournamentBooking
-                                    ? '—'
-                                    : paymentStatus === 'refund_pending'
-                                      ? t.calendarPaymentRefundPending
-                                      : paymentStatus === 'paid'
-                                        ? t.paid
-                                        : paymentStatus === 'partially_paid'
-                                          ? t.partiallyPaid
-                                          : t.notPaid
-                                  return (
-                                    <div
-                                      key={booking.id}
-                                      className={eventClass}
-                                      onMouseEnter={(e) => handleCalendarBookingMouseEnter(booking, e)}
-                                      onMouseLeave={handleCalendarBookingMouseLeave}
-                                      onClick={(e) => openBookingCalendarDetail(booking, e)}
-                                      style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: '2px',
-                                        right: '2px',
-                                        height: `${bookingHeight}px`,
-                                        minHeight: '28px',
-                                        zIndex: 3,
-                                        cursor: 'pointer',
-                                        borderRadius: '8px'
-                                      }}
-                                    >
-                                      {!isTournamentBooking && (
-                                      <div className="booking-status-badge">
-                                        {paymentStatus === 'refund_pending' ? '⏳' : paymentStatus === 'paid' ? '✓' : paymentStatus === 'partially_paid' ? '⚠' : '✗'}
-                                      </div>
-                                      )}
-                                      {isTournamentBooking && (
-                                        <div className="booking-tournament-badge" aria-hidden="true">{booking.tournamentType === 'social' ? '👥' : '🏆'}</div>
-                                      )}
-                                      {isPlaytomicBk && (
-                                        <div className="booking-playtomic-corner" aria-hidden>
-                                          P
-                                        </div>
-                                      )}
-                                      <div className="booking-title">
-                                        {booking.participants && booking.participants.length > 0 ? (
-                                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                            <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '2px' }}>
-                                              {new Date(booking.date).toLocaleDateString(language === 'en' ? 'en-US' : 'ar-SA', { month: 'short', day: 'numeric' })}
-                                            </div>
-                                            <div className="booking-participants">
-                                              {(booking.participants || []).map((p, idx) => (
-                                                <div key={idx} className="booking-participant-name">
-                                                  {typeof p === 'object' ? p.name : p}
-                                                </div>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        ) : booking.isTournament ? (
-                                          <span style={{ fontWeight: 700, fontSize: '11px' }}>
-                                            {booking.tournamentType === 'social'
-                                              ? (language === 'en' ? 'Social' : 'سوشيال')
-                                              : (language === 'en' ? 'King' : 'ملك الملعب')}
-                                          </span>
-                                        ) : (
-                                          new Date(booking.date).toLocaleDateString(language === 'en' ? 'en-US' : 'ar-SA', { month: 'short', day: 'numeric' })
-                                        )}
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            )
-                          })}
-                        </React.Fragment>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'bookings' &&
-                hoveredBooking != null &&
-                bookingTooltipRect &&
-                (() => {
-                  const hb = bookings.find((b) => b.id === hoveredBooking)
-                  if (!hb) return null
-                  const isTH = !!hb.isTournament
-                  const pStat = getPaymentStatus(hb)
-                  const pLabel =
-                    isTH
-                      ? '—'
-                      : pStat === 'refund_pending'
-                        ? t.calendarPaymentRefundPending
-                        : pStat === 'paid'
-                          ? t.paid
-                          : pStat === 'partially_paid'
-                            ? t.partiallyPaid
-                            : t.notPaid
-                  const vw = typeof window !== 'undefined' ? window.innerWidth : 1024
-                  const vh = typeof window !== 'undefined' ? window.innerHeight : 768
-                  const margin = 12
-                  const anchorLeft = bookingTooltipRect.left + bookingTooltipRect.width / 2
-                  const maxHalf = 170
-                  const left = Math.min(Math.max(anchorLeft, margin + maxHalf), vw - margin - maxHalf)
-                  const spaceBelow = vh - bookingTooltipRect.bottom
-                  const placeBelow = spaceBelow > 220 || spaceBelow > bookingTooltipRect.top
-                  const top = placeBelow ? bookingTooltipRect.bottom + margin : bookingTooltipRect.top - margin
-                  const fixTransform = placeBelow ? 'translateX(-50%)' : 'translate(-50%, -100%)'
-                  return createPortal(
-                    <div
-                      className="booking-tooltip-portal-layer"
-                      style={{
-                        position: 'fixed',
-                        top,
-                        left,
-                        zIndex: 2147483646,
-                        transform: fixTransform,
-                        pointerEvents: 'none',
-                      }}
-                    >
-                      <CalendarBookingTooltip
-                        portal
-                        booking={hb}
-                        language={language}
-                        t={t}
-                        currentClub={currentClub}
-                        paymentLabel={pLabel}
-                        calendarPaymentStatus={isTH ? null : pStat}
-                      />
-                    </div>,
-                    document.body
-                  )
-                })()}
-
-              {activeTab === 'bookings' && detailBookingLive ? (
-                <ClubCalendarBookingDetailSheet
-                  booking={detailBookingLive}
-                  language={language}
-                  t={t}
-                  currentClub={currentClub}
-                  paymentStatus={getPaymentStatus(detailBookingLive)}
-                  onClose={() => setCalendarDetailBooking(null)}
-                  onEditCourtBooking={() => {
-                    const b = detailBookingLive
-                    setCalendarDetailBooking(null)
-                    if (b && !b.isTournament) setBookingFormData(b)
-                    setShowBookingModal(true)
-                  }}
-                  onEditTournamentSchedule={() => {
-                    const b = detailBookingLive
-                    setCalendarDetailBooking(null)
-                    if (!b?.isTournament) return
-                    const courtsDefault = (currentClub?.courts || [])
-                      .filter((c) => !c.maintenance)
-                      .map((c) => (c.id != null && c.id !== '' ? String(c.id) : String(c.name || '')))
-                      .filter(Boolean)
-                    setTournamentBookingData({
-                      date: (b.date || '').toString().split('T')[0],
-                      startTime: b.startTime || '09:00',
-                      endTime: b.endTime || '18:00',
-                      tournamentType: b.tournamentType || 'king',
-                      tournamentCourtIds:
-                        Array.isArray(b.tournamentCourtIds) && b.tournamentCourtIds.length > 0
-                          ? [...b.tournamentCourtIds]
-                          : courtsDefault,
-                      editingBookingId: b.id,
-                    })
-                    setShowTournamentBookingModal(true)
-                  }}
-                  onOpenTournament={() => {
-                    const b = detailBookingLive
-                    setCalendarDetailBooking(null)
-                    if (!b?.isTournament) return
-                    setActiveTab(b.tournamentType === 'social' ? 'social' : 'king')
-                    setViewedTournamentBooking({
-                      id: b.id,
-                      date: b.date,
-                      startTime: b.startTime,
-                      endTime: b.endTime,
-                      tournamentType: b.tournamentType || 'king',
-                    })
-                    setContentTab('teams')
-                  }}
-                  onConfirmSharePaid={(idx) => void confirmCalendarSharePaid(detailBookingLive.id, idx)}
-                  onConfirmFullPayment={() => void confirmCalendarFullPayment(detailBookingLive.id)}
-                />
-              ) : null}
-              
-              {/* Booking Form Modal */}
-              {showBookingModal && (
-                <BookingFormModal
-                  bookingData={bookingFormData || {}}
-                  members={members}
-                  courts={courtsListStable}
-                  clubOpeningTime={clubLegacyHours.openingTime}
-                  clubClosingTime={clubLegacyHours.closingTime}
-                  clubId={clubId}
-                  clubName={currentClub?.nameAr || currentClub?.name || ''}
-                  currency={currentClub?.settings?.currency || 'SAR'}
-                  onSave={saveBooking}
-                  onDelete={(bookingId) => {
-                    if (!bookingId || bookingId === null || bookingId === undefined) {
-                      console.error('Cannot delete: bookingId is invalid', bookingId)
-                      return
-                    }
-                    deleteBookingAndInvoice(bookingId)
-                  }}
-                  onCancel={() => {
-                    setShowBookingModal(false)
-                    setBookingFormData(null)
-                  }}
-                  translations={t}
-                  language={language}
-                />
-              )}
-
-              {/* Tournament Booking Modal removed from here - now in main component at the end */}
-
             </>
           ) : (
             <>
@@ -8889,6 +8181,33 @@ function App({ currentUser }) {
                 </div>
               </div>
             </div>
+          )}
+
+          {showBookingModal && (
+            <BookingFormModal
+              bookingData={bookingFormData || {}}
+              members={members}
+              courts={courtsListStable}
+              clubOpeningTime={clubLegacyHours.openingTime}
+              clubClosingTime={clubLegacyHours.closingTime}
+              clubId={clubId}
+              clubName={currentClub?.nameAr || currentClub?.name || ''}
+              currency={currentClub?.settings?.currency || 'SAR'}
+              onSave={saveBooking}
+              onDelete={(bookingId) => {
+                if (!bookingId || bookingId === null || bookingId === undefined) {
+                  console.error('Cannot delete: bookingId is invalid', bookingId)
+                  return
+                }
+                deleteBookingAndInvoice(bookingId)
+              }}
+              onCancel={() => {
+                setShowBookingModal(false)
+                setBookingFormData(null)
+              }}
+              translations={t}
+              language={language}
+            />
           )}
 
         </main>
