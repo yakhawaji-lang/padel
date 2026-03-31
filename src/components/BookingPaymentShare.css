@@ -862,6 +862,23 @@
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
+  overflow: hidden;
+  transform-origin: top;
+  transition: max-height 260ms ease, opacity 220ms ease, transform 260ms ease, margin 220ms ease, padding 220ms ease, border-color 220ms ease;
+  max-height: 320px;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.booking-payment-share-favorites-pick.is-hidden {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-color: transparent;
+  pointer-events: none;
 }
 
 .booking-payment-share-favorites-pick-label {
@@ -871,6 +888,12 @@
   color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.02em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .booking-payment-share-favorites-pick {
+    transition: none;
+  }
 }
 
 .booking-payment-share-favorites-pick-list {

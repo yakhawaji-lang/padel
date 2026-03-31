@@ -266,6 +266,11 @@ export default function BookingPaymentShare({
   }, [shares.length, isExpanded])
 
   const atShareCap = maxShareCount != null && shares.length >= maxShareCount
+  const favoriteCandidates = useMemo(
+    () => otherMembers.filter((m) => favoriteIds.has(String(m.id)) && !addedMemberIds.has(String(m.id))),
+    [otherMembers, favoriteIds, addedMemberIds]
+  )
+  const hasFavoriteCandidates = favoriteCandidates.length > 0
 
   useEffect(() => {
     if (isGatherPhase) return
@@ -456,13 +461,15 @@ export default function BookingPaymentShare({
                 </ul>
               ) : null}
 
-              {otherMembers.some((m) => favoriteIds.has(String(m.id)) && !addedMemberIds.has(String(m.id))) ? (
-                <div className="booking-payment-share-favorites-pick">
+              <div
+                className={`booking-payment-share-favorites-pick ${hasFavoriteCandidates ? 'is-visible' : 'is-hidden'}`}
+                aria-hidden={!hasFavoriteCandidates}
+              >
+                {hasFavoriteCandidates ? (
+                  <>
                   <p className="booking-payment-share-favorites-pick-label">{t('From favorites', 'من المفضلة')}</p>
                   <ul className="booking-payment-share-favorites-pick-list" role="list">
-                    {otherMembers
-                      .filter((m) => favoriteIds.has(String(m.id)) && !addedMemberIds.has(String(m.id)))
-                      .map((m) => (
+                    {favoriteCandidates.map((m) => (
                         <li key={m.id} className="booking-payment-share-favorites-pick-row">
                           <span className="booking-payment-share-favorites-pick-name">{m.name || m.email || m.id}</span>
                           <button
@@ -476,8 +483,9 @@ export default function BookingPaymentShare({
                         </li>
                       ))}
                   </ul>
-                </div>
-              ) : null}
+                  </>
+                ) : null}
+              </div>
 
               {atShareCap ? (
                 <p className="booking-payment-share-cap-notice" role="status">
