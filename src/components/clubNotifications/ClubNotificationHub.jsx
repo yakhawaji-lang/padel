@@ -217,15 +217,30 @@ function writeSoundMuted(muted) {
 }
 
 let sharedAudioCtx = null
+/** إشعار وصل قبل أن يُسمح بالصوت — يُشغَّل بعد أول تفاعل */
+let pendingNotificationSoundKey = null
 
-function getSharedAudioContext() {
-  const Ctx = window.AudioContext || window.webkitAudioContext
-  if (!Ctx) return null
-  if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') sharedAudioCtx = new Ctx()
-  return sharedAudioCtx
+function getAudioContextClass() {
+  return typeof window !== 'undefined' ? window.AudioContext || window.webkitAudioContext : null
 }
 
-/** نغمة واحدة قصيرة — Web Audio */
+/** إنشاء السياق فقط ضمن تفاعل مستخدم (نقرة/لمس) — سياسات المتصفح */
+function createAudioContextFromUserGesture() {
+  const Ctx = getAudioContextClass()
+  if (!Ctx) return null
+  try {
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') sharedAudioCtx = new Ctx()
+    return sharedAudioCtx
+  } catch {
+    return null
+  }
+}
+
+function getExistingAudioContext() {
+  return sharedAudioCtx && sharedAudioCtx.state !== 'closed' ? sharedAudioCtx : null
+}
+
+/** نغمة قصيرة — مِيل خطي للـ gain لتفادي أخطاء exponential في بعض المتصفحات */
 function playTone(ctx, tStart, freq, durationSec, type, peakGain, freqEnd = null) {
   const osc = ctx.createOscillator()
   const g = ctx.createGain()
@@ -234,74 +249,121 @@ function playTone(ctx, tStart, freq, durationSec, type, peakGain, freqEnd = null
   if (freqEnd != null && Math.abs(freqEnd - freq) > 1) {
     osc.frequency.exponentialRampToValueAtTime(Math.max(60, freqEnd), tStart + durationSec * 0.92)
   }
+  const g0 = Math.max(0.0001, peakGain)
   g.gain.setValueAtTime(0.0001, tStart)
-  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peakGain), tStart + 0.02)
-  g.gain.exponentialRampToValueAtTime(0.0001, tStart + durationSec)
+  g.gain.linearRampToValueAtTime(g0, tStart + Math.min(0.025, durationSec * 0.15))
+  g.gain.linearRampToValueAtTime(0.0001, tStart + durationSec)
   osc.connect(g)
   g.connect(ctx.destination)
   osc.start(tStart)
-  osc.stop(tStart + durationSec + 0.05)
+  osc.stop(tStart + durationSec + 0.06)
+}
+
+function scheduleCategoryTones(ctx, catKey, t0) {
+  switch (catKey) {
+    case 'bookingsActiveNow':
+      playTone(ctx, t0, 523.25, 0.24, 'sine', 0.1)
+      playTone(ctx, t0 + 0.11, 659.25, 0.28, 'sine', 0.085)
+      break
+    case 'locksActive':
+      playTone(ctx, t0, 1850, 0.04, 'square', 0.042)
+      playTone(ctx, t0 + 0.055, 2200, 0.038, 'square', 0.036)
+      break
+    case 'bookingCompleteFlow':
+      playTone(ctx, t0, 392, 0.11, 'triangle', 0.095)
+      playTone(ctx, t0 + 0.1, 493.88, 0.11, 'triangle', 0.085)
+      playTone(ctx, t0 + 0.2, 587.33, 0.16, 'triangle', 0.09)
+      break
+    case 'bookingAwaitingPayments':
+      playTone(ctx, t0, 196, 0.18, 'sine', 0.12)
+      playTone(ctx, t0 + 0.2, 246.94, 0.22, 'sine', 0.1)
+      break
+    case 'bookingExpiredWithPayment':
+      playTone(ctx, t0, 300, 0.14, 'sawtooth', 0.065, 165)
+      playTone(ctx, t0 + 0.16, 260, 0.18, 'sawtooth', 0.055, 140)
+      break
+    case 'refundRequests':
+      playTone(ctx, t0, 523.25, 0.12, 'sine', 0.09, 349.23)
+      playTone(ctx, t0 + 0.14, 392, 0.18, 'sine', 0.08, 261.63)
+      break
+    case 'storeSalesRecent':
+      playTone(ctx, t0, 783.99, 0.08, 'sine', 0.11)
+      playTone(ctx, t0 + 0.09, 1046.5, 0.1, 'sine', 0.095)
+      playTone(ctx, t0 + 0.2, 1318.51, 0.12, 'sine', 0.075)
+      break
+    case 'storeLowStock':
+      playTone(ctx, t0, 880, 0.1, 'triangle', 0.085, 523.25)
+      playTone(ctx, t0 + 0.12, 659.25, 0.15, 'triangle', 0.07, 392)
+      break
+    case 'newMembers':
+      playTone(ctx, t0, 329.63, 0.1, 'sine', 0.08)
+      playTone(ctx, t0 + 0.08, 415.3, 0.1, 'sine', 0.09)
+      playTone(ctx, t0 + 0.16, 523.25, 0.12, 'sine', 0.095)
+      playTone(ctx, t0 + 0.28, 659.25, 0.18, 'sine', 0.075)
+      break
+    case 'viewers':
+      playTone(ctx, t0, 987.77, 0.065, 'sine', 0.055)
+      break
+    default:
+      playTone(ctx, t0, 659.25, 0.14, 'sine', 0.085)
+  }
 }
 
 /**
- * صوت مميز لكل فئة إشعار (بدون ملفات خارجية).
- * @param {string} catKey — مفتاح من CAT_DEFS.key
+ * يُستدعى من نقرة/لمس (شريط الإشعارات، كتم الصوت، أي نقرة على الصفحة بعد التثبيت).
+ * ينشئ AudioContext إن لزم ويستأنف التشغيل ويشغّل أي صوت معلّق.
+ */
+function primeClubNotificationAudio() {
+  const ctx = createAudioContextFromUserGesture()
+  if (!ctx) return
+  const run = () => {
+    const key = pendingNotificationSoundKey
+    pendingNotificationSoundKey = null
+    if (!key || readSoundMuted()) return
+    try {
+      scheduleCategoryTones(ctx, key, ctx.currentTime + 0.03)
+    } catch {
+      /* ignore */
+    }
+  }
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(run).catch(() => {})
+  } else {
+    run()
+  }
+}
+
+/**
+ * صوت عند زيادة العداد — يتطلّب سياقاً نشطاً أو يُخزَّن حتى أول تفاعل.
+ * @param {string} catKey
  */
 function playNotificationSound(catKey) {
-  const ctx = getSharedAudioContext()
-  if (!ctx) return
-  try {
-    if (ctx.state === 'suspended') void ctx.resume()
-    const t0 = ctx.currentTime
-    switch (catKey) {
-      case 'bookingsActiveNow':
-        playTone(ctx, t0, 523.25, 0.24, 'sine', 0.1)
-        playTone(ctx, t0 + 0.11, 659.25, 0.28, 'sine', 0.085)
-        break
-      case 'locksActive':
-        playTone(ctx, t0, 1850, 0.04, 'square', 0.042)
-        playTone(ctx, t0 + 0.055, 2200, 0.038, 'square', 0.036)
-        break
-      case 'bookingCompleteFlow':
-        playTone(ctx, t0, 392, 0.11, 'triangle', 0.095)
-        playTone(ctx, t0 + 0.1, 493.88, 0.11, 'triangle', 0.085)
-        playTone(ctx, t0 + 0.2, 587.33, 0.16, 'triangle', 0.09)
-        break
-      case 'bookingAwaitingPayments':
-        playTone(ctx, t0, 196, 0.18, 'sine', 0.12)
-        playTone(ctx, t0 + 0.2, 246.94, 0.22, 'sine', 0.1)
-        break
-      case 'bookingExpiredWithPayment':
-        playTone(ctx, t0, 300, 0.14, 'sawtooth', 0.065, 165)
-        playTone(ctx, t0 + 0.16, 260, 0.18, 'sawtooth', 0.055, 140)
-        break
-      case 'refundRequests':
-        playTone(ctx, t0, 523.25, 0.12, 'sine', 0.09, 349.23)
-        playTone(ctx, t0 + 0.14, 392, 0.18, 'sine', 0.08, 261.63)
-        break
-      case 'storeSalesRecent':
-        playTone(ctx, t0, 783.99, 0.08, 'sine', 0.11)
-        playTone(ctx, t0 + 0.09, 1046.5, 0.1, 'sine', 0.095)
-        playTone(ctx, t0 + 0.2, 1318.51, 0.12, 'sine', 0.075)
-        break
-      case 'storeLowStock':
-        playTone(ctx, t0, 880, 0.1, 'triangle', 0.085, 523.25)
-        playTone(ctx, t0 + 0.12, 659.25, 0.15, 'triangle', 0.07, 392)
-        break
-      case 'newMembers':
-        playTone(ctx, t0, 329.63, 0.1, 'sine', 0.08)
-        playTone(ctx, t0 + 0.08, 415.3, 0.1, 'sine', 0.09)
-        playTone(ctx, t0 + 0.16, 523.25, 0.12, 'sine', 0.095)
-        playTone(ctx, t0 + 0.28, 659.25, 0.18, 'sine', 0.075)
-        break
-      case 'viewers':
-        playTone(ctx, t0, 987.77, 0.065, 'sine', 0.055)
-        break
-      default:
-        playTone(ctx, t0, 659.25, 0.14, 'sine', 0.085)
+  if (readSoundMuted()) return
+  const ctx = getExistingAudioContext()
+  if (!ctx) {
+    pendingNotificationSoundKey = catKey
+    return
+  }
+
+  const play = () => {
+    try {
+      scheduleCategoryTones(ctx, catKey, ctx.currentTime + 0.03)
+    } catch {
+      /* ignore */
     }
-  } catch {
-    /* قد يحظر المتصفح التشغيل قبل تفاعل المستخدم */
+  }
+
+  if (ctx.state === 'suspended') {
+    pendingNotificationSoundKey = catKey
+    ctx
+      .resume()
+      .then(() => {
+        pendingNotificationSoundKey = null
+        play()
+      })
+      .catch(() => {})
+  } else {
+    play()
   }
 }
 
@@ -377,6 +439,20 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
     return () => document.removeEventListener('keydown', onKey)
   }, [expanded])
 
+  /** أول نقرة/لمس في الصفحة تنشئ AudioContext وتُفعل الصوت (متطلبات المتصفح) */
+  useEffect(() => {
+    if (!showUi) return undefined
+    const onInteract = () => {
+      primeClubNotificationAudio()
+    }
+    document.addEventListener('pointerdown', onInteract, { capture: true, passive: true })
+    document.addEventListener('keydown', onInteract, { capture: true, passive: true })
+    return () => {
+      document.removeEventListener('pointerdown', onInteract, true)
+      document.removeEventListener('keydown', onInteract, true)
+    }
+  }, [showUi])
+
   const markAllRead = useCallback(() => {
     if (!summary?.fingerprint) return
     const catAck = {}
@@ -403,6 +479,7 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
 
   const toggleSoundMuted = useCallback((e) => {
     e?.stopPropagation?.()
+    primeClubNotificationAudio()
     const next = !readSoundMuted()
     writeSoundMuted(next)
     setSoundMuted(next)
@@ -497,7 +574,14 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
               {(tickerParts.join(t.tickerSep) + t.tickerSep).repeat(3)}
             </div>
           </div>
-          <button type="button" className="cn-ticker__cta" onClick={() => setExpanded(true)}>
+          <button
+            type="button"
+            className="cn-ticker__cta"
+            onClick={() => {
+              primeClubNotificationAudio()
+              setExpanded(true)
+            }}
+          >
             {t.openFeed}
           </button>
         </div>
@@ -516,7 +600,10 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
           <button
             type="button"
             className="cn-hub__rail-trigger"
-            onClick={() => setExpanded((e) => !e)}
+            onClick={() => {
+              primeClubNotificationAudio()
+              setExpanded((e) => !e)
+            }}
             title={t.hubTitle}
             aria-expanded={expanded}
           >
