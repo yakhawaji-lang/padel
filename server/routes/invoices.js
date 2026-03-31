@@ -30,16 +30,16 @@ async function enrichMissingInvoiceCustomersByPhone(rows) {
 
   let members = []
   try {
-    const r = await query(`SELECT id, name, mobile, phone FROM members WHERE deleted_at IS NULL`, [])
+    const r = await query(`SELECT id, name, mobile FROM members WHERE deleted_at IS NULL`, [])
     members = r.rows || []
   } catch (e) {
     if (!String(e?.message || '').includes('deleted_at')) throw e
-    const r = await query(`SELECT id, name, mobile, phone FROM members`, [])
+    const r = await query(`SELECT id, name, mobile FROM members`, [])
     members = r.rows || []
   }
 
   for (const inv of targets) {
-    const matches = (members || []).filter((m) => phonesLikelySame(inv.customer_phone, m?.mobile || m?.phone || ''))
+    const matches = (members || []).filter((m) => phonesLikelySame(inv.customer_phone, m?.mobile || ''))
     if (matches.length !== 1) continue
     const m = matches[0]
     inv.customer_member_id = String(m.id || '')
@@ -150,12 +150,15 @@ router.get('/', async (req, res) => {
       rows = r.rows || []
     } catch (qErr) {
       const msg = String(qErr?.message || '')
-      // بعض البيئات القديمة لا تحتوي members.deleted_at — نعيد المحاولة بدون هذا الشرط.
-      if (!msg.includes('deleted_at')) throw qErr
+      // بعض البيئات القديمة لا تحتوي members.deleted_at أو members.phone — نعيد المحاولة بصيغة متوافقة.
+      if (!msg.includes('deleted_at') && !msg.includes('phone')) throw qErr
       const sqlNoMembersDeletedAt = sql
         .replace(/mcnt\.deleted_at IS NULL\s+AND\s+/g, '')
         .replace(/mname\.deleted_at IS NULL\s+AND\s+/g, '')
         .replace(/mid\.deleted_at IS NULL\s+AND\s+/g, '')
+        .replace(/COALESCE\(mcnt\.mobile,\s*mcnt\.phone,\s*''\)/g, "COALESCE(mcnt.mobile, '')")
+        .replace(/COALESCE\(mname\.mobile,\s*mname\.phone,\s*''\)/g, "COALESCE(mname.mobile, '')")
+        .replace(/COALESCE\(mid\.mobile,\s*mid\.phone,\s*''\)/g, "COALESCE(mid.mobile, '')")
       const r2 = await query(sqlNoMembersDeletedAt, params)
       rows = r2.rows || []
     }
