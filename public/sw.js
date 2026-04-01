@@ -1,4 +1,5 @@
-/* Playtix — Web Push (scope /app/) — يُنسخ إلى dist/sw.js ويُطلب كـ /app/sw.js */
+/* Playtix — Web Push (نطاق التسجيل: /app/)
+   يُنسخ إلى dist/sw.js؛ في الإنتاج يُحمَّل من GET /api/push/service-worker.js (MIME صحيح) */
 self.addEventListener('push', (event) => {
   let data = { title: 'Playtix', body: '', tag: 'playtix', url: '/app/' }
   try {
