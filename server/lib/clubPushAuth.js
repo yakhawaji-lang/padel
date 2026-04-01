@@ -31,11 +31,19 @@ export async function assertClubPushActor(req, clubId) {
     return { ok: false, status: 403, error: 'Club mismatch' }
   }
 
+  const actorId = String(actor.actorId || '').trim()
+  /**
+   * الواجهة تخزّن للمالك userId: 'owner' (ليس id من club_admin_users).
+   * نطابق إما id الفعلي أو صف is_owner=1 عندما الجلسة ترسل 'owner'.
+   */
   const { rows } = await query(
-    'SELECT id FROM club_admin_users WHERE club_id = ? AND id = ? AND deleted_at IS NULL LIMIT 1',
-    [cid, actor.actorId]
+    `SELECT id FROM club_admin_users 
+     WHERE club_id = ? AND deleted_at IS NULL 
+     AND (id = ? OR (LOWER(?) = 'owner' AND is_owner = 1))
+     LIMIT 1`,
+    [cid, actorId, actorId]
   )
   if (!rows?.length) return { ok: false, status: 403, error: 'Not a club admin for this club' }
 
-  return { ok: true, adminUserId: actor.actorId }
+  return { ok: true, adminUserId: rows[0].id }
 }
