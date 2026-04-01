@@ -92,6 +92,7 @@ export const translations = {
     memberSelectorPhoneHint:
       'Other members appear here only when the number matches, or when pinned. Current team members always show above.',
     memberSelectorPickFromContacts: 'Choose from contacts',
+    memberSelectorSearchPhone: 'Search',
     memberSelectorContactsNotSupported:
       'Choosing a number from contacts is not available in this browser. Use Chrome on Android (HTTPS), or type the number.',
     memberSelectorContactsFailed: 'Could not read contacts. Check permissions or try again.',
@@ -399,6 +400,7 @@ export const translations = {
     memberSelectorPhoneHint:
       'يظهر العضو هنا عند تطابق الرقم، أو إن كان مثبتاً. أعضاء الفريق الحالي يظهرون دائماً في الأعلى.',
     memberSelectorPickFromContacts: 'اختيار من جهات الاتصال',
+    memberSelectorSearchPhone: 'بحث',
     memberSelectorContactsNotSupported:
       'اختيار الرقم من جهات الاتصال غير متاح في هذا المتصفح. استخدم Chrome على أندرويد (HTTPS)، أو اكتب الرقم.',
     memberSelectorContactsFailed: 'تعذّر قراءة جهات الاتصال. تحقّق من الأذونات أو أعِد المحاولة.',

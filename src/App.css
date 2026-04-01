@@ -2117,6 +2117,37 @@ button:active {
   min-width: 0;
 }
 
+.member-selector-phone-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.member-selector-search-phone-btn {
+  flex-shrink: 0;
+  padding: 0 14px;
+  min-height: 44px;
+  border: 1px solid #3498db;
+  border-radius: 8px;
+  background: #3498db;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.member-selector-search-phone-btn:hover {
+  background: #2980b9;
+  border-color: #2980b9;
+}
+
+.member-selector-search-phone-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.25);
+}
+
 .member-selector-contacts-btn {
   flex-shrink: 0;
   display: inline-flex;

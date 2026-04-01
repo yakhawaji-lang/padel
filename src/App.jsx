@@ -326,6 +326,19 @@ function memberPhoneRawForSelector(m) {
   return ''
 }
 
+/** توحيد عرض رقم الجوال في منتقي الأعضاء (مفتاح دولة، مسافات، أرقام عربية) */
+function normalizeMemberSelectorPhoneDisplay(rawStr) {
+  const trimmed = String(rawStr || '').trim()
+  if (!trimmed) return ''
+  const { countryCode, national } = splitPickedPhoneToCountryAndNational(trimmed)
+  const digits = phoneDigitsNormalized(trimmed)
+  return countryCode === '966' && national.length >= 9
+    ? `0${national}`
+    : national.length >= 8
+      ? digits
+      : digits || trimmed.replace(/\s+/g, '')
+}
+
 /** دمج أعضاء النادي من التخزين الموحّد + club.members + نسخة محلية قديمة */
 const memberSelectorPinsStorageKey = (cid) => `playtix_member_selector_pins_${String(cid || '')}`
 
@@ -5272,29 +5285,8 @@ function App({ currentUser }) {
     []
   )
 
-  const handleMemberSelectorPickFromContacts = useCallback(async () => {
-    if (!memberSelectorContactsSupported) {
-      alert(t.memberSelectorContactsNotSupported)
-      return
-    }
-    try {
-      const selected = await navigator.contacts.select(['tel'], { multiple: false })
-      if (!selected?.length) return
-      const tel = selected[0]?.tel
-      const raw = Array.isArray(tel) ? tel.find((x) => x != null && String(x).trim() !== '') : tel
-      if (raw == null || String(raw).trim() === '') return
-      const rawStr = String(raw).trim()
-      const { countryCode, national } = splitPickedPhoneToCountryAndNational(rawStr)
-      const digits = phoneDigitsNormalized(rawStr)
-      let display =
-        countryCode === '966' && national.length >= 9
-          ? `0${national}`
-          : national.length >= 8
-            ? digits
-            : digits || rawStr.replace(/\s+/g, '')
-      flushSync(() => {
-        setMemberSelectorSearch(display)
-      })
+  const memberSelectorAfterPhoneSettled = useCallback(
+    (display, { focusInput = true } = {}) => {
       const teamId = openMemberSelectorForTeam
       const searchDigits = phoneDigitsNormalized(display)
       if (teamId && searchDigits.length >= 3) {
@@ -5329,7 +5321,8 @@ function App({ currentUser }) {
       requestAnimationFrame(() => {
         memberSelectorListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
         const el = memberSelectorPhoneInputRef.current
-        if (el && typeof el.focus === 'function') {
+        if (!el) return
+        if (focusInput && typeof el.focus === 'function') {
           el.focus()
           try {
             const len = String(display).length
@@ -5339,23 +5332,46 @@ function App({ currentUser }) {
           } catch {
             /* ignore */
           }
+        } else if (!focusInput && typeof el.blur === 'function') {
+          el.blur()
         }
       })
+    },
+    [openMemberSelectorForTeam, teams, members, memberSelectorFeeDraft, updateCurrentState]
+  )
+
+  const handleMemberSelectorSearchByPhone = useCallback(() => {
+    const display = normalizeMemberSelectorPhoneDisplay(memberSelectorSearch)
+    if (!display) return
+    flushSync(() => {
+      setMemberSelectorSearch(display)
+    })
+    memberSelectorAfterPhoneSettled(display, { focusInput: false })
+  }, [memberSelectorSearch, setMemberSelectorSearch, memberSelectorAfterPhoneSettled])
+
+  const handleMemberSelectorPickFromContacts = useCallback(async () => {
+    if (!memberSelectorContactsSupported) {
+      alert(t.memberSelectorContactsNotSupported)
+      return
+    }
+    try {
+      const selected = await navigator.contacts.select(['tel'], { multiple: false })
+      if (!selected?.length) return
+      const tel = selected[0]?.tel
+      const raw = Array.isArray(tel) ? tel.find((x) => x != null && String(x).trim() !== '') : tel
+      if (raw == null || String(raw).trim() === '') return
+      const display = normalizeMemberSelectorPhoneDisplay(String(raw).trim())
+      if (!display) return
+      flushSync(() => {
+        setMemberSelectorSearch(display)
+      })
+      memberSelectorAfterPhoneSettled(display, { focusInput: true })
     } catch (err) {
       const name = err?.name || ''
       if (name === 'AbortError') return
       alert(t.memberSelectorContactsFailed)
     }
-  }, [
-    memberSelectorContactsSupported,
-    t,
-    setMemberSelectorSearch,
-    openMemberSelectorForTeam,
-    teams,
-    members,
-    memberSelectorFeeDraft,
-    updateCurrentState,
-  ])
+  }, [memberSelectorContactsSupported, t, setMemberSelectorSearch, memberSelectorAfterPhoneSettled])
 
   const clubCurrency = currentClub?.settings?.currency || 'SAR'
   const clubNameWhatsApp = currentClub?.nameAr || currentClub?.name || ''
@@ -8261,38 +8277,55 @@ function App({ currentUser }) {
                       placeholder={t.memberSelectorPhonePlaceholder}
                       value={memberSelectorSearch}
                       onChange={(e) => setMemberSelectorSearch(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleMemberSelectorSearchByPhone()
+                        }
+                      }}
                       className="search-input member-selector-phone-input"
                       autoFocus
                     />
-                    {memberSelectorContactsSupported ? (
+                    <div className="member-selector-phone-actions">
                       <button
                         type="button"
-                        className="member-selector-contacts-btn"
-                        onClick={handleMemberSelectorPickFromContacts}
-                        title={t.memberSelectorPickFromContacts}
-                        aria-label={t.memberSelectorPickFromContacts}
+                        className="member-selector-search-phone-btn"
+                        onClick={handleMemberSelectorSearchByPhone}
+                        title={t.memberSelectorSearchPhone}
+                        aria-label={t.memberSelectorSearchPhone}
                       >
-                        <svg
-                          className="member-selector-contacts-icon"
-                          width="22"
-                          height="22"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                          aria-hidden
-                        >
-                          <path
-                            d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm13 0h3v2h-3v-2zm-3 3h6v2h-6v-2zm0 3h4v2h-4v-2z"
-                            fill="currentColor"
-                            opacity="0.92"
-                          />
-                          <path
-                            d="M8 8.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm8 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM8 18.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"
-                            fill="currentColor"
-                          />
-                        </svg>
+                        {t.memberSelectorSearchPhone}
                       </button>
-                    ) : null}
+                      {memberSelectorContactsSupported ? (
+                        <button
+                          type="button"
+                          className="member-selector-contacts-btn"
+                          onClick={handleMemberSelectorPickFromContacts}
+                          title={t.memberSelectorPickFromContacts}
+                          aria-label={t.memberSelectorPickFromContacts}
+                        >
+                          <svg
+                            className="member-selector-contacts-icon"
+                            width="22"
+                            height="22"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden
+                          >
+                            <path
+                              d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm13 0h3v2h-3v-2zm-3 3h6v2h-6v-2zm0 3h4v2h-4v-2z"
+                              fill="currentColor"
+                              opacity="0.92"
+                            />
+                            <path
+                              d="M8 8.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm8 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM8 18.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"
+                              fill="currentColor"
+                            />
+                          </svg>
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                   <p className="member-selector-phone-hint">{t.memberSelectorPhoneHint}</p>
                   <div className="member-selector-list" ref={memberSelectorListRef}>
