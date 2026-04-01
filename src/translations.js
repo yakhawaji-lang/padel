@@ -91,6 +91,10 @@ export const translations = {
     memberSelectorPhonePlaceholder: 'Type mobile number (3+ digits)…',
     memberSelectorPhoneHint:
       'Other members appear here only when the number matches, or when pinned. Current team members always show above.',
+    memberSelectorPickFromContacts: 'Choose from contacts',
+    memberSelectorContactsNotSupported:
+      'Choosing a number from contacts is not available in this browser. Use Chrome on Android (HTTPS), or type the number.',
+    memberSelectorContactsFailed: 'Could not read contacts. Check permissions or try again.',
     memberSelectorPinTitle: 'Bookmark — keep this member visible without searching',
     memberSelectorUnpinTitle: 'Remove bookmark',
     memberSelectorEmptyCards:
@@ -394,8 +398,12 @@ export const translations = {
     memberSelectorPhonePlaceholder: 'اكتب رقم الجوال (3 أرقام على الأقل)…',
     memberSelectorPhoneHint:
       'يظهر العضو هنا عند تطابق الرقم، أو إن كان مثبتاً. أعضاء الفريق الحالي يظهرون دائماً في الأعلى.',
-    memberSelectorPinTitle: 'تثبيت — إظهار هذا العضو دائماً في القائمة',
-    memberSelectorUnpinTitle: 'إلغاء التثبيت',
+    memberSelectorPickFromContacts: 'اختيار من جهات الاتصال',
+    memberSelectorContactsNotSupported:
+      'اختيار الرقم من جهات الاتصال غير متاح في هذا المتصفح. استخدم Chrome على أندرويد (HTTPS)، أو اكتب الرقم.',
+    memberSelectorContactsFailed: 'تعذّر قراءة جهات الاتصال. تحقّق من الأذونات أو أعِد المحاولة.',
+    memberSelectorPinTitle: 'إشارة مرجعية — إبقاء العضو ظاهراً دون بحث',
+    memberSelectorUnpinTitle: 'إزالة الإشارة المرجعية',
     memberSelectorEmptyCards:
       'لا توجد بطاقات. أدخل 3 أرقام على الأقل من الجوال، أو ثبّت أعضاءً بزر الدبوس بعد ظهورهم.',
     sendWhatsApp: 'واتساب',

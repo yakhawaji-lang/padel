@@ -5234,6 +5234,34 @@ function App({ currentUser }) {
       .sort(sortByName)
     return { onTeam, offTeam }
   }, [openMemberSelectorForTeam, teams, members, memberSelectorSearch, memberSelectorPinnedIds])
+
+  const memberSelectorContactsSupported = useMemo(
+    () =>
+      typeof navigator !== 'undefined' &&
+      !!navigator.contacts &&
+      typeof navigator.contacts.select === 'function',
+    []
+  )
+
+  const handleMemberSelectorPickFromContacts = useCallback(async () => {
+    if (!memberSelectorContactsSupported) {
+      alert(t.memberSelectorContactsNotSupported)
+      return
+    }
+    try {
+      const selected = await navigator.contacts.select(['tel'], { multiple: false })
+      if (!selected?.length) return
+      const tel = selected[0]?.tel
+      const raw = Array.isArray(tel) ? tel.find((x) => x != null && String(x).trim() !== '') : tel
+      if (raw == null || String(raw).trim() === '') return
+      setMemberSelectorSearch(String(raw).trim())
+    } catch (err) {
+      const name = err?.name || ''
+      if (name === 'AbortError') return
+      alert(t.memberSelectorContactsFailed)
+    }
+  }, [memberSelectorContactsSupported, t, setMemberSelectorSearch])
+
   const clubCurrency = currentClub?.settings?.currency || 'SAR'
   const clubNameWhatsApp = currentClub?.nameAr || currentClub?.name || ''
   const tournamentDateStr =
@@ -8129,7 +8157,7 @@ function App({ currentUser }) {
                     <span><span className="legend-swatch legend-swatch--club">C</span> {t.clubReceivedPaymentTitle}</span>
                     <span><span className="legend-swatch legend-swatch--member">M</span> {t.memberAckPaymentTitle}</span>
                   </div>
-                  <div className="search-bar-container">
+                  <div className="search-bar-container member-selector-phone-row">
                     <input
                       type="text"
                       inputMode="tel"
@@ -8137,9 +8165,38 @@ function App({ currentUser }) {
                       placeholder={t.memberSelectorPhonePlaceholder}
                       value={memberSelectorSearch}
                       onChange={(e) => setMemberSelectorSearch(e.target.value)}
-                      className="search-input"
+                      className="search-input member-selector-phone-input"
                       autoFocus
                     />
+                    {memberSelectorContactsSupported ? (
+                      <button
+                        type="button"
+                        className="member-selector-contacts-btn"
+                        onClick={handleMemberSelectorPickFromContacts}
+                        title={t.memberSelectorPickFromContacts}
+                        aria-label={t.memberSelectorPickFromContacts}
+                      >
+                        <svg
+                          className="member-selector-contacts-icon"
+                          width="22"
+                          height="22"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          aria-hidden
+                        >
+                          <path
+                            d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm13 0h3v2h-3v-2zm-3 3h6v2h-6v-2zm0 3h4v2h-4v-2z"
+                            fill="currentColor"
+                            opacity="0.92"
+                          />
+                          <path
+                            d="M8 8.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm8 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM8 18.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"
+                            fill="currentColor"
+                          />
+                        </svg>
+                      </button>
+                    ) : null}
                   </div>
                   <p className="member-selector-phone-hint">{t.memberSelectorPhoneHint}</p>
                   <div className="member-selector-list">

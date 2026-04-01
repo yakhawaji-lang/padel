@@ -2106,6 +2106,53 @@ button:active {
   width: 100%;
 }
 
+.member-selector-phone-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.member-selector-phone-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.member-selector-contacts-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid #e1e8ed;
+  border-radius: 8px;
+  background: #fff;
+  color: #2980b9;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.member-selector-contacts-btn:hover {
+  border-color: #3498db;
+  background: #f4f9fd;
+  color: #1a5276;
+}
+
+.member-selector-contacts-btn:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+}
+
+.member-selector-contacts-icon {
+  display: block;
+}
+
+.app.rtl .member-selector-phone-row {
+  flex-direction: row-reverse;
+}
+
 .search-input {
   width: 100%;
   padding: 10px 15px;
