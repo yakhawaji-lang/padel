@@ -2,6 +2,11 @@
 # Prevents 403 on /app/ when directory listing is disabled and fixes client-side routes.
 DirectoryIndex index.html
 
+# Service worker: يجب أن يُخدم كـ JavaScript (ملف sw.js بجانب index.html بعد npm run build)
+<IfModule mod_mime.c>
+  AddType application/javascript .js
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /app/
