@@ -42,6 +42,7 @@ TRUNCATE TABLE `member_favorites`;
 TRUNCATE TABLE `coach_training_invites`;
 
 -- ----- نوادي (تفاصيل) -----
+TRUNCATE TABLE `club_push_subscriptions`;
 TRUNCATE TABLE `club_bookings`;
 TRUNCATE TABLE `club_accounting`;
 TRUNCATE TABLE `club_courts`;
