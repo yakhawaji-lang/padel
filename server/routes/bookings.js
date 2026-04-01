@@ -2517,6 +2517,150 @@ router.post('/resolve-member-by-phone', async (req, res) => {
   }
 })
 
+/**
+ * POST /api/bookings/create-tournament-guest-fee-share
+ * ضيف بطولة: غير مسجّل → pay-invite؛ مسجّل بالمنصة وغير منضمّ للنادي → pay-share (ينضم عند فتح الرابط ويُرى الحجز في حجوزاتي).
+ */
+router.post('/create-tournament-guest-fee-share', async (req, res) => {
+  try {
+    const { bookingId, clubId, organizerMemberId, phone, amount, memberName, guestKind } = req.body || {}
+    const bid = bookingId != null ? String(bookingId).trim() : ''
+    if (!bid) {
+      return res.status(400).json({ error: 'bookingId required (tournament booking saved for this club)' })
+    }
+    if (!clubId || !organizerMemberId || phone == null || String(phone).trim() === '') {
+      return res.status(400).json({ error: 'clubId, organizerMemberId, and phone required' })
+    }
+    const amt = parseFloat(amount) || 0
+    if (amt <= 0) return res.status(400).json({ error: 'amount must be greater than 0' })
+    const kind = guestKind === 'platform_registered' ? 'platform_registered' : 'unregistered'
+
+    const phoneNorm = normalizePhoneForBookingShare(String(phone).trim())
+    const phoneDig = digitsOnlyPhone(phoneNorm)
+    if (phoneDig.length < 8) return res.status(400).json({ error: 'Valid phone required' })
+
+    const { rows: bRows } = await query(
+      `SELECT id, member_id, initiator_member_id, total_amount, status, data, booking_date, start_time, end_time
+       FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
+      [bid, clubId]
+    )
+    if (!bRows?.length) return res.status(404).json({ error: 'Booking not found' })
+    const b = bRows[0]
+    const initiator = String(b.initiator_member_id || b.member_id || '').trim()
+    const orgId = String(organizerMemberId || '').trim()
+    if (!orgId) {
+      return res.status(400).json({ error: 'organizerMemberId required' })
+    }
+    if (initiator && orgId !== initiator) {
+      return res.status(403).json({
+        error: 'Only the member who created this booking can create payment invite links',
+      })
+    }
+    if (!initiator) {
+      const { rows: mcRows } = await query(
+        `SELECT 1 AS ok FROM member_clubs WHERE club_id = ? AND member_id = ? LIMIT 1`,
+        [String(clubId), orgId]
+      )
+      if (!mcRows?.length) {
+        return res.status(403).json({
+          error:
+            'Link your platform account to this club as a member to send invites, or ensure the tournament booking has an organizer (initiator).',
+        })
+      }
+    }
+    let data = {}
+    try {
+      data = typeof b.data === 'object' ? b.data : JSON.parse(b.data || '{}')
+    } catch {
+      data = {}
+    }
+    if (data.isTournament !== true && data.tournamentType == null && data.tournament_type == null) {
+      return res.status(400).json({ error: 'This booking is not marked as a tournament' })
+    }
+    const st = (b.status || '').toString()
+    if (['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st)) {
+      return res.status(400).json({ error: 'Cannot add shares to this booking' })
+    }
+
+    const lookup = await lookupMemberByPhoneForClub(clubId, phoneNorm)
+    if (lookup.ambiguous) {
+      return res.status(400).json({ error: 'Multiple accounts match this phone; resolve manually in admin' })
+    }
+    if (kind === 'unregistered') {
+      if (lookup.member) {
+        return res.status(400).json({
+          error: 'This number is already registered on the platform. Use the “registered member” invite.',
+          code: 'USE_REGISTERED_FLOW',
+        })
+      }
+    } else {
+      if (!lookup.member) {
+        return res.status(400).json({
+          error: 'No platform account with this number. Use the “not registered” invite.',
+          code: 'USE_UNREGISTERED_FLOW',
+        })
+      }
+      if (lookup.inClub) {
+        return res.status(400).json({
+          error: 'This member is already in the club directory.',
+          code: 'ALREADY_IN_CLUB',
+        })
+      }
+    }
+
+    const token = `inv_${crypto.randomBytes(16).toString('hex')}`
+    const isUnregistered = kind === 'unregistered'
+    const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
+    const baseUrl = getPayBaseUrlFromRequest(req)
+    const payUrl = `${baseUrl.replace(/\/$/, '')}/${payPath}/${token}`
+    const shareType = isUnregistered ? 'unregistered' : 'registered'
+    const shareMemberId = isUnregistered ? null : lookup.member.id
+    const shareName = (memberName && String(memberName).trim()) || lookup.member?.name || null
+
+    const clubPageUrlFull = `${baseUrl.replace(/\/$/, '')}/clubs/${encodeURIComponent(String(clubId))}`
+    const clubShareMeta = await loadClubShareMeta(clubId)
+    const addSplitDate = bookingDateYmd(b)
+    let addStart = b.start_time || ''
+    let addEnd = b.end_time || ''
+    const plain =
+      clubShareMeta && payUrl
+        ? buildPaymentShareWhatsAppPlainText({
+            clubName: clubShareMeta.displayName,
+            bookingDate: addSplitDate,
+            startTime: addStart || '—',
+            endTime: addEnd,
+            shareAmount: amt,
+            currency: clubShareMeta.currency,
+            paymentUrl: payUrl,
+            clubPageUrl: clubPageUrlFull,
+            externalWebsite: clubShareMeta.website,
+            mode: isUnregistered ? 'pay_invite' : 'pay_share',
+          })
+        : ''
+    const waLink = plain ? shareWhatsappLinkFromPlainText(plain) : shareWhatsappLinkFromPlainText(payUrl)
+
+    await query(
+      `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [bid, clubId, shareType, shareMemberId, shareName, phoneNorm || phone, amt, waLink || null, token]
+    )
+    const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bid, clubId)
+    if (clubId && rec?.bookingDate) slotCache.invalidateLocks(clubId, rec.bookingDate)
+    res.json({
+      ok: true,
+      inviteToken: token,
+      payUrl,
+      payInviteUrl: payUrl,
+      whatsappLink: waLink,
+      guestKind: kind,
+      ...rec,
+    })
+  } catch (e) {
+    console.error('bookings create-tournament-guest-fee-share error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
 /** POST /api/bookings/booker-update-share-phone — الحاجز يصحح رقم الضيف؛ يُبقى invite_token حتى لا تُبطَل روابط واتساب المرسلة سابقاً */
 router.post('/booker-update-share-phone', async (req, res) => {
   try {

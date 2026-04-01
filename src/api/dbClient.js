@@ -187,6 +187,7 @@ async function fetchJson(path, options = {}) {
       const err = await res.json().catch(() => ({}))
       const e = new Error(err.error || res.statusText)
       e.status = res.status
+      if (err.code != null && err.code !== '') e.apiCode = err.code
       throw e
     }
     return res.json()
@@ -757,6 +758,30 @@ export async function resolveMemberByPhone({ clubId, phone }) {
   return fetchJson('/api/bookings/resolve-member-by-phone', {
     method: 'POST',
     body: JSON.stringify({ clubId, phone }),
+  })
+}
+
+/** Tournament team picker: guest not in club directory — pay-invite (unregistered) or pay-share (platform user not in club yet). */
+export async function createTournamentGuestFeeShare({
+  bookingId,
+  clubId,
+  organizerMemberId,
+  phone,
+  amount,
+  memberName,
+  guestKind,
+}) {
+  return fetchJson('/api/bookings/create-tournament-guest-fee-share', {
+    method: 'POST',
+    body: JSON.stringify({
+      bookingId,
+      clubId,
+      organizerMemberId,
+      phone,
+      amount,
+      memberName,
+      guestKind,
+    }),
   })
 }
 

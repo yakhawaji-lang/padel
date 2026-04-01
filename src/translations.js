@@ -109,6 +109,21 @@ export const translations = {
     noMembersFound: 'No members found',
     memberSelectorOnTeam: 'On this team',
     memberSelectorOtherMembers: 'Other club members (search or pinned)',
+    memberSelectorGuestInviteTitle: 'No club member matches this number',
+    memberSelectorGuestInviteHint:
+      'Send a link so they can register or join the club, pay their share, and see the booking under My bookings (club page and My bookings).',
+    memberSelectorGuestInviteNotRegistered: 'Not on Playtix — register & pay',
+    memberSelectorGuestInviteRegisteredNotInClub: 'On Playtix, not in club — join & pay',
+    memberSelectorGuestInviteNeedPhoneDigits: 'Enter a full mobile number (at least 8 digits) before sending an invite.',
+    memberSelectorGuestInviteNeedLogin:
+      'Log in with your Playtix member account linked to this club to create payment links.',
+    memberSelectorGuestInviteNeedAmount: 'Set a default payment amount greater than zero at the top before sending.',
+    memberSelectorGuestInviteWrongFlowUnregistered:
+      'This number already has a Playtix account. Use the «On Playtix, not in club» option instead.',
+    memberSelectorGuestInviteWrongFlowRegistered:
+      'No Playtix account was found for this number. Use the «Not on Playtix» option instead.',
+    memberSelectorGuestInviteAlreadyInClub:
+      'This member is already in the club directory — find them in the list above (search or pin).',
     pointsHistory: 'Points History',
     showPointsHistory: 'Show Points History',
     hidePointsHistory: 'Hide Points History',
@@ -417,6 +432,21 @@ export const translations = {
     noMembersFound: 'لم يتم العثور على أعضاء',
     memberSelectorOnTeam: 'في هذا الفريق',
     memberSelectorOtherMembers: 'بقية أعضاء النادي (بحث أو مثبتون)',
+    memberSelectorGuestInviteTitle: 'لا يوجد عضو بهذا الرقم في دليل النادي',
+    memberSelectorGuestInviteHint:
+      'أرسل رابطاً ليتسجّل أو ينضمّ للنادي ويدفع حصّته، فيظهر الحجز له في «حجوزاتي» (صفحة النادي وصفحة حجوزاتي).',
+    memberSelectorGuestInviteNotRegistered: 'غير مسجّل في المنصة — تسجيل ودفع',
+    memberSelectorGuestInviteRegisteredNotInClub: 'مسجّل بالمنصة وغير منضمّ للنادي — انضمام ودفع',
+    memberSelectorGuestInviteNeedPhoneDigits: 'أدخل رقماً كاملاً للجوال (8 أرقام على الأقل) قبل إرسال الدعوة.',
+    memberSelectorGuestInviteNeedLogin:
+      'سجّل الدخول بحساب عضو المنصة المرتبط بهذا النادي لإنشاء روابط الدفع.',
+    memberSelectorGuestInviteNeedAmount: 'حدّد مبلغاً افتراضياً أكبر من صفر في الأعلى قبل الإرسال.',
+    memberSelectorGuestInviteWrongFlowUnregistered:
+      'هذا الرقم مسجّل بالفعل في المنصة. استخدم خيار «مسجّل وغير منضمّ للنادي».',
+    memberSelectorGuestInviteWrongFlowRegistered:
+      'لا يوجد حساب منصة بهذا الرقم. استخدم خيار «غير مسجّل في المنصة».',
+    memberSelectorGuestInviteAlreadyInClub:
+      'العضو موجود في دليل النادي — ابحث عنه في القائمة أعلاه أو ثبّته.',
     pointsHistory: 'سجل النقاط',
     showPointsHistory: 'عرض سجل النقاط',
     hidePointsHistory: 'إخفاء سجل النقاط',

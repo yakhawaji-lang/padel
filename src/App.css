@@ -2587,6 +2587,40 @@ button:active {
   line-height: 1.45;
 }
 
+.member-selector-guest-invite {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+.member-selector-guest-invite__title {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.member-selector-guest-invite__hint {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.member-selector-guest-invite__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.member-selector-guest-invite__actions .btn-small {
+  flex: 1 1 140px;
+  text-align: center;
+  justify-content: center;
+}
+
 .member-selector-pin-btn {
   flex-shrink: 0;
   display: inline-flex;
