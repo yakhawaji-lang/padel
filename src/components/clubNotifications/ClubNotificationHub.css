@@ -1,128 +1,7 @@
-/* Club notification rail + drawer + ticker — RTL-aware, reduced motion */
+/* Club notification rail + drawer — RTL-aware, reduced motion */
 
-.cn-ticker {
-  --cn-ticker-h: 40px;
-  background: #1a1d23;
-  color: #f8fafc;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
-  z-index: 9500;
-  overflow: hidden;
-  box-sizing: border-box;
-}
-
-.cn-ticker--fixed {
-  position: fixed;
-  top: env(safe-area-inset-top, 0px);
-  left: 0;
-  right: 0;
-  height: var(--cn-ticker-h);
-}
-
-.cn-ticker--bar {
-  position: relative;
-  width: 100%;
-  flex-shrink: 0;
-  height: var(--cn-ticker-h);
-  z-index: 6;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.28);
-}
-
-.cn-ticker-spacer {
-  width: 100%;
-  height: calc(var(--cn-ticker-h) + env(safe-area-inset-top, 0px));
-  flex-shrink: 0;
-  pointer-events: none;
-}
-
-.cn-ticker--urgent {
-  box-shadow:
-    0 0 0 2px rgba(250, 204, 21, 0.65),
-    0 0 24px rgba(250, 204, 21, 0.35),
-    0 4px 20px rgba(245, 158, 11, 0.2);
-  animation: cn-ticker-urgent-pulse 1.1s ease-in-out infinite;
-}
-
-@keyframes cn-ticker-urgent-pulse {
-  0%,
-  100% {
-    filter: brightness(1);
-  }
-  50% {
-    filter: brightness(1.12);
-  }
-}
-
-.cn-ticker--urgent.cn-ticker--no-motion {
-  animation: none;
-}
-
-.cn-ticker__inner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 100%;
-  padding: 0 12px;
-  max-width: 100%;
-}
-
-.cn-ticker__label {
-  flex-shrink: 0;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  opacity: 0.85;
-  color: #fde68a;
-}
-
-.cn-ticker__track {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-}
-
-.cn-ticker__marquee {
-  display: inline-block;
-  white-space: nowrap;
-  animation: cn-marquee 32s linear infinite;
-  padding-inline-end: 4rem;
-}
-
-.cn-ticker--no-motion .cn-ticker__marquee {
-  animation: none;
-  overflow-x: auto;
-  max-width: 100%;
-}
-
-@keyframes cn-marquee {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-33.333%);
-  }
-}
-
-.cn-ticker__cta {
-  flex-shrink: 0;
-  border: 1px solid rgba(248, 250, 252, 0.35);
-  background: rgba(248, 250, 252, 0.12);
-  color: inherit;
-  border-radius: 999px;
-  padding: 4px 12px;
-  font-size: 0.75rem;
-  cursor: pointer;
-}
-
-.cn-ticker__cta:hover {
-  background: rgba(248, 250, 252, 0.22);
-}
-
-/* Fixed rail: 5mm + protruding badges */
+/* Fixed rail (non-docked): floats on viewport edge */
 .cn-hub {
-  --cn-ticker-h: 40px;
   position: fixed;
   top: 0;
   bottom: 0;
@@ -160,8 +39,9 @@
   animation: cn-backdrop-in 0.18s ease;
 }
 
-/* Admin shell: ticker + [main | notification rail] — in page flow, not over the header */
-.club-admin-panel > .cn-admin-shell {
+/* Shell: [main | notification rail] — in page flow (admin + public club app) */
+.club-admin-panel > .cn-admin-shell,
+.app > .cn-admin-shell {
   flex: 1;
   min-height: 0;
   min-width: 0;
@@ -180,7 +60,8 @@
   overflow: hidden;
 }
 
-.club-admin-panel.rtl .cn-admin-shell__row {
+.club-admin-panel.rtl .cn-admin-shell__row,
+.app.rtl .cn-admin-shell__row {
   flex-direction: row-reverse;
 }
 
@@ -232,10 +113,6 @@
   to {
     opacity: 1;
   }
-}
-
-.cn-hub--has-ticker .cn-hub__rail-wrap {
-  padding-block-start: calc(72px + var(--cn-ticker-h) + env(safe-area-inset-top, 0px));
 }
 
 .cn-hub__rail-wrap {
@@ -910,12 +787,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cn-ticker__marquee {
-    animation: none !important;
-  }
-  .cn-ticker--urgent {
-    animation: none !important;
-  }
   .cn-hub__rail-seg--unread,
   .cn-hub__row--unread {
     animation: none !important;

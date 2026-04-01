@@ -19,6 +19,8 @@ import { loadClubs, getClubById, saveClubs, upsertMember, addMemberToClub, delet
 import { getClubAdminSession } from './storage/clubAuth'
 import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import LanguageIcon from './components/LanguageIcon'
+import ClubNotificationHub from './components/clubNotifications/ClubNotificationHub'
+import ClubPresenceBeacon from './components/clubNotifications/ClubPresenceBeacon'
 import ClubCalendarBookingDetailSheet from './components/ClubCalendarBookingDetailSheet'
 import { getBookingCalendarKind } from './utils/bookingCalendarKind'
 import { isLikelyServerBookingId, showInvoiceAlertFromApiResult } from './utils/bookingInvoiceSync'
@@ -5229,6 +5231,14 @@ function App({ currentUser }) {
 
   return (
     <div className={`app app-modern app-top-nav-only ${isRTL ? 'rtl' : ''}`}>
+      <ClubNotificationHub
+        clubId={clubId}
+        language={language}
+        mode="public"
+        showUi={!!clubId}
+        docked
+      >
+      <ClubPresenceBeacon clubId={clubId} />
       {/* Header */}
       <header className="app-header">
         <div className="header-content">
@@ -8191,6 +8201,7 @@ function App({ currentUser }) {
 
         </main>
       </div>
+      </ClubNotificationHub>
     </div>
   )
 }

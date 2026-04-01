@@ -483,9 +483,9 @@ function playNotificationSound(catKey) {
 }
 
 /**
- * @param {{ clubId: string, language: string, mode: 'admin' | 'public', showUi: boolean, showTicker?: boolean, docked?: boolean, children?: import('react').ReactNode }} props
+ * @param {{ clubId: string, language: string, mode: 'admin' | 'public', showUi: boolean, docked?: boolean, children?: import('react').ReactNode }} props
  */
-export default function ClubNotificationHub({ clubId, language, mode, showUi, showTicker = true, docked = false, children = null }) {
+export default function ClubNotificationHub({ clubId, language, mode, showUi, docked = false, children = null }) {
   const navigate = useNavigate()
   const [summary, setSummary] = useState(null)
   const [expanded, setExpanded] = useState(false)
@@ -519,9 +519,6 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
     }
     return out
   }, [counts, ack.catAck])
-
-  const hasUnread = useMemo(() => Object.values(unreadByCat).some((n) => n > 0), [unreadByCat])
-  const tickerStale = summary?.fingerprint && summary.fingerprint !== ack.fingerprint
 
   const load = useCallback(async () => {
     if (!clubId || !showUi) return
@@ -826,19 +823,6 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
     [clubId, navigate]
   )
 
-  const tickerParts = useMemo(() => {
-    const parts = []
-    for (const c of CAT_DEFS) {
-      const n = Number(counts[c.key] ?? 0) || 0
-      if (n <= 0) continue
-      const u = unreadByCat[c.id]
-      if (!tickerStale && !u) continue
-      const label = t[c.key] || c.key
-      parts.push(`${label}: ${n}`)
-    }
-    return parts
-  }, [counts, unreadByCat, tickerStale, t])
-
   const grouped = useMemo(() => {
     const g = {}
     for (const c of CAT_DEFS) {
@@ -868,36 +852,7 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
 
   if (!showUi) return null
 
-  const tickerPlacementClass = docked ? 'cn-ticker--bar' : 'cn-ticker--fixed'
-  const tickerEl =
-    showTicker && tickerParts.length > 0 && (tickerStale || hasUnread) ? (
-      <div
-        className={`cn-ticker ${tickerPlacementClass} ${reduceMotion ? 'cn-ticker--no-motion' : ''} ${tickerStale ? 'cn-ticker--urgent' : ''}`}
-        role="region"
-        aria-label={t.hubTitle}
-      >
-        <div className="cn-ticker__inner">
-          <span className="cn-ticker__label">{t.liveNow}</span>
-          <div className="cn-ticker__track" aria-live="polite">
-            <div className="cn-ticker__marquee">
-              {(tickerParts.join(t.tickerSep) + t.tickerSep).repeat(3)}
-            </div>
-          </div>
-          <button
-            type="button"
-            className="cn-ticker__cta"
-            onClick={() => {
-              primeClubNotificationAudio()
-              setExpanded(true)
-            }}
-          >
-            {t.openFeed}
-          </button>
-        </div>
-      </div>
-    ) : null
-
-  const asideClass = `cn-hub ${docked ? 'cn-hub--docked' : ''} ${!docked && tickerEl ? 'cn-hub--has-ticker' : ''} ${language === 'ar' ? 'cn-hub--rtl' : ''} ${expanded ? 'cn-hub--expanded' : ''}`
+  const asideClass = `cn-hub ${docked ? 'cn-hub--docked' : ''} ${language === 'ar' ? 'cn-hub--rtl' : ''} ${expanded ? 'cn-hub--expanded' : ''}`
 
   const asideEl = (
       <aside
@@ -1034,7 +989,7 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
             ))}
           </div>
           <div className="cn-hub__foot">
-            {canUseDesktopNotifications() ? (
+            {mode === 'admin' && canUseDesktopNotifications() ? (
               <div className="cn-hub__desktop-block">
                 <button
                   type="button"
@@ -1086,7 +1041,6 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
   if (docked) {
     return (
       <div className="cn-admin-shell">
-        {tickerEl}
         <div className="cn-admin-shell__row">
           <div className="cn-admin-shell__main">
             {expanded ? (
@@ -1107,9 +1061,6 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
 
   return (
     <>
-      {!docked && tickerEl ? <div className="cn-ticker-spacer" aria-hidden="true" /> : null}
-      {!docked ? tickerEl : null}
-
       {expanded ? (
         <div
           className="cn-hub__backdrop"
