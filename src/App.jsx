@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react'
-import { createPortal } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import './App.css'
 import { translations } from './translations'
@@ -460,7 +460,9 @@ function App({ currentUser }) {
   const [selectedDays, setSelectedDays] = useState([0, 1, 2, 3, 4, 5, 6]) // Array of day indices (0-6) to show in weekly view
   const isInitialMount = useRef(true) // Track if this is the first mount
   const isSavingRef = useRef(false) // Prevent save loops
-  
+  const memberSelectorPhoneInputRef = useRef(null)
+  const memberSelectorListRef = useRef(null)
+
   // Helper function to get available courts count (excluding maintenance)
   const getAvailableCourtsCount = () => {
     if (!currentClub?.courts) return 4 // Default to 4 if no courts defined
@@ -5263,7 +5265,24 @@ function App({ currentUser }) {
           : national.length >= 8
             ? digits
             : digits || rawStr.replace(/\s+/g, '')
-      setMemberSelectorSearch(display)
+      flushSync(() => {
+        setMemberSelectorSearch(display)
+      })
+      requestAnimationFrame(() => {
+        memberSelectorListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        const el = memberSelectorPhoneInputRef.current
+        if (el && typeof el.focus === 'function') {
+          el.focus()
+          try {
+            const len = String(display).length
+            if (len > 0 && typeof el.setSelectionRange === 'function') {
+              el.setSelectionRange(len, len)
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+      })
     } catch (err) {
       const name = err?.name || ''
       if (name === 'AbortError') return
@@ -8168,6 +8187,7 @@ function App({ currentUser }) {
                   </div>
                   <div className="search-bar-container member-selector-phone-row">
                     <input
+                      ref={memberSelectorPhoneInputRef}
                       type="text"
                       inputMode="tel"
                       autoComplete="off"
@@ -8208,7 +8228,7 @@ function App({ currentUser }) {
                     ) : null}
                   </div>
                   <p className="member-selector-phone-hint">{t.memberSelectorPhoneHint}</p>
-                  <div className="member-selector-list">
+                  <div className="member-selector-list" ref={memberSelectorListRef}>
                     {[
                       { key: 'on', title: t.memberSelectorOnTeam, list: memberSelectorPartitioned.onTeam },
                       { key: 'off', title: t.memberSelectorOtherMembers, list: memberSelectorPartitioned.offTeam },
