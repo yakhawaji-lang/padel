@@ -2502,9 +2502,52 @@ button:active {
   color: #a16207;
 }
 
+.member-selector-phone-hint {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin: -2px 0 10px;
+  line-height: 1.45;
+}
+
+.member-selector-pin-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #64748b;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.member-selector-pin-btn:hover {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.member-selector-pin-btn--active {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: #6366f1;
+  color: #3730a3;
+}
+
+.member-selector-pin-btn:focus-visible {
+  outline: 2px solid #818cf8;
+  outline-offset: 2px;
+}
+
 .member-selector-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 10px;
   border: 1px solid #e1e8ed;

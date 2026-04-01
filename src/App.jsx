@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import './App.css'
@@ -312,6 +312,8 @@ function memberDisplayNameForSelector(m) {
 }
 
 /** دمج أعضاء النادي من التخزين الموحّد + club.members + نسخة محلية قديمة */
+const memberSelectorPinsStorageKey = (cid) => `playtix_member_selector_pins_${String(cid || '')}`
+
 function mergeClubMembersForApp(club, clubId, savedList) {
   try {
     const fromStorage = getClubMembersFromStorage(clubId) || []
@@ -380,6 +382,8 @@ function App({ currentUser }) {
   const [memberSelectorSearch, setMemberSelectorSearch] = useState('') // Search query in member selector modal
   const [memberSelectorBulkFee, setMemberSelectorBulkFee] = useState('') // default fee applied to all rows in modal
   const [memberSelectorFeeDraft, setMemberSelectorFeeDraft] = useState({}) // { [memberId]: string }
+  /** معرفات أعضاء مثبتة للظهور في المنتقي بدون بحث (لكل نادي) */
+  const [memberSelectorPinnedIds, setMemberSelectorPinnedIds] = useState([])
   const [teamMemberDragOverId, setTeamMemberDragOverId] = useState(null)
   const [showMemberPointsHistory, setShowMemberPointsHistory] = useState(false) // Show/hide member points history
   const [selectedMemberForHistory, setSelectedMemberForHistory] = useState(null) // Selected member ID for viewing history
@@ -711,6 +715,20 @@ function App({ currentUser }) {
     }
     window.addEventListener('clubs-synced', onSynced)
     return () => window.removeEventListener('clubs-synced', onSynced)
+  }, [clubId])
+
+  useEffect(() => {
+    if (!clubId) {
+      setMemberSelectorPinnedIds([])
+      return
+    }
+    try {
+      const raw = localStorage.getItem(memberSelectorPinsStorageKey(clubId))
+      const arr = raw ? JSON.parse(raw) : []
+      setMemberSelectorPinnedIds(Array.isArray(arr) ? arr.map(String) : [])
+    } catch {
+      setMemberSelectorPinnedIds([])
+    }
   }, [clubId])
 
   // Update document direction and persist language
@@ -5175,25 +5193,47 @@ function App({ currentUser }) {
 
   const standings = getStandings()
   const teams = currentState.teams || []
+  const toggleMemberSelectorPin = useCallback(
+    (memberId) => {
+      const id = String(memberId)
+      if (!clubId) return
+      setMemberSelectorPinnedIds((prev) => {
+        const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+        try {
+          localStorage.setItem(memberSelectorPinsStorageKey(clubId), JSON.stringify(next))
+        } catch (_) {
+          /* ignore quota */
+        }
+        return next
+      })
+    },
+    [clubId]
+  )
+
   const memberSelectorPartitioned = useMemo(() => {
     if (!openMemberSelectorForTeam) return { onTeam: [], offTeam: [] }
     const team = teams.find((t) => t.id === openMemberSelectorForTeam)
     const onTeamIds = new Set((team?.memberIds || []).map((id) => String(id)))
+    const pinned = new Set(memberSelectorPinnedIds.map(String))
     const nameOf = memberDisplayNameForSelector
-    const matches = (m) => {
-      if (!memberSelectorSearch.trim()) return true
-      const q = memberSelectorSearch.toLowerCase().trim()
-      const n = nameOf(m).toLowerCase()
-      const mob = String(m.mobile || m.phone || '').toLowerCase().replace(/\s/g, '')
-      const qDigits = q.replace(/\D/g, '')
-      return n.includes(q) || (qDigits.length >= 3 && mob.includes(qDigits))
-    }
     const sortByName = (a, b) => nameOf(a).localeCompare(nameOf(b), undefined, { sensitivity: 'base' })
-    const pool = members.filter(matches)
-    const onTeam = pool.filter((m) => onTeamIds.has(String(m.id))).sort(sortByName)
-    const offTeam = pool.filter((m) => !onTeamIds.has(String(m.id))).sort(sortByName)
+    const searchDigits = String(memberSelectorSearch || '').replace(/\D/g, '')
+    const phoneSearchOk = searchDigits.length >= 3
+    const phoneMatches = (m) => {
+      const mob = String(m.mobile || m.phone || '').replace(/\D/g, '')
+      return mob.includes(searchDigits)
+    }
+    const onTeam = members.filter((m) => onTeamIds.has(String(m.id))).sort(sortByName)
+    const offTeam = members
+      .filter((m) => {
+        if (onTeamIds.has(String(m.id))) return false
+        if (pinned.has(String(m.id))) return true
+        if (phoneSearchOk && phoneMatches(m)) return true
+        return false
+      })
+      .sort(sortByName)
     return { onTeam, offTeam }
-  }, [openMemberSelectorForTeam, teams, members, memberSelectorSearch])
+  }, [openMemberSelectorForTeam, teams, members, memberSelectorSearch, memberSelectorPinnedIds])
   const clubCurrency = currentClub?.settings?.currency || 'SAR'
   const clubNameWhatsApp = currentClub?.nameAr || currentClub?.name || ''
   const tournamentDateStr =
@@ -8092,13 +8132,16 @@ function App({ currentUser }) {
                   <div className="search-bar-container">
                     <input
                       type="text"
-                      placeholder={t.searchPlaceholder}
+                      inputMode="tel"
+                      autoComplete="off"
+                      placeholder={t.memberSelectorPhonePlaceholder}
                       value={memberSelectorSearch}
                       onChange={(e) => setMemberSelectorSearch(e.target.value)}
                       className="search-input"
                       autoFocus
                     />
                   </div>
+                  <p className="member-selector-phone-hint">{t.memberSelectorPhoneHint}</p>
                   <div className="member-selector-list">
                     {[
                       { key: 'on', title: t.memberSelectorOnTeam, list: memberSelectorPartitioned.onTeam },
@@ -8129,6 +8172,7 @@ function App({ currentUser }) {
                               )
                             }
                             const displayName = memberDisplayNameForSelector(member)
+                            const isPinned = memberSelectorPinnedIds.includes(String(member.id))
                             return (
                               <div key={member.id} className="member-selector-row">
                                 <input
@@ -8181,6 +8225,32 @@ function App({ currentUser }) {
                                     {t.sendWhatsApp}
                                   </span>
                                 )}
+                                <button
+                                  type="button"
+                                  className={`member-selector-pin-btn${isPinned ? ' member-selector-pin-btn--active' : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    toggleMemberSelectorPin(member.id)
+                                  }}
+                                  title={isPinned ? t.memberSelectorUnpinTitle : t.memberSelectorPinTitle}
+                                  aria-label={isPinned ? t.memberSelectorUnpinTitle : t.memberSelectorPinTitle}
+                                  aria-pressed={isPinned}
+                                >
+                                  <svg
+                                    viewBox="0 0 24 24"
+                                    width="18"
+                                    height="18"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    aria-hidden
+                                  >
+                                    <path d="M12 22s-7-4.5-7-11a7 7 0 1114 0c0 6.5-7 11-7 11z" />
+                                    <circle cx="12" cy="11" r="2.5" fill="currentColor" stroke="none" />
+                                  </svg>
+                                </button>
                                 <label className="member-selector-item member-selector-item--in-row">
                                   <input
                                     type="checkbox"
@@ -8217,7 +8287,7 @@ function App({ currentUser }) {
                         </React.Fragment>
                       ))}
                     {memberSelectorPartitioned.onTeam.length + memberSelectorPartitioned.offTeam.length === 0 ? (
-                      <p className="no-members-found">{t.noMembersFound}</p>
+                      <p className="no-members-found">{t.memberSelectorEmptyCards}</p>
                     ) : null}
                   </div>
                 </div>

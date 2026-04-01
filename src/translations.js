@@ -87,7 +87,14 @@ export const translations = {
     defaultPaymentAmount: 'Default payment amount',
     applyFeeToAllMembers: 'Apply to all',
     memberSelectorPaymentHint:
-      'Set the fee for each member (or use default and apply to all), send WhatsApp if needed, then tick members to add them to the team.',
+      'Set fees and use WhatsApp as needed. Under «Other club members», cards appear only after you type at least 3 digits of a mobile number, or pin members to always show them.',
+    memberSelectorPhonePlaceholder: 'Type mobile number (3+ digits)…',
+    memberSelectorPhoneHint:
+      'Other members appear here only when the number matches, or when pinned. Current team members always show above.',
+    memberSelectorPinTitle: 'Pin — always show this member in the list',
+    memberSelectorUnpinTitle: 'Unpin',
+    memberSelectorEmptyCards:
+      'No cards to show. Add at least 3 digits of a mobile number, or pin members using the pin button after they appear.',
     sendWhatsApp: 'WhatsApp',
     paymentAmountShort: 'Amount',
     clubReceivedPaymentTitle: 'Club received payment (front desk)',
@@ -95,8 +102,8 @@ export const translations = {
     dragMembersBetweenTeamsHint: 'Drag a member chip to another team to move them.',
     close: 'Close',
     noMembersFound: 'No members found',
-    memberSelectorOnTeam: 'On this team (shown first)',
-    memberSelectorOtherMembers: 'Other club members',
+    memberSelectorOnTeam: 'On this team',
+    memberSelectorOtherMembers: 'Other club members (search or pinned)',
     pointsHistory: 'Points History',
     showPointsHistory: 'Show Points History',
     hidePointsHistory: 'Hide Points History',
@@ -383,7 +390,14 @@ export const translations = {
     defaultPaymentAmount: 'مبلغ الدفع الافتراضي',
     applyFeeToAllMembers: 'تطبيق على الجميع',
     memberSelectorPaymentHint:
-      'حدد المبلغ لكل عضو (أو الافتراضي ثم تطبيق على الجميع)، أرسل واتساب عند الحاجة، ثم اختر الأعضاء لإضافتهم للفريق.',
+      'حدد المبالغ واستخدم واتساب عند الحاجة. تحت «بقية أعضاء النادي» تظهر البطاقات فقط بعد كتابة 3 أرقام على الأقل من الجوال، أو بعد تثبيت العضو ليظهر دائماً.',
+    memberSelectorPhonePlaceholder: 'اكتب رقم الجوال (3 أرقام على الأقل)…',
+    memberSelectorPhoneHint:
+      'يظهر العضو هنا عند تطابق الرقم، أو إن كان مثبتاً. أعضاء الفريق الحالي يظهرون دائماً في الأعلى.',
+    memberSelectorPinTitle: 'تثبيت — إظهار هذا العضو دائماً في القائمة',
+    memberSelectorUnpinTitle: 'إلغاء التثبيت',
+    memberSelectorEmptyCards:
+      'لا توجد بطاقات. أدخل 3 أرقام على الأقل من الجوال، أو ثبّت أعضاءً بزر الدبوس بعد ظهورهم.',
     sendWhatsApp: 'واتساب',
     paymentAmountShort: 'المبلغ',
     clubReceivedPaymentTitle: 'استلام الدفع في النادي (الاستقبال)',
@@ -391,8 +405,8 @@ export const translations = {
     dragMembersBetweenTeamsHint: 'اسحب بطاقة العضو إلى فريق آخر لنقله.',
     close: 'إغلاق',
     noMembersFound: 'لم يتم العثور على أعضاء',
-    memberSelectorOnTeam: 'مثبتون في الفريق (يظهرون أولاً)',
-    memberSelectorOtherMembers: 'بقية أعضاء النادي',
+    memberSelectorOnTeam: 'في هذا الفريق',
+    memberSelectorOtherMembers: 'بقية أعضاء النادي (بحث أو مثبتون)',
     pointsHistory: 'سجل النقاط',
     showPointsHistory: 'عرض سجل النقاط',
     hidePointsHistory: 'إخفاء سجل النقاط',
