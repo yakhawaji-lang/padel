@@ -437,7 +437,7 @@ export const syncMembersToClubs = (clubs, options = {}) => {
           name: m.name,
           email: m.email,
           avatar: m.avatar,
-          mobile: m.mobile || m.phone,
+          mobile: m.mobile || m.phone || m.phoneNumber || m.phone_number || '',
           totalGames: m.totalGames || 0,
           totalWins: m.totalWins || 0,
           totalPoints: m.totalPoints || 0,
@@ -1102,8 +1102,8 @@ export const getClubMembersFromStorage = (clubId) => {
       name: m.name,
       email: m.email,
       avatar: m.avatar,
-      mobile: m.mobile || m.phone,
-      phone: m.phone || m.mobile || '',
+      mobile: m.mobile || m.phone || m.phoneNumber || m.phone_number || '',
+      phone: m.phone || m.mobile || m.phoneNumber || m.phone_number || '',
       totalGames: m.totalGames || 0,
       totalWins: m.totalWins || 0,
       totalPoints: m.totalPoints || 0,
@@ -1124,8 +1124,8 @@ export const getAllMembersFromStorage = () => {
       name: m.name,
       email: m.email,
       avatar: m.avatar,
-      mobile: m.mobile || m.phone,
-      phone: m.phone || m.mobile || '',
+      mobile: m.mobile || m.phone || m.phoneNumber || m.phone_number || '',
+      phone: m.phone || m.mobile || m.phoneNumber || m.phone_number || '',
       clubIds: m.clubIds || (m.clubId ? [m.clubId] : [])
     }))
   } catch (e) {

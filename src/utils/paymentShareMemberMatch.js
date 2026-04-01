@@ -1,6 +1,8 @@
+import { phoneDigitsNormalized, splitPickedPhoneToCountryAndNational } from './phoneNormalize'
+
 /** Last 9 digits — match 05xxxxxxxx with 9665xxxxxxxx */
 export function phoneTailKey(s) {
-  const d = (s || '').replace(/\D/g, '')
+  const d = phoneDigitsNormalized(s || '')
   return d.length >= 9 ? d.slice(-9) : d
 }
 
@@ -14,17 +16,34 @@ const PHONE_TAIL_MATCH_MIN = 8
  * @param {string} memberRaw — member.mobile or member.phone
  */
 export function phoneMatchesMemberSearch(searchRaw, memberRaw) {
-  const s = String(searchRaw || '').replace(/\D/g, '')
-  const m = String(memberRaw || '').replace(/\D/g, '')
+  const s = phoneDigitsNormalized(searchRaw)
+  const m = phoneDigitsNormalized(memberRaw)
   if (!s || s.length < 3 || !m) return false
   if (m.includes(s) || s.includes(m)) return true
   const ts = phoneTailKey(searchRaw)
   const tm = phoneTailKey(memberRaw)
-  return (
+  if (
     ts.length >= PHONE_TAIL_MATCH_MIN &&
     tm.length >= PHONE_TAIL_MATCH_MIN &&
     ts === tm
-  )
+  ) {
+    return true
+  }
+  const ns = phoneDigitsNormalized(splitPickedPhoneToCountryAndNational(searchRaw).national)
+  const nm = phoneDigitsNormalized(splitPickedPhoneToCountryAndNational(memberRaw).national)
+  if (ns.length >= 3 && nm.length >= 3) {
+    if (ns === nm || ns.includes(nm) || nm.includes(ns)) return true
+    const nts = ns.length >= 9 ? ns.slice(-9) : ns
+    const ntm = nm.length >= 9 ? nm.slice(-9) : nm
+    if (
+      nts.length >= PHONE_TAIL_MATCH_MIN &&
+      ntm.length >= PHONE_TAIL_MATCH_MIN &&
+      nts === ntm
+    ) {
+      return true
+    }
+  }
+  return false
 }
 
 /**

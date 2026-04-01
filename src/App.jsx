@@ -44,7 +44,10 @@ import {
 } from './utils/clubWorkingHours'
 import { isTerminalBookingStatus, isMemberCancelledBooking, bookingHasPendingMemberShareRefund } from './utils/bookingMemberCancel'
 import { phoneMatchesMemberSearch } from './utils/paymentShareMemberMatch'
-import { splitPickedPhoneToCountryAndNational, phoneDigits } from './utils/phoneNormalize'
+import {
+  splitPickedPhoneToCountryAndNational,
+  phoneDigitsNormalized,
+} from './utils/phoneNormalize'
 
 function bookingJsonData(booking) {
   const d = booking?.data
@@ -313,6 +316,16 @@ function memberDisplayNameForSelector(m) {
   return s || '?'
 }
 
+/** رقم الجوال/الهاتف للمطابقة (حقول API قد تختلف بين mobile / phone / phone_number) */
+function memberPhoneRawForSelector(m) {
+  if (!m || typeof m !== 'object') return ''
+  const candidates = [m.mobile, m.phone, m.phoneNumber, m.phone_number, m.telephone, m.tel]
+  for (const p of candidates) {
+    if (p != null && String(p).trim() !== '') return String(p).trim()
+  }
+  return ''
+}
+
 /** دمج أعضاء النادي من التخزين الموحّد + club.members + نسخة محلية قديمة */
 const memberSelectorPinsStorageKey = (cid) => `playtix_member_selector_pins_${String(cid || '')}`
 
@@ -332,8 +345,22 @@ function mergeClubMembersForApp(club, clubId, savedList) {
         id: m.id,
         name: m.name || prev.name || '',
         email: m.email || prev.email,
-        mobile: m.mobile || m.phone || prev.mobile || prev.phone || '',
-        phone: m.phone || m.mobile || prev.phone || prev.mobile || '',
+        mobile:
+          m.mobile ||
+          m.phone ||
+          m.phoneNumber ||
+          m.phone_number ||
+          prev.mobile ||
+          prev.phone ||
+          '',
+        phone:
+          m.phone ||
+          m.mobile ||
+          m.phoneNumber ||
+          m.phone_number ||
+          prev.phone ||
+          prev.mobile ||
+          '',
       })
     }
     fromStorage.forEach(merge)
@@ -5221,10 +5248,10 @@ function App({ currentUser }) {
     const pinned = new Set(memberSelectorPinnedIds.map(String))
     const nameOf = memberDisplayNameForSelector
     const sortByName = (a, b) => nameOf(a).localeCompare(nameOf(b), undefined, { sensitivity: 'base' })
-    const searchDigits = String(memberSelectorSearch || '').replace(/\D/g, '')
+    const searchDigits = phoneDigitsNormalized(memberSelectorSearch || '')
     const phoneSearchOk = searchDigits.length >= 3
     const phoneMatches = (m) =>
-      phoneMatchesMemberSearch(memberSelectorSearch, m.mobile || m.phone || '')
+      phoneMatchesMemberSearch(memberSelectorSearch, memberPhoneRawForSelector(m))
     const onTeam = members.filter((m) => onTeamIds.has(String(m.id))).sort(sortByName)
     const offTeam = members
       .filter((m) => {
@@ -5258,7 +5285,7 @@ function App({ currentUser }) {
       if (raw == null || String(raw).trim() === '') return
       const rawStr = String(raw).trim()
       const { countryCode, national } = splitPickedPhoneToCountryAndNational(rawStr)
-      const digits = phoneDigits(rawStr)
+      const digits = phoneDigitsNormalized(rawStr)
       let display =
         countryCode === '966' && national.length >= 9
           ? `0${national}`
@@ -5269,13 +5296,13 @@ function App({ currentUser }) {
         setMemberSelectorSearch(display)
       })
       const teamId = openMemberSelectorForTeam
-      const searchDigits = String(display).replace(/\D/g, '')
+      const searchDigits = phoneDigitsNormalized(display)
       if (teamId && searchDigits.length >= 3) {
         const team = teams.find((x) => x.id === teamId)
         const onTeamIds = new Set((team?.memberIds || []).map((id) => String(id)))
         const offClubMatches = members.filter((m) => {
           if (onTeamIds.has(String(m.id))) return false
-          return phoneMatchesMemberSearch(display, m.mobile || m.phone || '')
+          return phoneMatchesMemberSearch(display, memberPhoneRawForSelector(m))
         })
         if (offClubMatches.length === 1) {
           const member = offClubMatches[0]
@@ -8282,7 +8309,7 @@ function App({ currentUser }) {
                             const isSelected = (team?.memberIds || []).some((id) => String(id) === String(member.id))
                             const feeVal = memberSelectorFeeDraft[member.id] ?? ''
                             const amt = parseFloat(String(feeVal).replace(',', '.')) || 0
-                            const phoneForWa = member.mobile || member.phone || ''
+                            const phoneForWa = memberPhoneRawForSelector(member)
                             const digits = String(phoneForWa).replace(/\D/g, '')
                             let waUrl = null
                             if (digits.length >= 8) {
