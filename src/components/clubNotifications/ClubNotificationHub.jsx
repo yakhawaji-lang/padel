@@ -161,6 +161,11 @@ function labelsForLang(lang) {
     soundOff: 'Bell sound muted',
     soundMuteAria: 'Mute notification bell',
     soundUnmuteAria: 'Enable notification bell',
+    desktopNotifyTitle: 'System alerts when away',
+    desktopNotifyHint: 'Shows a desktop notification with sound when this tab is in the background or another app is focused. Requires browser permission.',
+    desktopNotifyOn: 'System alerts on',
+    desktopNotifyOff: 'Enable system alerts',
+    desktopDenied: 'Notifications blocked — allow them in the browser site settings.',
   }
   const ar = {
     hubTitle: 'الإشعارات',
@@ -190,6 +195,12 @@ function labelsForLang(lang) {
     soundOff: 'صوت الجرس مكتوم',
     soundMuteAria: 'كتم صوت جرس الإشعارات',
     soundUnmuteAria: 'تشغيل صوت جرس الإشعارات',
+    desktopNotifyTitle: 'تنبيهات النظام عند ترك الصفحة',
+    desktopNotifyHint:
+      'يظهر إشعاراً على سطح المكتب مع صوت عندما التبويب في الخلفية أو تستخدم برنامجاً آخر. يتطلب إذناً من المتصفح.',
+    desktopNotifyOn: 'تنبيهات النظام مفعّلة',
+    desktopNotifyOff: 'تفعيل تنبيهات النظام',
+    desktopDenied: 'الإشعارات مرفوضة — اسمح بها من إعدادات الموقع في المتصفح.',
   }
   return lang === 'ar' ? ar : en
 }
@@ -225,6 +236,40 @@ function writeSoundMuted(muted) {
   try {
     localStorage.setItem(SOUND_MUTED_KEY, muted ? '1' : '0')
   } catch { /* ignore */ }
+}
+
+const DESKTOP_NOTIFY_KEY = 'playtix_notify_desktop_v1'
+
+function readDesktopNotify() {
+  try {
+    return localStorage.getItem(DESKTOP_NOTIFY_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writeDesktopNotify(on) {
+  try {
+    localStorage.setItem(DESKTOP_NOTIFY_KEY, on ? '1' : '0')
+  } catch { /* ignore */ }
+}
+
+function canUseDesktopNotifications() {
+  return typeof window !== 'undefined' && typeof Notification !== 'undefined'
+}
+
+/** إشعار نظام (صوت من النظام) عندما الصفحة ليست في التركيز — Web Audio غالباً لا يعمل هناك */
+function showClubDesktopNotification({ title, body, tag }) {
+  if (!canUseDesktopNotifications() || Notification.permission !== 'granted') return
+  try {
+    new Notification(title, {
+      body,
+      tag: String(tag),
+      silent: false,
+    })
+  } catch {
+    /* ignore */
+  }
 }
 
 let sharedAudioCtx = null
@@ -394,6 +439,8 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
   const [err, setErr] = useState(null)
   const [ackTick, setAckTick] = useState(0)
   const [soundMuted, setSoundMuted] = useState(() => readSoundMuted())
+  const [desktopNotify, setDesktopNotify] = useState(() => readDesktopNotify())
+  const [desktopDeniedHint, setDesktopDeniedHint] = useState(false)
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
   const pollRef = useRef(null)
   const prevPollCountsRef = useRef(null)
@@ -435,9 +482,18 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
   useEffect(() => {
     if (!showUi) return undefined
     pollRef.current = setInterval(() => {
-      if (document.visibilityState === 'visible') load()
+      load()
     }, POLL_MS)
     return () => clearInterval(pollRef.current)
+  }, [load, showUi])
+
+  useEffect(() => {
+    if (!showUi) return undefined
+    const onVis = () => {
+      if (document.visibilityState === 'visible') load()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
   }, [load, showUi])
 
   useEffect(() => {
@@ -502,6 +558,30 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
     setSoundMuted(next)
   }, [])
 
+  const toggleDesktopNotify = useCallback(
+    async (e) => {
+      e?.stopPropagation?.()
+      if (!canUseDesktopNotifications()) return
+      setDesktopDeniedHint(false)
+      if (readDesktopNotify()) {
+        writeDesktopNotify(false)
+        setDesktopNotify(false)
+        return
+      }
+      let perm = Notification.permission
+      if (perm === 'default') {
+        perm = await Notification.requestPermission()
+      }
+      if (perm !== 'granted') {
+        setDesktopDeniedHint(true)
+        return
+      }
+      writeDesktopNotify(true)
+      setDesktopNotify(true)
+    },
+    []
+  )
+
   useEffect(() => {
     if (!showUi || !summary?.counts) return
     const prev = prevPollCountsRef.current
@@ -522,8 +602,23 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
     }
     prevPollCountsRef.current = snap
     if (!increasedKey || soundMuted) return
-    playNotificationSound(increasedKey)
-  }, [summary, counts, showUi, soundMuted])
+
+    const backgrounded = typeof document !== 'undefined' && !document.hasFocus()
+    const desktopOk =
+      readDesktopNotify() && canUseDesktopNotifications() && Notification.permission === 'granted'
+
+    if (backgrounded && desktopOk) {
+      const lab = t[increasedKey] || increasedKey
+      const n = snap[increasedKey]
+      showClubDesktopNotification({
+        title: language === 'ar' ? 'إشعار النادي' : 'Club notification',
+        body: language === 'ar' ? `${lab}: ${n}` : `${lab}: ${n}`,
+        tag: `playtix-${clubId}-${increasedKey}-${Date.now()}`,
+      })
+    } else {
+      playNotificationSound(increasedKey)
+    }
+  }, [summary, counts, showUi, soundMuted, t, language, clubId])
 
   const goAdmin = useCallback(
     (pathSeg, search = '') => {
@@ -742,6 +837,21 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
             ))}
           </div>
           <div className="cn-hub__foot">
+            {canUseDesktopNotifications() ? (
+              <div className="cn-hub__desktop-block">
+                <button
+                  type="button"
+                  className={`cn-hub__desktop-toggle ${desktopNotify ? 'cn-hub__desktop-toggle--on' : ''}`}
+                  onClick={toggleDesktopNotify}
+                  title={desktopNotify ? t.desktopNotifyOn : t.desktopNotifyOff}
+                  aria-pressed={desktopNotify}
+                >
+                  {desktopNotify ? t.desktopNotifyOn : t.desktopNotifyOff}
+                </button>
+                <p className="cn-hub__desktop-hint">{t.desktopNotifyHint}</p>
+                {desktopDeniedHint ? <p className="cn-hub__desktop-warn">{t.desktopDenied}</p> : null}
+              </div>
+            ) : null}
             <button type="button" className="cn-hub__mark-read" onClick={markAllRead} disabled={!summary}>
               {t.markRead}
             </button>

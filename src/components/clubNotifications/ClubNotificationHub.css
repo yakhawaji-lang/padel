@@ -774,6 +774,56 @@
   padding: 14px 16px max(16px, env(safe-area-inset-bottom, 16px));
   border-top: 1px solid #e2e8f0;
   background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cn-hub__desktop-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cn-hub__desktop-toggle {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-align: center;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.cn-hub__desktop-toggle:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.cn-hub__desktop-toggle--on {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.1);
+  color: #166534;
+}
+
+.cn-hub__desktop-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.cn-hub__desktop-warn {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #b45309;
 }
 
 .cn-hub__mark-read {
