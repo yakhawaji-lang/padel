@@ -91,8 +91,8 @@ export const translations = {
     memberSelectorPhonePlaceholder: 'Type mobile number (3+ digits)…',
     memberSelectorPhoneHint:
       'Other members appear here only when the number matches, or when pinned. Current team members always show above.',
-    memberSelectorPinTitle: 'Pin — always show this member in the list',
-    memberSelectorUnpinTitle: 'Unpin',
+    memberSelectorPinTitle: 'Bookmark — keep this member visible without searching',
+    memberSelectorUnpinTitle: 'Remove bookmark',
     memberSelectorEmptyCards:
       'No cards to show. Add at least 3 digits of a mobile number, or pin members using the pin button after they appear.',
     sendWhatsApp: 'WhatsApp',

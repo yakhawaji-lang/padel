@@ -8237,19 +8237,17 @@ function App({ currentUser }) {
                                   aria-pressed={isPinned}
                                 >
                                   <svg
+                                    className="member-selector-pin-svg"
                                     viewBox="0 0 24 24"
-                                    width="18"
-                                    height="18"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
+                                    width="20"
+                                    height="20"
                                     aria-hidden
                                   >
-                                    {/* دبوس ورقي: رأس دائري + طرف مدبب */}
-                                    <ellipse cx="12" cy="7" rx="4" ry="3.25" />
-                                    <path d="M8.25 10.25 12 21.5 15.75 10.25" />
+                                    {/* علامة مرجعية — خط عند عدم التثبيت، تعبئة عند التثبيت (يُتحكم بها من CSS) */}
+                                    <path
+                                      className="member-selector-pin-shape"
+                                      d="M19 21l-7-4-7 4V5a2 2 0 012-2h10a2 2 0 012 2v16z"
+                                    />
                                   </svg>
                                 </button>
                                 <label className="member-selector-item member-selector-item--in-row">
