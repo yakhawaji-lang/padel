@@ -2514,29 +2514,23 @@ button:active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 1px solid #cbd5e1;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 6px;
+  border: none;
   border-radius: 8px;
-  background: #f8fafc;
+  background: transparent;
   color: #64748b;
   cursor: pointer;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease,
-    border-color 0.15s ease;
+  transition: color 0.15s ease;
 }
 
 .member-selector-pin-btn:hover {
-  background: #e2e8f0;
   color: #334155;
 }
 
 .member-selector-pin-btn--active {
-  background: rgba(99, 102, 241, 0.18);
-  border-color: #6366f1;
-  color: #3730a3;
+  color: #4f46e5;
 }
 
 .member-selector-pin-btn:focus-visible {
