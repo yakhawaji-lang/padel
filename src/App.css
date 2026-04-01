@@ -2369,6 +2369,21 @@ button:active {
   }
 }
 
+.member-selector-section-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  padding: 12px 4px 6px;
+  margin: 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.member-selector-section-label:first-child {
+  padding-top: 4px;
+}
+
 .member-selector-list {
   margin-top: 15px;
   max-height: 400px;

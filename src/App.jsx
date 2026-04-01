@@ -15,7 +15,16 @@ import {
   deleteMatchesByTournament,
   deleteMatchesByDateAndType
 } from './storage'
-import { loadClubs, getClubById, saveClubs, upsertMember, addMemberToClub, deleteMember, refreshClubsFromApi } from './storage/adminStorage'
+import {
+  loadClubs,
+  getClubById,
+  saveClubs,
+  upsertMember,
+  addMemberToClub,
+  deleteMember,
+  refreshClubsFromApi,
+  getClubMembersFromStorage,
+} from './storage/adminStorage'
 import { getClubAdminSession } from './storage/clubAuth'
 import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import LanguageIcon from './components/LanguageIcon'
@@ -294,6 +303,43 @@ function CalendarBookingTooltip({
       </footer>
     </div>
   )
+}
+
+/** اسم العرض في قوائم الاختيار (لا يعتمد على name فقط) */
+function memberDisplayNameForSelector(m) {
+  const s = String(m?.name || m?.email || m?.mobile || m?.phone || m?.id || '').trim()
+  return s || '?'
+}
+
+/** دمج أعضاء النادي من التخزين الموحّد + club.members + نسخة محلية قديمة */
+function mergeClubMembersForApp(club, clubId, savedList) {
+  try {
+    const fromStorage = getClubMembersFromStorage(clubId) || []
+    const clubMembers = club?.members && Array.isArray(club.members) ? club.members : []
+    const saved = Array.isArray(savedList) ? savedList : []
+    const mergedById = new Map()
+    const merge = (m) => {
+      if (!m?.id) return
+      const k = String(m.id)
+      const prev = mergedById.get(k) || {}
+      mergedById.set(k, {
+        ...prev,
+        ...m,
+        id: m.id,
+        name: m.name || prev.name || '',
+        email: m.email || prev.email,
+        mobile: m.mobile || m.phone || prev.mobile || prev.phone || '',
+        phone: m.phone || m.mobile || prev.phone || prev.mobile || '',
+      })
+    }
+    fromStorage.forEach(merge)
+    clubMembers.forEach(merge)
+    saved.forEach(merge)
+    return Array.from(mergedById.values())
+  } catch (e) {
+    console.warn('mergeClubMembersForApp', e)
+    return Array.isArray(savedList) ? savedList : []
+  }
 }
 
 function App({ currentUser }) {
@@ -593,14 +639,9 @@ function App({ currentUser }) {
         const savedContentTab = club?.tournamentData?.contentTab || loadFromLocalStorage.contentTab()
         const savedMemberTab = club?.tournamentData?.memberTab || loadFromLocalStorage.memberTab()
         
-        // Members: prefer club.members (synced from platform joins) merged with savedMembers
-        const clubMembers = club?.members && Array.isArray(club.members) ? club.members : []
         const savedList = Array.isArray(savedMembers) ? savedMembers : []
-        const mergedById = new Map()
-        clubMembers.forEach(m => { if (m?.id) mergedById.set(String(m.id), m) })
-        savedList.forEach(m => { if (m?.id && !mergedById.has(String(m.id))) mergedById.set(String(m.id), m) })
-        const initialMembers = Array.from(mergedById.values())
-        setMembers(initialMembers.length > 0 ? initialMembers : (savedList.length > 0 ? savedList : []))
+        const mergedMembers = mergeClubMembersForApp(club, clubId, savedList)
+        setMembers(mergedMembers.length > 0 ? mergedMembers : savedList)
         
         // Set language first (before restoring other state)
         setLanguage(savedLanguage)
@@ -660,14 +701,7 @@ function App({ currentUser }) {
       const club = clubs.find(c => c.id === clubId)
       if (club) {
         setCurrentClub(club)
-        if (club.members?.length > 0) {
-          setMembers(prev => {
-            const merged = new Map()
-            club.members.forEach(m => { if (m?.id) merged.set(String(m.id), m) })
-            prev.forEach(m => { if (m?.id && !merged.has(String(m.id))) merged.set(String(m.id), m) })
-            return Array.from(merged.values())
-          })
-        }
+        setMembers((prev) => mergeClubMembersForApp(club, clubId, prev))
         // Refresh bookings from updated club
         const clubBookings = club?.bookings && Array.isArray(club.bookings) ? club.bookings : []
         const localOnly = clubBookings.filter(b => !b.source || b.source !== 'playtomic')
@@ -5141,6 +5175,25 @@ function App({ currentUser }) {
 
   const standings = getStandings()
   const teams = currentState.teams || []
+  const memberSelectorPartitioned = useMemo(() => {
+    if (!openMemberSelectorForTeam) return { onTeam: [], offTeam: [] }
+    const team = teams.find((t) => t.id === openMemberSelectorForTeam)
+    const onTeamIds = new Set((team?.memberIds || []).map((id) => String(id)))
+    const nameOf = memberDisplayNameForSelector
+    const matches = (m) => {
+      if (!memberSelectorSearch.trim()) return true
+      const q = memberSelectorSearch.toLowerCase().trim()
+      const n = nameOf(m).toLowerCase()
+      const mob = String(m.mobile || m.phone || '').toLowerCase().replace(/\s/g, '')
+      const qDigits = q.replace(/\D/g, '')
+      return n.includes(q) || (qDigits.length >= 3 && mob.includes(qDigits))
+    }
+    const sortByName = (a, b) => nameOf(a).localeCompare(nameOf(b), undefined, { sensitivity: 'base' })
+    const pool = members.filter(matches)
+    const onTeam = pool.filter((m) => onTeamIds.has(String(m.id))).sort(sortByName)
+    const offTeam = pool.filter((m) => !onTeamIds.has(String(m.id))).sort(sortByName)
+    return { onTeam, offTeam }
+  }, [openMemberSelectorForTeam, teams, members, memberSelectorSearch])
   const clubCurrency = currentClub?.settings?.currency || 'SAR'
   const clubNameWhatsApp = currentClub?.nameAr || currentClub?.name || ''
   const tournamentDateStr =
@@ -8047,120 +8100,125 @@ function App({ currentUser }) {
                     />
                   </div>
                   <div className="member-selector-list">
-                    {members
-                      .filter(member => {
-                        if (!memberSelectorSearch.trim()) return true
-                        const searchLower = memberSelectorSearch.toLowerCase().trim()
-                        return member.name.toLowerCase().includes(searchLower)
-                      })
-                      .map(member => {
-                        const team = teams.find(t => t.id === openMemberSelectorForTeam)
-                        const isSelected = (team?.memberIds || []).includes(member.id)
-                        const feeVal = memberSelectorFeeDraft[member.id] ?? ''
-                        const amt = parseFloat(String(feeVal).replace(',', '.')) || 0
-                        const digits = String(member.mobile || '').replace(/\D/g, '')
-                        let waUrl = null
-                        if (digits.length >= 8) {
-                          waUrl = buildWhatsAppLinkForRegistered(
-                            member.mobile,
-                            clubNameWhatsApp,
-                            tournamentDateStr,
-                            tournamentTimeLabel,
-                            amt,
-                            clubCurrency,
-                            language,
-                            clubId || ''
-                          )
-                        }
-                        return (
-                          <div key={member.id} className="member-selector-row">
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              className="search-input member-selector-row__fee"
-                              value={feeVal}
-                              onChange={(e) => {
-                                const v = e.target.value
-                                setMemberSelectorFeeDraft(d => ({ ...d, [member.id]: v }))
-                                if (isSelected) {
-                                  updateCurrentState(state => ({
-                                    ...state,
-                                    teams: (state.teams || []).map(t =>
-                                      t.id === openMemberSelectorForTeam
-                                        ? {
-                                            ...t,
-                                            memberTournamentPayments: {
-                                              ...(t.memberTournamentPayments || {}),
-                                              [member.id]: {
-                                                ...normalizeMemberPaymentEntry(
-                                                  (t.memberTournamentPayments || {})[member.id]
-                                                ),
-                                                fee: v,
-                                              },
-                                            },
+                    {[
+                      { key: 'on', title: t.memberSelectorOnTeam, list: memberSelectorPartitioned.onTeam },
+                      { key: 'off', title: t.memberSelectorOtherMembers, list: memberSelectorPartitioned.offTeam },
+                    ]
+                      .filter((s) => s.list.length > 0)
+                      .map((section) => (
+                        <React.Fragment key={section.key}>
+                          <div className="member-selector-section-label">{section.title}</div>
+                          {section.list.map((member) => {
+                            const team = teams.find((t) => t.id === openMemberSelectorForTeam)
+                            const isSelected = (team?.memberIds || []).some((id) => String(id) === String(member.id))
+                            const feeVal = memberSelectorFeeDraft[member.id] ?? ''
+                            const amt = parseFloat(String(feeVal).replace(',', '.')) || 0
+                            const phoneForWa = member.mobile || member.phone || ''
+                            const digits = String(phoneForWa).replace(/\D/g, '')
+                            let waUrl = null
+                            if (digits.length >= 8) {
+                              waUrl = buildWhatsAppLinkForRegistered(
+                                phoneForWa,
+                                clubNameWhatsApp,
+                                tournamentDateStr,
+                                tournamentTimeLabel,
+                                amt,
+                                clubCurrency,
+                                language,
+                                clubId || ''
+                              )
+                            }
+                            const displayName = memberDisplayNameForSelector(member)
+                            return (
+                              <div key={member.id} className="member-selector-row">
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  className="search-input member-selector-row__fee"
+                                  value={feeVal}
+                                  onChange={(e) => {
+                                    const v = e.target.value
+                                    setMemberSelectorFeeDraft((d) => ({ ...d, [member.id]: v }))
+                                    if (isSelected) {
+                                      updateCurrentState((state) => ({
+                                        ...state,
+                                        teams: (state.teams || []).map((t) =>
+                                          t.id === openMemberSelectorForTeam
+                                            ? {
+                                                ...t,
+                                                memberTournamentPayments: {
+                                                  ...(t.memberTournamentPayments || {}),
+                                                  [member.id]: {
+                                                    ...normalizeMemberPaymentEntry(
+                                                      (t.memberTournamentPayments || {})[member.id]
+                                                    ),
+                                                    fee: v,
+                                                  },
+                                                },
+                                              }
+                                            : t
+                                        ),
+                                      }))
+                                    }
+                                  }}
+                                  aria-label={t.paymentAmountShort}
+                                />
+                                {waUrl ? (
+                                  <a
+                                    href={waUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="member-selector-wa-btn"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {t.sendWhatsApp}
+                                  </a>
+                                ) : (
+                                  <span
+                                    className="member-selector-wa-btn member-selector-wa-btn--disabled"
+                                    title={t.bookingWhatsAppNeedPhone}
+                                  >
+                                    {t.sendWhatsApp}
+                                  </span>
+                                )}
+                                <label className="member-selector-item member-selector-item--in-row">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked
+                                      const feeStr = memberSelectorFeeDraft[member.id] ?? ''
+                                      updateCurrentState((state) => ({
+                                        ...state,
+                                        teams: (state.teams || []).map((t) => {
+                                          if (t.id !== openMemberSelectorForTeam) return t
+                                          const ids = checked
+                                            ? [...(t.memberIds || []).filter((id) => String(id) !== String(member.id)), member.id]
+                                            : (t.memberIds || []).filter((id) => String(id) !== String(member.id))
+                                          const mp = { ...(t.memberTournamentPayments || {}) }
+                                          if (checked) {
+                                            mp[member.id] = {
+                                              ...normalizeMemberPaymentEntry(mp[member.id]),
+                                              fee: feeStr,
+                                            }
+                                          } else {
+                                            delete mp[member.id]
                                           }
-                                        : t
-                                    ),
-                                  }))
-                                }
-                              }}
-                              aria-label={t.paymentAmountShort}
-                            />
-                            {waUrl ? (
-                              <a
-                                href={waUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="member-selector-wa-btn"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {t.sendWhatsApp}
-                              </a>
-                            ) : (
-                              <span className="member-selector-wa-btn member-selector-wa-btn--disabled" title={t.bookingWhatsAppNeedPhone}>
-                                {t.sendWhatsApp}
-                              </span>
-                            )}
-                            <label className="member-selector-item member-selector-item--in-row">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={(e) => {
-                                  const checked = e.target.checked
-                                  const feeStr = memberSelectorFeeDraft[member.id] ?? ''
-                                  updateCurrentState(state => ({
-                                    ...state,
-                                    teams: (state.teams || []).map(t => {
-                                      if (t.id !== openMemberSelectorForTeam) return t
-                                      const ids = checked
-                                        ? [...(t.memberIds || []).filter(id => id !== member.id), member.id]
-                                        : (t.memberIds || []).filter(id => id !== member.id)
-                                      const mp = { ...(t.memberTournamentPayments || {}) }
-                                      if (checked) {
-                                        mp[member.id] = {
-                                          ...normalizeMemberPaymentEntry(mp[member.id]),
-                                          fee: feeStr,
-                                        }
-                                      } else {
-                                        delete mp[member.id]
-                                      }
-                                      return { ...t, memberIds: ids, memberTournamentPayments: mp }
-                                    }),
-                                  }))
-                                }}
-                              />
-                              <span>{member.name}</span>
-                            </label>
-                          </div>
-                        )
-                      })}
-                    {members.filter(member => {
-                      if (!memberSelectorSearch.trim()) return true
-                      const searchLower = memberSelectorSearch.toLowerCase().trim()
-                      return member.name.toLowerCase().includes(searchLower)
-                    }).length === 0 && (
+                                          return { ...t, memberIds: ids, memberTournamentPayments: mp }
+                                        }),
+                                      }))
+                                    }}
+                                  />
+                                  <span>{displayName}</span>
+                                </label>
+                              </div>
+                            )
+                          })}
+                        </React.Fragment>
+                      ))}
+                    {memberSelectorPartitioned.onTeam.length + memberSelectorPartitioned.offTeam.length === 0 ? (
                       <p className="no-members-found">{t.noMembersFound}</p>
-                    )}
+                    ) : null}
                   </div>
                 </div>
                 <div className="modal-footer">
