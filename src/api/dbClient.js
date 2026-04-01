@@ -85,14 +85,11 @@ const GLOBAL_SAVING_PATH_PREFIXES = [
   '/api/bookings/',
   '/api/data',
   '/api/store',
-  '/api/matches',
-  '/api/member-stats',
-  '/api/tournament-summaries',
   '/api/clubs/join',
   '/api/invoices/purge',
   '/api/settings/homepage-image',
 ]
-const USER_INTENT_WINDOW_MS = 2000
+const USER_INTENT_WINDOW_MS = 800
 let _lastUserIntentAt = 0
 let _userIntentListenersBound = false
 
@@ -101,8 +98,16 @@ function isMutationMethod(method) {
 }
 
 function shouldShowGlobalSavingForPath(path) {
-  const p = String(path || '')
-  return GLOBAL_SAVING_PATH_PREFIXES.some((prefix) => p.startsWith(prefix))
+  const raw = String(path || '')
+  const p = raw.split('?')[0]
+  // مزامنة تخزين عامة (متكررة) — لا تغطي النماذج
+  if (p === '/api/data' || p === '/api/store' || p === '/api/store/batch') return false
+  // حفظ تلقائي للبطولة / الإحصائيات — لا يُعرض غطاء عند كل نقرة أو منتقي وقت
+  const autosaveRoots = ['/api/matches', '/api/member-stats', '/api/tournament-summaries']
+  for (const root of autosaveRoots) {
+    if (p === root || p.startsWith(`${root}/`)) return false
+  }
+  return GLOBAL_SAVING_PATH_PREFIXES.some((prefix) => raw.startsWith(prefix))
 }
 
 function markUserIntent() {
