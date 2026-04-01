@@ -177,6 +177,7 @@ function labelsForLang(lang) {
     desktopPageOn: 'Browser-only alerts on',
     desktopEnableBackground: 'Enable background alerts',
     desktopDenied: 'Notifications blocked — allow them in the browser site settings.',
+    pushSubscribeFailed: 'Could not register push on the server. Check you are logged in as this club’s admin, then try again.',
   }
   const ar = {
     hubTitle: 'الإشعارات',
@@ -215,6 +216,8 @@ function labelsForLang(lang) {
     desktopPageOn: 'تنبيهات المتصفح فقط',
     desktopEnableBackground: 'تفعيل تنبيهات الخلفية',
     desktopDenied: 'الإشعارات مرفوضة — اسمح بها من إعدادات الموقع في المتصفح.',
+    pushSubscribeFailed:
+      'تعذّر تسجيل الاشتراك على الخادم. تأكد أنك مسجّل دخول كمدير هذا النادي ثم أعد المحاولة.',
   }
   return lang === 'ar' ? ar : en
 }
@@ -481,6 +484,7 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
   const [desktopNotify, setDesktopNotify] = useState(() => readDesktopNotify())
   const [pushSubscribed, setPushSubscribedState] = useState(() => readPushSubscribed())
   const [desktopDeniedHint, setDesktopDeniedHint] = useState(false)
+  const [pushSubscribeError, setPushSubscribeError] = useState(false)
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
   const pollRef = useRef(null)
   const prevPollCountsRef = useRef(null)
@@ -537,7 +541,7 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
           try {
             const reg = await navigator.serviceWorker?.ready
             const sub = await reg?.pushManager?.getSubscription()
-            if (sub?.endpoint) await postPushTabHidden(sub.endpoint)
+            if (sub?.endpoint) await postPushTabHidden(sub.endpoint, clubId)
           } catch {
             /* ignore */
           }
@@ -546,7 +550,7 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
     }
     document.addEventListener('visibilitychange', onVis)
     return () => document.removeEventListener('visibilitychange', onVis)
-  }, [load, showUi])
+  }, [load, showUi, clubId])
 
   useEffect(() => {
     if (!showUi) return undefined
@@ -584,13 +588,13 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
         const sub = await reg?.pushManager?.getSubscription()
         if (!sub?.endpoint) return
         lastForegroundPushPingRef.current = Date.now()
-        await postPushForeground(sub.endpoint)
+        await postPushForeground(sub.endpoint, clubId)
       } catch {
         /* ignore */
       }
     })()
     return undefined
-  }, [showUi, summary?.fingerprint])
+  }, [showUi, summary?.fingerprint, clubId])
 
   useEffect(() => {
     if (!expanded) return undefined
@@ -651,6 +655,7 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
     async (e) => {
       e?.stopPropagation?.()
       setDesktopDeniedHint(false)
+      setPushSubscribeError(false)
 
       if (readPushSubscribed() || readDesktopNotify()) {
         if (readPushSubscribed()) {
@@ -659,7 +664,7 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
             const sub = await reg?.pushManager?.getSubscription()
             if (sub?.endpoint) {
               try {
-                await postPushUnsubscribe(sub.endpoint)
+                await postPushUnsubscribe(sub.endpoint, clubId)
               } catch {
                 /* ignore */
               }
@@ -707,9 +712,11 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
           setPushSubscribedState(true)
           writeDesktopNotify(false)
           setDesktopNotify(false)
+          setPushSubscribeError(false)
           return
         } catch (err) {
           console.warn('[push] subscribe failed', err)
+          setPushSubscribeError(true)
         }
       }
 
@@ -993,6 +1000,7 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
                       : t.desktopEnableBackground}
                 </button>
                 <p className="cn-hub__desktop-hint">{t.desktopNotifyHint}</p>
+                {pushSubscribeError ? <p className="cn-hub__desktop-warn">{t.pushSubscribeFailed}</p> : null}
                 {desktopDeniedHint ? <p className="cn-hub__desktop-warn">{t.desktopDenied}</p> : null}
               </div>
             ) : null}

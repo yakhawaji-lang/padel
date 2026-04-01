@@ -2,6 +2,7 @@
  * PostgreSQL API client - replaces localStorage and IndexedDB calls.
  * All methods are async. Uses VITE_API_URL (default: http://localhost:4000) for backend.
  */
+import { getClubAdminSession, getPlatformAdminSession } from '../storage/appSettingsStorage.js'
 
 /** In dev (Vite on 3000/3001/etc): use '' so /api goes through Vite proxy to 4000. Avoids CORS and 404 when API not on same host. */
 const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL !== undefined && import.meta.env?.VITE_API_URL !== '')
@@ -35,6 +36,30 @@ function getDataActorHeaders() {
   if (actor.actorName) h['X-Actor-Name'] = actor.actorName
   if (actor.clubId) h['X-Club-Id'] = actor.clubId
   return h
+}
+
+/** رؤوس التحقق من الجلسة مباشرة — يُصلح اشتراك Push عندما كاش الـ bootstrap لا يعكس club_admin_session بعد */
+function buildPushSessionHeaders(clubId) {
+  const cid = String(clubId || '').trim()
+  const ca = getClubAdminSession()
+  if (ca?.userId && cid && String(ca.clubId || '').trim() === cid) {
+    return {
+      'X-Actor-Type': 'club_admin',
+      'X-Actor-Id': String(ca.userId),
+      'X-Actor-Name': String(ca.email || ''),
+      'X-Club-Id': cid,
+    }
+  }
+  const pa = getPlatformAdminSession()
+  if (pa?.id && cid) {
+    return {
+      'X-Actor-Type': 'platform_admin',
+      'X-Actor-Id': String(pa.id),
+      'X-Actor-Name': String(pa.email || ''),
+      'X-Club-Id': cid,
+    }
+  }
+  return {}
 }
 
 function needsDataActorHeaders(path, method) {
@@ -937,34 +962,42 @@ export async function fetchPushVapidPublic() {
 }
 
 export async function postPushSubscribe({ clubId, subscription, locale }) {
+  const cid = String(clubId || '').trim()
   return fetchJson('/api/push/subscribe', {
     method: 'POST',
     body: JSON.stringify({ clubId, subscription, locale: locale || 'ar' }),
     __skipGlobalSaving: true,
+    headers: buildPushSessionHeaders(cid),
   })
 }
 
-export async function postPushUnsubscribe(endpoint) {
+export async function postPushUnsubscribe(endpoint, clubId) {
+  const cid = String(clubId || getClubAdminSession()?.clubId || '').trim()
   return fetchJson('/api/push/unsubscribe', {
     method: 'POST',
     body: JSON.stringify({ endpoint }),
     __skipGlobalSaving: true,
+    headers: buildPushSessionHeaders(cid),
   })
 }
 
-export async function postPushForeground(endpoint) {
+export async function postPushForeground(endpoint, clubId) {
+  const cid = String(clubId || getClubAdminSession()?.clubId || '').trim()
   return fetchJson('/api/push/foreground', {
     method: 'POST',
     body: JSON.stringify({ endpoint }),
     __skipGlobalSaving: true,
+    headers: buildPushSessionHeaders(cid),
   })
 }
 
-export async function postPushTabHidden(endpoint) {
+export async function postPushTabHidden(endpoint, clubId) {
+  const cid = String(clubId || getClubAdminSession()?.clubId || '').trim()
   return fetchJson('/api/push/tab-hidden', {
     method: 'POST',
     body: JSON.stringify({ endpoint }),
     __skipGlobalSaving: true,
+    headers: buildPushSessionHeaders(cid),
   })
 }
 
