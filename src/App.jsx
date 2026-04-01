@@ -5268,6 +5268,37 @@ function App({ currentUser }) {
       flushSync(() => {
         setMemberSelectorSearch(display)
       })
+      const teamId = openMemberSelectorForTeam
+      const searchDigits = String(display).replace(/\D/g, '')
+      if (teamId && searchDigits.length >= 3) {
+        const team = teams.find((x) => x.id === teamId)
+        const onTeamIds = new Set((team?.memberIds || []).map((id) => String(id)))
+        const offClubMatches = members.filter((m) => {
+          if (onTeamIds.has(String(m.id))) return false
+          return phoneMatchesMemberSearch(display, m.mobile || m.phone || '')
+        })
+        if (offClubMatches.length === 1) {
+          const member = offClubMatches[0]
+          const memberId = member.id
+          const feeStr = memberSelectorFeeDraft[memberId] ?? ''
+          flushSync(() => {
+            updateCurrentState((state) => ({
+              ...state,
+              teams: (state.teams || []).map((t) => {
+                if (t.id !== teamId) return t
+                if ((t.memberIds || []).some((id) => String(id) === String(memberId))) return t
+                const ids = [...(t.memberIds || []).filter((id) => String(id) !== String(memberId)), memberId]
+                const mp = { ...(t.memberTournamentPayments || {}) }
+                mp[memberId] = {
+                  ...normalizeMemberPaymentEntry(mp[memberId]),
+                  fee: feeStr,
+                }
+                return { ...t, memberIds: ids, memberTournamentPayments: mp }
+              }),
+            }))
+          })
+        }
+      }
       requestAnimationFrame(() => {
         memberSelectorListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
         const el = memberSelectorPhoneInputRef.current
@@ -5288,7 +5319,16 @@ function App({ currentUser }) {
       if (name === 'AbortError') return
       alert(t.memberSelectorContactsFailed)
     }
-  }, [memberSelectorContactsSupported, t, setMemberSelectorSearch])
+  }, [
+    memberSelectorContactsSupported,
+    t,
+    setMemberSelectorSearch,
+    openMemberSelectorForTeam,
+    teams,
+    members,
+    memberSelectorFeeDraft,
+    updateCurrentState,
+  ])
 
   const clubCurrency = currentClub?.settings?.currency || 'SAR'
   const clubNameWhatsApp = currentClub?.nameAr || currentClub?.name || ''
