@@ -422,6 +422,8 @@ function App({ currentUser }) {
   const [memberSearchQuery, setMemberSearchQuery] = useState('') // Search query for members
   const [openMemberSelectorForTeam, setOpenMemberSelectorForTeam] = useState(null) // Team ID for which member selector is open
   const [memberSelectorSearch, setMemberSelectorSearch] = useState('') // Search query in member selector modal
+  /** يزيد عند الضغط على «بحث» أو بعد جهات الاتصال لإجبار إعادة حساب القائمة حتى لو لم يتغير النص */
+  const [memberSelectorSearchNonce, setMemberSelectorSearchNonce] = useState(0)
   const [memberSelectorBulkFee, setMemberSelectorBulkFee] = useState('') // default fee applied to all rows in modal
   const [memberSelectorFeeDraft, setMemberSelectorFeeDraft] = useState({}) // { [memberId]: string }
   /** معرفات أعضاء مثبتة للظهور في المنتقي بدون بحث (لكل نادي) */
@@ -5275,7 +5277,14 @@ function App({ currentUser }) {
       })
       .sort(sortByName)
     return { onTeam, offTeam }
-  }, [openMemberSelectorForTeam, teams, members, memberSelectorSearch, memberSelectorPinnedIds])
+  }, [
+    openMemberSelectorForTeam,
+    teams,
+    members,
+    memberSelectorSearch,
+    memberSelectorSearchNonce,
+    memberSelectorPinnedIds,
+  ])
 
   const memberSelectorContactsSupported = useMemo(
     () =>
@@ -5341,10 +5350,15 @@ function App({ currentUser }) {
   )
 
   const handleMemberSelectorSearchByPhone = useCallback(() => {
-    const display = normalizeMemberSelectorPhoneDisplay(memberSelectorSearch)
+    const raw =
+      memberSelectorPhoneInputRef.current != null
+        ? memberSelectorPhoneInputRef.current.value
+        : memberSelectorSearch
+    const display = normalizeMemberSelectorPhoneDisplay(raw)
     if (!display) return
     flushSync(() => {
       setMemberSelectorSearch(display)
+      setMemberSelectorSearchNonce((n) => n + 1)
     })
     memberSelectorAfterPhoneSettled(display, { focusInput: false })
   }, [memberSelectorSearch, setMemberSelectorSearch, memberSelectorAfterPhoneSettled])
@@ -5364,6 +5378,7 @@ function App({ currentUser }) {
       if (!display) return
       flushSync(() => {
         setMemberSelectorSearch(display)
+        setMemberSelectorSearchNonce((n) => n + 1)
       })
       memberSelectorAfterPhoneSettled(display, { focusInput: true })
     } catch (err) {
@@ -5390,6 +5405,7 @@ function App({ currentUser }) {
     setMemberSelectorFeeDraft(draft)
     setOpenMemberSelectorForTeam(teamId)
     setMemberSelectorSearch('')
+    setMemberSelectorSearchNonce(0)
   }
 
   const moveTeamMemberBetweenTeams = (memberId, fromTeamId, toTeamId) => {
@@ -8276,7 +8292,7 @@ function App({ currentUser }) {
                       autoComplete="off"
                       placeholder={t.memberSelectorPhonePlaceholder}
                       value={memberSelectorSearch}
-                      onChange={(e) => setMemberSelectorSearch(e.target.value)}
+                      onChange={(e) => setMemberSelectorSearch(e.currentTarget.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault()
