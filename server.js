@@ -72,6 +72,14 @@ if (existsSync(distIndex) && deployTargets.length > 0) {
       }
       const logo = join(distPath, 'logo-playtix.png')
       if (existsSync(logo)) copyFileSync(logo, join(appDir, 'logo-playtix.png'))
+      // Service worker لـ Web Push — يجب بجانب index.html (لا يُبنى داخل assets)
+      const swSrc = join(distPath, 'sw.js')
+      if (existsSync(swSrc)) {
+        copyFileSync(swSrc, join(appDir, 'sw.js'))
+        console.log('[server.js] Copied sw.js to', join(appDir, 'sw.js'))
+      } else {
+        console.warn('[server.js] dist/sw.js missing — run npm run build; Web Push will not register')
+      }
       if (existsSync(appSpaHtaccess)) {
         try {
           copyFileSync(appSpaHtaccess, join(appDir, '.htaccess'))

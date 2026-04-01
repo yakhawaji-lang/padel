@@ -45,6 +45,13 @@ if (existsSync(srcAssets)) {
 }
 const logo = join(distPath, 'logo-playtix.png')
 if (existsSync(logo)) copyFileSync(logo, join(appDir, 'logo-playtix.png'))
+const swSrc = join(distPath, 'sw.js')
+if (existsSync(swSrc)) {
+  copyFileSync(swSrc, join(appDir, 'sw.js'))
+  console.log('[prepare-public-html] Copied app/sw.js (Web Push)')
+} else {
+  console.warn('[prepare-public-html] dist/sw.js missing — Web Push will fail until build outputs it')
+}
 if (existsSync(appSpaHtaccess)) {
   copyFileSync(appSpaHtaccess, join(appDir, '.htaccess'))
   console.log('[prepare-public-html] Wrote app/.htaccess (SPA + DirectoryIndex)')
