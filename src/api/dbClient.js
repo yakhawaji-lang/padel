@@ -1001,6 +1001,17 @@ export async function postPushTabHidden(endpoint, clubId) {
   })
 }
 
+/** إشعار Web Push تجريبي لجميع أجهزة النادي المشتركة (مدير النادي فقط) */
+export async function postPushTestNotify(clubId) {
+  const cid = String(clubId || '').trim()
+  return fetchJson('/api/push/test-notify', {
+    method: 'POST',
+    body: JSON.stringify({ clubId: cid }),
+    __skipGlobalSaving: true,
+    headers: buildPushSessionHeaders(cid),
+  })
+}
+
 // ---- Health check ----
 
 export async function healthCheck() {

@@ -6,6 +6,7 @@ import {
   postPushForeground,
   postPushTabHidden,
   postPushSubscribe,
+  postPushTestNotify,
   postPushUnsubscribe,
 } from '../../api/dbClient'
 import './ClubNotificationHub.css'
@@ -170,7 +171,7 @@ function labelsForLang(lang) {
     soundUnmuteAria: 'Enable notification bell',
     desktopNotifyTitle: 'System alerts when away',
     desktopNotifyHint:
-      'When the server has VAPID keys: Web Push (tab can be closed). Otherwise: browser notifications while the browser stays open. HTTPS and permission required.',
+      'When the server has VAPID keys: Web Push (tab can be closed). Otherwise: browser notifications while the browser stays open. HTTPS and permission required. Minimizing the window does not always hide the tab; we also ping the server when the browser loses focus.',
     desktopNotifyOn: 'Browser alerts on',
     desktopNotifyOff: 'Disable background alerts',
     desktopPushOn: 'Web Push on (tab can be closed)',
@@ -178,6 +179,11 @@ function labelsForLang(lang) {
     desktopEnableBackground: 'Enable background alerts',
     desktopDenied: 'Notifications blocked — allow them in the browser site settings.',
     pushSubscribeFailed: 'Could not register push on the server. Check you are logged in as this club’s admin, then try again.',
+    pushTestButton: 'Send test push',
+    pushTestBusy: 'Sending…',
+    pushTestOk: 'Sent — check for a system notification',
+    pushTestNone: 'No push subscription stored for this club',
+    pushTestFail: 'Test push failed',
   }
   const ar = {
     hubTitle: 'الإشعارات',
@@ -209,7 +215,7 @@ function labelsForLang(lang) {
     soundUnmuteAria: 'تشغيل صوت جرس الإشعارات',
     desktopNotifyTitle: 'تنبيهات النظام عند ترك الصفحة',
     desktopNotifyHint:
-      'إن وُجدت مفاتيح VAPID على الخادم: Web Push (يعمل حتى مع إغلاق التبويب). وإلا: إشعارات المتصفح مع بقاء المتصفح مفتوحاً. يتطلب HTTPS وإذناً.',
+      'إن وُجدت مفاتيح VAPID على الخادم: Web Push (يعمل حتى مع إغلاق التبويب). وإلا: إشعارات المتصفح مع بقاء المتصفح مفتوحاً. يتطلب HTTPS وإذناً. تصغير النافذة لا يُخفي التبويب دائماً؛ نُبلغ الخادم أيضاً عند خروج التركيز من المتصفح.',
     desktopNotifyOn: 'تنبيهات المتصفح مفعّلة',
     desktopNotifyOff: 'إيقاف تنبيهات الخلفية',
     desktopPushOn: 'Web Push مفعّل (يمكن إغلاق التبويب)',
@@ -218,6 +224,11 @@ function labelsForLang(lang) {
     desktopDenied: 'الإشعارات مرفوضة — اسمح بها من إعدادات الموقع في المتصفح.',
     pushSubscribeFailed:
       'تعذّر تسجيل الاشتراك على الخادم. تأكد أنك مسجّل دخول كمدير هذا النادي ثم أعد المحاولة.',
+    pushTestButton: 'إرسال إشعار تجريبي',
+    pushTestBusy: 'جاري الإرسال…',
+    pushTestOk: 'تم — تحقق من إشعار النظام',
+    pushTestNone: 'لا يوجد اشتراك Push محفوظ لهذا النادي',
+    pushTestFail: 'فشل الإرسال التجريبي',
   }
   return lang === 'ar' ? ar : en
 }
@@ -489,6 +500,9 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
   const pollRef = useRef(null)
   const prevPollCountsRef = useRef(null)
   const lastForegroundPushPingRef = useRef(0)
+  const tabHiddenPingDebounceRef = useRef(0)
+  const [pushTestBusy, setPushTestBusy] = useState(false)
+  const [pushTestFlash, setPushTestFlash] = useState(null)
 
   const t = useMemo(() => labelsForLang(language), [language])
 
@@ -520,6 +534,40 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
     }
   }, [clubId, showUi])
 
+  const pingTabHiddenForPush = useCallback(async () => {
+    if (!readPushSubscribed() || !clubId) return
+    const now = Date.now()
+    if (now - tabHiddenPingDebounceRef.current < 2000) return
+    tabHiddenPingDebounceRef.current = now
+    try {
+      const reg = await navigator.serviceWorker?.ready
+      const sub = await reg?.pushManager?.getSubscription()
+      if (sub?.endpoint) await postPushTabHidden(sub.endpoint, clubId)
+    } catch {
+      /* ignore */
+    }
+  }, [clubId])
+
+  const runPushTest = useCallback(async () => {
+    if (!clubId) return
+    setPushTestFlash(null)
+    setPushTestBusy(true)
+    try {
+      const r = await postPushTestNotify(clubId)
+      if (r?.ok) {
+        const sent = Number(r.sent ?? 0) || 0
+        const total = Number(r.total ?? 0) || 0
+        if (sent > 0) setPushTestFlash('ok')
+        else if (total === 0) setPushTestFlash('none')
+        else setPushTestFlash('err')
+      } else setPushTestFlash('err')
+    } catch {
+      setPushTestFlash('err')
+    } finally {
+      setPushTestBusy(false)
+    }
+  }, [clubId])
+
   useEffect(() => {
     load()
   }, [load])
@@ -536,21 +584,21 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
     if (!showUi) return undefined
     const onVis = () => {
       if (document.visibilityState === 'visible') load()
-      else if (document.visibilityState === 'hidden' && readPushSubscribed()) {
-        ;(async () => {
-          try {
-            const reg = await navigator.serviceWorker?.ready
-            const sub = await reg?.pushManager?.getSubscription()
-            if (sub?.endpoint) await postPushTabHidden(sub.endpoint, clubId)
-          } catch {
-            /* ignore */
-          }
-        })()
-      }
+      else if (document.visibilityState === 'hidden' && readPushSubscribed()) void pingTabHiddenForPush()
     }
     document.addEventListener('visibilitychange', onVis)
     return () => document.removeEventListener('visibilitychange', onVis)
-  }, [load, showUi, clubId])
+  }, [load, showUi, pingTabHiddenForPush])
+
+  useEffect(() => {
+    if (!showUi) return undefined
+    const onBlur = () => {
+      if (!readPushSubscribed()) return
+      if (document.visibilityState === 'visible') void pingTabHiddenForPush()
+    }
+    window.addEventListener('blur', onBlur)
+    return () => window.removeEventListener('blur', onBlur)
+  }, [showUi, pingTabHiddenForPush])
 
   useEffect(() => {
     if (!showUi) return undefined
@@ -581,7 +629,7 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
     if (!showUi || !summary?.fingerprint) return undefined
     if (!readPushSubscribed()) return undefined
     if (typeof document === 'undefined' || !document.hasFocus()) return undefined
-    if (Date.now() - lastForegroundPushPingRef.current < 22000) return undefined
+    if (Date.now() - lastForegroundPushPingRef.current < 12000) return undefined
     ;(async () => {
       try {
         const reg = await navigator.serviceWorker?.ready
@@ -1006,6 +1054,25 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
                 <p className="cn-hub__desktop-hint">{t.desktopNotifyHint}</p>
                 {pushSubscribeError ? <p className="cn-hub__desktop-warn">{t.pushSubscribeFailed}</p> : null}
                 {desktopDeniedHint ? <p className="cn-hub__desktop-warn">{t.desktopDenied}</p> : null}
+                {pushSubscribed ? (
+                  <div className="cn-hub__push-test-wrap">
+                    <button
+                      type="button"
+                      className="cn-hub__push-test"
+                      onClick={() => void runPushTest()}
+                      disabled={pushTestBusy}
+                    >
+                      {pushTestBusy ? t.pushTestBusy : t.pushTestButton}
+                    </button>
+                    {pushTestFlash === 'ok' ? (
+                      <p className="cn-hub__push-test-msg cn-hub__push-test-msg--ok">{t.pushTestOk}</p>
+                    ) : null}
+                    {pushTestFlash === 'none' ? <p className="cn-hub__push-test-msg">{t.pushTestNone}</p> : null}
+                    {pushTestFlash === 'err' ? (
+                      <p className="cn-hub__push-test-msg cn-hub__push-test-msg--err">{t.pushTestFail}</p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             ) : null}
             <button type="button" className="cn-hub__mark-read" onClick={markAllRead} disabled={!summary}>

@@ -8,6 +8,7 @@ import { dirname, join, resolve } from 'path'
 import { fileURLToPath } from 'url'
 import { query } from '../db/pool.js'
 import { assertClubPushActor } from '../lib/clubPushAuth.js'
+import { configureWebPushVapid, webpush } from '../lib/webPushVapid.js'
 
 const router = Router()
 
@@ -44,7 +45,7 @@ router.get('/health', async (req, res) => {
           ? 'Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY on the server and restart Node.'
           : subscriptionRows === 0
             ? 'No browsers subscribed yet — enable background alerts in the club notification panel while logged in as club admin.'
-            : 'Job runs every ~25s; push is sent only when a notification count increases (not for viewer count).',
+            : 'Job runs every ~25s; push is sent only when a notification count increases (not for viewer count). Minimizing the browser may not fire tab-hidden — the app also pings on window blur.',
     })
   } catch (e) {
     res.status(500).json({ ok: false, error: e?.message || 'health check failed' })
@@ -172,6 +173,66 @@ router.post('/tab-hidden', async (req, res) => {
   } catch (e) {
     console.error('[push/tab-hidden]', e)
     res.status(500).json({ error: e?.message || 'tab-hidden failed' })
+  }
+})
+
+/** POST /api/push/test-notify  Body: { clubId } — إشعار تجريبي لجميع اشتراكات النادي (للتحقق من VAPID/SW) */
+router.post('/test-notify', async (req, res) => {
+  try {
+    const { clubId } = req.body || {}
+    const cid = String(clubId || '').trim()
+    if (!cid) return res.status(400).json({ error: 'clubId required' })
+
+    const auth = await assertClubPushActor(req, cid)
+    if (!auth.ok) return res.status(auth.status || 403).json({ error: auth.error })
+
+    if (!configureWebPushVapid()) {
+      return res.status(503).json({ error: 'Web Push not configured (VAPID keys)' })
+    }
+
+    const { rows } = await query(
+      `SELECT id, endpoint, p256dh, auth_secret, locale FROM club_push_subscriptions
+       WHERE club_id = CAST(? AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci`,
+      [cid]
+    )
+    if (!rows?.length) {
+      return res.json({ ok: true, sent: 0, failed: 0, total: 0 })
+    }
+
+    const en = String(rows[0]?.locale || 'ar').toLowerCase().startsWith('en')
+    const title = en ? 'Playtix — test' : 'Playtix — اختبار'
+    const body = en ? 'If you see this, Web Push works.' : 'إن ظهر هذا الإشعار فـ Web Push يعمل.'
+    const payload = JSON.stringify({
+      title,
+      body,
+      tag: `playtix-test-${cid}-${Date.now()}`,
+      url: `/app/admin/club/${encodeURIComponent(cid)}/bookings`,
+    })
+
+    let sent = 0
+    let failed = 0
+    for (const row of rows) {
+      const subscription = {
+        endpoint: row.endpoint,
+        keys: { p256dh: row.p256dh, auth: row.auth_secret },
+      }
+      try {
+        await webpush.sendNotification(subscription, payload, { TTL: 120 })
+        sent += 1
+      } catch (e) {
+        failed += 1
+        const status = e?.statusCode
+        if (status === 410 || status === 404) {
+          await query('DELETE FROM club_push_subscriptions WHERE id = ?', [row.id])
+        } else {
+          console.warn('[push/test-notify] send failed', cid, status || '', e?.body || e?.message || e)
+        }
+      }
+    }
+    res.json({ ok: true, sent, failed, total: rows.length })
+  } catch (e) {
+    console.error('[push/test-notify]', e)
+    res.status(500).json({ error: e?.message || 'test-notify failed' })
   }
 })
 

@@ -1,13 +1,13 @@
 /**
  * يفحص اشتراكات Web Push ويرسل إشعاراً عند زيادة أحد العدادات (بدون الزوار المباشرين).
  */
-import webpush from 'web-push'
+import { configureWebPushVapid, webpush } from '../lib/webPushVapid.js'
 import { query } from '../db/pool.js'
 import { computeClubNotificationCounts } from '../services/clubNotificationSummary.js'
 
 const INTERVAL_MS = 25000
 /** إن كان المتصفح يرسل ping «أنا في المقدمة» خلال هذه المدة نتخطى الإرسال لتفادي التكرار مع صوت الصفحة */
-const FOREGROUND_SKIP_MS = 45000
+const FOREGROUND_SKIP_MS = 12000
 
 /** ترتيب مطابق لـ ClubNotificationHub — أول فئة ازدادت تُذكر في الإشعار */
 const CAT_ORDER = [
@@ -79,27 +79,11 @@ function firstIncreasedKey(prevStr, nextStr) {
   return null
 }
 
-function normalizeVapidSubject(raw) {
-  const t = String(raw || '').trim()
-  if (!t) return 'mailto:admin@localhost'
-  if (/^mailto:/i.test(t) || /^https?:\/\//i.test(t)) return t
-  return `mailto:${t}`
-}
-
-function configureVapid() {
-  const pub = process.env.VAPID_PUBLIC_KEY?.trim()
-  const priv = process.env.VAPID_PRIVATE_KEY?.trim()
-  const subject = normalizeVapidSubject(process.env.VAPID_SUBJECT || 'mailto:admin@localhost')
-  if (!pub || !priv) return false
-  webpush.setVapidDetails(subject, pub, priv)
-  return true
-}
-
 let timer = null
 
 export function startPushNotificationJob() {
   if (timer) return
-  if (!configureVapid()) {
+  if (!configureWebPushVapid()) {
     console.warn('[push] VAPID keys missing — set VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, optional VAPID_SUBJECT')
     return
   }
