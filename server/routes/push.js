@@ -1,12 +1,18 @@
 /**
  * Web Push — اشتراك مديري النوادي لاستقبال إشعارات حتى مع إغلاق التبويب.
  */
+import { existsSync } from 'fs'
 import { Router } from 'express'
 import { createHash } from 'crypto'
+import { dirname, join, resolve } from 'path'
+import { fileURLToPath } from 'url'
 import { query } from '../db/pool.js'
 import { assertClubPushActor } from '../lib/clubPushAuth.js'
 
 const router = Router()
+
+/** dist/sw.js بعد npm run build — يُقدَّم هنا حتى لا يعترضه Apache SPA ويُرجع text/html */
+const SW_DIST_FILE = resolve(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'dist', 'sw.js'))
 
 function endpointHash(endpoint) {
   return createHash('sha256').update(String(endpoint || ''), 'utf8').digest('hex')
@@ -52,6 +58,25 @@ router.get('/vapid-public', (req, res) => {
     return res.status(503).json({ ok: false, error: 'Web Push not configured (VAPID_PUBLIC_KEY)' })
   }
   res.json({ ok: true, publicKey })
+})
+
+/**
+ * GET /api/push/service-worker.js
+ * نفس محتوى dist/sw.js مع MIME صحيح؛ Service-Worker-Allowed يوسّع النطاق إلى /app/
+ */
+router.get('/service-worker.js', (req, res) => {
+  if (!existsSync(SW_DIST_FILE)) {
+    res.status(404).type('text/plain').send('dist/sw.js missing — run npm run build on the server')
+    return
+  }
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8')
+  res.setHeader('Service-Worker-Allowed', '/')
+  res.setHeader('Cache-Control', 'public, max-age=300')
+  res.sendFile(SW_DIST_FILE, (err) => {
+    if (err && !res.headersSent) {
+      res.status(500).type('text/plain').send('service worker send failed')
+    }
+  })
 })
 
 /** POST /api/push/subscribe  Body: { clubId, subscription, locale?: 'ar'|'en' } */

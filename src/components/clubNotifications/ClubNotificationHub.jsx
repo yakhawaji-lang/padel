@@ -694,11 +694,11 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
       if (vapid.ok && vapid.publicKey && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
         try {
           const base = import.meta.env.BASE_URL || '/'
-          // الإنتاج: Vite ينسخ public/sw.js → dist/sw.js ويُخدم كـ /app/sw.js مع express.static('/app', dist)
-          // كان public/app/sw.js → dist/app/sw.js فيُرجع index.html (MIME text/html) — خطأ
+          // التطوير: Vite يخدم public/sw.js من الجذر
+          // الإنتاج: من Node عبر /api/push/ حتى لا يعيد Apache لـ /app/sw.js صفحة HTML (SPA)
           const swUrl = import.meta.env.DEV
             ? '/sw.js'
-            : `${base}sw.js`.replace(/\/{2,}/g, '/')
+            : '/api/push/service-worker.js'
           const reg = await navigator.serviceWorker.register(swUrl, { scope: base })
           await reg.update()
           const existing = await reg.pushManager.getSubscription()
