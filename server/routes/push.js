@@ -100,7 +100,10 @@ router.post('/subscribe', async (req, res) => {
     await query(
       `INSERT INTO club_push_subscriptions 
         (endpoint_hash, endpoint, p256dh, auth_secret, club_id, admin_user_id, locale, last_push_fingerprint)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
+       VALUES (?, ?, ?, ?, 
+         CAST(? AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci, 
+         CAST(? AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci, 
+         ?, NULL)
        ON DUPLICATE KEY UPDATE
          endpoint = VALUES(endpoint),
          p256dh = VALUES(p256dh),

@@ -17,7 +17,9 @@ export async function assertClubPushActor(req, clubId) {
 
   if (actor.actorType === 'platform_admin' && actor.actorId) {
     const { rows } = await query(
-      'SELECT id FROM platform_admins WHERE id = ? AND deleted_at IS NULL LIMIT 1',
+      `SELECT id FROM platform_admins 
+       WHERE id = CAST(? AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci 
+       AND deleted_at IS NULL LIMIT 1`,
       [actor.actorId]
     )
     if (rows?.length) return { ok: true, adminUserId: null }
@@ -38,8 +40,12 @@ export async function assertClubPushActor(req, clubId) {
    */
   const { rows } = await query(
     `SELECT id FROM club_admin_users 
-     WHERE club_id = ? AND deleted_at IS NULL 
-     AND (id = ? OR (LOWER(?) = 'owner' AND is_owner = 1))
+     WHERE club_id = CAST(? AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci 
+     AND deleted_at IS NULL 
+     AND (
+       id = CAST(? AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci 
+       OR (LOWER(CAST(? AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci) = 'owner' AND is_owner = 1)
+     )
      LIMIT 1`,
     [cid, actorId, actorId]
   )

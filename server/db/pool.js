@@ -76,6 +76,12 @@ if (connectionString && isMySQL && !hasPlaceholderHost) {
       keepAliveInitialDelay: 10000,
       dateStrings: true
     })
+    /** يوحّد collation مع جداول utf8mb4_unicode_ci ويتجنّب Illegal mix of collations */
+    pool.on('connection', (conn) => {
+      conn.query('SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci', (err) => {
+        if (err) console.warn('[pool] SET NAMES utf8mb4_unicode_ci:', err.message)
+      })
+    })
   } catch (err) {
     console.error('[pool] MySQL pool init failed:', err.message)
   }
