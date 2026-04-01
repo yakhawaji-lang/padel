@@ -38,6 +38,7 @@ DROP TABLE IF EXISTS member_favorites;
 DROP TABLE IF EXISTS coach_training_invites;
 
 -- ----- نوادي -----
+DROP TABLE IF EXISTS club_push_subscriptions;
 DROP TABLE IF EXISTS club_bookings;
 DROP TABLE IF EXISTS club_accounting;
 DROP TABLE IF EXISTS club_courts;

@@ -812,6 +812,12 @@
   color: #166534;
 }
 
+.cn-hub__desktop-toggle--push {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.12);
+  color: #3730a3;
+}
+
 .cn-hub__desktop-hint {
   margin: 0;
   font-size: 0.75rem;

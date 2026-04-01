@@ -239,6 +239,23 @@ CREATE TABLE IF NOT EXISTS club_admin_users (
   INDEX idx_cau_deleted (deleted_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS club_push_subscriptions (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  endpoint_hash CHAR(64) NOT NULL,
+  endpoint TEXT NOT NULL,
+  p256dh VARCHAR(255) NOT NULL,
+  auth_secret VARCHAR(255) NOT NULL,
+  club_id VARCHAR(255) NOT NULL,
+  admin_user_id VARCHAR(255) NULL,
+  locale VARCHAR(8) NOT NULL DEFAULT 'ar',
+  last_push_fingerprint VARCHAR(768) NULL,
+  last_foreground_ping_at DATETIME NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_club_push_endpoint_hash (endpoint_hash),
+  INDEX idx_club_push_club (club_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS club_offers (
   id VARCHAR(255) NOT NULL,
   club_id VARCHAR(255) NOT NULL,

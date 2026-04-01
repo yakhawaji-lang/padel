@@ -49,6 +49,7 @@ function needsDataActorHeaders(path, method) {
   if (m === 'POST' && path === '/api/bookings/record-payment') return true
   if (m === 'POST' && path === '/api/bookings/set-allow-co-add-split') return true
   if (m === 'POST' && path === '/api/bookings/record-remainder-payment') return true
+  if (m === 'POST' && path.startsWith('/api/push/')) return true
   return false
 }
 
@@ -919,6 +920,42 @@ export async function postClubPresence(clubId, sessionId) {
   return fetchJson(`/api/notifications/club/${encodeURIComponent(clubId)}/presence`, {
     method: 'POST',
     body: JSON.stringify({ sessionId: sessionId || null }),
+    __skipGlobalSaving: true,
+  })
+}
+
+/** Web Push — مفتاح VAPID العام (لا يحتاج تسجيل دخول) */
+export async function fetchPushVapidPublic() {
+  try {
+    const res = await fetch(`${API_URL}/api/push/vapid-public`)
+    const j = await res.json().catch(() => ({}))
+    if (!res.ok) return { ok: false, error: j.error || res.statusText, status: res.status }
+    return { ok: true, publicKey: j.publicKey }
+  } catch (e) {
+    return { ok: false, error: e?.message || 'fetch failed' }
+  }
+}
+
+export async function postPushSubscribe({ clubId, subscription, locale }) {
+  return fetchJson('/api/push/subscribe', {
+    method: 'POST',
+    body: JSON.stringify({ clubId, subscription, locale: locale || 'ar' }),
+    __skipGlobalSaving: true,
+  })
+}
+
+export async function postPushUnsubscribe(endpoint) {
+  return fetchJson('/api/push/unsubscribe', {
+    method: 'POST',
+    body: JSON.stringify({ endpoint }),
+    __skipGlobalSaving: true,
+  })
+}
+
+export async function postPushForeground(endpoint) {
+  return fetchJson('/api/push/foreground', {
+    method: 'POST',
+    body: JSON.stringify({ endpoint }),
     __skipGlobalSaving: true,
   })
 }

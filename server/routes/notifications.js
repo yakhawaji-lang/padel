@@ -2,7 +2,7 @@
  * Club notification summary + lightweight live presence for public club page visitor counts.
  */
 import { Router } from 'express'
-import { query } from '../db/pool.js'
+import { computeClubNotificationCounts } from '../services/clubNotificationSummary.js'
 
 const router = Router()
 
@@ -40,15 +40,6 @@ function countClubPresence(clubId) {
   return n
 }
 
-async function safeCount(sql, params) {
-  try {
-    const { rows } = await query(sql, params)
-    return Number(rows?.[0]?.c || 0) || 0
-  } catch (e) {
-    return 0
-  }
-}
-
 /**
  * GET /api/notifications/club/:clubId/summary
  */
@@ -57,110 +48,7 @@ router.get('/club/:clubId/summary', async (req, res) => {
   if (!clubId) return res.status(400).json({ error: 'clubId required' })
 
   const viewers = countClubPresence(clubId)
-
-  const locksActive = await safeCount(
-    `SELECT COUNT(*) AS c FROM booking_slot_locks WHERE club_id = ? AND expires_at > NOW()`,
-    [clubId]
-  )
-
-  /** حجوزات جارية اليوم: الوقت الحالي داخل [start_time, end_time) */
-  const bookingsActiveNow = await safeCount(
-    `SELECT COUNT(*) AS c FROM club_bookings 
-     WHERE club_id = ? AND deleted_at IS NULL 
-     AND booking_date = CURDATE()
-     AND start_time IS NOT NULL AND TRIM(start_time) <> ''
-     AND end_time IS NOT NULL AND TRIM(end_time) <> ''
-     AND TIME(NOW()) >= CAST(TRIM(start_time) AS TIME)
-     AND TIME(NOW()) < CAST(TRIM(end_time) AS TIME)
-     AND LOWER(COALESCE(status,'')) IN ('confirmed','partially_paid','pending_payments')`,
-    [clubId]
-  )
-
-  /**
-   * حجوزات مكتملة اليوم: مؤكدة (أو مدفوعة جزئياً) ولم ينتهِ وقت الحجز بعد.
-   * تبقى في العدّاد حتى TIME(NOW()) >= end_time لذلك اليوم.
-   */
-  const completedBookingsToday = await safeCount(
-    `SELECT COUNT(*) AS c FROM club_bookings 
-     WHERE club_id = ? AND deleted_at IS NULL 
-     AND booking_date = CURDATE()
-     AND start_time IS NOT NULL AND TRIM(start_time) <> ''
-     AND end_time IS NOT NULL AND TRIM(end_time) <> ''
-     AND TIME(NOW()) < CAST(TRIM(end_time) AS TIME)
-     AND LOWER(COALESCE(status,'')) IN ('confirmed','partially_paid')`,
-    [clubId]
-  )
-
-  const bookingCompleteFlow = await safeCount(
-    `SELECT COUNT(*) AS c FROM club_bookings 
-     WHERE club_id = ? AND deleted_at IS NULL 
-     AND LOWER(COALESCE(status,'')) IN ('initiated','locked','pending_payment')`,
-    [clubId]
-  )
-
-  const bookingAwaitingPayments = await safeCount(
-    `SELECT COUNT(*) AS c FROM club_bookings 
-     WHERE club_id = ? AND deleted_at IS NULL 
-     AND LOWER(COALESCE(status,'')) IN ('pending_payments','partially_paid')`,
-    [clubId]
-  )
-
-  const bookingExpiredWithPayment = await safeCount(
-    `SELECT COUNT(*) AS c FROM club_bookings 
-     WHERE club_id = ? AND deleted_at IS NULL 
-     AND LOWER(COALESCE(status,'')) = 'expired' 
-     AND COALESCE(paid_amount,0) > 0.01`,
-    [clubId]
-  )
-
-  let refundRequests = await safeCount(
-    `SELECT COUNT(*) AS c FROM booking_payment_shares 
-     WHERE club_id = ? 
-     AND member_refund_requested_at IS NOT NULL 
-     AND refunded_at IS NULL 
-     AND removed_at IS NULL`,
-    [clubId]
-  )
-  const refundRowsBooking = await safeCount(
-    `SELECT COUNT(*) AS c FROM booking_refunds WHERE club_id = ? AND LOWER(COALESCE(status,'')) = 'pending'`,
-    [clubId]
-  )
-  refundRequests += refundRowsBooking
-
-  let storeSalesRecent = await safeCount(
-    `SELECT COUNT(*) AS c FROM store_sales 
-     WHERE club_id = ? AND deleted_at IS NULL 
-     AND created_at > DATE_SUB(NOW(), INTERVAL 48 HOUR)`,
-    [clubId]
-  )
-
-  const storeLowStock = await safeCount(
-    `SELECT COUNT(*) AS c FROM store_products 
-     WHERE club_id = ? AND deleted_at IS NULL AND stock IS NOT NULL AND stock <= 2`,
-    [clubId]
-  )
-
-  const newMembers = await safeCount(
-    `SELECT COUNT(*) AS c FROM member_clubs 
-     WHERE club_id = ? AND joined_at > DATE_SUB(NOW(), INTERVAL 7 DAY)`,
-    [clubId]
-  )
-
-  const counts = {
-    viewers,
-    locksActive,
-    bookingsActiveNow,
-    completedBookingsToday,
-    bookingCompleteFlow,
-    bookingAwaitingPayments,
-    bookingExpiredWithPayment,
-    refundRequests,
-    storeSalesRecent,
-    storeLowStock,
-    newMembers,
-  }
-
-  const fingerprint = JSON.stringify(counts)
+  const { counts, fingerprint } = await computeClubNotificationCounts(clubId, viewers)
   res.json({ ok: true, clubId, counts, fingerprint, at: new Date().toISOString() })
 })
 

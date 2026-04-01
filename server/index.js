@@ -32,8 +32,10 @@ import settingsUploadRouter from './routes/settingsUpload.js'
 import galleryRouter from './routes/gallery.js'
 import emailRouter from './routes/email.js'
 import notificationsRouter from './routes/notifications.js'
+import pushRouter from './routes/push.js'
 import { isConnected, getDbDiagnostics, getCurrentDatabase } from './db/pool.js'
 import { startBookingJobs } from './jobs/bookingJobs.js'
+import { startPushNotificationJob } from './jobs/pushNotificationsJob.js'
 
 const app = express()
 const PORT = process.env.PORT || 4000
@@ -59,6 +61,7 @@ app.use('/api/clubs', clubsRouter)
 app.use('/api/gallery', galleryRouter)
 app.use('/api/email', emailRouter)
 app.use('/api/notifications', notificationsRouter)
+app.use('/api/push', pushRouter)
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, db: isConnected() })
@@ -158,6 +161,7 @@ app.listen(PORT, HOST, async () => {
     const dbName = await getCurrentDatabase()
     console.log(`Database: ${dbName || '(unknown)'} — all data is read from and written to this database`)
     startBookingJobs()
+    startPushNotificationJob()
   }
 }).on('error', (err) => {
   console.error('[Express] listen error:', err.message)

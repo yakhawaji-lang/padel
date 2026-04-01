@@ -186,6 +186,31 @@ export async function runMigration() {
     `)
   }
 
+  if (!(await tableExists('club_push_subscriptions'))) {
+    await query(`
+      CREATE TABLE club_push_subscriptions (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        endpoint_hash CHAR(64) NOT NULL,
+        endpoint TEXT NOT NULL,
+        p256dh VARCHAR(255) NOT NULL,
+        auth_secret VARCHAR(255) NOT NULL,
+        club_id VARCHAR(255) NOT NULL,
+        admin_user_id VARCHAR(255) NULL,
+        locale VARCHAR(8) NOT NULL DEFAULT 'ar',
+        last_push_fingerprint VARCHAR(768) NULL,
+        last_foreground_ping_at DATETIME NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_club_push_endpoint_hash (endpoint_hash),
+        INDEX idx_club_push_club (club_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `)
+  } else if (!(await columnExists('club_push_subscriptions', 'last_foreground_ping_at'))) {
+    await query(
+      `ALTER TABLE club_push_subscriptions ADD COLUMN last_foreground_ping_at DATETIME NULL`
+    )
+  }
+
   await query(`
     UPDATE club_bookings SET start_time = time_slot 
     WHERE start_time IS NULL AND time_slot IS NOT NULL

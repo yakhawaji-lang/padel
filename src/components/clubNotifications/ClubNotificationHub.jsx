@@ -1,6 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchClubNotificationSummary } from '../../api/dbClient'
+import {
+  fetchClubNotificationSummary,
+  fetchPushVapidPublic,
+  postPushForeground,
+  postPushSubscribe,
+  postPushUnsubscribe,
+} from '../../api/dbClient'
 import './ClubNotificationHub.css'
 
 const POLL_MS = 25000
@@ -162,9 +168,13 @@ function labelsForLang(lang) {
     soundMuteAria: 'Mute notification bell',
     soundUnmuteAria: 'Enable notification bell',
     desktopNotifyTitle: 'System alerts when away',
-    desktopNotifyHint: 'Shows a desktop notification with sound when this tab is in the background or another app is focused. Requires browser permission.',
-    desktopNotifyOn: 'System alerts on',
-    desktopNotifyOff: 'Enable system alerts',
+    desktopNotifyHint:
+      'When the server has VAPID keys: Web Push (tab can be closed). Otherwise: browser notifications while the browser stays open. HTTPS and permission required.',
+    desktopNotifyOn: 'Browser alerts on',
+    desktopNotifyOff: 'Disable background alerts',
+    desktopPushOn: 'Web Push on (tab can be closed)',
+    desktopPageOn: 'Browser-only alerts on',
+    desktopEnableBackground: 'Enable background alerts',
     desktopDenied: 'Notifications blocked — allow them in the browser site settings.',
   }
   const ar = {
@@ -197,9 +207,12 @@ function labelsForLang(lang) {
     soundUnmuteAria: 'تشغيل صوت جرس الإشعارات',
     desktopNotifyTitle: 'تنبيهات النظام عند ترك الصفحة',
     desktopNotifyHint:
-      'يظهر إشعاراً على سطح المكتب مع صوت عندما التبويب في الخلفية أو تستخدم برنامجاً آخر. يتطلب إذناً من المتصفح.',
-    desktopNotifyOn: 'تنبيهات النظام مفعّلة',
-    desktopNotifyOff: 'تفعيل تنبيهات النظام',
+      'إن وُجدت مفاتيح VAPID على الخادم: Web Push (يعمل حتى مع إغلاق التبويب). وإلا: إشعارات المتصفح مع بقاء المتصفح مفتوحاً. يتطلب HTTPS وإذناً.',
+    desktopNotifyOn: 'تنبيهات المتصفح مفعّلة',
+    desktopNotifyOff: 'إيقاف تنبيهات الخلفية',
+    desktopPushOn: 'Web Push مفعّل (يمكن إغلاق التبويب)',
+    desktopPageOn: 'تنبيهات المتصفح فقط',
+    desktopEnableBackground: 'تفعيل تنبيهات الخلفية',
     desktopDenied: 'الإشعارات مرفوضة — اسمح بها من إعدادات الموقع في المتصفح.',
   }
   return lang === 'ar' ? ar : en
@@ -252,6 +265,31 @@ function writeDesktopNotify(on) {
   try {
     localStorage.setItem(DESKTOP_NOTIFY_KEY, on ? '1' : '0')
   } catch { /* ignore */ }
+}
+
+const PUSH_SUBSCRIBED_KEY = 'playtix_notify_push_v1'
+
+function readPushSubscribed() {
+  try {
+    return localStorage.getItem(PUSH_SUBSCRIBED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writePushSubscribed(on) {
+  try {
+    localStorage.setItem(PUSH_SUBSCRIBED_KEY, on ? '1' : '0')
+  } catch { /* ignore */ }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = atob(base64)
+  const outputArray = new Uint8Array(rawData.length)
+  for (let i = 0; i < rawData.length; i += 1) outputArray[i] = rawData.charCodeAt(i)
+  return outputArray
 }
 
 function canUseDesktopNotifications() {
@@ -440,10 +478,12 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
   const [ackTick, setAckTick] = useState(0)
   const [soundMuted, setSoundMuted] = useState(() => readSoundMuted())
   const [desktopNotify, setDesktopNotify] = useState(() => readDesktopNotify())
+  const [pushSubscribed, setPushSubscribedState] = useState(() => readPushSubscribed())
   const [desktopDeniedHint, setDesktopDeniedHint] = useState(false)
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
   const pollRef = useRef(null)
   const prevPollCountsRef = useRef(null)
+  const lastForegroundPushPingRef = useRef(0)
 
   const t = useMemo(() => labelsForLang(language), [language])
 
@@ -504,6 +544,43 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
   }, [load, showUi])
 
   useEffect(() => {
+    if (!showUi) return undefined
+    if (!readPushSubscribed()) return undefined
+    ;(async () => {
+      try {
+        const reg = await navigator.serviceWorker?.ready
+        const sub = await reg?.pushManager?.getSubscription()
+        if (!sub) {
+          writePushSubscribed(false)
+          setPushSubscribedState(false)
+        }
+      } catch {
+        /* ignore */
+      }
+    })()
+    return undefined
+  }, [showUi])
+
+  useEffect(() => {
+    if (!showUi || !summary?.fingerprint) return undefined
+    if (!readPushSubscribed()) return undefined
+    if (typeof document === 'undefined' || !document.hasFocus()) return undefined
+    if (Date.now() - lastForegroundPushPingRef.current < 22000) return undefined
+    ;(async () => {
+      try {
+        const reg = await navigator.serviceWorker?.ready
+        const sub = await reg?.pushManager?.getSubscription()
+        if (!sub?.endpoint) return
+        lastForegroundPushPingRef.current = Date.now()
+        await postPushForeground(sub.endpoint)
+      } catch {
+        /* ignore */
+      }
+    })()
+    return undefined
+  }, [showUi, summary?.fingerprint])
+
+  useEffect(() => {
     if (!expanded) return undefined
     const onKey = (e) => {
       if (e.key === 'Escape') setExpanded(false)
@@ -558,28 +635,76 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
     setSoundMuted(next)
   }, [])
 
-  const toggleDesktopNotify = useCallback(
+  const toggleBackgroundNotify = useCallback(
     async (e) => {
       e?.stopPropagation?.()
-      if (!canUseDesktopNotifications()) return
       setDesktopDeniedHint(false)
-      if (readDesktopNotify()) {
+
+      if (readPushSubscribed() || readDesktopNotify()) {
+        if (readPushSubscribed()) {
+          try {
+            const reg = await navigator.serviceWorker?.ready
+            const sub = await reg?.pushManager?.getSubscription()
+            if (sub?.endpoint) {
+              try {
+                await postPushUnsubscribe(sub.endpoint)
+              } catch {
+                /* ignore */
+              }
+              await sub.unsubscribe()
+            }
+          } catch {
+            /* ignore */
+          }
+          writePushSubscribed(false)
+          setPushSubscribedState(false)
+        }
         writeDesktopNotify(false)
         setDesktopNotify(false)
         return
       }
+
+      if (!canUseDesktopNotifications()) return
+
       let perm = Notification.permission
-      if (perm === 'default') {
-        perm = await Notification.requestPermission()
-      }
+      if (perm === 'default') perm = await Notification.requestPermission()
       if (perm !== 'granted') {
         setDesktopDeniedHint(true)
         return
       }
+
+      const vapid = await fetchPushVapidPublic()
+      if (vapid.ok && vapid.publicKey && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        try {
+          const base = import.meta.env.BASE_URL || '/'
+          const swUrl = `${base}sw.js`.replace(/\/{2,}/g, '/')
+          const reg = await navigator.serviceWorker.register(swUrl, { scope: base })
+          await reg.update()
+          const existing = await reg.pushManager.getSubscription()
+          if (existing) await existing.unsubscribe()
+          const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapid.publicKey),
+          })
+          await postPushSubscribe({
+            clubId,
+            subscription: sub.toJSON(),
+            locale: language === 'ar' ? 'ar' : 'en',
+          })
+          writePushSubscribed(true)
+          setPushSubscribedState(true)
+          writeDesktopNotify(false)
+          setDesktopNotify(false)
+          return
+        } catch (err) {
+          console.warn('[push] subscribe failed', err)
+        }
+      }
+
       writeDesktopNotify(true)
       setDesktopNotify(true)
     },
-    []
+    [clubId, language]
   )
 
   useEffect(() => {
@@ -603,11 +728,12 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
     prevPollCountsRef.current = snap
     if (!increasedKey || soundMuted) return
 
+    const usePush = readPushSubscribed()
     const backgrounded = typeof document !== 'undefined' && !document.hasFocus()
     const desktopOk =
       readDesktopNotify() && canUseDesktopNotifications() && Notification.permission === 'granted'
 
-    if (backgrounded && desktopOk) {
+    if (backgrounded && desktopOk && !usePush) {
       const lab = t[increasedKey] || increasedKey
       const n = snap[increasedKey]
       showClubDesktopNotification({
@@ -615,7 +741,7 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
         body: language === 'ar' ? `${lab}: ${n}` : `${lab}: ${n}`,
         tag: `playtix-${clubId}-${increasedKey}-${Date.now()}`,
       })
-    } else {
+    } else if (!backgrounded || !usePush) {
       playNotificationSound(increasedKey)
     }
   }, [summary, counts, showUi, soundMuted, t, language, clubId])
@@ -841,12 +967,18 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
               <div className="cn-hub__desktop-block">
                 <button
                   type="button"
-                  className={`cn-hub__desktop-toggle ${desktopNotify ? 'cn-hub__desktop-toggle--on' : ''}`}
-                  onClick={toggleDesktopNotify}
-                  title={desktopNotify ? t.desktopNotifyOn : t.desktopNotifyOff}
-                  aria-pressed={desktopNotify}
+                  className={`cn-hub__desktop-toggle ${pushSubscribed ? 'cn-hub__desktop-toggle--push' : ''} ${desktopNotify && !pushSubscribed ? 'cn-hub__desktop-toggle--on' : ''}`}
+                  onClick={toggleBackgroundNotify}
+                  title={
+                    pushSubscribed ? t.desktopPushOn : desktopNotify ? t.desktopPageOn : t.desktopEnableBackground
+                  }
+                  aria-pressed={pushSubscribed || desktopNotify}
                 >
-                  {desktopNotify ? t.desktopNotifyOn : t.desktopNotifyOff}
+                  {pushSubscribed
+                    ? t.desktopPushOn
+                    : desktopNotify
+                      ? t.desktopPageOn
+                      : t.desktopEnableBackground}
                 </button>
                 <p className="cn-hub__desktop-hint">{t.desktopNotifyHint}</p>
                 {desktopDeniedHint ? <p className="cn-hub__desktop-warn">{t.desktopDenied}</p> : null}
