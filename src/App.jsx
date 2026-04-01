@@ -5295,13 +5295,14 @@ function App({ currentUser }) {
   )
 
   const memberSelectorAfterPhoneSettled = useCallback(
-    (display, { focusInput = true } = {}) => {
+    (display, { focusInput = true, membersOverride = null } = {}) => {
+      const memberList = Array.isArray(membersOverride) ? membersOverride : members
       const teamId = openMemberSelectorForTeam
       const searchDigits = phoneDigitsNormalized(display)
       if (teamId && searchDigits.length >= 3) {
         const team = teams.find((x) => x.id === teamId)
         const onTeamIds = new Set((team?.memberIds || []).map((id) => String(id)))
-        const offClubMatches = members.filter((m) => {
+        const offClubMatches = memberList.filter((m) => {
           if (onTeamIds.has(String(m.id))) return false
           return phoneMatchesMemberSearch(display, memberPhoneRawForSelector(m))
         })
@@ -5349,19 +5350,48 @@ function App({ currentUser }) {
     [openMemberSelectorForTeam, teams, members, memberSelectorFeeDraft, updateCurrentState]
   )
 
-  const handleMemberSelectorSearchByPhone = useCallback(() => {
+  const handleMemberSelectorSearchByPhone = useCallback(async () => {
     const raw =
       memberSelectorPhoneInputRef.current != null
         ? memberSelectorPhoneInputRef.current.value
         : memberSelectorSearch
     const display = normalizeMemberSelectorPhoneDisplay(raw)
     if (!display) return
+
+    let mergedMembersOverride = null
+    if (clubId) {
+      try {
+        await refreshClubsFromApi()
+      } catch {
+        /* استمر بأعضاء الكاش المحلي */
+      }
+      const clubs = loadClubs()
+      const club = clubs.find((c) => String(c.id) === String(clubId))
+      if (club) {
+        flushSync(() => {
+          setCurrentClub(club)
+          setMembers((prev) => {
+            mergedMembersOverride = mergeClubMembersForApp(club, clubId, prev)
+            return mergedMembersOverride
+          })
+        })
+      }
+    }
+
     flushSync(() => {
       setMemberSelectorSearch(display)
       setMemberSelectorSearchNonce((n) => n + 1)
     })
-    memberSelectorAfterPhoneSettled(display, { focusInput: false })
-  }, [memberSelectorSearch, setMemberSelectorSearch, memberSelectorAfterPhoneSettled])
+    memberSelectorAfterPhoneSettled(display, {
+      focusInput: false,
+      membersOverride: mergedMembersOverride,
+    })
+  }, [
+    memberSelectorSearch,
+    clubId,
+    setMemberSelectorSearch,
+    memberSelectorAfterPhoneSettled,
+  ])
 
   const handleMemberSelectorPickFromContacts = useCallback(async () => {
     if (!memberSelectorContactsSupported) {
