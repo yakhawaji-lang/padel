@@ -17,6 +17,34 @@ function getVapidPublicKey() {
   return k && String(k).trim() ? String(k).trim() : null
 }
 
+/** GET /api/push/health — تشخيص سريع: هل VAPID مضبوط؟ هل يوجد اشتراكات؟ */
+router.get('/health', async (req, res) => {
+  try {
+    const pub = !!process.env.VAPID_PUBLIC_KEY?.trim()
+    const priv = !!process.env.VAPID_PRIVATE_KEY?.trim()
+    let subscriptionRows = -1
+    try {
+      const { rows } = await query('SELECT COUNT(*) AS c FROM club_push_subscriptions', [])
+      subscriptionRows = Number(rows?.[0]?.c ?? 0) || 0
+    } catch {
+      subscriptionRows = -1
+    }
+    res.json({
+      ok: true,
+      vapidConfigured: pub && priv,
+      subscriptionRows,
+      hint:
+        !pub || !priv
+          ? 'Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY on the server and restart Node.'
+          : subscriptionRows === 0
+            ? 'No browsers subscribed yet — enable background alerts in the club notification panel while logged in as club admin.'
+            : 'Job runs every ~25s; push is sent only when a notification count increases (not for viewer count).',
+    })
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e?.message || 'health check failed' })
+  }
+})
+
 /** GET /api/push/vapid-public */
 router.get('/vapid-public', (req, res) => {
   const publicKey = getVapidPublicKey()
@@ -88,6 +116,34 @@ router.post('/unsubscribe', async (req, res) => {
   } catch (e) {
     console.error('[push/unsubscribe]', e)
     res.status(500).json({ error: e?.message || 'Unsubscribe failed' })
+  }
+})
+
+/** POST /api/push/tab-hidden  Body: { endpoint } — عند إخفاء التبويب نلغي «مقدمة» حتى يُرسل Push فور زيادة عدّاد */
+router.post('/tab-hidden', async (req, res) => {
+  try {
+    const { endpoint } = req.body || {}
+    if (!endpoint) return res.status(400).json({ error: 'endpoint required' })
+
+    const eh = endpointHash(endpoint)
+    const { rows } = await query(
+      'SELECT club_id FROM club_push_subscriptions WHERE endpoint_hash = ? LIMIT 1',
+      [eh]
+    )
+    const row = rows?.[0]
+    if (!row) return res.json({ ok: true })
+
+    const auth = await assertClubPushActor(req, row.club_id)
+    if (!auth.ok) return res.status(auth.status || 403).json({ error: auth.error })
+
+    await query(
+      'UPDATE club_push_subscriptions SET last_foreground_ping_at = NULL WHERE endpoint_hash = ?',
+      [eh]
+    )
+    res.json({ ok: true })
+  } catch (e) {
+    console.error('[push/tab-hidden]', e)
+    res.status(500).json({ error: e?.message || 'tab-hidden failed' })
   }
 })
 

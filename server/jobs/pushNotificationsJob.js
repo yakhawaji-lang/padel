@@ -100,7 +100,8 @@ export function startPushNotificationJob() {
   const tick = async () => {
     try {
       const { rows } = await query(
-        'SELECT id, club_id, endpoint, p256dh, auth_secret, locale, last_push_fingerprint FROM club_push_subscriptions',
+        `SELECT id, club_id, endpoint, p256dh, auth_secret, locale, last_push_fingerprint, last_foreground_ping_at
+         FROM club_push_subscriptions`,
         []
       )
       if (!rows?.length) return
@@ -153,12 +154,13 @@ export function startPushNotificationJob() {
         try {
           await webpush.sendNotification(subscription, payload, { TTL: 3600 })
           await query('UPDATE club_push_subscriptions SET last_push_fingerprint = ? WHERE id = ?', [fp, row.id])
+          console.log('[push] sent', clubId, inc.key, inc.value)
         } catch (e) {
           const status = e?.statusCode
           if (status === 410 || status === 404) {
             await query('DELETE FROM club_push_subscriptions WHERE id = ?', [row.id])
           } else {
-            console.warn('[push] send failed', clubId, e?.message || e)
+            console.warn('[push] send failed', clubId, status || '', e?.body || e?.message || e)
           }
         }
       }

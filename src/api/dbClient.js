@@ -960,6 +960,14 @@ export async function postPushForeground(endpoint) {
   })
 }
 
+export async function postPushTabHidden(endpoint) {
+  return fetchJson('/api/push/tab-hidden', {
+    method: 'POST',
+    body: JSON.stringify({ endpoint }),
+    __skipGlobalSaving: true,
+  })
+}
+
 // ---- Health check ----
 
 export async function healthCheck() {

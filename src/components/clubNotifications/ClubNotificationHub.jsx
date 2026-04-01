@@ -4,6 +4,7 @@ import {
   fetchClubNotificationSummary,
   fetchPushVapidPublic,
   postPushForeground,
+  postPushTabHidden,
   postPushSubscribe,
   postPushUnsubscribe,
 } from '../../api/dbClient'
@@ -531,6 +532,17 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, sh
     if (!showUi) return undefined
     const onVis = () => {
       if (document.visibilityState === 'visible') load()
+      else if (document.visibilityState === 'hidden' && readPushSubscribed()) {
+        ;(async () => {
+          try {
+            const reg = await navigator.serviceWorker?.ready
+            const sub = await reg?.pushManager?.getSubscription()
+            if (sub?.endpoint) await postPushTabHidden(sub.endpoint)
+          } catch {
+            /* ignore */
+          }
+        })()
+      }
     }
     document.addEventListener('visibilitychange', onVis)
     return () => document.removeEventListener('visibilitychange', onVis)
