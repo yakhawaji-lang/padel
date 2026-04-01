@@ -8,6 +8,26 @@ export function phoneTailKey(s) {
 const PHONE_TAIL_MATCH_MIN = 8
 
 /**
+ * Match typed/pasted/contact-picked phone to a stored member number: spaces, +, country codes (966…),
+ * leading 0, and partial typing (3+ digits in search).
+ * @param {string} searchRaw — member selector search value
+ * @param {string} memberRaw — member.mobile or member.phone
+ */
+export function phoneMatchesMemberSearch(searchRaw, memberRaw) {
+  const s = String(searchRaw || '').replace(/\D/g, '')
+  const m = String(memberRaw || '').replace(/\D/g, '')
+  if (!s || s.length < 3 || !m) return false
+  if (m.includes(s) || s.includes(m)) return true
+  const ts = phoneTailKey(searchRaw)
+  const tm = phoneTailKey(memberRaw)
+  return (
+    ts.length >= PHONE_TAIL_MATCH_MIN &&
+    tm.length >= PHONE_TAIL_MATCH_MIN &&
+    ts === tm
+  )
+}
+
+/**
  * Members in directory whose mobile/phone matches the given number by last 9 digits.
  * Multiple results = ambiguous (rare); caller should treat as guest unless length === 1.
  * @param {string} phone

@@ -43,6 +43,8 @@ import {
   isSameDayIntervalWithinClubHours
 } from './utils/clubWorkingHours'
 import { isTerminalBookingStatus, isMemberCancelledBooking, bookingHasPendingMemberShareRefund } from './utils/bookingMemberCancel'
+import { phoneMatchesMemberSearch } from './utils/paymentShareMemberMatch'
+import { splitPickedPhoneToCountryAndNational, phoneDigits } from './utils/phoneNormalize'
 
 function bookingJsonData(booking) {
   const d = booking?.data
@@ -5219,10 +5221,8 @@ function App({ currentUser }) {
     const sortByName = (a, b) => nameOf(a).localeCompare(nameOf(b), undefined, { sensitivity: 'base' })
     const searchDigits = String(memberSelectorSearch || '').replace(/\D/g, '')
     const phoneSearchOk = searchDigits.length >= 3
-    const phoneMatches = (m) => {
-      const mob = String(m.mobile || m.phone || '').replace(/\D/g, '')
-      return mob.includes(searchDigits)
-    }
+    const phoneMatches = (m) =>
+      phoneMatchesMemberSearch(memberSelectorSearch, m.mobile || m.phone || '')
     const onTeam = members.filter((m) => onTeamIds.has(String(m.id))).sort(sortByName)
     const offTeam = members
       .filter((m) => {
@@ -5254,7 +5254,16 @@ function App({ currentUser }) {
       const tel = selected[0]?.tel
       const raw = Array.isArray(tel) ? tel.find((x) => x != null && String(x).trim() !== '') : tel
       if (raw == null || String(raw).trim() === '') return
-      setMemberSelectorSearch(String(raw).trim())
+      const rawStr = String(raw).trim()
+      const { countryCode, national } = splitPickedPhoneToCountryAndNational(rawStr)
+      const digits = phoneDigits(rawStr)
+      let display =
+        countryCode === '966' && national.length >= 9
+          ? `0${national}`
+          : national.length >= 8
+            ? digits
+            : digits || rawStr.replace(/\s+/g, '')
+      setMemberSelectorSearch(display)
     } catch (err) {
       const name = err?.name || ''
       if (name === 'AbortError') return
