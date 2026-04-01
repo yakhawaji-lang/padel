@@ -8247,10 +8247,9 @@ function App({ currentUser }) {
                                     strokeLinejoin="round"
                                     aria-hidden
                                   >
-                                    {/* دبوس تثبيت (drawing pin) — مسارات مستوحاة من أيقونة Pin */}
-                                    <path d="M12 17v5" />
-                                    <path d="M9 10.76V7a3 3 0 0 1 3-3 3 3 0 0 1 3 3v3.76" />
-                                    <path d="M5 10h14l-1.27 9.16a2 2 0 0 1-1.98 1.84H8.25a2 2 0 0 1-1.98-1.84L5 10Z" />
+                                    {/* دبوس ورقي: رأس دائري + طرف مدبب */}
+                                    <ellipse cx="12" cy="7" rx="4" ry="3.25" />
+                                    <path d="M8.25 10.25 12 21.5 15.75 10.25" />
                                   </svg>
                                 </button>
                                 <label className="member-selector-item member-selector-item--in-row">
