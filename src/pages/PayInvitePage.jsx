@@ -4,7 +4,7 @@
  * المدعو يسجّل بالبريد (كود تحقق) ثم يكمل البيانات ويُوجَّه لدفع الحصة (نادي / إلكتروني)
  */
 import React, { useState, useEffect } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { getInviteByToken, recordPayment, getWalletBalance } from '../api/dbClient'
 import { getAppLanguage } from '../storage/languageStorage'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
@@ -38,10 +38,55 @@ function clubPublicPath(clubId) {
   return `/clubs/${encodeURIComponent(String(clubId))}`
 }
 
+function readQueryParams(search) {
+  try {
+    const q = (search || '').startsWith('?') ? search.slice(1) : search
+    return new URLSearchParams(q || '')
+  } catch {
+    return new URLSearchParams()
+  }
+}
+
+function resolveInviteTokenFromBrowser(tokenParam, pathname, search) {
+  const sp = readQueryParams(search)
+  const chunks = [
+    tokenParam,
+    sp.get('token'),
+    sp.get('invite'),
+    sp.get('t'),
+    sp.get('inv'),
+    typeof window !== 'undefined' ? window.location.hash.replace(/^#\/?/, '') : '',
+    `${pathname || ''} ${search || ''}`,
+  ].filter((x) => x != null && String(x).trim() !== '')
+  for (const c of chunks) {
+    const t = normalizeInviteTokenParam(c)
+    if (isWellFormedInviteToken(t)) return t
+  }
+  return normalizeInviteTokenParam(tokenParam)
+}
+
 const PayInvitePage = () => {
   const navigate = useNavigate()
   const { token: tokenParam } = useParams()
-  const tokenNorm = React.useMemo(() => normalizeInviteTokenParam(tokenParam), [tokenParam])
+  const location = useLocation()
+  const tokenNorm = React.useMemo(
+    () => resolveInviteTokenFromBrowser(tokenParam, location.pathname, location.search),
+    [tokenParam, location.pathname, location.search]
+  )
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    const h = (window.location.hash || '').replace(/^#\/?/, '')
+    if (!h || !/pay-invite/i.test(h)) return
+    const tail = h.includes('pay-invite/') ? h.split('pay-invite/')[1] : h
+    const t = normalizeInviteTokenParam(tail)
+    if (!isWellFormedInviteToken(t)) return
+    const path = `${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/pay-invite/${t}`
+    navigate(`/pay-invite/${t}`, { replace: true })
+    try {
+      window.history.replaceState(null, '', path)
+    } catch (_) {}
+  }, [navigate])
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -54,12 +99,11 @@ const PayInvitePage = () => {
 
   const loadInvite = React.useCallback(async () => {
     const stored = readResumeInviteToken()
-    const urlTokenOk = isWellFormedInviteToken(tokenNorm)
-    const candidates = [
-      ...new Set(
-        (urlTokenOk ? [tokenNorm, stored] : [stored, tokenNorm]).filter(Boolean)
-      )
-    ]
+    const urlOk = isWellFormedInviteToken(tokenNorm)
+    const storedOk = isWellFormedInviteToken(stored)
+    const candidates = []
+    if (urlOk) candidates.push(tokenNorm)
+    if (storedOk && stored !== tokenNorm) candidates.push(stored)
     if (!candidates.length) {
       setLoading(false)
       setError('Token required')
@@ -78,8 +122,9 @@ const PayInvitePage = () => {
         setError(null)
         setErrorStatus(null)
         persistResumeInviteToken(d?.inviteToken || t)
-        if (t !== tokenNorm) {
-          navigate(`/pay-invite/${d?.inviteToken || t}`, { replace: true })
+        const canon = d?.inviteToken || t
+        if (canon && canon !== tokenNorm) {
+          navigate(`/pay-invite/${canon}`, { replace: true })
         }
         setLoading(false)
         return
@@ -175,20 +220,32 @@ const PayInvitePage = () => {
   }
 
   if (error || !data) {
+    const tokenMissing =
+      error === 'Token required' || (error != null && String(error).toLowerCase().includes('token required'))
     const is404 = errorStatus === 404
     const isNetwork = errorStatus === 'network' || (error && /fetch|network|failed to load/i.test(String(error)))
-    const title = isNetwork
-      ? t('Cannot reach server', 'لا يمكن الاتصال بالسيرفر')
-      : is404
-        ? t('Invite not found', 'لم يتم العثور على الدعوة')
-        : errorStatus != null && errorStatus >= 500
-          ? t('Server error', 'خطأ في الخادم')
-          : t('Could not load invite', 'تعذّر تحميل الدعوة')
-    const message = isNetwork
-      ? t('Make sure the API server is running (e.g. port 4000) and try again.', 'تأكد من تشغيل سيرفر واجهة برمجة التطبيقات (مثلاً المنفذ 4000) ثم أعد المحاولة.')
-      : is404
-        ? t('The link was not found. It is created when someone books a court, adds you to split the payment, and sends you the WhatsApp link.', 'الرابط غير موجود. يُنشأ عندما يحجز أحد ملعباً ويضيفك لمشاركة الدفع ثم يرسلك الرابط عبر واتساب.')
-        : t('This link may have expired or is invalid. Make sure the API server is running and try again.', 'قد يكون الرابط منتهي الصلاحية أو غير صحيح. تأكد من تشغيل السيرفر ثم أعد المحاولة.')
+    const title = tokenMissing
+      ? t('Incomplete invite link', 'رابط الدعوة غير مكتمل')
+      : isNetwork
+        ? t('Cannot reach server', 'لا يمكن الاتصال بالسيرفر')
+        : is404
+          ? t('Invite not found', 'لم يتم العثور على الدعوة')
+          : errorStatus != null && errorStatus >= 500
+            ? t('Server error', 'خطأ في الخادم')
+            : t('Could not load invite', 'تعذّر تحميل الدعوة')
+    const message = tokenMissing
+      ? t(
+          'Use the full link from WhatsApp (it must include inv_ and 32 letters/numbers after it). If the line was split, copy the whole URL or ask the club to resend.',
+          'استخدم الرابط كاملاً من واتساب (يجب أن يحتوي على inv_ ثم 32 حرفاً أو رقماً). إذا انقسم السطر انسخ الرابط كاملاً أو اطلب إعادة الإرسال من النادي.'
+        )
+      : isNetwork
+        ? t('Make sure the API server is running (e.g. port 4000) and try again.', 'تأكد من تشغيل سيرفر واجهة برمجة التطبيقات (مثلاً المنفذ 4000) ثم أعد المحاولة.')
+        : is404
+          ? t(
+              'This invite is not on the server. It may have been removed, or it was created on another environment (e.g. staging vs live). Ask the club to resend the link from the same live system you are opening.',
+              'هذه الدعوة غير مسجّلة على الخادم. ربما حُذفت، أو أُنشئت على بيئة أخرى (تجريبي مقابل مباشر). اطلب من النادي إعادة إرسال الرابط من نفس النظام المباشر الذي تفتح منه.'
+            )
+          : t('This link may have expired or is invalid. Make sure the API server is running and try again.', 'قد يكون الرابط منتهي الصلاحية أو غير صحيح. تأكد من تشغيل السيرفر ثم أعد المحاولة.')
     return (
       <div className="pay-invite-page">
         <div className="pay-invite-card pay-invite-error">

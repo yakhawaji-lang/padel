@@ -875,7 +875,7 @@ export async function adminImportExpiredSplitCreditsToWallets({ bookingId, clubI
 export async function getInviteByToken(token) {
   const { normalizeInviteTokenParam } = await import('../utils/paymentShareDeepLink.js')
   const t = normalizeInviteTokenParam(token)
-  if (!t) {
+  if (!t || !/^inv_[a-f0-9]{32}$/.test(t)) {
     const e = new Error('Token required')
     e.status = 400
     throw e
