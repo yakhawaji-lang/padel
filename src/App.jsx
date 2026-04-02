@@ -5425,6 +5425,11 @@ function App({ currentUser }) {
     }
   }, [memberSelectorContactsSupported, t, setMemberSelectorSearch, memberSelectorAfterPhoneSettled])
 
+  const tournamentBookingRowForGuestInvite = useMemo(() => {
+    if (!viewedTournamentBooking?.id) return null
+    return bookings.find((b) => String(b.id) === String(viewedTournamentBooking.id)) || null
+  }, [bookings, viewedTournamentBooking])
+
   const memberSelectorGuestPhoneDigits = phoneDigitsNormalized(memberSelectorSearch || '')
   const memberSelectorNoClubPhoneMatch = !members.some((m) =>
     phoneMatchesMemberSearch(memberSelectorSearch, memberPhoneRawForSelector(m))
@@ -5437,8 +5442,24 @@ function App({ currentUser }) {
     memberSelectorNoClubPhoneMatch
 
   const handleTournamentGuestFeeInvite = useCallback(async () => {
-    const org = getCurrentPlatformUser()
-    if (!org?.id) {
+    const platformMember = getCurrentPlatformUser()
+    const row = tournamentBookingRowForGuestInvite
+    const organizerFromBooking =
+      row?.initiatorMemberId ??
+      row?.memberId ??
+      row?.initiator_member_id ??
+      row?.member_id
+    const organizerId =
+      platformMember?.id != null && String(platformMember.id).trim() !== ''
+        ? String(platformMember.id).trim()
+        : organizerFromBooking != null && String(organizerFromBooking).trim() !== ''
+          ? String(organizerFromBooking).trim()
+          : ''
+    const ca = getClubAdminSession()
+    const isClubAdminForThisClub =
+      ca && String(ca.clubId || '').trim() === String(clubId || '').trim()
+
+    if (!organizerId && !isClubAdminForThisClub) {
       alert(t.memberSelectorGuestInviteNeedLogin)
       return
     }
@@ -5458,7 +5479,7 @@ function App({ currentUser }) {
       const res = await bookingApi.createTournamentGuestFeeShare({
         bookingId: viewedTournamentBooking.id,
         clubId,
-        organizerMemberId: org.id,
+        ...(organizerId ? { organizerMemberId: organizerId } : {}),
         phone,
         amount: amt,
         guestKind: 'auto',
@@ -5478,6 +5499,8 @@ function App({ currentUser }) {
         alert(t.memberSelectorGuestInviteWrongFlowRegistered)
       } else if (code === 'ALREADY_IN_CLUB') {
         alert(t.memberSelectorGuestInviteAlreadyInClub)
+      } else if (code === 'ORGANIZER_OR_ADMIN_REQUIRED' || code === 'NOT_ALLOWED_ORGANIZER') {
+        alert(t.memberSelectorGuestInviteNeedLogin)
       } else {
         alert(e?.message || (language === 'en' ? 'Could not create invite.' : 'تعذّر إنشاء الدعوة.'))
       }
@@ -5488,6 +5511,7 @@ function App({ currentUser }) {
     memberSelectorSearch,
     memberSelectorBulkFee,
     viewedTournamentBooking,
+    tournamentBookingRowForGuestInvite,
     clubId,
     t,
     language,

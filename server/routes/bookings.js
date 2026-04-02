@@ -6,8 +6,8 @@ import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
 import crypto from 'crypto'
 import { query } from '../db/pool.js'
-import { getActorFromRequest } from '../db/audit.js'
-import { logAudit } from '../db/audit.js'
+import { getActorFromRequest, logAudit } from '../db/audit.js'
+import { assertClubPushActor } from '../lib/clubPushAuth.js'
 import * as lock from '../db/bookingLock.js'
 import * as bookingService from '../services/bookingService.js'
 import { normalizeBookingDateYmd } from '../services/bookingService.js'
@@ -2539,8 +2539,8 @@ router.post('/create-tournament-guest-fee-share', async (req, res) => {
     if (!bid) {
       return res.status(400).json({ error: 'bookingId required (tournament booking saved for this club)' })
     }
-    if (!clubId || !organizerMemberId || phone == null || String(phone).trim() === '') {
-      return res.status(400).json({ error: 'clubId, organizerMemberId, and phone required' })
+    if (!clubId || phone == null || String(phone).trim() === '') {
+      return res.status(400).json({ error: 'clubId and phone required' })
     }
     const amt = parseFloat(amount) || 0
     if (amt <= 0) return res.status(400).json({ error: 'amount must be greater than 0' })
@@ -2557,26 +2557,44 @@ router.post('/create-tournament-guest-fee-share', async (req, res) => {
     if (!bRows?.length) return res.status(404).json({ error: 'Booking not found' })
     const b = bRows[0]
     const initiator = String(b.initiator_member_id || b.member_id || '').trim()
-    const orgId = String(organizerMemberId || '').trim()
-    if (!orgId) {
-      return res.status(400).json({ error: 'organizerMemberId required' })
-    }
-    if (initiator && orgId !== initiator) {
-      return res.status(403).json({
-        error: 'Only the member who created this booking can create payment invite links',
+    const orgId = String(organizerMemberId ?? '').trim()
+    const adminGate = await assertClubPushActor(req, clubId)
+    const isClubOrPlatformAdmin = adminGate.ok === true
+
+    if (!orgId && !isClubOrPlatformAdmin) {
+      return res.status(400).json({
+        error:
+          'organizerMemberId required unless you are logged in as this club’s admin or a platform admin (check session / headers).',
+        code: 'ORGANIZER_OR_ADMIN_REQUIRED',
       })
     }
-    if (!initiator) {
+
+    let organizerAllowed = false
+    if (initiator) {
+      if (orgId && orgId === initiator) organizerAllowed = true
+      else if (isClubOrPlatformAdmin) organizerAllowed = true
+    } else if (orgId) {
       const { rows: mcRows } = await query(
         `SELECT 1 AS ok FROM member_clubs WHERE club_id = ? AND member_id = ? LIMIT 1`,
         [String(clubId), orgId]
       )
-      if (!mcRows?.length) {
+      if (mcRows?.length) organizerAllowed = true
+      else if (isClubOrPlatformAdmin) organizerAllowed = true
+    } else if (isClubOrPlatformAdmin) {
+      organizerAllowed = true
+    }
+
+    if (!organizerAllowed) {
+      if (initiator && orgId && orgId !== initiator) {
         return res.status(403).json({
-          error:
-            'Link your platform account to this club as a member to send invites, or ensure the tournament booking has an organizer (initiator).',
+          error: 'Only the member who created this booking can create payment invite links',
         })
       }
+      return res.status(403).json({
+        error:
+          'Link your platform account to this club as a member to send invites, log in as club admin, or ensure the tournament booking has an organizer.',
+        code: 'NOT_ALLOWED_ORGANIZER',
+      })
     }
     let data = {}
     try {

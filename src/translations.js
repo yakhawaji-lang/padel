@@ -117,7 +117,7 @@ export const translations = {
     memberSelectorGuestInviteWhatsAppButton: 'Create WhatsApp link & open',
     memberSelectorGuestInviteNeedPhoneDigits: 'Enter a full mobile number (at least 8 digits) before sending an invite.',
     memberSelectorGuestInviteNeedLogin:
-      'Log in with your Playtix member account linked to this club to create payment links.',
+      'Log in as a Playtix member (with this club) or as this club’s dashboard admin, or save the tournament booking with an organizer. Then try again.',
     memberSelectorGuestInviteNeedAmount: 'Set a default payment amount greater than zero at the top before sending.',
     memberSelectorGuestInviteAmbiguousPhone:
       'More than one PlayTix account matches this number. Resolve it in admin, then try again.',
@@ -443,7 +443,7 @@ export const translations = {
     memberSelectorGuestInviteWhatsAppButton: 'إنشاء رابط واتساب وفتحه',
     memberSelectorGuestInviteNeedPhoneDigits: 'أدخل رقماً كاملاً للجوال (8 أرقام على الأقل) قبل إرسال الدعوة.',
     memberSelectorGuestInviteNeedLogin:
-      'سجّل الدخول بحساب عضو المنصة المرتبط بهذا النادي لإنشاء روابط الدفع.',
+      'سجّل الدخول كعضو منصة مرتبط بهذا النادي أو كمدير النادي من لوحة التحكم، أو احفظ حجز البطولة مع تحديد منظم. ثم أعِد المحاولة.',
     memberSelectorGuestInviteNeedAmount: 'حدّد مبلغاً افتراضياً أكبر من صفر في الأعلى قبل الإرسال.',
     memberSelectorGuestInviteAmbiguousPhone:
       'أكثر من حساب منصة يطابق هذا الرقم. عالج الأمر من الإدارة ثم أعِد المحاولة.',

@@ -74,6 +74,7 @@ function needsDataActorHeaders(path, method) {
   if (m === 'POST' && path === '/api/bookings/record-payment') return true
   if (m === 'POST' && path === '/api/bookings/set-allow-co-add-split') return true
   if (m === 'POST' && path === '/api/bookings/record-remainder-payment') return true
+  if (m === 'POST' && path === '/api/bookings/create-tournament-guest-fee-share') return true
   if (m === 'POST' && path.startsWith('/api/push/')) return true
   return false
 }
@@ -771,17 +772,20 @@ export async function createTournamentGuestFeeShare({
   memberName,
   guestKind,
 }) {
+  const body = {
+    bookingId,
+    clubId,
+    phone,
+    amount,
+    guestKind,
+  }
+  const oid = organizerMemberId != null ? String(organizerMemberId).trim() : ''
+  if (oid) body.organizerMemberId = oid
+  const mn = memberName != null ? String(memberName).trim() : ''
+  if (mn) body.memberName = mn
   return fetchJson('/api/bookings/create-tournament-guest-fee-share', {
     method: 'POST',
-    body: JSON.stringify({
-      bookingId,
-      clubId,
-      organizerMemberId,
-      phone,
-      amount,
-      memberName,
-      guestKind,
-    }),
+    body: JSON.stringify(body),
   })
 }
 
