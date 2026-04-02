@@ -81,15 +81,13 @@ function getPayBaseUrlFromRequest(req) {
   return process.env.BASE_URL || process.env.PUBLIC_BASE_URL || (origin ? `${origin}${basePath}` : 'https://playtix.app/app')
 }
 
-/** Links embedded in WhatsApp must open production app for guests (avoid localhost when admin uses dev UI). */
+/** Links embedded in WhatsApp. Prefer explicit env; otherwise keep same app origin that created token. */
 function getWhatsAppOutboundPayBaseUrl(req) {
   const env = (process.env.WHATSAPP_PAY_BASE_URL || process.env.BASE_URL || process.env.PUBLIC_BASE_URL || '')
     .trim()
     .replace(/\/$/, '')
   if (env) return env
-  const fromReq = getPayBaseUrlFromRequest(req).replace(/\/$/, '')
-  if (/localhost|127\.0\.0\.1/i.test(fromReq)) return 'https://playtix.app/app'
-  return fromReq
+  return getPayBaseUrlFromRequest(req).replace(/\/$/, '')
 }
 
 function normalizePhoneForBookingShare(raw) {
