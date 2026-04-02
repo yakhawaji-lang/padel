@@ -838,17 +838,15 @@ export async function getClubsFromNormalized() {
     try {
       const ph = allIdsForMemberLookup.map(() => '?').join(',')
       const { rows: nmRows } = await query(
-        `SELECT id, name, mobile, phone FROM members WHERE deleted_at IS NULL AND id IN (${ph})`,
+        `SELECT id, name, mobile FROM members WHERE deleted_at IS NULL AND id IN (${ph})`,
         allIdsForMemberLookup
       )
       ;(nmRows || []).forEach((row) => {
         const nm = row.name && String(row.name).trim()
         if (!nm) return
         shareMemberNameById.set(String(row.id), nm)
-        for (const raw of [row.mobile, row.phone]) {
-          const tail = phoneTailNorm(raw)
-          if (tail.length >= 8) phoneTailToName.set(tail, nm)
-        }
+        const tail = phoneTailNorm(row.mobile)
+        if (tail.length >= 8) phoneTailToName.set(tail, nm)
       })
     } catch (_) {
       /* ignore */

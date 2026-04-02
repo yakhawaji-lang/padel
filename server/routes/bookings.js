@@ -203,15 +203,15 @@ async function lookupMemberByPhoneForClub(clubId, phoneRaw) {
   let rows = []
   try {
     const r = await query(
-      `SELECT id, name, email, mobile, phone FROM members WHERE deleted_at IS NULL`,
+      `SELECT id, name, email, mobile FROM members WHERE deleted_at IS NULL`,
       []
     )
     rows = r.rows || []
   } catch {
-    const r = await query(`SELECT id, name, email, mobile, phone FROM members`, [])
+    const r = await query(`SELECT id, name, email, mobile FROM members`, [])
     rows = r.rows || []
   }
-  const matches = (rows || []).filter((m) => memberMobileMatchesSharePhone(phoneRaw, m?.mobile || m?.phone || ''))
+  const matches = (rows || []).filter((m) => memberMobileMatchesSharePhone(phoneRaw, m?.mobile || ''))
   if (matches.length !== 1) return { member: null, ambiguous: matches.length > 1, inClub: false }
   const member = matches[0]
   let inClub = false
@@ -230,7 +230,7 @@ async function lookupMemberByPhoneForClub(clubId, phoneRaw) {
       name: member.name || null,
       email: member.email || null,
       mobile: member.mobile || null,
-      phone: member.phone || null,
+      phone: member.mobile || null,
     },
     ambiguous: false,
     inClub,
@@ -247,10 +247,10 @@ function shareRowBelongsToMember(row, memberId, memberPhoneRaw) {
 }
 
 async function memberIsSplitParticipantOnBooking(bookingId, clubId, memberId) {
-  const { rows: memRows } = await query('SELECT mobile, phone FROM members WHERE id = ? AND deleted_at IS NULL', [
+  const { rows: memRows } = await query('SELECT mobile FROM members WHERE id = ? AND deleted_at IS NULL', [
     String(memberId),
   ])
-  const phoneRaw = memRows?.[0]?.mobile || memRows?.[0]?.phone || ''
+  const phoneRaw = memRows?.[0]?.mobile || ''
   const { rows: shareRows } = await query(
     `SELECT member_id, phone FROM booking_payment_shares WHERE booking_id = ? AND club_id = ? AND removed_at IS NULL`,
     [bookingId, clubId]
@@ -1098,8 +1098,8 @@ router.post('/record-payment', async (req, res) => {
       const actorMemberId = String(actor.actorId)
       let phoneRaw = ''
       try {
-        const mr = await query('SELECT mobile, phone, name FROM members WHERE id = ? AND deleted_at IS NULL', [actorMemberId])
-        phoneRaw = mr?.rows?.[0]?.mobile || mr?.rows?.[0]?.phone || ''
+        const mr = await query('SELECT mobile, name FROM members WHERE id = ? AND deleted_at IS NULL', [actorMemberId])
+        phoneRaw = mr?.rows?.[0]?.mobile || ''
         const actorName = String(mr?.rows?.[0]?.name || '').trim()
         if (actorName) resolvedMemberName = actorName
       } catch (_) {}
