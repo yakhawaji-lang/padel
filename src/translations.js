@@ -111,19 +111,22 @@ export const translations = {
     memberSelectorOtherMembers: 'Other club members (search or pinned)',
     memberSelectorGuestInviteTitle: 'No club member matches this number',
     memberSelectorGuestInviteHint:
-      'Send a link so they can register or join the club, pay their share, and see the booking under My bookings (club page and My bookings).',
-    memberSelectorGuestInviteNotRegistered: 'Not on Playtix — register & pay',
-    memberSelectorGuestInviteRegisteredNotInClub: 'On Playtix, not in club — join & pay',
+      'Create a WhatsApp message with a secure PlayTix link (like playtix.app/app/pay-invite/inv_…) so they can finish registration or club membership and pay. The booking will appear in My bookings on the club page and in their account.',
+    memberSelectorGuestInviteAutoExplain:
+      'We pick the right link automatically: (1) Already on PlayTix but not in this club → join the club and pay. (2) Not on PlayTix yet → register, join the club, and pay.',
+    memberSelectorGuestInviteWhatsAppButton: 'Create WhatsApp link & open',
     memberSelectorGuestInviteNeedPhoneDigits: 'Enter a full mobile number (at least 8 digits) before sending an invite.',
     memberSelectorGuestInviteNeedLogin:
       'Log in with your Playtix member account linked to this club to create payment links.',
     memberSelectorGuestInviteNeedAmount: 'Set a default payment amount greater than zero at the top before sending.',
+    memberSelectorGuestInviteAmbiguousPhone:
+      'More than one PlayTix account matches this number. Resolve it in admin, then try again.',
     memberSelectorGuestInviteWrongFlowUnregistered:
-      'This number already has a Playtix account. Use the «On Playtix, not in club» option instead.',
+      'This number already has a PlayTix account. The server should use the join-club link; if you see this, refresh and try again.',
     memberSelectorGuestInviteWrongFlowRegistered:
-      'No Playtix account was found for this number. Use the «Not on Playtix» option instead.',
+      'No PlayTix account was found for this number. The server should use the registration link; if you see this, refresh and try again.',
     memberSelectorGuestInviteAlreadyInClub:
-      'This member is already in the club directory — find them in the list above (search or pin).',
+      'This number belongs to someone already in the club directory — find them in the list above (search or pin).',
     pointsHistory: 'Points History',
     showPointsHistory: 'Show Points History',
     hidePointsHistory: 'Hide Points History',
@@ -434,19 +437,22 @@ export const translations = {
     memberSelectorOtherMembers: 'بقية أعضاء النادي (بحث أو مثبتون)',
     memberSelectorGuestInviteTitle: 'لا يوجد عضو بهذا الرقم في دليل النادي',
     memberSelectorGuestInviteHint:
-      'أرسل رابطاً ليتسجّل أو ينضمّ للنادي ويدفع حصّته، فيظهر الحجز له في «حجوزاتي» (صفحة النادي وصفحة حجوزاتي).',
-    memberSelectorGuestInviteNotRegistered: 'غير مسجّل في المنصة — تسجيل ودفع',
-    memberSelectorGuestInviteRegisteredNotInClub: 'مسجّل بالمنصة وغير منضمّ للنادي — انضمام ودفع',
+      'يُنشئ رسالة واتساب فيها رابط آمن على PlayTix (مثل playtix.app/app/pay-invite/inv_…) ليتسجّل أو ينضمّ للنادي ويكمل الدفع، فيظهر الحجز في «حجوزاتي» بصفحة النادي وحسابه.',
+    memberSelectorGuestInviteAutoExplain:
+      'يُختار الرابط تلقائياً: (١) مسجّل في المنصة وغير منضمّ للنادي → انضمام للنادي والدفع. (٢) غير مسجّل في المنصة → تسجيل وانضمام للنادي والدفع.',
+    memberSelectorGuestInviteWhatsAppButton: 'إنشاء رابط واتساب وفتحه',
     memberSelectorGuestInviteNeedPhoneDigits: 'أدخل رقماً كاملاً للجوال (8 أرقام على الأقل) قبل إرسال الدعوة.',
     memberSelectorGuestInviteNeedLogin:
       'سجّل الدخول بحساب عضو المنصة المرتبط بهذا النادي لإنشاء روابط الدفع.',
     memberSelectorGuestInviteNeedAmount: 'حدّد مبلغاً افتراضياً أكبر من صفر في الأعلى قبل الإرسال.',
+    memberSelectorGuestInviteAmbiguousPhone:
+      'أكثر من حساب منصة يطابق هذا الرقم. عالج الأمر من الإدارة ثم أعِد المحاولة.',
     memberSelectorGuestInviteWrongFlowUnregistered:
-      'هذا الرقم مسجّل بالفعل في المنصة. استخدم خيار «مسجّل وغير منضمّ للنادي».',
+      'الرقم مسجّل في المنصة. يفترض أن يُستخدم رابط الانضمام؛ إن ظهرت هذه الرسالة حدّث الصفحة وأعد المحاولة.',
     memberSelectorGuestInviteWrongFlowRegistered:
-      'لا يوجد حساب منصة بهذا الرقم. استخدم خيار «غير مسجّل في المنصة».',
+      'لا يوجد حساب بهذا الرقم. يفترض أن يُستخدم رابط التسجيل؛ إن ظهرت هذه الرسالة حدّث الصفحة وأعد المحاولة.',
     memberSelectorGuestInviteAlreadyInClub:
-      'العضو موجود في دليل النادي — ابحث عنه في القائمة أعلاه أو ثبّته.',
+      'هذا الرقم لعضو موجود في دليل النادي — ابحث عنه في القائمة أعلاه أو ثبّته.',
     pointsHistory: 'سجل النقاط',
     showPointsHistory: 'عرض سجل النقاط',
     hidePointsHistory: 'إخفاء سجل النقاط',

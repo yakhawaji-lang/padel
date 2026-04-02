@@ -429,7 +429,7 @@ function App({ currentUser }) {
   const [memberSelectorFeeDraft, setMemberSelectorFeeDraft] = useState({}) // { [memberId]: string }
   /** معرفات أعضاء مثبتة للظهور في المنتقي بدون بحث (لكل نادي) */
   const [memberSelectorPinnedIds, setMemberSelectorPinnedIds] = useState([])
-  const [memberSelectorGuestInviteBusy, setMemberSelectorGuestInviteBusy] = useState(null)
+  const [memberSelectorGuestInviteBusy, setMemberSelectorGuestInviteBusy] = useState(false)
   const [teamMemberDragOverId, setTeamMemberDragOverId] = useState(null)
   const [showMemberPointsHistory, setShowMemberPointsHistory] = useState(false) // Show/hide member points history
   const [selectedMemberForHistory, setSelectedMemberForHistory] = useState(null) // Selected member ID for viewing history
@@ -5436,64 +5436,63 @@ function App({ currentUser }) {
     memberSelectorGuestPhoneDigits.length >= 8 &&
     memberSelectorNoClubPhoneMatch
 
-  const handleTournamentGuestFeeInvite = useCallback(
-    async (guestKind) => {
-      const org = getCurrentPlatformUser()
-      if (!org?.id) {
-        alert(t.memberSelectorGuestInviteNeedLogin)
-        return
+  const handleTournamentGuestFeeInvite = useCallback(async () => {
+    const org = getCurrentPlatformUser()
+    if (!org?.id) {
+      alert(t.memberSelectorGuestInviteNeedLogin)
+      return
+    }
+    const phone = normalizeMemberSelectorPhoneDisplay(memberSelectorSearch)
+    if (!phone || phoneDigitsNormalized(phone).length < 8) {
+      alert(t.memberSelectorGuestInviteNeedPhoneDigits)
+      return
+    }
+    const amt = parseFloat(String(memberSelectorBulkFee || '').replace(',', '.')) || 0
+    if (amt <= 0) {
+      alert(t.memberSelectorGuestInviteNeedAmount)
+      return
+    }
+    if (!viewedTournamentBooking?.id || !clubId) return
+    setMemberSelectorGuestInviteBusy(true)
+    try {
+      const res = await bookingApi.createTournamentGuestFeeShare({
+        bookingId: viewedTournamentBooking.id,
+        clubId,
+        organizerMemberId: org.id,
+        phone,
+        amount: amt,
+        guestKind: 'auto',
+      })
+      await syncBookingsAfterApi()
+      const wa = res?.whatsappLink || res?.payUrl
+      if (wa && typeof window !== 'undefined') {
+        window.open(wa, '_blank', 'noopener,noreferrer')
       }
-      const phone = normalizeMemberSelectorPhoneDisplay(memberSelectorSearch)
-      if (!phone || phoneDigitsNormalized(phone).length < 8) {
-        alert(t.memberSelectorGuestInviteNeedPhoneDigits)
-        return
+    } catch (e) {
+      const code = e?.apiCode
+      if (code === 'AMBIGUOUS_PHONE') {
+        alert(t.memberSelectorGuestInviteAmbiguousPhone)
+      } else if (code === 'USE_REGISTERED_FLOW') {
+        alert(t.memberSelectorGuestInviteWrongFlowUnregistered)
+      } else if (code === 'USE_UNREGISTERED_FLOW') {
+        alert(t.memberSelectorGuestInviteWrongFlowRegistered)
+      } else if (code === 'ALREADY_IN_CLUB') {
+        alert(t.memberSelectorGuestInviteAlreadyInClub)
+      } else {
+        alert(e?.message || (language === 'en' ? 'Could not create invite.' : 'تعذّر إنشاء الدعوة.'))
       }
-      const amt = parseFloat(String(memberSelectorBulkFee || '').replace(',', '.')) || 0
-      if (amt <= 0) {
-        alert(t.memberSelectorGuestInviteNeedAmount)
-        return
-      }
-      if (!viewedTournamentBooking?.id || !clubId) return
-      setMemberSelectorGuestInviteBusy(guestKind)
-      try {
-        const res = await bookingApi.createTournamentGuestFeeShare({
-          bookingId: viewedTournamentBooking.id,
-          clubId,
-          organizerMemberId: org.id,
-          phone,
-          amount: amt,
-          guestKind: guestKind === 'platform_registered' ? 'platform_registered' : 'unregistered',
-        })
-        await syncBookingsAfterApi()
-        const wa = res?.whatsappLink || res?.payUrl
-        if (wa && typeof window !== 'undefined') {
-          window.open(wa, '_blank', 'noopener,noreferrer')
-        }
-      } catch (e) {
-        const code = e?.apiCode
-        if (code === 'USE_REGISTERED_FLOW') {
-          alert(t.memberSelectorGuestInviteWrongFlowUnregistered)
-        } else if (code === 'USE_UNREGISTERED_FLOW') {
-          alert(t.memberSelectorGuestInviteWrongFlowRegistered)
-        } else if (code === 'ALREADY_IN_CLUB') {
-          alert(t.memberSelectorGuestInviteAlreadyInClub)
-        } else {
-          alert(e?.message || (language === 'en' ? 'Could not create invite.' : 'تعذّر إنشاء الدعوة.'))
-        }
-      } finally {
-        setMemberSelectorGuestInviteBusy(null)
-      }
-    },
-    [
-      memberSelectorSearch,
-      memberSelectorBulkFee,
-      viewedTournamentBooking,
-      clubId,
-      t,
-      language,
-      syncBookingsAfterApi,
-    ]
-  )
+    } finally {
+      setMemberSelectorGuestInviteBusy(false)
+    }
+  }, [
+    memberSelectorSearch,
+    memberSelectorBulkFee,
+    viewedTournamentBooking,
+    clubId,
+    t,
+    language,
+    syncBookingsAfterApi,
+  ])
 
   const clubCurrency = currentClub?.settings?.currency || 'SAR'
   const clubNameWhatsApp = currentClub?.nameAr || currentClub?.name || ''
@@ -8455,26 +8454,15 @@ function App({ currentUser }) {
                     <div className="member-selector-guest-invite">
                       <p className="member-selector-guest-invite__title">{t.memberSelectorGuestInviteTitle}</p>
                       <p className="member-selector-guest-invite__hint">{t.memberSelectorGuestInviteHint}</p>
+                      <p className="member-selector-guest-invite__explain">{t.memberSelectorGuestInviteAutoExplain}</p>
                       <div className="member-selector-guest-invite__actions">
                         <button
                           type="button"
-                          className="btn-secondary btn-small"
-                          disabled={!!memberSelectorGuestInviteBusy}
-                          onClick={() => handleTournamentGuestFeeInvite('unregistered')}
+                          className="btn-primary btn-small member-selector-guest-invite__wa-btn"
+                          disabled={memberSelectorGuestInviteBusy}
+                          onClick={() => handleTournamentGuestFeeInvite()}
                         >
-                          {memberSelectorGuestInviteBusy === 'unregistered'
-                            ? '…'
-                            : t.memberSelectorGuestInviteNotRegistered}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-secondary btn-small"
-                          disabled={!!memberSelectorGuestInviteBusy}
-                          onClick={() => handleTournamentGuestFeeInvite('platform_registered')}
-                        >
-                          {memberSelectorGuestInviteBusy === 'platform_registered'
-                            ? '…'
-                            : t.memberSelectorGuestInviteRegisteredNotInClub}
+                          {memberSelectorGuestInviteBusy ? '…' : t.memberSelectorGuestInviteWhatsAppButton}
                         </button>
                       </div>
                     </div>

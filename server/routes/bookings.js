@@ -81,6 +81,17 @@ function getPayBaseUrlFromRequest(req) {
   return process.env.BASE_URL || process.env.PUBLIC_BASE_URL || (origin ? `${origin}${basePath}` : 'https://playtix.app/app')
 }
 
+/** Links embedded in WhatsApp must open production app for guests (avoid localhost when admin uses dev UI). */
+function getWhatsAppOutboundPayBaseUrl(req) {
+  const env = (process.env.WHATSAPP_PAY_BASE_URL || process.env.BASE_URL || process.env.PUBLIC_BASE_URL || '')
+    .trim()
+    .replace(/\/$/, '')
+  if (env) return env
+  const fromReq = getPayBaseUrlFromRequest(req).replace(/\/$/, '')
+  if (/localhost|127\.0\.0\.1/i.test(fromReq)) return 'https://playtix.app/app'
+  return fromReq
+}
+
 function normalizePhoneForBookingShare(raw) {
   if (raw == null || raw === '') return ''
   return String(raw).replace(/\s/g, '').replace(/^00/, '+').replace(/^0/, '+966')
@@ -2533,7 +2544,6 @@ router.post('/create-tournament-guest-fee-share', async (req, res) => {
     }
     const amt = parseFloat(amount) || 0
     if (amt <= 0) return res.status(400).json({ error: 'amount must be greater than 0' })
-    const kind = guestKind === 'platform_registered' ? 'platform_registered' : 'unregistered'
 
     const phoneNorm = normalizePhoneForBookingShare(String(phone).trim())
     const phoneDig = digitsOnlyPhone(phoneNorm)
@@ -2582,36 +2592,55 @@ router.post('/create-tournament-guest-fee-share', async (req, res) => {
       return res.status(400).json({ error: 'Cannot add shares to this booking' })
     }
 
+    const rawKind = String(guestKind || 'auto').trim().toLowerCase()
+    const autoKind = rawKind === 'auto' || rawKind === ''
+
     const lookup = await lookupMemberByPhoneForClub(clubId, phoneNorm)
     if (lookup.ambiguous) {
-      return res.status(400).json({ error: 'Multiple accounts match this phone; resolve manually in admin' })
+      return res.status(400).json({
+        error: 'Multiple accounts match this phone; resolve manually in admin',
+        code: 'AMBIGUOUS_PHONE',
+      })
     }
-    if (kind === 'unregistered') {
-      if (lookup.member) {
-        return res.status(400).json({
-          error: 'This number is already registered on the platform. Use the “registered member” invite.',
-          code: 'USE_REGISTERED_FLOW',
-        })
-      }
-    } else {
-      if (!lookup.member) {
-        return res.status(400).json({
-          error: 'No platform account with this number. Use the “not registered” invite.',
-          code: 'USE_UNREGISTERED_FLOW',
-        })
-      }
-      if (lookup.inClub) {
+
+    let kind
+    if (autoKind) {
+      if (lookup.member && lookup.inClub) {
         return res.status(400).json({
           error: 'This member is already in the club directory.',
           code: 'ALREADY_IN_CLUB',
         })
+      }
+      kind = !lookup.member ? 'unregistered' : 'platform_registered'
+    } else {
+      kind = rawKind === 'platform_registered' ? 'platform_registered' : 'unregistered'
+      if (kind === 'unregistered') {
+        if (lookup.member) {
+          return res.status(400).json({
+            error: 'This number is already registered on the platform. Use guestKind "auto" or "platform_registered".',
+            code: 'USE_REGISTERED_FLOW',
+          })
+        }
+      } else {
+        if (!lookup.member) {
+          return res.status(400).json({
+            error: 'No platform account with this number. Use guestKind "auto" or "unregistered".',
+            code: 'USE_UNREGISTERED_FLOW',
+          })
+        }
+        if (lookup.inClub) {
+          return res.status(400).json({
+            error: 'This member is already in the club directory.',
+            code: 'ALREADY_IN_CLUB',
+          })
+        }
       }
     }
 
     const token = `inv_${crypto.randomBytes(16).toString('hex')}`
     const isUnregistered = kind === 'unregistered'
     const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
-    const baseUrl = getPayBaseUrlFromRequest(req)
+    const baseUrl = getWhatsAppOutboundPayBaseUrl(req)
     const payUrl = `${baseUrl.replace(/\/$/, '')}/${payPath}/${token}`
     const shareType = isUnregistered ? 'unregistered' : 'registered'
     const shareMemberId = isUnregistered ? null : lookup.member.id
