@@ -91,6 +91,8 @@ const PayInvitePage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [errorStatus, setErrorStatus] = useState(null)
+  /** Flags from last fetch (JSON vs HTML 404, API codes) — avoids showing «invite missing» when /api is not proxied */
+  const [errorDetail, setErrorDetail] = useState(null)
   const [markingPaid, setMarkingPaid] = useState(false)
   const [markedPaid, setMarkedPaid] = useState(false)
   const [walletBal, setWalletBal] = useState(null)
@@ -108,11 +110,13 @@ const PayInvitePage = () => {
       setLoading(false)
       setError('Token required')
       setErrorStatus(null)
+      setErrorDetail(null)
       setData(null)
       return
     }
     setError(null)
     setErrorStatus(null)
+    setErrorDetail(null)
     setLoading(true)
     let lastErr = null
     for (const t of candidates) {
@@ -121,6 +125,7 @@ const PayInvitePage = () => {
         setData(d)
         setError(null)
         setErrorStatus(null)
+        setErrorDetail(null)
         persistResumeInviteToken(d?.inviteToken || t)
         const canon = d?.inviteToken || t
         if (canon && canon !== tokenNorm) {
@@ -134,8 +139,16 @@ const PayInvitePage = () => {
     }
     setData(null)
     setError(lastErr?.message || 'Failed to load invite')
-    setErrorStatus(
-      lastErr?.status ?? (lastErr?.message && /fetch|network|failed to load/i.test(lastErr.message) ? 'network' : null)
+    const st = lastErr?.status ?? (lastErr?.message && /fetch|network|failed to load/i.test(lastErr.message) ? 'network' : null)
+    setErrorStatus(st)
+    setErrorDetail(
+      lastErr
+        ? {
+            apiCode: lastErr.apiCode,
+            receivedHtml: !!lastErr.receivedHtml,
+            nonJsonBody: !!lastErr.nonJsonBody,
+          }
+        : null
     )
     setLoading(false)
   }, [tokenNorm, navigate])
@@ -224,15 +237,28 @@ const PayInvitePage = () => {
       error === 'Token required' || (error != null && String(error).toLowerCase().includes('token required'))
     const is404 = errorStatus === 404
     const isNetwork = errorStatus === 'network' || (error && /fetch|network|failed to load/i.test(String(error)))
+    const apiUnreachable =
+      !!errorDetail?.receivedHtml || (is404 && !!errorDetail?.nonJsonBody)
+    const inviteMissingDb =
+      is404 &&
+      !apiUnreachable &&
+      (errorDetail?.apiCode === 'INVITE_NOT_FOUND' ||
+        String(error || '')
+          .toLowerCase()
+          .includes('invite not found'))
     const title = tokenMissing
       ? t('Incomplete invite link', 'رابط الدعوة غير مكتمل')
       : isNetwork
         ? t('Cannot reach server', 'لا يمكن الاتصال بالسيرفر')
-        : is404
-          ? t('Invite not found', 'لم يتم العثور على الدعوة')
-          : errorStatus != null && errorStatus >= 500
-            ? t('Server error', 'خطأ في الخادم')
-            : t('Could not load invite', 'تعذّر تحميل الدعوة')
+        : apiUnreachable
+          ? t('Payment service unavailable', 'خدمة الدفع غير متاحة')
+          : inviteMissingDb
+            ? t('Invite not found', 'لم يتم العثور على الدعوة')
+            : is404
+              ? t('Invite not found', 'لم يتم العثور على الدعوة')
+              : errorStatus != null && errorStatus >= 500
+                ? t('Server error', 'خطأ في الخادم')
+                : t('Could not load invite', 'تعذّر تحميل الدعوة')
     const message = tokenMissing
       ? t(
           'Use the full link from WhatsApp (it must include inv_ and 32 letters/numbers after it). If the line was split, copy the whole URL or ask the club to resend.',
@@ -240,12 +266,22 @@ const PayInvitePage = () => {
         )
       : isNetwork
         ? t('Make sure the API server is running (e.g. port 4000) and try again.', 'تأكد من تشغيل سيرفر واجهة برمجة التطبيقات (مثلاً المنفذ 4000) ثم أعد المحاولة.')
-        : is404
+        : apiUnreachable
           ? t(
-              'This invite is not on the server. It may have been removed, or it was created on another environment (e.g. staging vs live). Ask the club to resend the link from the same live system you are opening.',
-              'هذه الدعوة غير مسجّلة على الخادم. ربما حُذفت، أو أُنشئت على بيئة أخرى (تجريبي مقابل مباشر). اطلب من النادي إعادة إرسال الرابط من نفس النظام المباشر الذي تفتح منه.'
+              'The app could not load invite data from the API (the server returned a web page instead of JSON). On your host, ensure requests to /api are forwarded to the Node backend. You can also set a full API URL via the playtix-api-base meta tag or window.__PLAYTIX_API_BASE__.',
+              'تعذّر جلب بيانات الدعوة من واجهة البرمجة (الخادم أعاد صفحة ويب بدلاً من JSON). على الاستضافة، تأكد من توجيه المسار /api إلى سيرفر Node. يمكنك أيضاً ضبط عنوان API كامل عبر وسم meta playtix-api-base أو window.__PLAYTIX_API_BASE__.'
             )
-          : t('This link may have expired or is invalid. Make sure the API server is running and try again.', 'قد يكون الرابط منتهي الصلاحية أو غير صحيح. تأكد من تشغيل السيرفر ثم أعد المحاولة.')
+          : inviteMissingDb
+            ? t(
+                'This invite is not in the database. It may have been removed, or the link was created on another server or database. Ask the club to create the share again from the live admin panel and resend the WhatsApp link.',
+                'هذه الدعوة غير موجودة في قاعدة البيانات. ربما حُذفت، أو أُنشئت على سيرفر أو قاعدة بيانات أخرى. اطلب من النادي إنشاء الحصة من جديد من لوحة الإدارة المباشرة وإعادة إرسال رابط واتساب.'
+              )
+            : is404
+              ? t(
+                  'This page or invite could not be loaded. Check your link or try again later.',
+                  'تعذّر تحميل هذه الصفحة أو الدعوة. تحقق من الرابط أو أعد المحاولة لاحقاً.'
+                )
+              : t('This link may have expired or is invalid. Make sure the API server is running and try again.', 'قد يكون الرابط منتهي الصلاحية أو غير صحيح. تأكد من تشغيل السيرفر ثم أعد المحاولة.')
     return (
       <div className="pay-invite-page">
         <div className="pay-invite-card pay-invite-error">

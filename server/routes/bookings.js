@@ -60,10 +60,35 @@ function normalizeInviteTokenParamExpress(raw) {
   } catch (_) {}
   s = s.replace(/[\s\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, '')
   if (!s) return ''
-  const noFrag = s.split(/[?#]/)[0]
-  const m = noFrag.match(/^inv_([a-f0-9]{32})$/i)
+  s = s.replace(/^[<\[\('"„]+|[>\]\)'".,;:!?。]+$/g, '')
+  const m = s.match(/inv_([a-f0-9]{32})/i)
   if (m) return `inv_${m[1].toLowerCase()}`
+  const noFrag = s.split(/[?#]/)[0].replace(/\/+$/, '')
   return noFrag
+}
+
+/**
+ * SPA is served under BASE_PATH (default /app). BASE_URL / WHATSAPP_PAY_BASE_URL often omit the path
+ * (e.g. https://playtix.app), which produced broken links https://playtix.app/pay-invite/... — router needs /app.
+ */
+function normalizePayAppBaseUrl(raw) {
+  const basePath = (process.env.BASE_PATH || '/app').replace(/\/$/, '')
+  const s = String(raw || '').trim()
+  if (!s) return ''
+  try {
+    const url = new URL(/^https?:\/\//i.test(s) ? s : `https://${s}`)
+    let p = (url.pathname || '').replace(/\/$/, '')
+    if (!p || p === '/') {
+      return `${url.origin}${basePath}`
+    }
+    if (p === basePath || p.startsWith(`${basePath}/`)) {
+      return `${url.origin}${p}`
+    }
+    return `${url.origin}${basePath}`
+  } catch {
+    const t = s.replace(/\/$/, '')
+    return t.includes(basePath.replace(/^\//, '')) ? t : `${t}${basePath}`
+  }
 }
 
 function getPayBaseUrlFromRequest(req) {
@@ -78,15 +103,15 @@ function getPayBaseUrlFromRequest(req) {
         }
       })()
     : ''
-  return process.env.BASE_URL || process.env.PUBLIC_BASE_URL || (origin ? `${origin}${basePath}` : 'https://playtix.app/app')
+  const raw =
+    process.env.BASE_URL || process.env.PUBLIC_BASE_URL || (origin ? `${origin}${basePath}` : 'https://playtix.app/app')
+  return normalizePayAppBaseUrl(raw).replace(/\/$/, '')
 }
 
 /** Links embedded in WhatsApp. Prefer explicit env; otherwise keep same app origin that created token. */
 function getWhatsAppOutboundPayBaseUrl(req) {
-  const env = (process.env.WHATSAPP_PAY_BASE_URL || process.env.BASE_URL || process.env.PUBLIC_BASE_URL || '')
-    .trim()
-    .replace(/\/$/, '')
-  if (env) return env
+  const env = (process.env.WHATSAPP_PAY_BASE_URL || '').trim()
+  if (env) return normalizePayAppBaseUrl(env).replace(/\/$/, '')
   return getPayBaseUrlFromRequest(req).replace(/\/$/, '')
 }
 
@@ -661,11 +686,8 @@ router.post('/confirm', async (req, res) => {
     const confirmNext = addDaysBooking(date, 1)
     if (confirmNext) slotCache.invalidateLocks(clubId, confirmNext)
 
-    const basePath = (process.env.BASE_PATH || '/app').replace(/\/$/, '')
-    const ref = req.headers.origin || req.headers.referer || ''
-    const origin = ref ? (() => { try { return new URL(ref).origin } catch (_) { return ref.replace(/\/$/, '') } })() : ''
-    const baseUrl = process.env.BASE_URL || process.env.PUBLIC_BASE_URL || (origin ? `${origin}${basePath}` : 'https://playtix.app/app')
-    const clubPageUrlFull = `${baseUrl.replace(/\/$/, '')}/clubs/${encodeURIComponent(String(clubId))}`
+    const baseUrl = getPayBaseUrlFromRequest(req)
+    const clubPageUrlFull = `${baseUrl}/clubs/${encodeURIComponent(String(clubId))}`
     const clubShareMeta = hasShares && paymentShares?.length ? await loadClubShareMeta(clubId) : null
     const createdShares = []
 
@@ -686,7 +708,7 @@ router.post('/confirm', async (req, res) => {
       const token = `inv_${crypto.randomBytes(16).toString('hex')}`
       const isUnregistered = s.type === 'unregistered'
       const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
-      const payUrl = `${baseUrl.replace(/\/$/, '')}/${payPath}/${token}`
+      const payUrl = `${baseUrl}/${payPath}/${token}`
       const plain =
         clubShareMeta && payUrl
           ? buildPaymentShareWhatsAppPlainText({
@@ -723,11 +745,11 @@ router.post('/confirm', async (req, res) => {
 
     const initiatorElectronic = hasShares && (initiatorPaymentMethod === 'credit_card' || initiatorPaymentMethod === 'mada')
     const paymentUrl = isOnlinePayment
-      ? `${baseUrl.replace(/\/$/, '')}/pay/${bid}?method=${paymentMethod}`
+      ? `${baseUrl}/pay/${bid}?method=${paymentMethod}`
       : walletHybridOnlineMethod
-        ? `${baseUrl.replace(/\/$/, '')}/pay/${bid}?method=${walletHybridOnlineMethod}`
+        ? `${baseUrl}/pay/${bid}?method=${walletHybridOnlineMethod}`
         : initiatorElectronic
-          ? `${baseUrl.replace(/\/$/, '')}/pay-share/booking/${bid}?clubId=${clubId}`
+          ? `${baseUrl}/pay-share/booking/${bid}?clubId=${clubId}`
           : null
 
     // Optional: send SMS/WhatsApp confirmation to booker (if phone exists and channel configured)
@@ -978,11 +1000,8 @@ router.post('/join-training', async (req, res) => {
       }
       await query(`UPDATE booking_payment_shares SET paid_at = NOW() WHERE id = ? AND club_id = ?`, [traineeShareId, clubId])
     }
-    const jtBasePath = (process.env.BASE_PATH || '/app').replace(/\/$/, '')
-    const jtRef = req.headers.origin || req.headers.referer || ''
-    const jtOrigin = jtRef ? (() => { try { return new URL(jtRef).origin } catch (_) { return jtRef.replace(/\/$/, '') } })() : ''
-    const jtBaseUrl = process.env.BASE_URL || process.env.PUBLIC_BASE_URL || (jtOrigin ? `${jtOrigin}${jtBasePath}` : 'https://playtix.app/app')
-    const jtClubPageUrl = `${jtBaseUrl.replace(/\/$/, '')}/clubs/${encodeURIComponent(String(clubId))}`
+    const jtBaseUrl = getPayBaseUrlFromRequest(req)
+    const jtClubPageUrl = `${jtBaseUrl}/clubs/${encodeURIComponent(String(clubId))}`
     const jtClubMeta = (paymentShares || []).length ? await loadClubShareMeta(clubId) : null
     const jtDate = bookingDateYmd(b)
     const jtStart = b.start_time || b.time_slot || data.startTime || ''
@@ -994,7 +1013,7 @@ router.post('/join-training', async (req, res) => {
       const token = `inv_${crypto.randomBytes(16).toString('hex')}`
       const isUnregistered = s.type === 'unregistered'
       const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
-      const payUrl = `${jtBaseUrl.replace(/\/$/, '')}/${payPath}/${token}`
+      const payUrl = `${jtBaseUrl}/${payPath}/${token}`
       const plain =
         jtClubMeta && payUrl
           ? buildPaymentShareWhatsAppPlainText({
@@ -1033,7 +1052,7 @@ router.post('/join-training', async (req, res) => {
     const dateStr = dateRow[0]?.booking_date ? String(dateRow[0].booking_date).split('T')[0] : null
     if (clubId && dateStr) slotCache.invalidateLocks(clubId, dateStr)
     const paymentUrl = (effectivePayMethod === 'credit_card' || effectivePayMethod === 'mada')
-      ? `${jtBaseUrl.replace(/\/$/, '')}/pay-share/booking/${bookingId}?clubId=${clubId}`
+      ? `${jtBaseUrl}/pay-share/booking/${bookingId}?clubId=${clubId}`
       : null
     res.json({ ok: true, amount: bookerAmount, ...(paymentUrl && { paymentUrl }) })
   } catch (e) {
@@ -2450,11 +2469,8 @@ router.post('/add-split-participants', async (req, res) => {
     if (activeSum + newSum > totalAmount + 0.02) {
       return res.status(400).json({ error: 'Total split exceeds booking amount' })
     }
-    const basePath = (process.env.BASE_PATH || '/app').replace(/\/$/, '')
-    const ref = req.headers.origin || req.headers.referer || ''
-    const origin = ref ? (() => { try { return new URL(ref).origin } catch (_) { return ref.replace(/\/$/, '') } })() : ''
-    const baseUrl = process.env.BASE_URL || process.env.PUBLIC_BASE_URL || (origin ? `${origin}${basePath}` : 'https://playtix.app/app')
-    const addSplitClubPage = `${baseUrl.replace(/\/$/, '')}/clubs/${encodeURIComponent(String(clubId))}`
+    const baseUrl = getPayBaseUrlFromRequest(req)
+    const addSplitClubPage = `${baseUrl}/clubs/${encodeURIComponent(String(clubId))}`
     const addSplitMeta = await loadClubShareMeta(clubId)
     const addSplitDate = bookingDateYmd(b)
     let addStart = b.start_time || b.time_slot || ''
@@ -2471,7 +2487,7 @@ router.post('/add-split-participants', async (req, res) => {
       const token = `inv_${crypto.randomBytes(16).toString('hex')}`
       const isUnregistered = s.type === 'unregistered'
       const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
-      const payUrl = `${baseUrl.replace(/\/$/, '')}/${payPath}/${token}`
+      const payUrl = `${baseUrl}/${payPath}/${token}`
       const plain = addSplitMeta && payUrl
         ? buildPaymentShareWhatsAppPlainText({
             clubName: addSplitMeta.displayName,
@@ -2657,12 +2673,12 @@ router.post('/create-tournament-guest-fee-share', async (req, res) => {
     const isUnregistered = kind === 'unregistered'
     const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
     const baseUrl = getWhatsAppOutboundPayBaseUrl(req)
-    const payUrl = `${baseUrl.replace(/\/$/, '')}/${payPath}/${token}`
+    const payUrl = `${baseUrl}/${payPath}/${token}`
     const shareType = isUnregistered ? 'unregistered' : 'registered'
     const shareMemberId = isUnregistered ? null : lookup.member.id
     const shareName = (memberName && String(memberName).trim()) || lookup.member?.name || null
 
-    const clubPageUrlFull = `${baseUrl.replace(/\/$/, '')}/clubs/${encodeURIComponent(String(clubId))}`
+    const clubPageUrlFull = `${baseUrl}/clubs/${encodeURIComponent(String(clubId))}`
     const clubShareMeta = await loadClubShareMeta(clubId)
     const addSplitDate = bookingDateYmd(b)
     let addStart = b.start_time || ''
@@ -2756,7 +2772,7 @@ router.post('/booker-update-share-phone', async (req, res) => {
     const tokenKeep = normalizeInviteTokenParamExpress(row.invite_token) || row.invite_token
     const baseUrl = getPayBaseUrlFromRequest(req)
     const payPath = String(row.participant_type || '').toLowerCase() === 'unregistered' ? 'pay-invite' : 'pay-share'
-    const payUrl = `${baseUrl.replace(/\/$/, '')}/${payPath}/${tokenKeep}`
+    const payUrl = `${baseUrl}/${payPath}/${tokenKeep}`
     const { rows: bkRowsUpd } = await query(
       `SELECT booking_date, start_time, end_time, time_slot, data FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL LIMIT 1`,
       [bookingId, clubId]
@@ -2770,7 +2786,7 @@ router.post('/booker-update-share-phone', async (req, res) => {
     const updDate = bookingDateYmd(bkUpd)
     const updStart = bkUpd.start_time || bkUpd.time_slot || dataUpd.startTime || '—'
     const updEnd = bkUpd.end_time || dataUpd.endTime || ''
-    const clubPageUrlUpd = `${baseUrl.replace(/\/$/, '')}/clubs/${encodeURIComponent(String(clubId))}`
+    const clubPageUrlUpd = `${baseUrl}/clubs/${encodeURIComponent(String(clubId))}`
     const isUnregUpd = String(row.participant_type || '').toLowerCase() === 'unregistered'
     const plainUpd = buildPaymentShareWhatsAppPlainText({
       clubName: updMeta.displayName,
@@ -3267,7 +3283,7 @@ router.get('/invite/:token', async (req, res) => {
               cb.court_id, cb.booking_date, cb.start_time, cb.end_time, cb.status AS booking_status, cb.total_amount
        FROM booking_payment_shares bps
        JOIN club_bookings cb ON cb.id = bps.booking_id AND cb.club_id = bps.club_id AND cb.deleted_at IS NULL
-       WHERE bps.invite_token = ?${removedFilter}`
+       WHERE LOWER(TRIM(bps.invite_token)) = ?${removedFilter}`
     let q = await query(innerJoinSql(' AND (bps.removed_at IS NULL)'), [token])
     rows = q.rows
     if (!rows?.length) {
@@ -3279,14 +3295,16 @@ router.get('/invite/:token', async (req, res) => {
       try {
         const r = await query(
           `SELECT id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, invite_token, paid_at, payment_method, removed_at, refunded_at
-           FROM booking_payment_shares WHERE invite_token = ? LIMIT 1`,
+           FROM booking_payment_shares WHERE LOWER(TRIM(invite_token)) = ? LIMIT 1`,
           [token]
         )
         bpsOnly = r.rows?.[0]
       } catch (_) {
         bpsOnly = null
       }
-      if (!bpsOnly) return res.status(404).json({ error: 'Invite not found' })
+      if (!bpsOnly) {
+        return res.status(404).json({ error: 'Invite not found', code: 'INVITE_NOT_FOUND' })
+      }
       let cb
       try {
         const r2 = await query(

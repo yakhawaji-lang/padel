@@ -1,6 +1,9 @@
 <IfModule mod_rewrite.c>
 RewriteEngine On
 RewriteBase /
+# SPA lives under /app — short links without /app (e.g. old WhatsApp) redirect here
+RewriteRule ^pay-invite/(.*)$ /app/pay-invite/$1 [R=302,L]
+RewriteRule ^pay-share/(.*)$ /app/pay-share/$1 [R=302,L]
 # Don't rewrite files or directories
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

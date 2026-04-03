@@ -4,20 +4,42 @@
  */
 import { getClubAdminSession, getPlatformAdminSession } from '../storage/appSettingsStorage.js'
 
-/** In dev (Vite on 3000/3001/etc): use '' so /api goes through Vite proxy to 4000. Avoids CORS and 404 when API not on same host. */
-const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL !== undefined && import.meta.env?.VITE_API_URL !== '')
-  ? import.meta.env.VITE_API_URL
-  : (typeof window !== 'undefined'
-    ? (/localhost|127\.0\.0\.1/.test(window.location?.hostname || '') && ['3000', '3001', '3002', '5173', '5174'].includes(window.location?.port || ''))
-      ? ''
-      : ''
-    : 'http://localhost:4000')
+/**
+ * API origin for fetch(). Empty string = same origin (/api on current host).
+ * VITE_API_URL → window.__PLAYTIX_API_BASE__ → meta playtix-api-base → localhost+Vite port → ''.
+ */
+export function getApiBaseUrl() {
+  const vite = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_API_URL : undefined
+  if (vite !== undefined && String(vite).trim() !== '') {
+    return String(vite).trim().replace(/\/$/, '')
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const w = window.__PLAYTIX_API_BASE__
+      if (w != null && String(w).trim() !== '') return String(w).trim().replace(/\/$/, '')
+    } catch (_) {}
+    try {
+      const m = document.querySelector('meta[name="playtix-api-base"]')
+      const c = m?.getAttribute('content')?.trim()
+      if (c) return c.replace(/\/$/, '')
+    } catch (_) {}
+    if (
+      /localhost|127\.0\.0\.1/.test(window.location?.hostname || '') &&
+      ['3000', '3001', '3002', '5173', '5174'].includes(window.location?.port || '')
+    ) {
+      return ''
+    }
+    return ''
+  }
+  return 'http://localhost:4000'
+}
 
 /** تحويل مسار Gallery إلى URL كامل عند الحاجة (عندما يكون API على دومين مختلف) */
 export function getImageUrl(value) {
   if (!value || typeof value !== 'string') return value
   if (value.startsWith('data:') || value.startsWith('http://') || value.startsWith('https://')) return value
-  if (value.startsWith('/api/gallery/') && API_URL) return `${API_URL.replace(/\/$/, '')}${value}`
+  const base = getApiBaseUrl()
+  if (value.startsWith('/api/gallery/') && base) return `${base.replace(/\/$/, '')}${value}`
   return value
 }
 
@@ -180,15 +202,24 @@ async function fetchJson(path, options = {}) {
     isRecentUserIntent()
   if (shouldTrackSaving) trackGlobalSavingStart()
   try {
-    const res = await fetch(`${API_URL}${path}`, {
+    const res = await fetch(`${getApiBaseUrl()}${path}`, {
       ...fetchOptions,
       headers: { 'Content-Type': 'application/json', ...actorHeaders, ...fetchOptions.headers }
     })
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      const e = new Error(err.error || res.statusText)
+      const ct = (res.headers.get('content-type') || '').toLowerCase()
+      if (ct.includes('application/json')) {
+        const err = await res.json().catch(() => ({}))
+        const e = new Error(err.error || res.statusText)
+        e.status = res.status
+        if (err.code != null && err.code !== '') e.apiCode = err.code
+        throw e
+      }
+      const text = await res.text().catch(() => '')
+      const e = new Error(res.status === 404 ? 'Not found' : res.statusText || 'Request failed')
       e.status = res.status
-      if (err.code != null && err.code !== '') e.apiCode = err.code
+      e.nonJsonBody = true
+      if (text && /<\s*html[\s>]/i.test(text)) e.receivedHtml = true
       throw e
     }
     return res.json()
@@ -986,7 +1017,7 @@ export async function postClubPresence(clubId, sessionId) {
 /** Web Push — مفتاح VAPID العام (لا يحتاج تسجيل دخول) */
 export async function fetchPushVapidPublic() {
   try {
-    const res = await fetch(`${API_URL}/api/push/vapid-public`)
+    const res = await fetch(`${getApiBaseUrl()}/api/push/vapid-public`)
     const j = await res.json().catch(() => ({}))
     if (!res.ok) return { ok: false, error: j.error || res.statusText, status: res.status }
     return { ok: true, publicKey: j.publicKey }
@@ -1050,7 +1081,7 @@ export async function postPushTestNotify(clubId) {
 
 export async function healthCheck() {
   try {
-    const r = await fetch(`${API_URL}/api/health`)
+    const r = await fetch(`${getApiBaseUrl()}/api/health`)
     return r.ok && (await r.json())?.db === true
   } catch {
     return false
