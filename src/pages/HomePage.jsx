@@ -7,19 +7,27 @@ import { getCurrentPlatformUser, logoutPlatformUser } from '../storage/platformA
 import { getClubAdminSession, clearClubAdminSession } from '../storage/clubAuth'
 import './HomePage.css'
 
+const MAX_HOME_TOURNAMENT_BUCKETS = 200
+
 const getClubTournamentStats = (club) => {
   const data = club?.tournamentData || {}
   const king = data.kingStateByTournamentId || {}
   const social = data.socialStateByTournamentId || {}
   let tournamentsCount = 0
   let matchesCount = 0
-  Object.values(king).forEach(s => {
+  const kingVals = Object.values(
+    typeof king === 'object' && king !== null && !Array.isArray(king) ? king : {}
+  ).slice(0, MAX_HOME_TOURNAMENT_BUCKETS)
+  kingVals.forEach((s) => {
     if (s && (s.teams?.length || s.matches?.length)) {
       tournamentsCount++
       matchesCount += s.matches?.length || 0
     }
   })
-  Object.values(social).forEach(s => {
+  const socialVals = Object.values(
+    typeof social === 'object' && social !== null && !Array.isArray(social) ? social : {}
+  ).slice(0, MAX_HOME_TOURNAMENT_BUCKETS)
+  socialVals.forEach((s) => {
     if (s && (s.teams?.length || s.matches?.length)) {
       tournamentsCount++
       matchesCount += s.matches?.length || 0
@@ -138,10 +146,10 @@ const HomePage = () => {
         timeoutId = null
         if (cancelled) return
         import('../storage/adminStorage.js')
-          .then(({ loadClubs }) => {
+          .then(({ loadClubsForListingOnly }) => {
             if (cancelled) return
             try {
-              const raw = loadClubs()
+              const raw = loadClubsForListingOnly()
               const list = Array.isArray(raw) ? raw : []
               const rows = list.map((club) => {
                 try {

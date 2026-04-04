@@ -3,29 +3,45 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 
+const WESTERN_NUM_MAX_NODES = 600
+const WESTERN_NUM_DEBOUNCE_MS = 200
+
 /** Ensure all number inputs and .western-numerals elements use Western numerals (0-9) across the system */
 function useWesternNumerals() {
   useEffect(() => {
     let raf = 0
-    const apply = () => {
+    let debounceT = null
+    const runPaint = () => {
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
         try {
-          document.querySelectorAll('input[type="number"], .western-numerals').forEach(el => {
+          const root = document.getElementById('root')
+          if (!root) return
+          const nodes = root.querySelectorAll('input[type="number"], .western-numerals')
+          const n = Math.min(nodes.length, WESTERN_NUM_MAX_NODES)
+          for (let i = 0; i < n; i++) {
+            const el = nodes[i]
             el.setAttribute('lang', 'en')
             el.setAttribute('dir', 'ltr')
-          })
+          }
         } catch (_) {}
       })
     }
+    const schedule = () => {
+      if (debounceT) clearTimeout(debounceT)
+      debounceT = setTimeout(() => {
+        debounceT = null
+        runPaint()
+      }, WESTERN_NUM_DEBOUNCE_MS)
+    }
     const root = document.getElementById('root')
     if (!root) return
-    apply()
-    // Observe #root only — extensions often mutate <body> (e.g. shopping overlays); that used to fire
-    // full-document querySelectorAll on every mutation and contributed to stack/perf issues on playtix.app.
-    const obs = new MutationObserver(apply)
+    runPaint()
+    // Debounced: React + subtree mutations can fire thousands of callbacks/sec and freeze the tab.
+    const obs = new MutationObserver(schedule)
     obs.observe(root, { childList: true, subtree: true })
     return () => {
+      if (debounceT) clearTimeout(debounceT)
       cancelAnimationFrame(raf)
       obs.disconnect()
     }

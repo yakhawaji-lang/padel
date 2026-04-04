@@ -439,6 +439,28 @@ export const loadClubs = () => {
   }
 }
 
+/**
+ * Homepage / directory listing only — no syncMembersToClubs, no store migration, no saveClubs.
+ * Cold _read + sync on the main thread has frozen browsers (multi‑second block + stack depth).
+ * Full merge runs in bootstrap / loadClubsAsync; after that _clubsCache serves fast reads.
+ */
+export function loadClubsForListingOnly() {
+  try {
+    if (_clubsCache != null && Array.isArray(_clubsCache)) {
+      return deduplicateClubs(_clubsCache)
+    }
+    let clubs = _read(ADMIN_STORAGE_KEYS.CLUBS)
+    if (!Array.isArray(clubs)) {
+      clubs = clubs && typeof clubs === 'object' && Array.isArray(clubs.value) ? clubs.value : []
+    }
+    if (!Array.isArray(clubs)) return []
+    return deduplicateClubs(clubs)
+  } catch (e) {
+    console.warn('loadClubsForListingOnly:', e?.message || e)
+    return []
+  }
+}
+
 // Sync members from DB into clubs. persist: false — update club.members + mutate mergedMembers in memory only (no setStore / saveClubs). persist: true — also persist members + clubs (saveMembers / manual sync).
 let _syncMembersToClubsDepth = 0
 export const syncMembersToClubs = (clubs, options = {}) => {
