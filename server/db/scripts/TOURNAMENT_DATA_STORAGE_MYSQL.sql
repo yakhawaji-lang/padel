@@ -2,7 +2,9 @@
 -- Tournament data storage (MySQL) — PlayTix / padel app
 -- =============================================================================
 -- Runtime tournament UI state (King / Social, teams, courts, schedule, tabs…)
--- is stored in:  clubs.tournament_data  (JSON)
+-- is stored in:  clubs.tournament_data
+-- Type may be JSON or LONGTEXT (Hostinger often shows longtext): both work; the API
+-- stores JSON as text and parses it (see normalizedData.js).
 --
 -- If phpMyAdmin shows:  #1060 - Duplicate column name 'tournament_data'
 -- → the column ALREADY EXISTS. Do nothing; do NOT run the ALTER below.
@@ -29,7 +31,7 @@ WHERE TABLE_SCHEMA = 'u502561206_padel_db'
   AND TABLE_NAME = 'clubs'
   AND COLUMN_NAME = 'tournament_data';
 
--- Or open: Structure → table `clubs` → confirm column `tournament_data` (type JSON).
+-- Or open: Structure → table `clubs` → confirm column `tournament_data` (JSON or LONGTEXT).
 
 -- -----------------------------------------------------------------------------
 -- STEP 2 — ONLY if BOTH checks above return zero rows AND Structure has no column
