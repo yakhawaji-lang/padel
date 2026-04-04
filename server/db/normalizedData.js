@@ -78,6 +78,20 @@ function phoneTailNorm(s) {
   return d.length >= 9 ? d.slice(-9) : d
 }
 
+/** Stable key for merging payment shares (unregistered: last 9 phone digits; registered: member id). */
+function paymentSharePreserveKey(participantType, phone, memberId) {
+  const p = String(participantType || '').toLowerCase()
+  if (p === 'unregistered') {
+    const tail = phoneTailNorm(phone)
+    return tail ? `u:${tail}` : `u:${String(phone || '').trim()}`
+  }
+  return `r:${String(memberId || '').trim()}`
+}
+
+function isServerGeneratedInviteToken(tok) {
+  return /^inv_[a-f0-9]{32}$/i.test(String(tok || '').trim())
+}
+
 /** Ensure club_settings has booking-related columns so all settings persist in padel_db */
 async function ensureClubSettingsBookingColumns() {
   const cols = [
@@ -1195,12 +1209,12 @@ export async function saveClubsToNormalized(items, actor = {}) {
           )
         } else throw e
       }
-      const shares = Array.isArray(b.paymentShares) ? b.paymentShares : []
+      let sharesList = Array.isArray(b.paymentShares) ? [...b.paymentShares] : []
       try {
         let existingShares = []
         try {
           const res = await query(
-            `SELECT id, participant_type, member_id, phone, invite_token, whatsapp_link, payment_method, paid_at, payment_reference,
+            `SELECT id, participant_type, member_id, member_name, phone, invite_token, whatsapp_link, payment_method, paid_at, payment_reference,
              refunded_at, refund_method, refund_reference, refund_notes, refund_acknowledged_at, removed_at,
              member_refund_route, member_refund_requested_at, member_refund_net
              FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
@@ -1212,7 +1226,7 @@ export async function saveClubsToNormalized(items, actor = {}) {
           if (msg.includes('member_refund')) {
             try {
               const res = await query(
-                `SELECT id, participant_type, member_id, phone, invite_token, whatsapp_link, payment_method, paid_at, payment_reference,
+                `SELECT id, participant_type, member_id, member_name, phone, invite_token, whatsapp_link, payment_method, paid_at, payment_reference,
                  refunded_at, refund_method, refund_reference, refund_notes, refund_acknowledged_at, removed_at
                  FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
                 [bid, cid]
@@ -1224,7 +1238,7 @@ export async function saveClubsToNormalized(items, actor = {}) {
           } else {
             try {
               const res = await query(
-                'SELECT id, participant_type, member_id, phone, invite_token, whatsapp_link, payment_method, paid_at, payment_reference FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
+                'SELECT id, participant_type, member_id, member_name, phone, invite_token, whatsapp_link, payment_method, paid_at, payment_reference FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?',
                 [bid, cid]
               )
               existingShares = res?.rows || []
@@ -1233,9 +1247,34 @@ export async function saveClubsToNormalized(items, actor = {}) {
             }
           }
         }
+        const incomingKeys = new Set()
+        for (const s of sharesList) {
+          const ptype = s.type === 'unregistered' ? 'unregistered' : 'registered'
+          const mid = ptype === 'registered' ? (s.memberId || null) : null
+          const ph = ptype === 'unregistered' ? (s.phone || null) : null
+          incomingKeys.add(paymentSharePreserveKey(ptype, ph, mid))
+        }
+        for (const r of existingShares || []) {
+          if (r.removed_at) continue
+          if (r.paid_at) continue
+          if (!isServerGeneratedInviteToken(r.invite_token)) continue
+          const rk = paymentSharePreserveKey(r.participant_type, r.phone, r.member_id)
+          if (incomingKeys.has(rk)) continue
+          incomingKeys.add(rk)
+          sharesList.push({
+            type: r.participant_type === 'unregistered' ? 'unregistered' : 'registered',
+            memberId: r.member_id || undefined,
+            memberName: r.member_name || undefined,
+            phone: r.phone || undefined,
+            amount: parseFloat(r.amount) || 0,
+            inviteToken: r.invite_token,
+            whatsappLink: r.whatsapp_link || undefined,
+            id: r.id,
+          })
+        }
         const preservedByKey = {}
         for (const r of existingShares || []) {
-          const key = r.participant_type === 'unregistered' ? `u:${(r.phone || '').trim()}` : `r:${(r.member_id || '').trim()}`
+          const key = paymentSharePreserveKey(r.participant_type, r.phone, r.member_id)
           preservedByKey[key] = {
             rowId: r.id,
             token: r.invite_token,
@@ -1255,13 +1294,13 @@ export async function saveClubsToNormalized(items, actor = {}) {
           }
         }
         await query('DELETE FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?', [bid, cid])
-        for (const s of shares) {
+        for (const s of sharesList) {
           const ptype = (s.type === 'unregistered' ? 'unregistered' : 'registered')
           const mid = ptype === 'registered' ? (s.memberId || null) : null
           const mname = ptype === 'registered' ? (s.memberName || null) : null
           const ph = ptype === 'unregistered' ? (s.phone || null) : null
           const amt = parseFloat(s.amount) || 0
-          const key = ptype === 'unregistered' ? `u:${(ph || '').trim()}` : `r:${(mid || '').trim()}`
+          const key = paymentSharePreserveKey(ptype, ph, mid)
           const preserved = preservedByKey[key] || {}
           const token = s.inviteToken || preserved.token || null
           const wa = s.whatsappLink || preserved.wa || (ptype === 'unregistered' ? null : null)

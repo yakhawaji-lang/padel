@@ -275,8 +275,8 @@ const PayInvitePage = () => {
             )
           : inviteMissingDb
             ? t(
-                'This invite is not in the database. It may have been removed, or the link was created on another server or database. Ask the club to create the share again from the live admin panel and resend the WhatsApp link.',
-                'هذه الدعوة غير موجودة في قاعدة البيانات. ربما حُذفت، أو أُنشئت على سيرفر أو قاعدة بيانات أخرى. اطلب من النادي إنشاء الحصة من جديد من لوحة الإدارة المباشرة وإعادة إرسال رابط واتساب.'
+                'This invite is not in the database. It may have been removed, the link is from an old copy of the booking, or a sync overwrote guest payment rows. Ask the organizer to open the tournament booking in PlayTix admin and resend the payment link.',
+                'هذه الدعوة غير موجودة في قاعدة البيانات. ربما حُذفت، أو الرابط من نسخة قديمة من الحجز، أو المزامنة استبدلت صفوف دفع الضيوف. اطلب من المنظّم فتح حجز البطولة في إدارة PlayTix وإعادة إرسال رابط الدفع.'
               )
             : is404
               ? t(
