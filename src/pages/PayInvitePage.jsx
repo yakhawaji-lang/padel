@@ -55,7 +55,9 @@ function resolveInviteTokenFromBrowser(tokenParam, pathname, search) {
     sp.get('invite'),
     sp.get('t'),
     sp.get('inv'),
+    sp.get('i'),
     typeof window !== 'undefined' ? window.location.hash.replace(/^#\/?/, '') : '',
+    typeof window !== 'undefined' ? window.location.href : '',
     `${pathname || ''} ${search || ''}`,
   ].filter((x) => x != null && String(x).trim() !== '')
   for (const c of chunks) {

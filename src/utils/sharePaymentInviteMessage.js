@@ -1,7 +1,7 @@
 /**
  * Bilingual WhatsApp body for split payment invites (plain text — encode for wa.me).
- * Each URL is on its own line after a clear EN/AR label (WhatsApp autolinks URLs; no HTML anchors).
- * Shared by client and server (bookings routes).
+ * URLs on their own line after clear bilingual labels (WhatsApp autolinks).
+ * No language-flag emojis or "English / العربية" section headers — same facts in EN + AR, compact lines where helpful.
  */
 
 function normalizeWebsite(url) {
@@ -22,14 +22,14 @@ function tournamentLabels(kind) {
   return TOURNAMENT_KIND_LABELS[k]
 }
 
-function labeledPair(enLabel, arLabel, url) {
+/** Bilingual label lines, then URL (single), then blank line. */
+function linkBlock(lineEn, lineAr, url) {
   const u = (url || '').trim()
   if (!u) return []
-  return [`🇬🇧 ${enLabel}`, u, '', `🇸🇦 ${arLabel}`, u, '']
+  return [lineEn, lineAr, u, '']
 }
 
 /**
- * @param {object} opts
  * @param {'pay_invite'|'pay_share'|'pre_confirm_guest'} [opts.mode]
  * @param {''|'king'|'social'} [opts.tournamentKind]
  */
@@ -49,7 +49,6 @@ export function buildPaymentShareWhatsAppPlainText(opts = {}) {
   } = opts
 
   const name = (clubName || '').trim() || 'the club'
-  const nameAr = name
   const timeLine = endTime ? `${startTime} – ${endTime}` : String(startTime || '—')
   const amt =
     shareAmount !== '' && shareAmount != null && !Number.isNaN(parseFloat(shareAmount))
@@ -62,43 +61,63 @@ export function buildPaymentShareWhatsAppPlainText(opts = {}) {
   const isTournament = tournamentKind === 'king' || tournamentKind === 'social'
   const tlab = isTournament ? tournamentLabels(tournamentKind) : null
 
+  const detailLines = [
+    `Club · النادي: ${name}`,
+    `Date · التاريخ: ${bookingDate}`,
+    `Time · الوقت: ${timeLine}`,
+  ]
+
   const linkSection = []
   if (pay) {
     if (isTournament) {
       if (mode === 'pay_share') {
         linkSection.push(
-          ...labeledPair(
-            'Open to join the club & pay your tournament share:',
-            'افتح للانضمام للنادي ودفع حصة البطولة:',
+          ...linkBlock(
+            'Open this link to join the club and pay your tournament share:',
+            'افتح الرابط للانضمام إلى النادي ودفع حصة البطولة:',
             pay
           )
         )
       } else {
         linkSection.push(
-          ...labeledPair(
-            'Open to register (or sign in), join the club & pay your tournament share:',
-            'افتح للتسجيل (أو الدخول) والانضمام للنادي ودفع حصة البطولة:',
+          ...linkBlock(
+            'Open this link to register (or sign in), join the club, and pay your tournament share:',
+            'افتح الرابط للتسجيل (أو تسجيل الدخول) والانضمام للنادي ودفع حصة البطولة:',
             pay
           )
         )
       }
     } else if (mode === 'pay_share') {
-      linkSection.push(...labeledPair('Open to pay your share on PlayTix:', 'افتح لدفع حصتك على PlayTix:', pay))
+      linkSection.push(
+        ...linkBlock(
+          'Open this link to pay your share on PlayTix:',
+          'افتح الرابط لدفع حصتك على PlayTix:',
+          pay
+        )
+      )
     } else {
       linkSection.push(
-        ...labeledPair(
-          'Open to complete your share on PlayTix (register or sign in if needed):',
-          'افتح لإكمال حصتك على PlayTix (سجّل أو سجّل الدخول إن لزم):',
+        ...linkBlock(
+          'Open this link to complete your share on PlayTix (register or sign in if needed):',
+          'افتح الرابط لإكمال حصتك على PlayTix (سجّل أو سجّل الدخول عند الحاجة):',
           pay
         )
       )
     }
   }
   if (clubOnPlaytix) {
-    linkSection.push(...labeledPair('Open the club page on PlayTix:', 'افتح صفحة النادي على PlayTix:', clubOnPlaytix))
+    linkSection.push(
+      ...linkBlock(
+        'Open this link for the club page on PlayTix:',
+        'افتح الرابط لصفحة النادي على PlayTix:',
+        clubOnPlaytix
+      )
+    )
   }
   if (ext && ext !== clubOnPlaytix) {
-    linkSection.push(...labeledPair("Open the club's website:", 'افتح موقع النادي:', ext))
+    linkSection.push(
+      ...linkBlock("Open this link for the club's website:", 'افتح الرابط لموقع النادي:', ext)
+    )
   }
 
   if (mode === 'pre_confirm_guest') {
@@ -106,39 +125,30 @@ export function buildPaymentShareWhatsAppPlainText(opts = {}) {
       ? `Tournament participation (estimate) — ${tlab.en} at ${name}.`
       : "You're part of a split payment for a court booking."
     const openAr = isTournament
-      ? `مشاركة في بطولة (تقديرية) — ${tlab.ar} في ${nameAr}.`
+      ? `مشاركة في بطولة (تقديرية) — ${tlab.ar} في ${name}.`
       : 'أنت ضمن مشاركة دفع لحجز ملعب.'
     const subEn = isTournament
-      ? 'The booker will confirm first — then you will get your personal payment link on PlayTix.'
+      ? 'The booker will confirm first — then you will receive your personal payment link on PlayTix.'
       : 'The booker will confirm the booking first — then they can send you your personal payment link from PlayTix.'
     const subAr = isTournament
-      ? 'سيُؤكد الحاجز الحجز أولاً — ثم يصلك رابط الدفع الشخصي على PlayTix.'
-      : 'سيُؤكد الحاجز الحجز أولاً — ثم يمكنه إرسال رابط الدفع الشخصي من PlayTix.'
+      ? 'سيُؤكد منظم الحجز أولاً — ثم يصلك رابط الدفع الشخصي على PlayTix.'
+      : 'سيُؤكد منظم الحجز أولاً — ثم يمكنه إرسال رابط الدفع الشخصي من PlayTix.'
 
     return [
       '━━━━━━━━━━━━━━━━',
       'PlayTix · بلايتكس',
       '━━━━━━━━━━━━━━━━',
       '',
-      '🇬🇧 English:',
       openEn,
-      subEn,
-      '',
-      `🏟 Club: ${name}`,
-      `📅 Date: ${bookingDate}`,
-      `🕐 Time: ${timeLine}`,
-      `💰 Planned share (estimate): ${amt}`,
-      '',
-      '🇸🇦 العربية:',
       openAr,
+      '',
+      subEn,
       subAr,
       '',
-      `🏟 النادي: ${nameAr}`,
-      `📅 التاريخ: ${bookingDate}`,
-      `🕐 الوقت: ${timeLine}`,
-      `💰 الحصة المتوقعة (تقديرية): ${amt}`,
+      ...detailLines,
+      `Planned share (estimate) · الحصة المتوقعة (تقديرية): ${amt}`,
       '',
-      ...(linkSection.length ? ['—— Links · روابط ——', '', ...linkSection] : []),
+      ...(linkSection.length ? ['────────', '', ...linkSection] : []),
       'playtix.app',
     ]
       .join('\n')
@@ -146,17 +156,17 @@ export function buildPaymentShareWhatsAppPlainText(opts = {}) {
       .trim()
   }
 
-  let openEn
-  let openAr
+  let headEn
+  let headAr
   if (isTournament) {
-    openEn = `Tournament participation booking — ${tlab.en} at ${name}.`
-    openAr = `حجز مشاركة في بطولة — ${tlab.ar} في ${nameAr}.`
+    headEn = `Tournament participation booking — ${tlab.en} at ${name}.`
+    headAr = `حجز مشاركة في بطولة — ${tlab.ar} في ${name}.`
   } else {
-    openEn =
+    headEn =
       mode === 'pay_share'
         ? "You've been added to a shared court booking payment."
         : "You're invited to pay your share of a court booking."
-    openAr =
+    headAr =
       mode === 'pay_share'
         ? 'تمت إضافتك لمشاركة في دفع حجز ملعب.'
         : 'دعوة لدفع حصتك في حجز ملعب.'
@@ -167,23 +177,13 @@ export function buildPaymentShareWhatsAppPlainText(opts = {}) {
     'PlayTix · بلايتكس',
     '━━━━━━━━━━━━━━━━',
     '',
-    '🇬🇧 English:',
-    openEn,
+    headEn,
+    headAr,
     '',
-    `🏟 Club: ${name}`,
-    `📅 Date: ${bookingDate}`,
-    `🕐 Time: ${timeLine}`,
-    `💰 Your share: ${amt}`,
+    ...detailLines,
+    `Your share · مبلغ حصتك: ${amt}`,
     '',
-    '🇸🇦 العربية:',
-    openAr,
-    '',
-    `🏟 النادي: ${nameAr}`,
-    `📅 التاريخ: ${bookingDate}`,
-    `🕐 الوقت: ${timeLine}`,
-    `💰 مبلغ حصتك: ${amt}`,
-    '',
-    ...(linkSection.length ? ['—— Links · روابط ——', '', ...linkSection] : []),
+    ...(linkSection.length ? ['────────', '', ...linkSection] : []),
     'playtix.app',
   ]
     .join('\n')

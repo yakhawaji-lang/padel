@@ -10,13 +10,28 @@ export function getAppBasePathForPayLinks() {
   return base.replace(/\/$/, '') || ''
 }
 
-/** Full URL to open pay-invite or pay-share in the app / web */
+function appendInviteTokenQuery(absoluteUrl, inviteToken) {
+  const u = String(absoluteUrl || '').trim()
+  const t = String(inviteToken || '').trim()
+  if (!u || !t) return u
+  try {
+    const parsed = new URL(u)
+    if (!parsed.searchParams.get('token')) parsed.searchParams.set('token', t)
+    return parsed.toString()
+  } catch {
+    const sep = u.includes('?') ? '&' : '?'
+    return `${u}${sep}token=${encodeURIComponent(t)}`
+  }
+}
+
+/** Full URL to open pay-invite or pay-share in the app / web (?token= backup if path is truncated). */
 export function buildPayShareAbsoluteUrl(inviteToken, participantType) {
   if (!inviteToken || typeof window === 'undefined') return ''
   const basePath = getAppBasePathForPayLinks()
   const path = String(participantType || '').toLowerCase() === 'unregistered' ? 'pay-invite' : 'pay-share'
   const prefix = basePath ? `${basePath}/` : '/'
-  return `${window.location.origin}${prefix}${path}/${inviteToken}`
+  const raw = `${window.location.origin}${prefix}${path}/${inviteToken}`
+  return appendInviteTokenQuery(raw, inviteToken)
 }
 
 export function buildClubPublicAbsoluteUrl(clubId) {

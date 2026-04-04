@@ -52,6 +52,21 @@ function shareWhatsappLinkFromPlainText(plainText) {
   return `https://wa.me/?text=${encodeURIComponent(plainText)}`
 }
 
+/** Add ?token= so invite still resolves if the path is truncated (in-app browsers, previews, broken taps). */
+function payInviteOrShareUrlWithTokenQuery(baseUrl, payPath, token) {
+  const t = normalizeInviteTokenParamExpress(token)
+  const root = String(baseUrl || '').replace(/\/$/, '')
+  if (!t) return `${root}/${payPath}/`
+  const pathUrl = `${root}/${payPath}/${t}`
+  try {
+    const u = new URL(pathUrl)
+    if (!u.searchParams.get('token')) u.searchParams.set('token', t)
+    return u.toString()
+  } catch {
+    return `${pathUrl}?token=${encodeURIComponent(t)}`
+  }
+}
+
 function normalizeInviteTokenParamExpress(raw) {
   if (raw == null || raw === '') return ''
   let s = String(raw).trim()
@@ -708,7 +723,7 @@ router.post('/confirm', async (req, res) => {
       const token = `inv_${crypto.randomBytes(16).toString('hex')}`
       const isUnregistered = s.type === 'unregistered'
       const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
-      const payUrl = `${baseUrl}/${payPath}/${token}`
+      const payUrl = payInviteOrShareUrlWithTokenQuery(baseUrl, payPath, token)
       const plain =
         clubShareMeta && payUrl
           ? buildPaymentShareWhatsAppPlainText({
@@ -1013,7 +1028,7 @@ router.post('/join-training', async (req, res) => {
       const token = `inv_${crypto.randomBytes(16).toString('hex')}`
       const isUnregistered = s.type === 'unregistered'
       const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
-      const payUrl = `${jtBaseUrl}/${payPath}/${token}`
+      const payUrl = payInviteOrShareUrlWithTokenQuery(jtBaseUrl, payPath, token)
       const plain =
         jtClubMeta && payUrl
           ? buildPaymentShareWhatsAppPlainText({
@@ -2487,7 +2502,7 @@ router.post('/add-split-participants', async (req, res) => {
       const token = `inv_${crypto.randomBytes(16).toString('hex')}`
       const isUnregistered = s.type === 'unregistered'
       const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
-      const payUrl = `${baseUrl}/${payPath}/${token}`
+      const payUrl = payInviteOrShareUrlWithTokenQuery(baseUrl, payPath, token)
       const plain = addSplitMeta && payUrl
         ? buildPaymentShareWhatsAppPlainText({
             clubName: addSplitMeta.displayName,
@@ -2673,7 +2688,7 @@ router.post('/create-tournament-guest-fee-share', async (req, res) => {
     const isUnregistered = kind === 'unregistered'
     const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
     const baseUrl = getWhatsAppOutboundPayBaseUrl(req)
-    const payUrl = `${baseUrl}/${payPath}/${token}`
+    const payUrl = payInviteOrShareUrlWithTokenQuery(baseUrl, payPath, token)
     const shareType = isUnregistered ? 'unregistered' : 'registered'
     const shareMemberId = isUnregistered ? null : lookup.member.id
     const shareName = (memberName && String(memberName).trim()) || lookup.member?.name || null
@@ -2775,7 +2790,7 @@ router.post('/booker-update-share-phone', async (req, res) => {
     const tokenKeep = normalizeInviteTokenParamExpress(row.invite_token) || row.invite_token
     const baseUrl = getPayBaseUrlFromRequest(req)
     const payPath = String(row.participant_type || '').toLowerCase() === 'unregistered' ? 'pay-invite' : 'pay-share'
-    const payUrl = `${baseUrl}/${payPath}/${tokenKeep}`
+    const payUrl = payInviteOrShareUrlWithTokenQuery(baseUrl, payPath, tokenKeep)
     const { rows: bkRowsUpd } = await query(
       `SELECT booking_date, start_time, end_time, time_slot, data FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL LIMIT 1`,
       [bookingId, clubId]
