@@ -1,49 +1,35 @@
 -- =============================================================================
 -- Tournament data storage (MySQL) — PlayTix / padel app
 -- =============================================================================
--- Runtime tournament UI state (King of the Court, Social, tabs, standings,
--- teams, courts, schedule as edited in the app) is persisted on the club row:
---   clubs.tournament_data  (JSON)
+-- Runtime tournament UI state (King / Social, teams, courts, schedule, tabs…)
+-- is stored in:  clubs.tournament_data  (JSON)
 --
--- Tournament bookings (calendar rows, "Old Tournaments") live in:
---   club_bookings          with data JSON: isTournament, tournamentType, etc.
---
--- Per-guest payment invites / shares for a tournament booking:
---   booking_payment_shares (invite_token, whatsapp_link, participant_type, …)
---
--- If your production DB was created before these columns existed, run the
--- ALTER statements below (ignore "duplicate column" errors if already applied).
+-- If phpMyAdmin shows:  #1060 - Duplicate column name 'tournament_data'
+-- → the column ALREADY EXISTS. Do nothing; do NOT run the ALTER below.
 -- =============================================================================
 
--- Club-level JSON blob for king/social state maps and UI tabs
--- (see saveClubsToNormalized in server/db/normalizedData.js)
-ALTER TABLE clubs
-  ADD COLUMN tournament_data JSON NULL
-  AFTER store_enabled;
+-- -----------------------------------------------------------------------------
+-- STEP 1 — Check if tournament_data exists (run this first)
+-- If this returns one row, you are done — skip STEP 2 entirely.
+-- -----------------------------------------------------------------------------
+SELECT COLUMN_NAME, DATA_TYPE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = DATABASE()
+  AND TABLE_NAME = 'clubs'
+  AND COLUMN_NAME = 'tournament_data';
 
--- booking_payment_shares: guest fee links (create-tournament-guest-fee-share)
--- Full definition is in server/db/CREATE_ALL_TABLES.sql — excerpt for reference:
-/*
-CREATE TABLE IF NOT EXISTS booking_payment_shares (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  booking_id VARCHAR(255) NOT NULL,
-  club_id VARCHAR(255) NOT NULL,
-  participant_type ENUM('registered', 'unregistered') NOT NULL DEFAULT 'registered',
-  member_id VARCHAR(255) NULL,
-  member_name VARCHAR(255) NULL,
-  phone VARCHAR(50) NULL,
-  amount DECIMAL(10,2) NOT NULL DEFAULT 0,
-  whatsapp_link TEXT NULL,
-  invite_token VARCHAR(64) NULL,
-  paid_at DATETIME NULL,
-  removed_at DATETIME NULL,
-  ...
-  INDEX idx_bps_booking (booking_id, club_id),
-  INDEX idx_bps_invite_token (invite_token)
-);
-*/
+-- -----------------------------------------------------------------------------
+-- STEP 2 — ONLY if STEP 1 returned zero rows (old database without the column)
+-- Uncomment the next 3 lines and execute once:
+-- -----------------------------------------------------------------------------
+-- ALTER TABLE clubs
+--   ADD COLUMN tournament_data JSON NULL
+--   AFTER store_enabled;
 
--- Helpful index for idempotent resend: unpaid share by booking + normalized phone
--- (optional; LOWER(TRIM(phone)) cannot use index fully but filters booking_id first)
+-- -----------------------------------------------------------------------------
+-- Reference: full schema in server/db/CREATE_ALL_TABLES.sql
+-- booking_payment_shares already has invite_token, whatsapp_link, etc.
+-- Optional index for resend lookups (uncomment if you want it; skip if duplicate index error):
+-- -----------------------------------------------------------------------------
 -- CREATE INDEX idx_bps_booking_phone_unpaid
 --   ON booking_payment_shares (booking_id, club_id, paid_at, removed_at, phone(20));
