@@ -2,7 +2,7 @@
  * PostgreSQL API client - replaces localStorage and IndexedDB calls.
  * All methods are async. Uses VITE_API_URL (default: http://localhost:4000) for backend.
  */
-import { getClubAdminSession, getPlatformAdminSession } from '../storage/appSettingsStorage.js'
+import { getClubAdminSession, getPlatformAdminSession, hasPrivilegedDataActor } from '../storage/appSettingsStorage.js'
 
 /**
  * API origin for fetch(). Empty string = same origin (/api on current host).
@@ -334,13 +334,26 @@ export async function getStoreBatch(keys) {
   return promise
 }
 
+let _dataPostForbiddenUntil = 0
+const DATA_POST_403_BACKOFF_MS = 5 * 60 * 1000
+
 export async function setStore(key, value) {
+  if (!hasPrivilegedDataActor()) {
+    return { ok: true, skipped: true }
+  }
+  if (Date.now() < _dataPostForbiddenUntil) {
+    return { ok: true, skipped: true }
+  }
   try {
     return await fetchWithRetry('/api/data', {
       method: 'POST',
       body: JSON.stringify({ key, value })
     })
   } catch (e) {
+    if (e?.status === 403) {
+      _dataPostForbiddenUntil = Date.now() + DATA_POST_403_BACKOFF_MS
+      return { ok: false, forbidden: true }
+    }
     if (e?.message?.includes('Not Found') || e?.message?.includes('404')) {
       return fetchWithRetry('/api/store', {
         method: 'POST',
@@ -996,22 +1009,41 @@ export async function verifyPhoneChange(memberId, newPhone, code) {
 
 // ---- Club notifications (live summary + presence) ----
 
+let _clubNotificationsForbiddenUntil = 0
+const NOTIFICATIONS_403_BACKOFF_MS = 30 * 60 * 1000
+
+function markClubNotificationsForbidden() {
+  _clubNotificationsForbiddenUntil = Date.now() + NOTIFICATIONS_403_BACKOFF_MS
+}
+
 export async function fetchClubNotificationSummary(clubId) {
   if (!clubId) return { ok: false, counts: {} }
+  if (Date.now() < _clubNotificationsForbiddenUntil) {
+    return { ok: false, counts: {}, skipped: true }
+  }
   try {
     return await fetchJson(`/api/notifications/club/${encodeURIComponent(clubId)}/summary`, { __skipGlobalSaving: true })
-  } catch {
+  } catch (e) {
+    if (e?.status === 403) markClubNotificationsForbidden()
     return { ok: false, counts: {} }
   }
 }
 
 export async function postClubPresence(clubId, sessionId) {
   if (!clubId) return { ok: false }
-  return fetchJson(`/api/notifications/club/${encodeURIComponent(clubId)}/presence`, {
-    method: 'POST',
-    body: JSON.stringify({ sessionId: sessionId || null }),
-    __skipGlobalSaving: true,
-  })
+  if (Date.now() < _clubNotificationsForbiddenUntil) {
+    return { ok: false, skipped: true }
+  }
+  try {
+    return await fetchJson(`/api/notifications/club/${encodeURIComponent(clubId)}/presence`, {
+      method: 'POST',
+      body: JSON.stringify({ sessionId: sessionId || null }),
+      __skipGlobalSaving: true,
+    })
+  } catch (e) {
+    if (e?.status === 403) markClubNotificationsForbidden()
+    return { ok: false }
+  }
 }
 
 /** Web Push — مفتاح VAPID العام (لا يحتاج تسجيل دخول) */

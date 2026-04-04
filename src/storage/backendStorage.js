@@ -4,7 +4,7 @@
  */
 
 import * as api from '../api/dbClient.js'
-import { LOCAL_ONLY_KEYS } from './appSettingsStorage.js'
+import { LOCAL_ONLY_KEYS, hasPrivilegedDataActor } from './appSettingsStorage.js'
 
 const cache = new Map()
 let bootstrapped = false
@@ -91,6 +91,7 @@ export async function getStore(key) {
 export async function setStore(key, value) {
   cache.set(key, value)
   if (LOCAL_ONLY_KEYS.includes(key)) return
+  if (!hasPrivilegedDataActor()) return
   try {
     await api.setStore(key, value)
   } catch (e) {

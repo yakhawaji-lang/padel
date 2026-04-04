@@ -48,6 +48,13 @@ async function get(key) {
     }
     return _backend?.getCache?.(key) ?? null
   }
+  if (!hasPrivilegedDataActor() && isMemberScopedLanguageKey(key)) {
+    const local = fromLocal(key)
+    if (local !== null && local !== undefined) {
+      _backend?.setCache?.(key, local)
+      return local
+    }
+  }
   if (!_backend) return null
   try {
     const v = _backend.getCache?.(key)
@@ -69,6 +76,11 @@ async function set(key, value) {
     _backend?.setCache?.(key, value)
     return
   }
+  if (!hasPrivilegedDataActor() && isMemberScopedLanguageKey(key)) {
+    toLocal(key, value)
+    _backend?.setCache?.(key, value)
+    return
+  }
   if (!_backend) return
   _backend.setCache?.(key, value)
   try {
@@ -81,6 +93,13 @@ async function set(key, value) {
 // Sync get from cache (must be called after bootstrap). For local-only keys, prefer localStorage.
 export function getCached(key) {
   if (LOCAL_ONLY_KEYS.includes(key)) {
+    const local = fromLocal(key)
+    if (local !== null && local !== undefined) {
+      _backend?.setCache?.(key, local)
+      return local
+    }
+  }
+  if (!hasPrivilegedDataActor() && isMemberScopedLanguageKey(key)) {
     const local = fromLocal(key)
     if (local !== null && local !== undefined) {
       _backend?.setCache?.(key, local)
@@ -180,6 +199,20 @@ export function getClubAdminSession() {
   const SESSION_MAX_MS = 24 * 60 * 60 * 1000
   if (raw._ts && Date.now() - raw._ts > SESSION_MAX_MS) return null
   return raw
+}
+
+/** Platform or club admin — allowed to POST /api/data and shared app_settings. */
+export function hasPrivilegedDataActor() {
+  const pa = getPlatformAdminSession()
+  if (pa?.id) return true
+  const ca = getClubAdminSession()
+  if (ca?.userId) return true
+  return false
+}
+
+function isMemberScopedLanguageKey(key) {
+  const k = String(key || '')
+  return k === 'app_language' || /^club_[^_]+_language$/.test(k)
 }
 
 export async function setClubAdminSession(session) {

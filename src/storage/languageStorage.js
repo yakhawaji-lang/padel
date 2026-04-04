@@ -1,6 +1,6 @@
 /**
- * Language storage - uses database via appSettingsStorage.
- * No localStorage.
+ * Language storage — appSettingsStorage.
+ * Admins sync app/club language to the API; members keep preference in localStorage only.
  */
 
 import { getAppLanguage as getFromDb, setAppLanguage as setToDb, getCached } from './appSettingsStorage.js'
