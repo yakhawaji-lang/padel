@@ -312,8 +312,8 @@ export const loadClubs = () => {
     if (_clubsCache != null) {
       if (!Array.isArray(_clubsCache)) _clubsCache = null
       else {
-        // Read path only — never saveClubs from here (avoids clubs-synced → loadClubs re-entry stack overflow).
-        syncMembersToClubs(_clubsCache, { persist: false })
+        // Read path: do not syncMembersToClubs here — bootstrap, saveMembers, refreshClubsFromApi already attach members.
+        // Re-syncing on every read + every clubs-synced caused heavy work and contributed to stack overflows in production.
         return deduplicateClubs(_clubsCache)
       }
     }
@@ -434,9 +434,9 @@ export const syncMembersToClubs = (clubs, options = {}) => {
         return false
       })
       
-      // Update club members if different
-      const currentMemberIds = new Set(club.members.map(m => m.id))
-      const newMemberIds = new Set(clubMembers.map(m => m.id))
+      // Update club members if different (String ids — API/legacy may mix number vs string)
+      const currentMemberIds = new Set((club.members || []).map(m => String(m?.id ?? '')))
+      const newMemberIds = new Set(clubMembers.map(m => String(m?.id ?? '')))
       
       if (currentMemberIds.size !== newMemberIds.size || 
           !Array.from(currentMemberIds).every(id => newMemberIds.has(id))) {
@@ -653,7 +653,7 @@ export async function saveClubs(clubs) {
       import('./supabaseSync.js').then(({ setRemoteClubs }) => setRemoteClubs(clubs)).catch(() => {})
     }
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('clubs-synced'))
+      queueMicrotask(() => window.dispatchEvent(new CustomEvent('clubs-synced')))
     }
   } catch (error) {
     console.error('Error saving clubs:', error)
