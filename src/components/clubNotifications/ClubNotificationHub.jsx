@@ -501,6 +501,8 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, do
   const prevPollCountsRef = useRef(null)
   const lastForegroundPushPingRef = useRef(0)
   const tabHiddenPingDebounceRef = useRef(0)
+  const clubsSyncedDebounceRef = useRef(null)
+  const summaryLoadInFlightRef = useRef(false)
   const [pushTestBusy, setPushTestBusy] = useState(false)
   const [pushTestFlash, setPushTestFlash] = useState(null)
 
@@ -522,12 +524,16 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, do
 
   const load = useCallback(async () => {
     if (!clubId || !showUi) return
+    if (summaryLoadInFlightRef.current) return
+    summaryLoadInFlightRef.current = true
     try {
       const data = await fetchClubNotificationSummary(clubId)
       if (data?.ok && data.counts) setSummary(data)
       setErr(null)
     } catch (e) {
       setErr(e?.message || '')
+    } finally {
+      summaryLoadInFlightRef.current = false
     }
   }, [clubId, showUi])
 
@@ -599,9 +605,21 @@ export default function ClubNotificationHub({ clubId, language, mode, showUi, do
 
   useEffect(() => {
     if (!showUi) return undefined
-    const onSync = () => load()
+    const onSync = () => {
+      if (clubsSyncedDebounceRef.current) clearTimeout(clubsSyncedDebounceRef.current)
+      clubsSyncedDebounceRef.current = setTimeout(() => {
+        clubsSyncedDebounceRef.current = null
+        load()
+      }, 800)
+    }
     window.addEventListener('clubs-synced', onSync)
-    return () => window.removeEventListener('clubs-synced', onSync)
+    return () => {
+      window.removeEventListener('clubs-synced', onSync)
+      if (clubsSyncedDebounceRef.current) {
+        clearTimeout(clubsSyncedDebounceRef.current)
+        clubsSyncedDebounceRef.current = null
+      }
+    }
   }, [load, showUi])
 
   useEffect(() => {

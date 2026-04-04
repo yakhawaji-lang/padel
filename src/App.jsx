@@ -842,13 +842,10 @@ function App({ currentUser }) {
     memberTab,
   ])
 
-  // Save to localStorage whenever state changes (but not on initial mount); DB persist debounced + awaited
+  // Local tournament-related cache only (no API) — includes members so UI stays fast
   useEffect(() => {
     if (isInitialMount.current || !currentClub?.id) return
-
     const clubId = currentClub.id
-
-    // Save club-specific tournament data (ملك + سوشيال: حفظ بيانات كل بطولة)
     saveToLocalStorage.kingStateByTournament(kingStateByTournamentId, clubId)
     saveToLocalStorage.socialStateByTournament(socialStateByTournamentId, clubId)
     saveToLocalStorage.members(members)
@@ -858,6 +855,26 @@ function App({ currentUser }) {
     import('./storage/appSettingsStorage.js').then(({ setClubLanguage }) => setClubLanguage(clubId, language))
     saveToLocalStorage.contentTab(contentTab)
     saveToLocalStorage.memberTab(memberTab)
+  }, [
+    kingStateByTournamentId,
+    socialStateByTournamentId,
+    members,
+    currentTournamentId,
+    activeTab,
+    language,
+    contentTab,
+    memberTab,
+    currentClub,
+  ])
+
+  /**
+   * Persist tournament_data to DB only. Intentionally does NOT depend on `members` or full `currentClub`:
+   * saveClubs dispatches clubs-synced → onSynced updates members → would re-run effect → cleanup flush →
+   * unbounded save/summary requests (ERR_INSUFFICIENT_RESOURCES).
+   */
+  useEffect(() => {
+    if (isInitialMount.current || !currentClub?.id) return
+    const clubId = currentClub.id
 
     const persistClubTournamentToDb = async () => {
       const snap = tournamentSnapshotRef.current
@@ -892,13 +909,11 @@ function App({ currentUser }) {
   }, [
     kingStateByTournamentId,
     socialStateByTournamentId,
-    members,
     currentTournamentId,
     activeTab,
-    language,
     contentTab,
     memberTab,
-    currentClub,
+    currentClub?.id,
   ])
 
   useEffect(() => {
