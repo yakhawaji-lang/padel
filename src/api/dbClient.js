@@ -222,7 +222,23 @@ async function fetchJson(path, options = {}) {
       if (text && /<\s*html[\s>]/i.test(text)) e.receivedHtml = true
       throw e
     }
-    return res.json()
+    try {
+      return await res.json()
+    } catch (parseErr) {
+      const msg = String(parseErr?.message || parseErr || '')
+      const isStack =
+        parseErr instanceof RangeError ||
+        parseErr?.name === 'RangeError' ||
+        /maximum call stack|stack size exceeded/i.test(msg)
+      if (isStack) {
+        console.warn('[fetchJson] JSON parse/stack error on', path, '- response may be too nested. Use DB cleanup or split entities.', msg)
+        const e = new Error('JSON response too deep')
+        e.status = res.status
+        e.jsonParseStackError = true
+        throw e
+      }
+      throw parseErr
+    }
   } finally {
     if (shouldTrackSaving) trackGlobalSavingEnd()
   }
