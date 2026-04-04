@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import LanguageIcon from '../components/LanguageIcon'
-import { loadClubs } from '../storage/adminStorage'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import { getStore, getImageUrl } from '../api/dbClient'
 import { getCurrentPlatformUser, logoutPlatformUser } from '../storage/platformAuth'
@@ -123,13 +122,20 @@ const HomePage = () => {
 
   useEffect(() => {
     const load = () => {
-      try {
-        const rows = loadClubs().map(toHomePageClubRow).filter(Boolean)
-        setClubs(rows)
-      } catch (e) {
-        console.warn('HomePage clubs load failed:', e?.message || e)
-        setClubs([])
-      }
+      import('../storage/adminStorage.js')
+        .then(({ loadClubs }) => {
+          try {
+            const rows = loadClubs().map(toHomePageClubRow).filter(Boolean)
+            setClubs(rows)
+          } catch (e) {
+            console.warn('HomePage clubs load failed:', e?.message || e)
+            setClubs([])
+          }
+        })
+        .catch((e) => {
+          console.warn('HomePage adminStorage import failed:', e?.message || e)
+          setClubs([])
+        })
     }
     load()
     window.addEventListener('clubs-synced', load)

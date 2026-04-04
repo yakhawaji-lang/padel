@@ -84,7 +84,7 @@ function LoadingFallback() {
 function Root() {
   useWesternNumerals()
   return (
-    <BrowserRouter basename={import.meta.env.BASE_URL || '/'} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <BrowserRouter basename={import.meta.env.BASE_URL || '/'}>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -121,11 +121,15 @@ function Root() {
 }
 
 function mountApp() {
-  ReactDOM.createRoot(document.getElementById('root')).render(
+  const el = document.getElementById('root')
+  const app = import.meta.env.DEV ? (
     <React.StrictMode>
       <Root />
-    </React.StrictMode>,
+    </React.StrictMode>
+  ) : (
+    <Root />
   )
+  ReactDOM.createRoot(el).render(app)
 }
 
 async function bootstrap() {
@@ -137,8 +141,15 @@ async function bootstrap() {
       backendStorage.bootstrap(),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Bootstrap timeout')), 15000))
     ])
+  } catch (e) {
+    console.warn('Bootstrap (cache fetch):', e?.message || e)
+  }
+  try {
     await loadClubsAsync()
-    // Apply saved language after bootstrap (DB is source of truth)
+  } catch (e) {
+    console.warn('Bootstrap (clubs):', e?.message || e)
+  }
+  try {
     const { getAppLanguage } = await import('./storage/appSettingsStorage.js')
     const lang = getAppLanguage()
     if (typeof document !== 'undefined') {
@@ -146,7 +157,7 @@ async function bootstrap() {
       document.documentElement.lang = lang
     }
   } catch (e) {
-    console.warn('Bootstrap failed:', e?.message || e)
+    console.warn('Bootstrap (language):', e?.message || e)
   }
 }
 
@@ -162,7 +173,7 @@ async function initAndMount() {
   // never share one call stack with heavy DB sync / JSON work (fixes Maximum call stack on /app/).
   mountApp()
   setTimeout(() => {
-    bootstrap().catch((e) => console.warn('Bootstrap failed:', e?.message || e))
+    bootstrap().catch((e) => console.warn('Bootstrap unexpected:', e?.message || e))
   }, 0)
 }
 
