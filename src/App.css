@@ -2801,6 +2801,36 @@ button:active {
   background: linear-gradient(135deg, #15803d 0%, #0f766e 100%);
 }
 
+.member-chip--guest-pending {
+  cursor: default;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  max-width: 100%;
+}
+
+.member-chip--guest-pending .member-chip__guest-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.member-chip__guest-status {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.25;
+  opacity: 0.95;
+  white-space: normal;
+}
+
+.member-chip__guest-fee {
+  font-size: 11px;
+  opacity: 0.9;
+}
+
 .member-chip__name {
   max-width: 140px;
   overflow: hidden;

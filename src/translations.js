@@ -111,7 +111,7 @@ export const translations = {
     memberSelectorOtherMembers: 'Other club members (search or pinned)',
     memberSelectorGuestInviteTitle: 'No club member matches this number',
     memberSelectorGuestInviteHint:
-      'Create a WhatsApp message with a secure PlayTix link (like playtix.app/app/pay-invite/inv_…) so they can finish registration or club membership and pay. The booking will appear in My bookings on the club page and in their account.',
+      'Creates a WhatsApp message for tournament participation: bilingual text (King of the Court or Social), your share amount, and clearly labeled tap-to-open links for payment and the club page. After you send it, the guest appears on this team as pending until they register and pay.',
     memberSelectorGuestInviteAutoExplain:
       'We pick the right link automatically: (1) Already on PlayTix but not in this club → join the club and pay. (2) Not on PlayTix yet → register, join the club, and pay.',
     memberSelectorGuestInviteWhatsAppButton: 'Create WhatsApp link & open',
@@ -127,6 +127,8 @@ export const translations = {
       'No PlayTix account was found for this number. The server should use the registration link; if you see this, refresh and try again.',
     memberSelectorGuestInviteAlreadyInClub:
       'This number belongs to someone already in the club directory — find them in the list above (search or pin).',
+    tournamentGuestPendingStatus: 'Waiting for registration & payment',
+    tournamentGuestPendingRemoveTitle: 'Remove from team list (does not cancel the payment link)',
     pointsHistory: 'Points History',
     showPointsHistory: 'Show Points History',
     hidePointsHistory: 'Hide Points History',
@@ -437,7 +439,7 @@ export const translations = {
     memberSelectorOtherMembers: 'بقية أعضاء النادي (بحث أو مثبتون)',
     memberSelectorGuestInviteTitle: 'لا يوجد عضو بهذا الرقم في دليل النادي',
     memberSelectorGuestInviteHint:
-      'يُنشئ رسالة واتساب فيها رابط آمن على PlayTix (مثل playtix.app/app/pay-invite/inv_…) ليتسجّل أو ينضمّ للنادي ويكمل الدفع، فيظهر الحجز في «حجوزاتي» بصفحة النادي وحسابه.',
+      'يُنشئ رسالة واتساب لمشاركة في بطولة: نص بالعربية والإنجليزية (ملك الملعب أو سوشيال)، مبلغ الحصة، وروابط واضحة «اضغط للفتح» للدفع وصفحة النادي. بعد الإرسال يظهر الضيف في الفريق كمعلّق حتى يتسجّل ويدفع.',
     memberSelectorGuestInviteAutoExplain:
       'يُختار الرابط تلقائياً: (١) مسجّل في المنصة وغير منضمّ للنادي → انضمام للنادي والدفع. (٢) غير مسجّل في المنصة → تسجيل وانضمام للنادي والدفع.',
     memberSelectorGuestInviteWhatsAppButton: 'إنشاء رابط واتساب وفتحه',
@@ -453,6 +455,8 @@ export const translations = {
       'لا يوجد حساب بهذا الرقم. يفترض أن يُستخدم رابط التسجيل؛ إن ظهرت هذه الرسالة حدّث الصفحة وأعد المحاولة.',
     memberSelectorGuestInviteAlreadyInClub:
       'هذا الرقم لعضو موجود في دليل النادي — ابحث عنه في القائمة أعلاه أو ثبّته.',
+    tournamentGuestPendingStatus: 'في انتظار تسجيل العضو والدفع',
+    tournamentGuestPendingRemoveTitle: 'إزالة من قائمة الفريق (لا يلغي رابط الدفع)',
     pointsHistory: 'سجل النقاط',
     showPointsHistory: 'عرض سجل النقاط',
     hidePointsHistory: 'إخفاء سجل النقاط',

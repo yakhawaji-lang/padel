@@ -2683,6 +2683,8 @@ router.post('/create-tournament-guest-fee-share', async (req, res) => {
     const addSplitDate = bookingDateYmd(b)
     let addStart = b.start_time || ''
     let addEnd = b.end_time || ''
+    const ttRaw = String(data.tournamentType || data.tournament_type || 'king').toLowerCase()
+    const tournamentKindForMsg = ttRaw === 'social' ? 'social' : 'king'
     const plain =
       clubShareMeta && payUrl
         ? buildPaymentShareWhatsAppPlainText({
@@ -2696,6 +2698,7 @@ router.post('/create-tournament-guest-fee-share', async (req, res) => {
             clubPageUrl: clubPageUrlFull,
             externalWebsite: clubShareMeta.website,
             mode: isUnregistered ? 'pay_invite' : 'pay_share',
+            tournamentKind: tournamentKindForMsg,
           })
         : ''
     const waLink = plain ? shareWhatsappLinkFromPlainText(plain) : shareWhatsappLinkFromPlainText(payUrl)

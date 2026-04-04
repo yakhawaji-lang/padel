@@ -1152,6 +1152,7 @@ function App({ currentUser }) {
       matchesPlayed: 0,
       memberIds: [], // Array of member IDs linked to this team
       memberTournamentPayments: {},
+      pendingFeeGuests: [], // { id, phoneDisplay, fee, inviteToken } — invited via WhatsApp, not in club yet
     }
     updateCurrentState(state => ({
       ...state,
@@ -5485,6 +5486,33 @@ function App({ currentUser }) {
         guestKind: 'auto',
       })
       await syncBookingsAfterApi()
+      const teamId = openMemberSelectorForTeam
+      const token = res?.inviteToken
+      if (teamId) {
+        const phoneDig = phoneDigitsNormalized(phone)
+        updateCurrentState((state) => ({
+          ...state,
+          teams: (state.teams || []).map((t) => {
+            if (t.id !== teamId) return t
+            const prev = Array.isArray(t.pendingFeeGuests) ? t.pendingFeeGuests : []
+            const rest = prev.filter((g) => phoneDigitsNormalized(g.phoneDisplay || '') !== phoneDig)
+            return {
+              ...t,
+              pendingFeeGuests: [
+                ...rest,
+                {
+                  id: `pending-${token || `${Date.now()}`}`,
+                  phoneDisplay: phone,
+                  fee: String(amt),
+                  inviteToken: token || null,
+                },
+              ],
+            }
+          }),
+        }))
+      }
+      setOpenMemberSelectorForTeam(null)
+      setMemberSelectorSearch('')
       const wa = res?.whatsappLink || res?.payUrl
       if (wa && typeof window !== 'undefined') {
         window.open(wa, '_blank', 'noopener,noreferrer')
@@ -5516,6 +5544,8 @@ function App({ currentUser }) {
     t,
     language,
     syncBookingsAfterApi,
+    openMemberSelectorForTeam,
+    updateCurrentState,
   ])
 
   const clubCurrency = currentClub?.settings?.currency || 'SAR'
@@ -7332,11 +7362,47 @@ function App({ currentUser }) {
                         −
                       </button>
                     </div>
-                    {members.length > 0 && (
+                    {(members.length > 0 || (team.pendingFeeGuests || []).length > 0) && (
                       <div className="team-members-selection">
                         <label className="team-members-label">{t.teamMembers}:</label>
                         <p className="team-members-drag-hint">{t.dragMembersBetweenTeamsHint}</p>
                         <div className="selected-members-chips">
+                          {(team.pendingFeeGuests || []).map((g) => (
+                            <span key={g.id} className="member-chip member-chip--guest-pending">
+                              <span className="member-chip__guest-block">
+                                <span className="member-chip__name" title={g.phoneDisplay}>
+                                  {g.phoneDisplay}
+                                </span>
+                                <span className="member-chip__guest-status">{t.tournamentGuestPendingStatus}</span>
+                                <span className="member-chip__guest-fee">
+                                  {g.fee} {clubCurrency}
+                                </span>
+                              </span>
+                              <button
+                                type="button"
+                                className="chip-remove"
+                                title={t.tournamentGuestPendingRemoveTitle}
+                                aria-label={t.tournamentGuestPendingRemoveTitle}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  e.preventDefault()
+                                  updateCurrentState((state) => ({
+                                    ...state,
+                                    teams: (state.teams || []).map((tm) =>
+                                      tm.id !== team.id
+                                        ? tm
+                                        : {
+                                            ...tm,
+                                            pendingFeeGuests: (tm.pendingFeeGuests || []).filter((x) => x.id !== g.id),
+                                          }
+                                    ),
+                                  }))
+                                }}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
                           {(team.memberIds || []).length > 0 ? (
                             (team.memberIds || []).map(memberId => {
                               const member = members.find(m => m.id === memberId)
@@ -7398,9 +7464,9 @@ function App({ currentUser }) {
                                 </span>
                               )
                             })
-                          ) : (
+                          ) : (team.pendingFeeGuests || []).length === 0 ? (
                             <span className="no-selected-members">{t.selectTeamMembers}</span>
-                          )}
+                          ) : null}
                         </div>
                         <button
                           className="btn-secondary btn-small"
