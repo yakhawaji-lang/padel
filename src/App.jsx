@@ -503,7 +503,8 @@ function App({ currentUser }) {
   const [weeklyViewDays, setWeeklyViewDays] = useState(7) // Number of days to show in weekly view (7, 6, 5, 4, 3, 2, 1)
   const [selectedDays, setSelectedDays] = useState([0, 1, 2, 3, 4, 5, 6]) // Array of day indices (0-6) to show in weekly view
   const isInitialMount = useRef(true) // Track if this is the first mount
-  const isSavingRef = useRef(false) // Prevent save loops
+  /** Latest tournament fields for debounced DB persist + tab-hidden flush */
+  const tournamentSnapshotRef = useRef({})
   const memberSelectorPhoneInputRef = useRef(null)
   const memberSelectorListRef = useRef(null)
 
@@ -819,13 +820,33 @@ function App({ currentUser }) {
     }
   }, [showCalendar])
 
-  // Save to localStorage whenever state changes (but not on initial mount)
   useEffect(() => {
-    if (isInitialMount.current || isSavingRef.current || !currentClub?.id) return
-    
-    isSavingRef.current = true
+    if (!currentClub?.id) return
+    tournamentSnapshotRef.current = {
+      clubId: currentClub.id,
+      kingStateByTournamentId,
+      socialStateByTournamentId,
+      currentTournamentId,
+      activeTab,
+      contentTab,
+      memberTab,
+    }
+  }, [
+    currentClub?.id,
+    kingStateByTournamentId,
+    socialStateByTournamentId,
+    currentTournamentId,
+    activeTab,
+    contentTab,
+    memberTab,
+  ])
+
+  // Save to localStorage whenever state changes (but not on initial mount); DB persist debounced + awaited
+  useEffect(() => {
+    if (isInitialMount.current || !currentClub?.id) return
+
     const clubId = currentClub.id
-    
+
     // Save club-specific tournament data (ملك + سوشيال: حفظ بيانات كل بطولة)
     saveToLocalStorage.kingStateByTournament(kingStateByTournamentId, clubId)
     saveToLocalStorage.socialStateByTournament(socialStateByTournamentId, clubId)
@@ -836,25 +857,75 @@ function App({ currentUser }) {
     import('./storage/appSettingsStorage.js').then(({ setClubLanguage }) => setClubLanguage(clubId, language))
     saveToLocalStorage.contentTab(contentTab)
     saveToLocalStorage.memberTab(memberTab)
-    
-    // Save to club data in adminStorage (DB)
-    const clubs = loadClubs()
-    const club = clubs.find(c => c.id === clubId)
-    if (club) {
-      club.tournamentData = club.tournamentData || {}
-      club.tournamentData.kingStateByTournamentId = kingStateByTournamentId
-      club.tournamentData.socialStateByTournamentId = socialStateByTournamentId
-      club.tournamentData.currentTournamentId = currentTournamentId
-      club.tournamentData.activeTab = activeTab
-      club.tournamentData.contentTab = contentTab
-      club.tournamentData.memberTab = memberTab
-      saveClubs(clubs).catch(e => console.error('saveClubs:', e))
+
+    const persistClubTournamentToDb = async () => {
+      const snap = tournamentSnapshotRef.current
+      if (!snap.clubId || String(snap.clubId) !== String(clubId)) return
+      try {
+        const clubs = loadClubs()
+        const club = clubs.find((c) => c.id === clubId)
+        if (!club) return
+        club.tournamentData = club.tournamentData || {}
+        club.tournamentData.kingStateByTournamentId = snap.kingStateByTournamentId
+        club.tournamentData.socialStateByTournamentId = snap.socialStateByTournamentId
+        club.tournamentData.currentTournamentId = snap.currentTournamentId
+        club.tournamentData.activeTab = snap.activeTab
+        club.tournamentData.contentTab = snap.contentTab
+        club.tournamentData.memberTab = snap.memberTab
+        await saveClubs(clubs)
+      } catch (e) {
+        console.error('saveClubs tournament sync:', e)
+      }
     }
-    
-    setTimeout(() => {
-      isSavingRef.current = false
-    }, 100)
-  }, [kingStateByTournamentId, socialStateByTournamentId, members, currentTournamentId, activeTab, language, contentTab, memberTab, currentClub])
+
+    const t = setTimeout(() => {
+      void persistClubTournamentToDb()
+    }, 400)
+    return () => {
+      clearTimeout(t)
+      const snap = tournamentSnapshotRef.current
+      if (String(snap.clubId) === String(clubId)) {
+        void persistClubTournamentToDb()
+      }
+    }
+  }, [
+    kingStateByTournamentId,
+    socialStateByTournamentId,
+    members,
+    currentTournamentId,
+    activeTab,
+    language,
+    contentTab,
+    memberTab,
+    currentClub,
+  ])
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState !== 'hidden') return
+      void (async () => {
+        const snap = tournamentSnapshotRef.current
+        if (!snap.clubId) return
+        try {
+          const clubs = loadClubs()
+          const club = clubs.find((c) => c.id === snap.clubId)
+          if (!club) return
+          club.tournamentData = club.tournamentData || {}
+          club.tournamentData.kingStateByTournamentId = snap.kingStateByTournamentId
+          club.tournamentData.socialStateByTournamentId = snap.socialStateByTournamentId
+          club.tournamentData.currentTournamentId = snap.currentTournamentId
+          club.tournamentData.activeTab = snap.activeTab
+          club.tournamentData.contentTab = snap.contentTab
+          club.tournamentData.memberTab = snap.memberTab
+          await saveClubs(clubs)
+        } catch (e) {
+          console.error('saveClubs tournament flush on hide:', e)
+        }
+      })()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [])
 
   // Get current state based on active tab (للملك/السوشيال: حسب البطولة المعروضة)
   const currentState = activeTab === 'king'

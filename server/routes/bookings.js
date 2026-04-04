@@ -2684,15 +2684,7 @@ router.post('/create-tournament-guest-fee-share', async (req, res) => {
       }
     }
 
-    const token = `inv_${crypto.randomBytes(16).toString('hex')}`
-    const isUnregistered = kind === 'unregistered'
-    const payPath = isUnregistered ? 'pay-invite' : 'pay-share'
     const baseUrl = getWhatsAppOutboundPayBaseUrl(req)
-    const payUrl = payInviteOrShareUrlWithTokenQuery(baseUrl, payPath, token)
-    const shareType = isUnregistered ? 'unregistered' : 'registered'
-    const shareMemberId = isUnregistered ? null : lookup.member.id
-    const shareName = (memberName && String(memberName).trim()) || lookup.member?.name || null
-
     const clubPageUrlFull = `${baseUrl}/clubs/${encodeURIComponent(String(clubId))}`
     const clubShareMeta = await loadClubShareMeta(clubId)
     const addSplitDate = bookingDateYmd(b)
@@ -2700,29 +2692,92 @@ router.post('/create-tournament-guest-fee-share', async (req, res) => {
     let addEnd = b.end_time || ''
     const ttRaw = String(data.tournamentType || data.tournament_type || 'king').toLowerCase()
     const tournamentKindForMsg = ttRaw === 'social' ? 'social' : 'king'
-    const plain =
-      clubShareMeta && payUrl
-        ? buildPaymentShareWhatsAppPlainText({
-            clubName: clubShareMeta.displayName,
-            bookingDate: addSplitDate,
-            startTime: addStart || '—',
-            endTime: addEnd,
-            shareAmount: amt,
-            currency: clubShareMeta.currency,
-            paymentUrl: payUrl,
-            clubPageUrl: clubPageUrlFull,
-            externalWebsite: clubShareMeta.website,
-            mode: isUnregistered ? 'pay_invite' : 'pay_share',
-            tournamentKind: tournamentKindForMsg,
-          })
-        : ''
-    const waLink = plain ? shareWhatsappLinkFromPlainText(plain) : shareWhatsappLinkFromPlainText(payUrl)
 
-    await query(
-      `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [bid, clubId, shareType, shareMemberId, shareName, phoneNorm || phone, amt, waLink || null, token]
-    )
+    const isUnregistered = kind === 'unregistered'
+    const shareType = isUnregistered ? 'unregistered' : 'registered'
+    const shareMemberId = isUnregistered ? null : lookup.member.id
+    const shareName = (memberName && String(memberName).trim()) || lookup.member?.name || null
+
+    const buildGuestWaPayload = (token, opts) => {
+      const unreg =
+        opts && Object.prototype.hasOwnProperty.call(opts, 'unregistered') ? opts.unregistered : isUnregistered
+      const path = unreg ? 'pay-invite' : 'pay-share'
+      const payUrl = payInviteOrShareUrlWithTokenQuery(baseUrl, path, token)
+      const plain =
+        clubShareMeta && payUrl
+          ? buildPaymentShareWhatsAppPlainText({
+              clubName: clubShareMeta.displayName,
+              bookingDate: addSplitDate,
+              startTime: addStart || '—',
+              endTime: addEnd,
+              shareAmount: amt,
+              currency: clubShareMeta.currency,
+              paymentUrl: payUrl,
+              clubPageUrl: clubPageUrlFull,
+              externalWebsite: clubShareMeta.website,
+              mode: unreg ? 'pay_invite' : 'pay_share',
+              tournamentKind: tournamentKindForMsg,
+            })
+          : ''
+      const waLink = plain ? shareWhatsappLinkFromPlainText(plain) : shareWhatsappLinkFromPlainText(payUrl)
+      return { payUrl, waLink }
+    }
+
+    /** نفس الرقم + نفس الحجز + حصة غير مدفوعة: نحدّث الرابط فقط (إعادة إرسال آمنة دون صفوف مكررة) */
+    let existingRow = null
+    try {
+      const exQ = await query(
+        `SELECT id, invite_token, participant_type FROM booking_payment_shares
+         WHERE booking_id = ? AND club_id = ? AND paid_at IS NULL AND removed_at IS NULL
+           AND LOWER(TRIM(phone)) = LOWER(TRIM(?))
+         ORDER BY id DESC LIMIT 1`,
+        [bid, clubId, phoneNorm || phone]
+      )
+      existingRow = exQ.rows?.[0] || null
+    } catch (_) {
+      existingRow = null
+    }
+
+    let token
+    let payUrl
+    let waLink
+    let reused = false
+
+    if (existingRow?.id) {
+      reused = true
+      token = normalizeInviteTokenParamExpress(existingRow.invite_token) || existingRow.invite_token
+      if (!/^inv_[a-f0-9]{32}$/.test(token)) {
+        token = `inv_${crypto.randomBytes(16).toString('hex')}`
+        await query('UPDATE booking_payment_shares SET invite_token = ? WHERE id = ?', [token, existingRow.id])
+      }
+      const reuseUnreg = String(existingRow.participant_type || '').toLowerCase() === 'unregistered'
+      const built = buildGuestWaPayload(token, { unregistered: reuseUnreg })
+      payUrl = built.payUrl
+      waLink = built.waLink
+      const nameSql = shareName && String(shareName).trim() ? String(shareName).trim() : null
+      if (shareMemberId != null && String(shareMemberId).trim() !== '') {
+        await query(
+          `UPDATE booking_payment_shares SET whatsapp_link = ?, amount = ?, member_name = COALESCE(?, member_name), member_id = ? WHERE id = ?`,
+          [waLink || null, amt, nameSql, shareMemberId, existingRow.id]
+        )
+      } else {
+        await query(
+          `UPDATE booking_payment_shares SET whatsapp_link = ?, amount = ?, member_name = COALESCE(?, member_name) WHERE id = ?`,
+          [waLink || null, amt, nameSql, existingRow.id]
+        )
+      }
+    } else {
+      token = `inv_${crypto.randomBytes(16).toString('hex')}`
+      const built = buildGuestWaPayload(token)
+      payUrl = built.payUrl
+      waLink = built.waLink
+      await query(
+        `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [bid, clubId, shareType, shareMemberId, shareName, phoneNorm || phone, amt, waLink || null, token]
+      )
+    }
+
     const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bid, clubId)
     if (clubId && rec?.bookingDate) slotCache.invalidateLocks(clubId, rec.bookingDate)
     res.json({
@@ -2732,6 +2787,7 @@ router.post('/create-tournament-guest-fee-share', async (req, res) => {
       payInviteUrl: payUrl,
       whatsappLink: waLink,
       guestKind: kind,
+      reusedInvite: reused,
       ...rec,
     })
   } catch (e) {
