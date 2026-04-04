@@ -109,37 +109,67 @@ function toHomePageClubRow(raw) {
   }
 }
 
+function safeHomeLanguage() {
+  try {
+    const l = getAppLanguage()
+    return l === 'ar' || l === 'en' ? l : 'en'
+  } catch {
+    return 'en'
+  }
+}
+
 const HomePage = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const [clubs, setClubs] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
-  const [language, setLanguage] = useState(getAppLanguage())
+  const [language, setLanguage] = useState(safeHomeLanguage)
   const [navOpen, setNavOpen] = useState(false)
   const [bannerPhrase, setBannerPhrase] = useState({ ar: '', en: '' })
   const [platformUser, setPlatformUser] = useState(null)
   const [clubAdminSession, setClubAdminSession] = useState(null)
 
   useEffect(() => {
-    const load = () => {
-      import('../storage/adminStorage.js')
-        .then(({ loadClubs }) => {
-          try {
-            const rows = loadClubs().map(toHomePageClubRow).filter(Boolean)
-            setClubs(rows)
-          } catch (e) {
-            console.warn('HomePage clubs load failed:', e?.message || e)
-            setClubs([])
-          }
-        })
-        .catch((e) => {
-          console.warn('HomePage adminStorage import failed:', e?.message || e)
-          setClubs([])
-        })
+    let cancelled = false
+    let timeoutId = null
+    const runLoad = () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        timeoutId = null
+        if (cancelled) return
+        import('../storage/adminStorage.js')
+          .then(({ loadClubs }) => {
+            if (cancelled) return
+            try {
+              const raw = loadClubs()
+              const list = Array.isArray(raw) ? raw : []
+              const rows = list.map((club) => {
+                try {
+                  return toHomePageClubRow(club)
+                } catch (rowErr) {
+                  console.warn('HomePage club row skipped:', club?.id, rowErr?.message || rowErr)
+                  return null
+                }
+              }).filter(Boolean)
+              setClubs(rows)
+            } catch (e) {
+              console.warn('HomePage clubs load failed:', e?.message || e)
+              setClubs([])
+            }
+          })
+          .catch((e) => {
+            if (!cancelled) console.warn('HomePage adminStorage import failed:', e?.message || e)
+            if (!cancelled) setClubs([])
+          })
+      }, 0)
     }
-    load()
-    window.addEventListener('clubs-synced', load)
-    return () => window.removeEventListener('clubs-synced', load)
+    runLoad()
+    window.addEventListener('clubs-synced', runLoad)
+    return () => {
+      cancelled = true
+      if (timeoutId) clearTimeout(timeoutId)
+      window.removeEventListener('clubs-synced', runLoad)
+    }
   }, [])
 
   useEffect(() => {
@@ -164,8 +194,12 @@ const HomePage = () => {
     }).catch(() => {})
   }, [])
 
+  // Sync <html lang/dir> only — do not call setAppLanguage on every mount (that hit the API and could race bootstrap).
   useEffect(() => {
-    setAppLanguage(language)
+    const l = language === 'ar' ? 'ar' : 'en'
+    if (typeof document === 'undefined') return
+    document.documentElement.dir = l === 'ar' ? 'rtl' : 'ltr'
+    document.documentElement.lang = l
   }, [language])
 
   const approvedClubs = useMemo(() => clubs.filter(c => c.status !== 'pending'), [clubs])
@@ -462,7 +496,8 @@ const HomePage = () => {
     }
   }
 
-  const c = t[language]
+  const langUi = language === 'ar' ? 'ar' : 'en'
+  const c = t[langUi] || t.en
 
   const baseUrl = typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL ? import.meta.env.BASE_URL.replace(/\/$/, '') : ''
   const galleryImages = [
@@ -502,7 +537,7 @@ const HomePage = () => {
               <a href="#join" onClick={(e) => { e.preventDefault(); scrollTo('join') }}>{language === 'en' ? 'Join' : 'انضم'}</a>
               <a href="#clubs" onClick={(e) => { e.preventDefault(); scrollTo('clubs') }}>{language === 'en' ? 'Clubs' : 'النوادي'}</a>
             </div>
-            <button type="button" className="nav-lang" onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')} title={language === 'en' ? 'العربية' : 'English'} aria-label={language === 'en' ? 'Switch to Arabic' : 'التبديل للإنجليزية'}>
+            <button type="button" className="nav-lang" onClick={() => { const next = language === 'en' ? 'ar' : 'en'; setLanguage(next); setAppLanguage(next) }} title={language === 'en' ? 'العربية' : 'English'} aria-label={language === 'en' ? 'Switch to Arabic' : 'التبديل للإنجليزية'}>
               <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={18} />
             </button>
           </nav>
