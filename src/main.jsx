@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { loadClubsAsync, loadClubs, initBackendStorage } from './storage/adminStorage.js'
+import { loadClubsAsync, initBackendStorage } from './storage/adminStorage.js'
 import { initAppSettingsStorage } from './storage/appSettingsStorage.js'
 import GlobalSavingOverlay from './components/GlobalSavingOverlay'
 import './index.css'
@@ -9,16 +9,25 @@ import './index.css'
 /** Ensure all number inputs and .western-numerals elements use Western numerals (0-9) across the system */
 function useWesternNumerals() {
   useEffect(() => {
+    let raf = 0
     const apply = () => {
-      document.querySelectorAll('input[type="number"], .western-numerals').forEach(el => {
-        el.setAttribute('lang', 'en')
-        el.setAttribute('dir', 'ltr')
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        try {
+          document.querySelectorAll('input[type="number"], .western-numerals').forEach(el => {
+            el.setAttribute('lang', 'en')
+            el.setAttribute('dir', 'ltr')
+          })
+        } catch (_) {}
       })
     }
     apply()
     const obs = new MutationObserver(apply)
     obs.observe(document.body, { childList: true, subtree: true })
-    return () => obs.disconnect()
+    return () => {
+      cancelAnimationFrame(raf)
+      obs.disconnect()
+    }
   }, [])
 }
 

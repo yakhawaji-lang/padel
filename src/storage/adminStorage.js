@@ -60,7 +60,15 @@ export function getMergedMembersRaw() {
   } catch (_) {}
   const byId = new Map()
   members.forEach(m => { if (m && m.id) byId.set(m.id, m) })
-  allMembers.forEach(m => { if (m && m.id) byId.set(m.id, { ...byId.get(m.id), ...m }) })
+  allMembers.forEach(m => {
+    if (!m || m.id === undefined || m.id === null) return
+    try {
+      const prev = byId.get(m.id)
+      byId.set(m.id, prev ? { ...prev, ...m } : { ...m })
+    } catch (e) {
+      console.warn('getMergedMembersRaw: skip corrupt member row', m?.id, e?.message || e)
+    }
+  })
   return Array.from(byId.values())
 }
 
@@ -222,11 +230,24 @@ export async function loadClubsAsync() {
       await _backendStorage.bootstrap()
       const clubs = _backendStorage.getCache(ADMIN_STORAGE_KEYS.CLUBS)
       _clubsCache = deduplicateClubs(Array.isArray(clubs) ? clubs : [])
-      // Read path: do not saveClubs here — saveClubs dispatches clubs-synced; listeners (e.g. HomePage) call loadClubs() and recurse infinitely.
-      syncMembersToClubs(_clubsCache, { persist: false })
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('clubs-synced'))
-      }
+      // Run member→club sync in a fresh microtask stack (await flushes before getAppLanguage / mountApp).
+      const snapshot = _clubsCache
+      await new Promise((resolve) => {
+        queueMicrotask(() => {
+          try {
+            if (_clubsCache === snapshot) {
+              syncMembersToClubs(_clubsCache, { persist: false })
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('clubs-synced'))
+              }
+            }
+          } catch (e) {
+            console.warn('loadClubsAsync deferred sync failed:', e?.message || e)
+          } finally {
+            resolve()
+          }
+        })
+      })
     } catch (e) {
       console.warn('loadClubsAsync (Postgres) failed:', e)
     }
@@ -238,12 +259,25 @@ export async function loadClubsAsync() {
     if (remote === null || !Array.isArray(remote)) return
     let local = _read(ADMIN_STORAGE_KEYS.CLUBS) || []
     let merged = mergeClubsPreservingLocalImages(remote, local)
-    syncMembersToClubs(merged, { persist: false })
-    _write(ADMIN_STORAGE_KEYS.CLUBS, merged)
     _clubsCache = merged
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('clubs-synced'))
-    }
+    const snapshot = _clubsCache
+    await new Promise((resolve) => {
+      queueMicrotask(() => {
+        try {
+          if (_clubsCache === snapshot) {
+            syncMembersToClubs(_clubsCache, { persist: false })
+            _write(ADMIN_STORAGE_KEYS.CLUBS, _clubsCache)
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('clubs-synced'))
+            }
+          }
+        } catch (e) {
+          console.warn('loadClubsAsync deferred sync failed:', e?.message || e)
+        } finally {
+          resolve()
+        }
+      })
+    })
   } catch (e) {
     console.warn('loadClubsAsync failed:', e)
   }
@@ -399,46 +433,57 @@ export const syncMembersToClubs = (clubs, options = {}) => {
   try {
     if (!Array.isArray(clubs)) return
     const mergedMembers = getMergedMembersRaw()
-    // For each club, sync members
+    // Single pass: clubId -> members (avoids O(clubs × members) nested filters that blew the stack on large production data)
+    const byClub = new Map()
+    const pushClub = (cidRaw, member) => {
+      const k = String(cidRaw ?? '').trim()
+      if (!k) return
+      let arr = byClub.get(k)
+      if (!arr) {
+        arr = []
+        byClub.set(k, arr)
+      }
+      arr.push(member)
+    }
+    for (const member of mergedMembers) {
+      if (!member || member.id === undefined || member.id === null) continue
+      const ids = member.clubIds
+      const hasNonEmptyClubIds = Array.isArray(ids) && ids.length > 0
+      if (hasNonEmptyClubIds) {
+        for (const id of ids) {
+          pushClub(id, member)
+        }
+      } else if (member.clubId != null && String(member.clubId).trim() !== '') {
+        pushClub(member.clubId, member)
+        if (!Array.isArray(member.clubIds) || member.clubIds.length === 0) {
+          member.clubIds = [member.clubId]
+        } else if (!member.clubIds.includes(member.clubId)) {
+          member.clubIds.push(member.clubId)
+        }
+      }
+    }
+
     let hasChanges = false
-    clubs.forEach(club => {
+    for (const club of clubs) {
+      if (!club) continue
       if (!club.members) {
         club.members = []
       }
-      
-      // Find members that belong to this club
-      // Support both old format (clubId) and new format (clubIds array). Use String() for ID comparison.
       const clubIdStr = String(club.id || '')
-      const clubMembers = mergedMembers.filter(member => {
-        // New format: member has clubIds array
-        if (member.clubIds && Array.isArray(member.clubIds)) {
-          return member.clubIds.some(id => String(id) === clubIdStr)
-        }
-        
-        // Old format: member has clubId (single club) - convert to array format
-        if (member.clubId) {
-          // If member belongs to this club, add it
-          if (String(member.clubId) === clubIdStr) {
-            // Convert old format to new format
-            if (!member.clubIds) {
-              member.clubIds = [member.clubId]
-            } else if (!member.clubIds.includes(member.clubId)) {
-              member.clubIds.push(member.clubId)
-            }
-            return true
-          }
-          return false
-        }
-        
-        // If no clubId/clubIds, skip — النظام لا يستخدم نادٍ افتراضي
-        return false
-      })
-      
-      // Update club members if different (String ids — API/legacy may mix number vs string)
+      const rawForClub = byClub.get(clubIdStr) || []
+      const seen = new Set()
+      const clubMembers = []
+      for (const m of rawForClub) {
+        const sid = String(m?.id ?? '')
+        if (!sid || seen.has(sid)) continue
+        seen.add(sid)
+        clubMembers.push(m)
+      }
+
       const currentMemberIds = new Set((club.members || []).map(m => String(m?.id ?? '')))
       const newMemberIds = new Set(clubMembers.map(m => String(m?.id ?? '')))
-      
-      if (currentMemberIds.size !== newMemberIds.size || 
+
+      if (currentMemberIds.size !== newMemberIds.size ||
           !Array.from(currentMemberIds).every(id => newMemberIds.has(id))) {
         club.members = clubMembers.map(m => ({
           id: m.id,
@@ -449,11 +494,11 @@ export const syncMembersToClubs = (clubs, options = {}) => {
           totalGames: m.totalGames || 0,
           totalWins: m.totalWins || 0,
           totalPoints: m.totalPoints || 0,
-          clubIds: m.clubIds || (m.clubId ? [m.clubId] : []) // Preserve clubIds
+          clubIds: m.clubIds || (m.clubId ? [m.clubId] : []),
         }))
         hasChanges = true
       }
-    })
+    }
     
     // Persist members + API only when persist:true. Read/bootstrap uses persist:false — _writeAwait here still ran setStore/hasPrivilegedDataActor chains and could blow the stack.
     if (hasChanges && persist) {
