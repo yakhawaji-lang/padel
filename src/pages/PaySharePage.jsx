@@ -6,11 +6,24 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { getInviteByToken, recordPayment, getWalletBalance } from '../api/dbClient'
-import { getAppLanguage } from '../storage/languageStorage'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
-import { addMemberToClub } from '../storage/adminStorage'
 import './PaymentPage.css'
 import { UnifiedPaymentActionGrid } from '../components/UnifiedPaymentOptions'
+
+const SHARE_FETCH_MS = 28000
+
+function readPaySharePageLanguage() {
+  try {
+    const l = String(typeof document !== 'undefined' ? document.documentElement?.lang : 'en').toLowerCase()
+    if (l.startsWith('ar')) return 'ar'
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('playtix_app_language') : null
+    if (raw) {
+      const p = JSON.parse(raw)
+      if (p === 'ar' || p === 'en') return p
+    }
+  } catch (_) {}
+  return 'en'
+}
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
@@ -32,7 +45,7 @@ const formatDate = (dateStr, lang) => {
 const PaySharePage = () => {
   const { token } = useParams()
   const navigate = useNavigate()
-  const language = getAppLanguage() || 'en'
+  const language = readPaySharePageLanguage()
 
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -46,14 +59,25 @@ const PaySharePage = () => {
 
   const loadInvite = useCallback(() => {
     if (!token) return Promise.resolve()
-    return getInviteByToken(token)
-      .then((d) => {
-        setData(d)
-        setError(null)
-      })
-      .catch((e) => {
-        setError(e?.message || 'Failed to load invite')
-      })
+    return new Promise((resolve, reject) => {
+      const to = setTimeout(
+        () => reject(Object.assign(new Error('Request timeout'), { status: 'network' })),
+        SHARE_FETCH_MS
+      )
+      getInviteByToken(token).then(
+        (d) => {
+          clearTimeout(to)
+          setData(d)
+          setError(null)
+          resolve(d)
+        },
+        (e) => {
+          clearTimeout(to)
+          setError(e?.message || 'Failed to load invite')
+          reject(e)
+        }
+      )
+    }).catch(() => {})
   }, [token])
 
   useEffect(() => {
@@ -78,7 +102,8 @@ const PaySharePage = () => {
         const bookingApi = await import('../api/dbClient')
         try {
           await bookingApi.joinClub(data.clubId, platformUser.id)
-          await addMemberToClub(platformUser.id, data.clubId)
+          const admin = await import('../storage/adminStorage.js')
+          await admin.addMemberToClub(platformUser.id, data.clubId)
         } catch (_) {}
         try {
           await bookingApi.claimInviteShare({

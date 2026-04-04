@@ -46,8 +46,9 @@ const DataDeletion = lazy(() => import('./pages/DataDeletion'))
 const RegisterClub = lazy(() => import('./pages/RegisterClub'))
 const MyBookingsPage = lazy(() => import('./pages/MyBookingsPage'))
 const MyFavoritesPage = lazy(() => import('./pages/MyFavoritesPage'))
-const PayInvitePage = lazy(() => import('./pages/PayInvitePage'))
-const PaySharePage = lazy(() => import('./pages/PaySharePage'))
+/* Eager load: pay links must not depend on a lazy chunk (Suspense "Loading..." forever if chunk eval throws). */
+import PayInvitePage from './pages/PayInvitePage'
+import PaySharePage from './pages/PaySharePage'
 const CoachDashboardPage = lazy(() => import('./pages/CoachDashboardPage'))
 const PayShareByBookingPage = lazy(() => import('./pages/PayShareByBookingPage'))
 const PaymentPage = lazy(() => import('./pages/PaymentPage'))

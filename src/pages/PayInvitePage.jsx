@@ -6,9 +6,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { getInviteByToken, recordPayment, getWalletBalance } from '../api/dbClient'
-import { getAppLanguage } from '../storage/languageStorage'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
-import { addMemberToClub } from '../storage/adminStorage'
 import {
   normalizeInviteTokenParam,
   persistResumeInviteToken,
@@ -17,6 +15,22 @@ import {
 } from '../utils/paymentShareDeepLink'
 import './PayInvitePage.css'
 import { UnifiedPaymentActionGrid } from '../components/UnifiedPaymentOptions'
+
+/** Avoid languageStorage/appSettingsStorage on this route (keeps module graph smaller for eager + lazy safety). */
+function readPayInvitePageLanguage() {
+  try {
+    const l = String(typeof document !== 'undefined' ? document.documentElement?.lang : 'en').toLowerCase()
+    if (l.startsWith('ar')) return 'ar'
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('playtix_app_language') : null
+    if (raw) {
+      const p = JSON.parse(raw)
+      if (p === 'ar' || p === 'en') return p
+    }
+  } catch (_) {}
+  return 'en'
+}
+
+const INVITE_FETCH_MS = 28000
 
 /** Base URL of the app (origin + base path) — works locally and on deployed domain */
 function getAppBaseUrl() {
@@ -99,7 +113,7 @@ const PayInvitePage = () => {
   const [markedPaid, setMarkedPaid] = useState(false)
   const [walletBal, setWalletBal] = useState(null)
   const [walletLoading, setWalletLoading] = useState(false)
-  const language = getAppLanguage() || 'en'
+  const language = readPayInvitePageLanguage()
 
   const loadInvite = React.useCallback(async () => {
     const stored = readResumeInviteToken()
@@ -123,7 +137,22 @@ const PayInvitePage = () => {
     let lastErr = null
     for (const t of candidates) {
       try {
-        const d = await getInviteByToken(t)
+        const d = await new Promise((resolve, reject) => {
+          const to = setTimeout(
+            () => reject(Object.assign(new Error('Request timeout'), { status: 'network' })),
+            INVITE_FETCH_MS
+          )
+          getInviteByToken(t).then(
+            (v) => {
+              clearTimeout(to)
+              resolve(v)
+            },
+            (e) => {
+              clearTimeout(to)
+              reject(e)
+            }
+          )
+        })
         setData(d)
         setError(null)
         setErrorStatus(null)
@@ -174,7 +203,8 @@ const PayInvitePage = () => {
         const bookingApi = await import('../api/dbClient')
         try {
           await bookingApi.joinClub(data.clubId, platformUser.id)
-          await addMemberToClub(platformUser.id, data.clubId)
+          const admin = await import('../storage/adminStorage.js')
+          await admin.addMemberToClub(platformUser.id, data.clubId)
         } catch (_) {}
         try {
           await bookingApi.claimInviteShare({
