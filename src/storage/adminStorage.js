@@ -222,7 +222,8 @@ export async function loadClubsAsync() {
       await _backendStorage.bootstrap()
       const clubs = _backendStorage.getCache(ADMIN_STORAGE_KEYS.CLUBS)
       _clubsCache = deduplicateClubs(Array.isArray(clubs) ? clubs : [])
-      syncMembersToClubs(_clubsCache)
+      // Read path: do not saveClubs here — saveClubs dispatches clubs-synced; listeners (e.g. HomePage) call loadClubs() and recurse infinitely.
+      syncMembersToClubs(_clubsCache, { persist: false })
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('clubs-synced'))
       }
@@ -237,7 +238,7 @@ export async function loadClubsAsync() {
     if (remote === null || !Array.isArray(remote)) return
     let local = _read(ADMIN_STORAGE_KEYS.CLUBS) || []
     let merged = mergeClubsPreservingLocalImages(remote, local)
-    syncMembersToClubs(merged)
+    syncMembersToClubs(merged, { persist: false })
     _write(ADMIN_STORAGE_KEYS.CLUBS, merged)
     _clubsCache = merged
     if (typeof window !== 'undefined') {
@@ -294,7 +295,7 @@ export function applyRemoteClubs(clubs) {
   try {
     let local = _read(ADMIN_STORAGE_KEYS.CLUBS) || []
     let merged = mergeClubsPreservingLocalImages(clubs, local)
-    syncMembersToClubs(merged)
+    syncMembersToClubs(merged, { persist: false })
     _write(ADMIN_STORAGE_KEYS.CLUBS, merged)
     _clubsCache = merged
     if (typeof window !== 'undefined') {
@@ -311,7 +312,8 @@ export const loadClubs = () => {
     if (_clubsCache != null) {
       if (!Array.isArray(_clubsCache)) _clubsCache = null
       else {
-        syncMembersToClubs(_clubsCache)
+        // Read path only — never saveClubs from here (avoids clubs-synced → loadClubs re-entry stack overflow).
+        syncMembersToClubs(_clubsCache, { persist: false })
         return deduplicateClubs(_clubsCache)
       }
     }
@@ -321,8 +323,8 @@ export const loadClubs = () => {
     }
     if (clubs && Array.isArray(clubs)) {
       // النظام يبدأ فارغاً — لا إنشاء نادٍ افتراضي
-      // Sync members from DB into clubs
-      syncMembersToClubs(clubs)
+      // Sync members from DB into clubs (no saveClubs — same re-entrancy issue as cache hit path)
+      syncMembersToClubs(clubs, { persist: false })
       // Migrate: ensure store/storeEnabled and club hours exist
       let storeMigration = false
       clubs.forEach(club => {
@@ -385,7 +387,7 @@ export const loadClubs = () => {
   }
 }
 
-// Sync members from DB into clubs. When persist: false (e.g. after refresh from API), do not POST back to server.
+// Sync members from DB into clubs. persist: false — attach members in memory only (loadClubs, bootstrap, refresh); avoids saveClubs → clubs-synced → loadClubs stack overflow. persist: true (default) — user mutations via saveMembers / manual sync.
 export const syncMembersToClubs = (clubs, options = {}) => {
   const { persist = true } = options
   try {
