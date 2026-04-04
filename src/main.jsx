@@ -21,9 +21,13 @@ function useWesternNumerals() {
         } catch (_) {}
       })
     }
+    const root = document.getElementById('root')
+    if (!root) return
     apply()
+    // Observe #root only — extensions often mutate <body> (e.g. shopping overlays); that used to fire
+    // full-document querySelectorAll on every mutation and contributed to stack/perf issues on playtix.app.
     const obs = new MutationObserver(apply)
-    obs.observe(document.body, { childList: true, subtree: true })
+    obs.observe(root, { childList: true, subtree: true })
     return () => {
       cancelAnimationFrame(raf)
       obs.disconnect()
@@ -54,7 +58,7 @@ const TournamentMemberPayPage = lazy(() => import('./pages/TournamentMemberPayPa
 const ClubLogin = lazy(() => import('./pages/ClubLogin'))
 const PlatformAdminLogin = lazy(() => import('./pages/PlatformAdminLogin'))
 const Logout = lazy(() => import('./pages/Logout'))
-import ClubPublicPage from './pages/ClubPublicPage'
+const ClubPublicPage = lazy(() => import('./pages/ClubPublicPage'))
 import { ErrorBoundary } from './components/ErrorBoundary'
 import PlatformAuthGuard from './components/PlatformAuthGuard'
 import ClubAuthGuard from './components/ClubAuthGuard'
@@ -154,12 +158,12 @@ async function initAndMount() {
   } catch (e) {
     console.error('Init backend failed:', e)
   }
-  try {
-    await bootstrap()
-  } catch (e) {
-    console.error('Bootstrap failed:', e)
-  }
+  // Mount React first, then bootstrap in a separate macrotask so the initial UI + lazy chunks
+  // never share one call stack with heavy DB sync / JSON work (fixes Maximum call stack on /app/).
   mountApp()
+  setTimeout(() => {
+    bootstrap().catch((e) => console.warn('Bootstrap failed:', e?.message || e))
+  }, 0)
 }
 
 initAndMount()
