@@ -9,8 +9,9 @@
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
--- STEP 1 — Check if tournament_data exists (run this first)
--- If this returns one row, you are done — skip STEP 2 entirely.
+-- STEP 1a — Check using current database (works when phpMyAdmin has DB selected)
+-- If this returns one row → column exists → skip STEP 2.
+-- If EMPTY: run STEP 1b (DATABASE() is often wrong if no DB selected in left sidebar)
 -- -----------------------------------------------------------------------------
 SELECT COLUMN_NAME, DATA_TYPE
 FROM INFORMATION_SCHEMA.COLUMNS
@@ -19,7 +20,20 @@ WHERE TABLE_SCHEMA = DATABASE()
   AND COLUMN_NAME = 'tournament_data';
 
 -- -----------------------------------------------------------------------------
--- STEP 2 — ONLY if STEP 1 returned zero rows (old database without the column)
+-- STEP 1b — Hostinger / phpMyAdmin: use your real schema name (left sidebar)
+-- Replace u502561206_padel_db if yours differs.
+-- -----------------------------------------------------------------------------
+SELECT COLUMN_NAME, DATA_TYPE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = 'u502561206_padel_db'
+  AND TABLE_NAME = 'clubs'
+  AND COLUMN_NAME = 'tournament_data';
+
+-- Or open: Structure → table `clubs` → confirm column `tournament_data` (type JSON).
+
+-- -----------------------------------------------------------------------------
+-- STEP 2 — ONLY if BOTH checks above return zero rows AND Structure has no column
+-- If you ever get #1060 Duplicate column → column already exists; do NOT run ALTER.
 -- Uncomment the next 3 lines and execute once:
 -- -----------------------------------------------------------------------------
 -- ALTER TABLE clubs
