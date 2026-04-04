@@ -1,9 +1,6 @@
 import React, { lazy, Suspense, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { loadClubsAsync, initBackendStorage } from './storage/adminStorage.js'
-import { initAppSettingsStorage } from './storage/appSettingsStorage.js'
-import GlobalSavingOverlay from './components/GlobalSavingOverlay'
 import './index.css'
 
 /** Ensure all number inputs and .western-numerals elements use Western numerals (0-9) across the system */
@@ -65,6 +62,7 @@ import ClubAuthGuard from './components/ClubAuthGuard'
 const App = lazy(() => import('./App'))
 const MainAdminPanel = lazy(() => import('./admin/MainAdminPanel'))
 const ClubAdminPanel = lazy(() => import('./admin/ClubAdminPanel'))
+const GlobalSavingOverlay = lazy(() => import('./components/GlobalSavingOverlay'))
 
 function LoadingFallback() {
   return (
@@ -115,7 +113,9 @@ function Root() {
           <Route path="/club/:clubId/*" element={<App />} />
         </Routes>
       </Suspense>
-      <GlobalSavingOverlay />
+      <Suspense fallback={null}>
+        <GlobalSavingOverlay />
+      </Suspense>
     </BrowserRouter>
   )
 }
@@ -132,10 +132,27 @@ function mountApp() {
   ReactDOM.createRoot(el).render(app)
 }
 
+/** Apply html lang/dir without calling getAppLanguage/getCached (avoids stack overflow from deep parse/recursion). */
+function applyBootstrapLanguageFromStorage(backendStorage) {
+  if (typeof document === 'undefined') return
+  let lang = 'en'
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('playtix_app_language') : null
+    if (raw) {
+      const p = JSON.parse(raw)
+      if (p === 'ar' || p === 'en') lang = p
+    }
+  } catch (_) {}
+  try {
+    const v = backendStorage?.getCache?.('app_language')
+    if (v === 'ar' || v === 'en') lang = v
+  } catch (_) {}
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
+  document.documentElement.lang = lang
+}
+
 async function bootstrap() {
   const backendStorage = (await import('./storage/backendStorage.js')).default
-  initBackendStorage(backendStorage)
-  initAppSettingsStorage(backendStorage)
   try {
     await Promise.race([
       backendStorage.bootstrap(),
@@ -145,17 +162,13 @@ async function bootstrap() {
     console.warn('Bootstrap (cache fetch):', e?.message || e)
   }
   try {
+    const { loadClubsAsync } = await import('./storage/adminStorage.js')
     await loadClubsAsync()
   } catch (e) {
     console.warn('Bootstrap (clubs):', e?.message || e)
   }
   try {
-    const { getAppLanguage } = await import('./storage/appSettingsStorage.js')
-    const lang = getAppLanguage()
-    if (typeof document !== 'undefined') {
-      document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
-      document.documentElement.lang = lang
-    }
+    applyBootstrapLanguageFromStorage(backendStorage)
   } catch (e) {
     console.warn('Bootstrap (language):', e?.message || e)
   }
@@ -164,7 +177,9 @@ async function bootstrap() {
 async function initAndMount() {
   try {
     const backendStorage = (await import('./storage/backendStorage.js')).default
-    initBackendStorage(backendStorage)
+    const admin = await import('./storage/adminStorage.js')
+    const { initAppSettingsStorage } = await import('./storage/appSettingsStorage.js')
+    admin.initBackendStorage(backendStorage)
     initAppSettingsStorage(backendStorage)
   } catch (e) {
     console.error('Init backend failed:', e)

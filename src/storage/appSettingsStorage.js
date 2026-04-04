@@ -92,21 +92,28 @@ async function set(key, value) {
 
 // Sync get from cache (must be called after bootstrap). For local-only keys, prefer localStorage.
 export function getCached(key) {
-  if (LOCAL_ONLY_KEYS.includes(key)) {
-    const local = fromLocal(key)
-    if (local !== null && local !== undefined) {
-      _backend?.setCache?.(key, local)
-      return local
+  try {
+    if (LOCAL_ONLY_KEYS.includes(key)) {
+      const local = fromLocal(key)
+      if (local !== null && local !== undefined) {
+        _backend?.setCache?.(key, local)
+        return local
+      }
     }
-  }
-  if (!hasPrivilegedDataActor() && isMemberScopedLanguageKey(key)) {
-    const local = fromLocal(key)
-    if (local !== null && local !== undefined) {
-      _backend?.setCache?.(key, local)
-      return local
+    if (!hasPrivilegedDataActor() && isMemberScopedLanguageKey(key)) {
+      const local = fromLocal(key)
+      if (local !== null && local !== undefined) {
+        _backend?.setCache?.(key, local)
+        return local
+      }
     }
+    return _backend?.getCache?.(key) ?? null
+  } catch (e) {
+    if (e instanceof RangeError) {
+      console.warn('getCached RangeError:', key)
+    }
+    return null
   }
-  return _backend?.getCache?.(key) ?? null
 }
 
 // App language
@@ -116,8 +123,12 @@ export async function getAppLanguageAsync() {
 }
 
 export function getAppLanguage() {
-  const v = getCached('app_language')
-  return (v === 'ar' || v === 'en') ? v : 'en'
+  try {
+    const v = getCached('app_language')
+    return (v === 'ar' || v === 'en') ? v : 'en'
+  } catch (_) {
+    return 'en'
+  }
 }
 
 export async function setAppLanguage(lang) {
@@ -203,11 +214,15 @@ export function getClubAdminSession() {
 
 /** Platform or club admin — allowed to POST /api/data and shared app_settings. */
 export function hasPrivilegedDataActor() {
-  const pa = getPlatformAdminSession()
-  if (pa?.id) return true
-  const ca = getClubAdminSession()
-  if (ca?.userId) return true
-  return false
+  try {
+    const pa = getPlatformAdminSession()
+    if (pa?.id) return true
+    const ca = getClubAdminSession()
+    if (ca?.userId) return true
+    return false
+  } catch (_) {
+    return false
+  }
 }
 
 function isMemberScopedLanguageKey(key) {
