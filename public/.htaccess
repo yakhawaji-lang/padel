@@ -1,16 +1,28 @@
 <IfModule mod_rewrite.c>
 RewriteEngine On
 RewriteBase /
-# Site root → SPA (prevents blank page when index.html at root is missing or wrong)
+
+# Apex / → SPA
 RewriteRule ^$ /app/ [R=302,L]
-# SPA lives under /app — short links without /app (e.g. old WhatsApp) redirect here
+
+# Short links (قديمة)
 RewriteRule ^pay-invite/(.*)$ /app/pay-invite/$1 [R=302,L]
 RewriteRule ^pay-share/(.*)$ /app/pay-share/$1 [R=302,L]
-# Don't rewrite files or directories
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-# Don't rewrite API requests
-RewriteCond %{REQUEST_URI} !^/api/
-# Rewrite everything else to index.html for SPA
+
+# لا تعيد كتابة /app إلى index.html في الجذر — يُخدم من مجلد app/ وملف app/.htaccess
+RewriteCond %{REQUEST_URI} ^/app/ [OR]
+RewriteCond %{REQUEST_URI} ^/app$
+RewriteRule ^ - [L]
+
+# API (إن وُجدت على نفس النطاق)
+RewriteCond %{REQUEST_URI} ^/api/
+RewriteRule ^ - [L]
+
+# ملفات ومجلدات حقيقية
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# باقي المسارات غير /app → صفحة الجذر (تحويل أو لاحقاً SPA)
 RewriteRule ^ index.html [L]
 </IfModule>

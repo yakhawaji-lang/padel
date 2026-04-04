@@ -29,8 +29,13 @@ console.log('[prepare-public-html] Copying to', outputDir)
 
 // index.html في الجذر (تحويل إلى /app/)
 const redirectPath = join(root, 'index.redirect.html')
+const rootHtaccess = join(root, 'public', '.htaccess')
 mkdirSync(outputDir, { recursive: true })
 copyFileSync(redirectPath, join(outputDir, 'index.html'))
+if (existsSync(rootHtaccess)) {
+  copyFileSync(rootHtaccess, join(outputDir, '.htaccess'))
+  console.log('[prepare-public-html] Copied public/.htaccess → deploy root (do not rewrite /app/* to root index)')
+}
 
 // app/index.html و app/assets/
 const appDir = join(outputDir, 'app')

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, startTransition } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import LanguageIcon from '../components/LanguageIcon'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
@@ -8,6 +8,8 @@ import { getClubAdminSession, clearClubAdminSession } from '../storage/clubAuth'
 import './HomePage.css'
 
 const MAX_HOME_TOURNAMENT_BUCKETS = 200
+/** Cap per-club booking scan on home — large arrays blocked the main thread after clubs-synced. */
+const MAX_HOME_BOOKINGS_PER_CLUB = 600
 
 const getClubTournamentStats = (club) => {
   const data = club?.tournamentData || {}
@@ -52,7 +54,7 @@ function toHomePageClubRow(raw) {
     let upcoming = 0
     try {
       const full = raw?.bookings && Array.isArray(raw.bookings) ? raw.bookings : []
-      const list = full.length > 12000 ? full.slice(0, 12000) : full
+      const list = full.length > MAX_HOME_BOOKINGS_PER_CLUB ? full.slice(0, MAX_HOME_BOOKINGS_PER_CLUB) : full
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       upcoming = list.filter(b => new Date(b.date || b.startDate || 0) >= today).length
@@ -140,43 +142,61 @@ const HomePage = () => {
   useEffect(() => {
     let cancelled = false
     let timeoutId = null
-    const runLoad = () => {
+    let syncDebounce = null
+    const applyRows = (rows) => {
+      startTransition(() => {
+        if (!cancelled) setClubs(rows)
+      })
+    }
+    const execLoad = () => {
+      import('../storage/adminStorage.js')
+        .then(({ loadClubsForListingOnly }) => {
+          if (cancelled) return
+          try {
+            const raw = loadClubsForListingOnly()
+            const list = Array.isArray(raw) ? raw : []
+            const rows = list.map((club) => {
+              try {
+                return toHomePageClubRow(club)
+              } catch (rowErr) {
+                console.warn('HomePage club row skipped:', club?.id, rowErr?.message || rowErr)
+                return null
+              }
+            }).filter(Boolean)
+            applyRows(rows)
+          } catch (e) {
+            console.warn('HomePage clubs load failed:', e?.message || e)
+            applyRows([])
+          }
+        })
+        .catch((e) => {
+          if (!cancelled) console.warn('HomePage adminStorage import failed:', e?.message || e)
+          if (!cancelled) applyRows([])
+        })
+    }
+    const scheduleInitial = () => {
       if (timeoutId) clearTimeout(timeoutId)
       timeoutId = setTimeout(() => {
         timeoutId = null
         if (cancelled) return
-        import('../storage/adminStorage.js')
-          .then(({ loadClubsForListingOnly }) => {
-            if (cancelled) return
-            try {
-              const raw = loadClubsForListingOnly()
-              const list = Array.isArray(raw) ? raw : []
-              const rows = list.map((club) => {
-                try {
-                  return toHomePageClubRow(club)
-                } catch (rowErr) {
-                  console.warn('HomePage club row skipped:', club?.id, rowErr?.message || rowErr)
-                  return null
-                }
-              }).filter(Boolean)
-              setClubs(rows)
-            } catch (e) {
-              console.warn('HomePage clubs load failed:', e?.message || e)
-              setClubs([])
-            }
-          })
-          .catch((e) => {
-            if (!cancelled) console.warn('HomePage adminStorage import failed:', e?.message || e)
-            if (!cancelled) setClubs([])
-          })
+        execLoad()
       }, 0)
     }
-    runLoad()
-    window.addEventListener('clubs-synced', runLoad)
+    const onClubsSynced = () => {
+      if (syncDebounce) clearTimeout(syncDebounce)
+      syncDebounce = setTimeout(() => {
+        syncDebounce = null
+        if (cancelled) return
+        execLoad()
+      }, 400)
+    }
+    scheduleInitial()
+    window.addEventListener('clubs-synced', onClubsSynced)
     return () => {
       cancelled = true
       if (timeoutId) clearTimeout(timeoutId)
-      window.removeEventListener('clubs-synced', runLoad)
+      if (syncDebounce) clearTimeout(syncDebounce)
+      window.removeEventListener('clubs-synced', onClubsSynced)
     }
   }, [])
 
