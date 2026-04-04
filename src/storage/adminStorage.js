@@ -387,9 +387,15 @@ export const loadClubs = () => {
   }
 }
 
-// Sync members from DB into clubs. persist: false — attach members in memory only (loadClubs, bootstrap, refresh); avoids saveClubs → clubs-synced → loadClubs stack overflow. persist: true (default) — user mutations via saveMembers / manual sync.
+// Sync members from DB into clubs. persist: false — update club.members + mutate mergedMembers in memory only (no setStore / saveClubs). persist: true — also persist members + clubs (saveMembers / manual sync).
+let _syncMembersToClubsDepth = 0
 export const syncMembersToClubs = (clubs, options = {}) => {
   const { persist = true } = options
+  if (_syncMembersToClubsDepth > 24) {
+    console.warn('syncMembersToClubs: re-entry depth exceeded, skipping')
+    return
+  }
+  _syncMembersToClubsDepth += 1
   try {
     if (!Array.isArray(clubs)) return
     const mergedMembers = getMergedMembersRaw()
@@ -449,21 +455,18 @@ export const syncMembersToClubs = (clubs, options = {}) => {
       }
     })
     
-    // Save updated members back to DB with clubIds format
-    if (hasChanges) {
+    // Persist members + API only when persist:true. Read/bootstrap uses persist:false — _writeAwait here still ran setStore/hasPrivilegedDataActor chains and could blow the stack.
+    if (hasChanges && persist) {
       try {
-        // Update members in DB to include clubIds
         const updatedMembersMap = new Map()
         mergedMembers.forEach(member => {
           if (member.id) {
-            // Ensure clubIds exists
             if (!member.clubIds) {
               member.clubIds = member.clubId ? [member.clubId] : []
             }
             updatedMembersMap.set(member.id, member)
           }
         })
-        
         const updatedMembers = Array.from(updatedMembersMap.values())
         try {
           if (USE_POSTGRES && _backendStorage) {
@@ -480,13 +483,12 @@ export const syncMembersToClubs = (clubs, options = {}) => {
       } catch (error) {
         console.error('Error updating members with clubIds:', error)
       }
-    }
-    
-    if (hasChanges && persist) {
       saveClubs(clubs).catch(e => console.error('saveClubs:', e))
     }
   } catch (error) {
     console.error('Error syncing members to clubs:', error)
+  } finally {
+    _syncMembersToClubsDepth -= 1
   }
 }
 
