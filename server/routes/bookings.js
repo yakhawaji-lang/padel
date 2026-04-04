@@ -2587,6 +2587,15 @@ router.post('/create-tournament-guest-fee-share', async (req, res) => {
     const b = bRows[0]
     const initiator = String(b.initiator_member_id || b.member_id || '').trim()
     const orgId = String(organizerMemberId ?? '').trim()
+    let data = {}
+    try {
+      data = typeof b.data === 'object' ? b.data : JSON.parse(b.data || '{}')
+    } catch {
+      data = {}
+    }
+    const isTournamentBooking =
+      data.isTournament === true || data.tournamentType != null || data.tournament_type != null
+
     const adminGate = await assertClubPushActor(req, clubId)
     const isClubOrPlatformAdmin = adminGate.ok === true
 
@@ -2613,6 +2622,15 @@ router.post('/create-tournament-guest-fee-share', async (req, res) => {
       organizerAllowed = true
     }
 
+    /** بطولة: أي عضو مضاف لدليل النادي يقدر يولّد دعوة دفع ضيف (لا يقتصر على من أنشأ الحجز) */
+    if (!organizerAllowed && isTournamentBooking && orgId) {
+      const { rows: mcTournament } = await query(
+        `SELECT 1 AS ok FROM member_clubs WHERE club_id = ? AND member_id = ? LIMIT 1`,
+        [String(clubId), orgId]
+      )
+      if (mcTournament?.length) organizerAllowed = true
+    }
+
     if (!organizerAllowed) {
       if (initiator && orgId && orgId !== initiator) {
         return res.status(403).json({
@@ -2624,12 +2642,6 @@ router.post('/create-tournament-guest-fee-share', async (req, res) => {
           'Link your platform account to this club as a member to send invites, log in as club admin, or ensure the tournament booking has an organizer.',
         code: 'NOT_ALLOWED_ORGANIZER',
       })
-    }
-    let data = {}
-    try {
-      data = typeof b.data === 'object' ? b.data : JSON.parse(b.data || '{}')
-    } catch {
-      data = {}
     }
     if (data.isTournament !== true && data.tournamentType == null && data.tournament_type == null) {
       return res.status(400).json({ error: 'This booking is not marked as a tournament' })

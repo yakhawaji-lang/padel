@@ -26,6 +26,7 @@ import {
   getClubMembersFromStorage,
 } from './storage/adminStorage'
 import { getClubAdminSession } from './storage/clubAuth'
+import { getCurrentMemberId } from './storage/appSettingsStorage.js'
 import { getCurrentPlatformUser } from './storage/platformAuth'
 import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import LanguageIcon from './components/LanguageIcon'
@@ -4223,7 +4224,12 @@ function App({ currentUser }) {
     const isSocial = tournamentType === 'social'
     const existing = editId ? localBookings.find(b => String(b.id) === String(editId)) : null
     const platformOrganizer = getCurrentPlatformUser()
-    const organizerMemberId = platformOrganizer?.id
+    const sessionMemberIdRaw = getCurrentMemberId()
+    const organizerMemberId =
+      platformOrganizer?.id ??
+      (sessionMemberIdRaw != null && String(sessionMemberIdRaw).trim() !== ''
+        ? String(sessionMemberIdRaw).trim()
+        : null)
     const tournamentBooking = {
       ...(existing || {}),
       id: existing?.id || `tournament_${Date.now()}`,
@@ -5515,6 +5521,9 @@ function App({ currentUser }) {
 
   const handleTournamentGuestFeeInvite = useCallback(async () => {
     const platformMember = getCurrentPlatformUser()
+    const rawSid = getCurrentMemberId()
+    const sessionMemberId =
+      rawSid != null && String(rawSid).trim() !== '' ? String(rawSid).trim() : ''
     const row = tournamentBookingRowForGuestInvite
     const organizerFromBooking =
       row?.initiatorMemberId ??
@@ -5524,9 +5533,10 @@ function App({ currentUser }) {
     const organizerId =
       platformMember?.id != null && String(platformMember.id).trim() !== ''
         ? String(platformMember.id).trim()
-        : organizerFromBooking != null && String(organizerFromBooking).trim() !== ''
-          ? String(organizerFromBooking).trim()
-          : ''
+        : sessionMemberId ||
+          (organizerFromBooking != null && String(organizerFromBooking).trim() !== ''
+            ? String(organizerFromBooking).trim()
+            : '')
     const ca = getClubAdminSession()
     const isClubAdminForThisClub =
       ca && String(ca.clubId || '').trim() === String(clubId || '').trim()
