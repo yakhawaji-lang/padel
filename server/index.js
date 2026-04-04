@@ -1,5 +1,5 @@
 import { config } from 'dotenv'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
@@ -123,12 +123,34 @@ app.get('/api/db-check', async (req, res) => {
   })
 })
 
-// Redirect / to /app when request reaches Node
-app.get('/', (req, res) => res.redirect(302, '/app/'))
+const redirectLandingPath = join(root, 'index.redirect.html')
+
+/** Always return real HTML for bare domain — some proxies/clients mishandle 302-only root. */
+function sendRootLandingHtml(res) {
+  res.setHeader('Cache-Control', 'private, no-store, max-age=0')
+  try {
+    const html = readFileSync(redirectLandingPath, 'utf8')
+    res.status(200).type('text/html; charset=utf-8').send(html)
+  } catch {
+    const fallback =
+      '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/>' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1"/>' +
+      '<meta http-equiv="refresh" content="0;url=/app/"/><title>PlayTix</title></head><body style="font-family:system-ui,sans-serif;padding:2rem;text-align:center">' +
+      '<p>Redirecting to <a href="/app/">PlayTix</a>…</p>' +
+      '<script>try{location.replace("/app/"+(location.search||"")+(location.hash||""))}catch(e){}</script></body></html>'
+    res.status(200).type('text/html; charset=utf-8').send(fallback)
+  }
+}
+
+app.get('/', (req, res) => sendRootLandingHtml(res))
+app.get('/index.html', (req, res) => sendRootLandingHtml(res))
 
 // Serve SPA at /app (base path for Hostinger when Nginx serves root)
 const distPath = join(__dirname, '..', 'dist')
 const distIndex = join(distPath, 'index.html')
+
+app.get('/app', (req, res) => res.redirect(301, '/app/'))
+
 if (existsSync(distIndex)) {
   const staticOpts = {
     index: 'index.html',
@@ -144,6 +166,13 @@ if (existsSync(distIndex)) {
     if (/\.(js|mjs|css|ico|png|jpg|jpeg|gif|svg|woff2?|ttf|eot)(\?.*)?$/i.test(p)) return next()
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
     res.sendFile(distIndex)
+  })
+} else {
+  app.get(/^\/app(\/.*)?$/, (req, res) => {
+    res.status(503).type('text/html; charset=utf-8').send(
+      '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>PlayTix</title></head><body style="padding:2rem;font-family:sans-serif">' +
+      '<h1>PlayTix</h1><p>Frontend build is missing on the server. Run <code>npm run build</code> and deploy the <code>dist</code> folder under <code>/app</code>.</p></body></html>'
+    )
   })
 }
 
