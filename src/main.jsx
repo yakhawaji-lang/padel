@@ -35,7 +35,8 @@ function useWesternNumerals() {
 const USE_POSTGRES = true
 
 /* Code-splitting: load route components on demand */
-const HomePage = lazy(() => import('./pages/HomePage'))
+/* Home: eager — landing /app/ must not hang on a lazy chunk (same Suspense "Loading..." failure mode as pay-invite). */
+import HomePage from './pages/HomePage'
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
@@ -86,7 +87,7 @@ function Root() {
     <BrowserRouter basename={import.meta.env.BASE_URL || '/'}>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<ErrorBoundary fallback={(err) => <div style={{ padding: 40, textAlign: 'center' }}><p>Something went wrong. {err?.message || ''}</p><a href={import.meta.env.BASE_URL || '/'}>Go to home</a></div>}><HomePage /></ErrorBoundary>} />
           <Route path="/admin-login" element={<PlatformAdminLogin />} />
           <Route path="/super-admin" element={<PlatformAdminLogin isSuperAdmin />} />
           <Route path="/logout/:type" element={<Logout />} />
