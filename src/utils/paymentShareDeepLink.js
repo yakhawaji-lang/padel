@@ -13,9 +13,10 @@ export function normalizeInviteTokenParam(raw) {
   } catch (_) {}
   s = s.replace(/[\s\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, '')
   if (!s) return ''
-  const noFrag = s.split(/[?#]/)[0]
-  const m = noFrag.match(/^inv_([a-f0-9]{32})$/i)
+  s = s.replace(/^[<\[\('"„]+|[>\]\)'".,;:!?。]+$/g, '')
+  const m = s.match(/inv_([a-f0-9]{32})/i)
   if (m) return `inv_${m[1].toLowerCase()}`
+  const noFrag = s.split(/[?#]/)[0].replace(/\/+$/, '')
   return noFrag
 }
 
