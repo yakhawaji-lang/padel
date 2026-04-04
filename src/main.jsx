@@ -122,8 +122,34 @@ function Root() {
   )
 }
 
+function escapeHtmlBoot(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+/** If React fails before paint, avoid a blank white screen (especially when console is cleared or scripts 404). */
+function showFatalBootError(e) {
+  try {
+    const root = document.getElementById('root')
+    if (!root) return
+    const msg = String(e?.message || e || 'error')
+    const stack = e?.stack ? String(e.stack) : ''
+    root.innerHTML =
+      '<div style="padding:24px;font-family:system-ui,sans-serif;max-width:560px;margin:2rem auto;line-height:1.5">' +
+      '<h1 style="font-size:1.25rem">PlayTix</h1>' +
+      '<p>تعذّر تشغيل التطبيق. جرّب تحديث الصفحة (Ctrl+F5) أو افتح <a href="/app/">/app/</a> مباشرة.</p>' +
+      '<p lang="en" style="font-size:14px;color:#64748b">The app failed to start. Hard-refresh (Ctrl+F5) or open <a href="/app/">/app/</a>.</p>' +
+      '<pre style="overflow:auto;background:#f1f5f9;padding:12px;border-radius:8px;font-size:11px;white-space:pre-wrap;word-break:break-word">' +
+      escapeHtmlBoot(msg + (stack ? '\n' + stack : '')) +
+      '</pre></div>'
+  } catch (_) {}
+}
+
 function mountApp() {
   const el = document.getElementById('root')
+  if (!el) throw new Error('Missing #root — check index.html')
   const app = import.meta.env.DEV ? (
     <React.StrictMode>
       <Root />
@@ -188,12 +214,21 @@ async function initAndMount() {
   }
   // Mount React first, then bootstrap in a separate macrotask so the initial UI + lazy chunks
   // never share one call stack with heavy DB sync / JSON work (fixes Maximum call stack on /app/).
-  mountApp()
+  try {
+    mountApp()
+  } catch (e) {
+    console.error('mountApp failed:', e)
+    showFatalBootError(e)
+    return
+  }
   setTimeout(() => {
     bootstrap().catch((e) => console.warn('Bootstrap unexpected:', e?.message || e))
   }, 0)
 }
 
-initAndMount()
+initAndMount().catch((e) => {
+  console.error('initAndMount failed:', e)
+  showFatalBootError(e)
+})
 
 
