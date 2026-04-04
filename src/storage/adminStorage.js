@@ -48,28 +48,33 @@ async function _writeAwait(key, value) {
  * all_members takes precedence for platform registrations.
  */
 export function getMergedMembersRaw() {
-  let members = []
-  let allMembers = []
   try {
-    const pm = _read(MEMBER_STORAGE_KEYS.PADEL)
-    if (Array.isArray(pm)) members = pm
-  } catch (_) {}
-  try {
-    const am = _read(MEMBER_STORAGE_KEYS.ALL)
-    if (Array.isArray(am)) allMembers = am
-  } catch (_) {}
-  const byId = new Map()
-  members.forEach(m => { if (m && m.id) byId.set(m.id, m) })
-  allMembers.forEach(m => {
-    if (!m || m.id === undefined || m.id === null) return
+    let members = []
+    let allMembers = []
     try {
-      const prev = byId.get(m.id)
-      byId.set(m.id, prev ? { ...prev, ...m } : { ...m })
-    } catch (e) {
-      console.warn('getMergedMembersRaw: skip corrupt member row', m?.id, e?.message || e)
-    }
-  })
-  return Array.from(byId.values())
+      const pm = _read(MEMBER_STORAGE_KEYS.PADEL)
+      if (Array.isArray(pm)) members = pm
+    } catch (_) {}
+    try {
+      const am = _read(MEMBER_STORAGE_KEYS.ALL)
+      if (Array.isArray(am)) allMembers = am
+    } catch (_) {}
+    const byId = new Map()
+    members.forEach(m => { if (m && m.id) byId.set(m.id, m) })
+    allMembers.forEach(m => {
+      if (!m || m.id === undefined || m.id === null) return
+      try {
+        const prev = byId.get(m.id)
+        byId.set(m.id, prev ? { ...prev, ...m } : { ...m })
+      } catch (e) {
+        console.warn('getMergedMembersRaw: skip corrupt member row', m?.id, e?.message || e)
+      }
+    })
+    return Array.from(byId.values())
+  } catch (e) {
+    console.warn('getMergedMembersRaw failed:', e?.message || e)
+    return []
+  }
 }
 
 /**
@@ -147,31 +152,36 @@ export async function addMemberToClub(memberId, clubIdOrIds) {
  */
 function deduplicateClubs(clubs) {
   if (!Array.isArray(clubs)) return []
-  const byId = new Map()
-  const approvedEmails = new Set()
-  const seenApprovedEmails = new Map()
-  clubs.forEach(c => {
-    if (!c?.id) return
-    if (c.status === 'approved' || !c.status) {
-      const email = (c.adminEmail || c.email || '').toLowerCase()
-      if (email) approvedEmails.add(email)
-    }
-  })
-  clubs.forEach(c => {
-    if (!c?.id) return
-    if (byId.has(c.id)) return
-    if (c.status === 'pending') {
-      const email = (c.adminEmail || c.email || '').toLowerCase()
-      if (email && approvedEmails.has(email)) return
-    }
-    if (c.status === 'approved' || !c.status) {
-      const email = (c.adminEmail || c.email || '').toLowerCase()
-      if (email && seenApprovedEmails.has(email)) return
-      if (email) seenApprovedEmails.set(email, c.id)
-    }
-    byId.set(c.id, c)
-  })
-  return Array.from(byId.values())
+  try {
+    const byId = new Map()
+    const approvedEmails = new Set()
+    const seenApprovedEmails = new Map()
+    clubs.forEach(c => {
+      if (!c?.id) return
+      if (c.status === 'approved' || !c.status) {
+        const email = (c.adminEmail || c.email || '').toLowerCase()
+        if (email) approvedEmails.add(email)
+      }
+    })
+    clubs.forEach(c => {
+      if (!c?.id) return
+      if (byId.has(c.id)) return
+      if (c.status === 'pending') {
+        const email = (c.adminEmail || c.email || '').toLowerCase()
+        if (email && approvedEmails.has(email)) return
+      }
+      if (c.status === 'approved' || !c.status) {
+        const email = (c.adminEmail || c.email || '').toLowerCase()
+        if (email && seenApprovedEmails.has(email)) return
+        if (email) seenApprovedEmails.set(email, c.id)
+      }
+      byId.set(c.id, c)
+    })
+    return Array.from(byId.values())
+  } catch (e) {
+    console.warn('deduplicateClubs failed:', e?.message || e)
+    return []
+  }
 }
 
 /**
@@ -230,24 +240,21 @@ export async function loadClubsAsync() {
       await _backendStorage.bootstrap()
       const clubs = _backendStorage.getCache(ADMIN_STORAGE_KEYS.CLUBS)
       _clubsCache = deduplicateClubs(Array.isArray(clubs) ? clubs : [])
-      // Run member→club sync in a fresh microtask stack (await flushes before getAppLanguage / mountApp).
+      // Macrotask (not microtask): completely fresh stack — avoids RangeError when bootstrap + JSON + extensions share one deep stack.
       const snapshot = _clubsCache
-      await new Promise((resolve) => {
-        queueMicrotask(() => {
-          try {
-            if (_clubsCache === snapshot) {
-              syncMembersToClubs(_clubsCache, { persist: false })
-              if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('clubs-synced'))
-              }
-            }
-          } catch (e) {
-            console.warn('loadClubsAsync deferred sync failed:', e?.message || e)
-          } finally {
-            resolve()
+      const runDeferred = () => {
+        try {
+          if (_clubsCache !== snapshot) return
+          syncMembersToClubs(_clubsCache, { persist: false })
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('clubs-synced'))
           }
-        })
-      })
+        } catch (e) {
+          console.warn('loadClubsAsync deferred sync failed:', e?.message || e)
+        }
+      }
+      if (typeof window !== 'undefined') setTimeout(runDeferred, 0)
+      else runDeferred()
     } catch (e) {
       console.warn('loadClubsAsync (Postgres) failed:', e)
     }
@@ -261,23 +268,20 @@ export async function loadClubsAsync() {
     let merged = mergeClubsPreservingLocalImages(remote, local)
     _clubsCache = merged
     const snapshot = _clubsCache
-    await new Promise((resolve) => {
-      queueMicrotask(() => {
-        try {
-          if (_clubsCache === snapshot) {
-            syncMembersToClubs(_clubsCache, { persist: false })
-            _write(ADMIN_STORAGE_KEYS.CLUBS, _clubsCache)
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('clubs-synced'))
-            }
-          }
-        } catch (e) {
-          console.warn('loadClubsAsync deferred sync failed:', e?.message || e)
-        } finally {
-          resolve()
+    const runDeferred = () => {
+      try {
+        if (_clubsCache !== snapshot) return
+        syncMembersToClubs(_clubsCache, { persist: false })
+        _write(ADMIN_STORAGE_KEYS.CLUBS, _clubsCache)
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('clubs-synced'))
         }
-      })
-    })
+      } catch (e) {
+        console.warn('loadClubsAsync deferred sync failed:', e?.message || e)
+      }
+    }
+    if (typeof window !== 'undefined') setTimeout(runDeferred, 0)
+    else runDeferred()
   } catch (e) {
     console.warn('loadClubsAsync failed:', e)
   }
@@ -310,9 +314,23 @@ export async function refreshClubsFromApi() {
     })
     if (hasLocalRestored) saveClubs(clubs).catch(e => console.error('refreshClubsFromApi save:', e))
     _clubsCache = deduplicateClubs(clubs)
-    syncMembersToClubs(_clubsCache, { persist: false })
+    const snap = _clubsCache
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('clubs-synced'))
+      setTimeout(() => {
+        try {
+          if (_clubsCache !== snap) return
+          syncMembersToClubs(_clubsCache, { persist: false })
+          window.dispatchEvent(new CustomEvent('clubs-synced'))
+        } catch (e) {
+          console.warn('refreshClubsFromApi sync failed:', e?.message || e)
+        }
+      }, 0)
+    } else {
+      try {
+        syncMembersToClubs(_clubsCache, { persist: false })
+      } catch (e) {
+        console.warn('refreshClubsFromApi sync failed:', e?.message || e)
+      }
     }
   } catch (e) {
     console.warn('refreshClubsFromApi failed:', e)
@@ -531,7 +549,11 @@ export const syncMembersToClubs = (clubs, options = {}) => {
       saveClubs(clubs).catch(e => console.error('saveClubs:', e))
     }
   } catch (error) {
-    console.error('Error syncing members to clubs:', error)
+    if (error instanceof RangeError) {
+      console.warn('syncMembersToClubs aborted (stack):', error.message)
+    } else {
+      console.error('Error syncing members to clubs:', error)
+    }
   } finally {
     _syncMembersToClubsDepth -= 1
   }

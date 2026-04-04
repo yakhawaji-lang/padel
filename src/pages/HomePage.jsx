@@ -29,12 +29,85 @@ const getClubTournamentStats = (club) => {
   return { tournamentsCount, matchesCount }
 }
 
-const getClubBookingsCount = (club) => {
-  const list = club?.bookings && Array.isArray(club.bookings) ? club.bookings : []
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const upcoming = list.filter(b => new Date(b.date || b.startDate || 0) >= today)
-  return { total: list.length, upcoming: upcoming.length }
+const safeTournamentStats = (club) => {
+  try {
+    return getClubTournamentStats(club)
+  } catch {
+    return { tournamentsCount: 0, matchesCount: 0 }
+  }
+}
+
+/** Slim rows for React state — strips massive nested blobs (bookings, tournamentData, full member lists) that can overflow the reconciler stack. */
+function toHomePageClubRow(raw) {
+  try {
+    if (!raw || typeof raw !== 'object') return null
+    const stats = safeTournamentStats(raw)
+    let upcoming = 0
+    try {
+      const full = raw?.bookings && Array.isArray(raw.bookings) ? raw.bookings : []
+      const list = full.length > 12000 ? full.slice(0, 12000) : full
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      upcoming = list.filter(b => new Date(b.date || b.startDate || 0) >= today).length
+    } catch (_) {}
+    const todayStr = new Date().toISOString().split('T')[0]
+    const rawOffers = Array.isArray(raw.offers) ? raw.offers : []
+    const offers = rawOffers
+      .filter(o => o && o.active !== false && (!o.validFrom || o.validFrom <= todayStr) && (!o.validUntil || o.validUntil >= todayStr))
+      .slice(0, 120)
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+    const courts = Array.isArray(raw.courts) ? raw.courts.map(ct => ({ id: ct.id, maintenance: !!ct?.maintenance })) : []
+    const memberCount = Array.isArray(raw.members) ? raw.members.length : 0
+    return {
+      id: raw.id,
+      status: raw.status,
+      name: raw.name,
+      nameAr: raw.nameAr,
+      tagline: raw.tagline,
+      taglineAr: raw.taglineAr,
+      address: raw.address,
+      addressAr: raw.addressAr,
+      logo: raw.logo,
+      playtomicVenueId: raw.playtomicVenueId,
+      phone: raw.phone,
+      email: raw.email,
+      website: raw.website,
+      courts,
+      offers,
+      settings: raw.settings && typeof raw.settings === 'object' ? { currency: raw.settings.currency } : {},
+      hpCourts: courts.filter(c => !c.maintenance).length,
+      hpMembers: memberCount,
+      hpTournaments: stats.tournamentsCount,
+      hpMatches: stats.matchesCount,
+      hpBookUp: upcoming,
+    }
+  } catch (e) {
+    console.warn('toHomePageClubRow', raw?.id, e?.message || e)
+    if (!raw?.id) return null
+    return {
+      id: raw.id,
+      status: raw.status,
+      name: raw.name || '',
+      nameAr: raw.nameAr,
+      tagline: raw.tagline,
+      taglineAr: raw.taglineAr,
+      address: raw.address,
+      addressAr: raw.addressAr,
+      logo: raw.logo,
+      playtomicVenueId: raw.playtomicVenueId,
+      phone: raw.phone,
+      email: raw.email,
+      website: raw.website,
+      courts: [],
+      offers: [],
+      settings: {},
+      hpCourts: 0,
+      hpMembers: 0,
+      hpTournaments: 0,
+      hpMatches: 0,
+      hpBookUp: 0,
+    }
+  }
 }
 
 const HomePage = () => {
@@ -49,7 +122,15 @@ const HomePage = () => {
   const [clubAdminSession, setClubAdminSession] = useState(null)
 
   useEffect(() => {
-    const load = () => setClubs(loadClubs())
+    const load = () => {
+      try {
+        const rows = loadClubs().map(toHomePageClubRow).filter(Boolean)
+        setClubs(rows)
+      } catch (e) {
+        console.warn('HomePage clubs load failed:', e?.message || e)
+        setClubs([])
+      }
+    }
     load()
     window.addEventListener('clubs-synced', load)
     return () => window.removeEventListener('clubs-synced', load)
@@ -120,12 +201,11 @@ const HomePage = () => {
     let totalMatches = 0
     let totalBookingsUpcoming = 0
     approvedClubs.forEach(club => {
-      totalCourts += club.courts?.filter(c => !c.maintenance).length || 0
-      totalMembers += club.members?.length || 0
-      const t = getClubTournamentStats(club)
-      totalTournaments += t.tournamentsCount
-      totalMatches += t.matchesCount
-      totalBookingsUpcoming += getClubBookingsCount(club).upcoming
+      totalCourts += club.hpCourts ?? 0
+      totalMembers += club.hpMembers ?? 0
+      totalTournaments += club.hpTournaments ?? 0
+      totalMatches += club.hpMatches ?? 0
+      totalBookingsUpcoming += club.hpBookUp ?? 0
     })
     return {
       clubs: approvedClubs.length,
@@ -493,9 +573,9 @@ const HomePage = () => {
                     )
                   }
                   const clubName = language === 'ar' && adminClub.nameAr ? adminClub.nameAr : adminClub.name
-                  const courts = adminClub.courts?.filter(c => !c.maintenance).length || 0
-                  const members = adminClub.members?.length || 0
-                  const { upcoming } = getClubBookingsCount(adminClub)
+                  const courts = adminClub.hpCourts ?? (adminClub.courts?.filter(c => !c.maintenance).length || 0)
+                  const members = adminClub.hpMembers ?? (adminClub.members?.length || 0)
+                  const upcoming = adminClub.hpBookUp ?? 0
                   return (
                     <>
                       <div className="club-card-header">
@@ -732,13 +812,13 @@ const HomePage = () => {
             </div>
             <div className="clubs-grid">
               {filteredClubs.map(club => {
-                const courts = club.courts?.filter(c => !c.maintenance).length || 0
-                const members = club.members?.length || 0
-                const { tournamentsCount, matchesCount } = getClubTournamentStats(club)
-                const { upcoming } = getClubBookingsCount(club)
+                const courts = club.hpCourts ?? (club.courts?.filter(c => !c.maintenance).length || 0)
+                const members = club.hpMembers ?? (club.members?.length || 0)
+                const tournamentsCount = club.hpTournaments ?? 0
+                const matchesCount = club.hpMatches ?? 0
+                const upcoming = club.hpBookUp ?? 0
                 const tagline = language === 'ar' ? (club.taglineAr || club.tagline) : (club.tagline || club.taglineAr)
-                const todayStr = new Date().toISOString().split('T')[0]
-                const offers = (club?.offers || []).filter(o => o.active !== false && (!o.validFrom || o.validFrom <= todayStr) && (!o.validUntil || o.validUntil >= todayStr))
+                const offers = club?.offers || []
                 const clubName = language === 'ar' && club.nameAr ? club.nameAr : club.name
                 const clubAddress = club.address ? (language === 'ar' && club.addressAr ? club.addressAr : club.address) : null
 
