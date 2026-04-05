@@ -9,6 +9,7 @@ let _backend = null
 /** Keys stored only in localStorage (per browser). Never sent to server. */
 export const LOCAL_ONLY_KEYS = ['current_member_id', 'platform_admin_session', 'club_admin_session', 'current_club_admin_id']
 const LOCAL_PREFIX = 'playtix_'
+const SESSION_MAX_MS = 24 * 60 * 60 * 1000
 
 function fromLocal(key) {
   if (typeof localStorage === 'undefined') return null
@@ -40,6 +41,19 @@ function toLocal(key, value) {
 
 export function initAppSettingsStorage(backend) {
   _backend = backend
+}
+
+/** Session peek without getCached — avoids infinite recursion (getCached → hasPrivilegedDataActor → getCached). */
+function peekSessionFresh(cacheKey) {
+  try {
+    let v = _backend?.getCache?.(cacheKey)
+    if (v === undefined || v === null) v = fromLocal(cacheKey)
+    if (!v || typeof v !== 'object') return null
+    if (v._ts && Date.now() - v._ts > SESSION_MAX_MS) return null
+    return v
+  } catch {
+    return null
+  }
 }
 
 async function get(key) {
@@ -102,6 +116,8 @@ export function getCached(key) {
         _backend?.setCache?.(key, local)
         return local
       }
+      // Critical: do not fall through — hasPrivilegedDataActor() calls getCached(session keys) → infinite stack.
+      return _backend?.getCache?.(key) ?? null
     }
     if (!hasPrivilegedDataActor() && isMemberScopedLanguageKey(key)) {
       const local = fromLocal(key)
@@ -174,7 +190,6 @@ export async function setCurrentMemberId(memberId) {
 export async function getPlatformAdminSessionAsync() {
   const raw = await get('platform_admin_session')
   if (!raw || typeof raw !== 'object') return null
-  const SESSION_MAX_MS = 24 * 60 * 60 * 1000
   if (raw._ts && Date.now() - raw._ts > SESSION_MAX_MS) {
     await set('platform_admin_session', null)
     return null
@@ -185,7 +200,6 @@ export async function getPlatformAdminSessionAsync() {
 export function getPlatformAdminSession() {
   const raw = getCached('platform_admin_session')
   if (!raw || typeof raw !== 'object') return null
-  const SESSION_MAX_MS = 24 * 60 * 60 * 1000
   if (raw._ts && Date.now() - raw._ts > SESSION_MAX_MS) return null
   return raw
 }
@@ -198,7 +212,6 @@ export async function setPlatformAdminSession(admin) {
 export async function getClubAdminSessionAsync() {
   const raw = await get('club_admin_session')
   if (!raw || typeof raw !== 'object') return null
-  const SESSION_MAX_MS = 24 * 60 * 60 * 1000
   if (raw._ts && Date.now() - raw._ts > SESSION_MAX_MS) {
     await set('club_admin_session', null)
     await set('current_club_admin_id', null)
@@ -210,7 +223,6 @@ export async function getClubAdminSessionAsync() {
 export function getClubAdminSession() {
   const raw = getCached('club_admin_session')
   if (!raw || typeof raw !== 'object') return null
-  const SESSION_MAX_MS = 24 * 60 * 60 * 1000
   if (raw._ts && Date.now() - raw._ts > SESSION_MAX_MS) return null
   return raw
 }
@@ -218,9 +230,9 @@ export function getClubAdminSession() {
 /** Platform or club admin — allowed to POST /api/data and shared app_settings. */
 export function hasPrivilegedDataActor() {
   try {
-    const pa = getPlatformAdminSession()
+    const pa = peekSessionFresh('platform_admin_session')
     if (pa?.id) return true
-    const ca = getClubAdminSession()
+    const ca = peekSessionFresh('club_admin_session')
     if (ca?.userId) return true
     return false
   } catch (_) {
