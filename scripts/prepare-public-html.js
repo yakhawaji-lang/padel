@@ -50,6 +50,16 @@ if (existsSync(srcAssets)) {
 }
 const logo = join(distPath, 'logo-playtix.png')
 if (existsSync(logo)) copyFileSync(logo, join(appDir, 'logo-playtix.png'))
+const distHomepage = join(distPath, 'homepage')
+const appHomepage = join(appDir, 'homepage')
+if (existsSync(distHomepage)) {
+  mkdirSync(appHomepage, { recursive: true })
+  for (const f of readdirSync(distHomepage)) {
+    if (f.startsWith('.')) continue
+    copyFileSync(join(distHomepage, f), join(appHomepage, f))
+  }
+  console.log('[prepare-public-html] Copied app/homepage (banner + gallery)')
+}
 const swSrc = join(distPath, 'sw.js')
 if (existsSync(swSrc)) {
   copyFileSync(swSrc, join(appDir, 'sw.js'))

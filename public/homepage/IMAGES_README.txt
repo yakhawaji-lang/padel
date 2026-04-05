@@ -1,3 +1,6 @@
+The repo includes tiny placeholder PNGs (banner + gallery-1..6) so /app/homepage/* returns real images after build.
+Replace them with full-quality assets: drop files here, or upload from platform admin (homepage images).
+
 Place the 7 homepage images here with these exact names (jpg or png):
   hero.jpg       - Hero: padel court at night, group celebrating with PlayTix on phone
   gallery-1.jpg  - Collage: stadium, app, venues

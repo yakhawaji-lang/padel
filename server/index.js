@@ -148,8 +148,25 @@ app.get('/index.html', (req, res) => sendRootLandingHtml(res))
 // Serve SPA at /app (base path for Hostinger when Nginx serves root)
 const distPath = join(__dirname, '..', 'dist')
 const distIndex = join(distPath, 'index.html')
+const publicHomepageDir = join(root, 'public', 'homepage')
 
 app.get('/app', (req, res) => res.redirect(301, '/app/'))
+
+/** Homepage banner/gallery — must be before /app static so uploads in public/homepage win over dist. */
+if (existsSync(publicHomepageDir)) {
+  app.use(
+    '/app/homepage',
+    express.static(publicHomepageDir, {
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      setHeaders: (res, filePath) => {
+        const fp = String(filePath || '').toLowerCase()
+        if (fp.endsWith('.png')) res.setHeader('Content-Type', 'image/png')
+        else if (fp.endsWith('.jpg') || fp.endsWith('.jpeg')) res.setHeader('Content-Type', 'image/jpeg')
+        else if (fp.endsWith('.webp')) res.setHeader('Content-Type', 'image/webp')
+      },
+    })
+  )
+}
 
 if (existsSync(distIndex)) {
   const staticOpts = {
