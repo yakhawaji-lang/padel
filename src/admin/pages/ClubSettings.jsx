@@ -62,6 +62,29 @@ const BOOKING_CHECKBOX_FIELD = 'allowIncompleteBookings'
 // الحقول الأربعة المعروضة: Lock، Split manage، Split payment deadline، Refund (paymentDeadlineMinutes يُحفظ ويُسترجع لكن لا يُعرض هنا)
 const BOOKING_VISIBLE_NUMBER_FIELDS = BOOKING_NUMBER_FIELDS.filter(f => f.key !== 'paymentDeadlineMinutes')
 
+/** مهلة دفع المشاركين لحجوزات البطولة (King / Social) — التمديد اليدوي يبقى من صفحة الحجوزات */
+const TOURNAMENT_SPLIT_DEADLINE_FIELDS = [
+  {
+    key: 'tournamentKingSplitPaymentDeadlineMinutes',
+    default: 30,
+    max: 43200,
+    labelEn: 'King of the Court — participant payment deadline (min)',
+    labelAr: 'ملك الملعب — مهلة دفع المشاركين (دقيقة)',
+    hintEn: 'How long participants have to register and pay their share. Max 43200 (30 days). You can extend a booking later from Bookings (same as other split bookings).',
+    hintAr: 'المدة المتاحة للمشاركين للتسجيل ودفع الحصص. الحد الأقصى 43200 دقيقة (30 يوماً). يمكن تمديد الحجز لاحقاً من صفحة الحجوزات كباقي الحجوزات المشتركة.',
+  },
+  {
+    key: 'tournamentSocialSplitPaymentDeadlineMinutes',
+    default: 30,
+    max: 43200,
+    labelEn: 'Social Tournament — participant payment deadline (min)',
+    labelAr: 'بطولة سوشيال — مهلة دفع المشاركين (دقيقة)',
+    hintEn: 'Same as above for Social Tournament bookings.',
+    hintAr: 'نفس المهلة لحجوزات بطولة السوشيال.',
+  },
+]
+const BOOKING_CONFIRM_NUMBER_FIELDS = [...BOOKING_VISIBLE_NUMBER_FIELDS, ...TOURNAMENT_SPLIT_DEADLINE_FIELDS]
+
 /** Always return a number for display in number inputs (avoids dot/empty); 0 is valid. */
 const numDisplay = (val, fallback) => {
   if (val === undefined || val === null || val === '') return fallback
@@ -107,6 +130,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
     maxBookingAdvance: 30,
     cancellationPolicy: 24,
     ...BOOKING_NUMBER_FIELDS.reduce((acc, { key, default: d }) => ({ ...acc, [key]: d }), {}),
+    ...TOURNAMENT_SPLIT_DEADLINE_FIELDS.reduce((acc, { key, default: d }) => ({ ...acc, [key]: d }), {}),
     [BOOKING_CHECKBOX_FIELD]: false,
     workingHoursSeasons: defaultWorkingHoursSeasons()
   })
@@ -153,6 +177,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
         maxBookingAdvance: club?.settings?.maxBookingAdvance || 30,
         cancellationPolicy: club?.settings?.cancellationPolicy || 24,
         ...BOOKING_NUMBER_FIELDS.reduce((acc, { key, default: d }) => ({ ...acc, [key]: numDisplay(club?.settings?.[key], d) }), {}),
+        ...TOURNAMENT_SPLIT_DEADLINE_FIELDS.reduce((acc, { key, default: d }) => ({ ...acc, [key]: numDisplay(club?.settings?.[key], d) }), {}),
         [BOOKING_CHECKBOX_FIELD]: !!club?.settings?.[BOOKING_CHECKBOX_FIELD],
         workingHoursSeasons: seasonsFromClubSettings(club)
       })
@@ -221,6 +246,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
         maxBookingAdvance: Math.max(1, Number(fd.maxBookingAdvance) || 30),
         cancellationPolicy: Math.max(0, Number(fd.cancellationPolicy) || 24),
         ...BOOKING_NUMBER_FIELDS.reduce((acc, { key, default: d }) => ({ ...acc, [key]: toNum(fd[key], d) }), {}),
+        ...TOURNAMENT_SPLIT_DEADLINE_FIELDS.reduce((acc, { key, default: d }) => ({ ...acc, [key]: toNum(fd[key], d) }), {}),
         [BOOKING_CHECKBOX_FIELD]: !!fd[BOOKING_CHECKBOX_FIELD],
         workingHoursSeasons,
         openingTime: legacyBounds.openingTime,
@@ -396,7 +422,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
             <div className="cxp-modal-body">
               <p className="field-hint field-hint-block" style={{ marginBottom: 16 }}>{t('Review booking settings before saving:', 'مراجعة إعدادات الحجز قبل الحفظ:', lang)}</p>
               <ul className="save-confirm-values" style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '0.95rem' }}>
-                {BOOKING_VISIBLE_NUMBER_FIELDS.map(({ key, labelEn, labelAr, default: def }) => (
+                {BOOKING_CONFIRM_NUMBER_FIELDS.map(({ key, labelEn, labelAr, default: def }) => (
                   <li key={key} style={{ padding: '8px 0', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', gap: 16 }}>
                     <span>{t(labelEn, labelAr, lang)}</span>
                     <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{String(numDisplay(pendingUpdates.settings[key], def))}</strong>
@@ -775,6 +801,39 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
               </div>
               <div className="form-row form-row-3" style={{ marginTop: 16 }}>
                 {BOOKING_VISIBLE_NUMBER_FIELDS.map(({ key, default: def, max, labelEn, labelAr, hintEn, hintAr }) => (
+                  <div key={key} className="form-group settings-field">
+                    <label className="field-label">{t(labelEn, labelAr, lang)}</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      className="settings-input"
+                      dir="ltr"
+                      lang="en"
+                      value={formData[key] === '' || formData[key] === undefined ? '' : String(formData[key])}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/\D/g, '')
+                        if (raw === '') {
+                          setFormData(prev => ({ ...prev, [key]: '' }))
+                          return
+                        }
+                        const v = parseInt(raw, 10)
+                        if (!Number.isNaN(v)) setFormData(prev => ({ ...prev, [key]: v }))
+                      }}
+                      onBlur={() => {
+                        const v = Number(formData[key])
+                        if (formData[key] === '' || formData[key] === undefined || Number.isNaN(v) || v < 0 || (max != null && v > max)) {
+                          setFormData(prev => ({ ...prev, [key]: max != null ? Math.min(max, Math.max(0, Number(prev[key]) || def)) : Math.max(0, Number(prev[key]) || def) }))
+                        }
+                      }}
+                    />
+                    {hintEn && <span className="field-hint">{t(hintEn, hintAr, lang)}</span>}
+                  </div>
+                ))}
+                <div className="form-group settings-field" style={{ gridColumn: '1 / -1', marginTop: 8 }}>
+                  <h4 className="field-group-title" style={{ marginBottom: 12 }}>{t('Tournament bookings (split payments)', 'حجوزات البطولات (الدفع المشترك)', lang)}</h4>
+                </div>
+                {TOURNAMENT_SPLIT_DEADLINE_FIELDS.map(({ key, default: def, max, labelEn, labelAr, hintEn, hintAr }) => (
                   <div key={key} className="form-group settings-field">
                     <label className="field-label">{t(labelEn, labelAr, lang)}</label>
                     <input

@@ -215,6 +215,8 @@ CREATE TABLE IF NOT EXISTS club_settings (
   payment_deadline_minutes INT DEFAULT 10,
   split_manage_minutes INT DEFAULT 15,
   split_payment_deadline_minutes INT DEFAULT 30,
+  tournament_king_split_payment_deadline_minutes INT DEFAULT 30,
+  tournament_social_split_payment_deadline_minutes INT DEFAULT 30,
   refund_days INT DEFAULT 3,
   allow_incomplete_bookings TINYINT(1) DEFAULT 0,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

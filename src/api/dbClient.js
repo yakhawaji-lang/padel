@@ -421,6 +421,8 @@ export async function saveClubSettings(clubId, settings) {
     paymentDeadlineMinutes: toNum(settings.paymentDeadlineMinutes, 10),
     splitManageMinutes: toNum(settings.splitManageMinutes, 15),
     splitPaymentDeadlineMinutes: toNum(settings.splitPaymentDeadlineMinutes, 30),
+    tournamentKingSplitPaymentDeadlineMinutes: toNum(settings.tournamentKingSplitPaymentDeadlineMinutes, 30),
+    tournamentSocialSplitPaymentDeadlineMinutes: toNum(settings.tournamentSocialSplitPaymentDeadlineMinutes, 30),
     refundDays: toNum(settings.refundDays, 3),
     allowIncompleteBookings: !!settings.allowIncompleteBookings
   }

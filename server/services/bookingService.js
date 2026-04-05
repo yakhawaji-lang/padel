@@ -47,6 +47,46 @@ function parseBookingDataJson(raw) {
 }
 
 /**
+ * Minutes until split-payment deadline for a booking: regular → split_payment_deadline_minutes;
+ * King of the Court / Social Tournament → club tournament-specific columns (fallback to general split).
+ * @param {object} settings — row or getBookingSettings() object (camelCase or snake_case ok)
+ * @param {object|string} bookingDataRaw — booking `data` JSON or object (isTournament, tournamentType)
+ */
+export function pickSplitPaymentDeadlineMinutes(settings, bookingDataRaw) {
+  const splitRaw =
+    settings?.splitPaymentDeadlineMinutes ?? settings?.split_payment_deadline_minutes ?? 30
+  const split = Math.max(1, Math.min(43200, parseInt(splitRaw, 10) || 30))
+  const kingRaw =
+    settings?.tournamentKingSplitPaymentDeadlineMinutes ??
+    settings?.tournament_king_split_payment_deadline_minutes
+  const socialRaw =
+    settings?.tournamentSocialSplitPaymentDeadlineMinutes ??
+    settings?.tournament_social_split_payment_deadline_minutes
+  const king = parseInt(kingRaw, 10)
+  const social = parseInt(socialRaw, 10)
+
+  let d = {}
+  try {
+    d =
+      typeof bookingDataRaw === 'object' && bookingDataRaw !== null
+        ? bookingDataRaw
+        : JSON.parse(String(bookingDataRaw || '{}'))
+  } catch {
+    d = {}
+  }
+  const isTournament =
+    d.isTournament === true || d.tournamentType != null || d.tournament_type != null
+  if (!isTournament) return split
+  const tt = String(d.tournamentType || d.tournament_type || 'king').toLowerCase()
+  if (tt === 'social') {
+    const m = Number.isFinite(social) && social > 0 ? social : split
+    return Math.max(1, Math.min(43200, m))
+  }
+  const m = Number.isFinite(king) && king > 0 ? king : split
+  return Math.max(1, Math.min(43200, m))
+}
+
+/**
  * إلغاء حجز (حالة ملغي — بدون deleted_at حتى تبقى مرئية في لوحة النادي)
  * عند الإلغاء من العضو يُعلَّم data.memberSelfCancel لعرضها في تبويب مخصص.
  */
@@ -136,12 +176,15 @@ export function computePaymentDeadlineFromMinutes(bookingDateYmd, minutes) {
 }
 
 /**
- * After share/recalc or admin edit: reset payment_deadline to now + club split_payment_deadline_minutes
- * (or overrideMinutes when provided). Capped at end of booking day when that day is still in the future.
+ * After share/recalc or admin edit: reset payment_deadline to now + effective split minutes
+ * (regular vs King / Social tournament club settings; or overrideMinutes when provided).
  */
 export async function extendPaymentDeadlineAfterShareProgress(bookingId, clubId, overrideMinutes = undefined) {
   const { rows } = await query(
-    `SELECT cb.booking_date, cs.split_payment_deadline_minutes
+    `SELECT cb.booking_date, cb.data,
+      cs.split_payment_deadline_minutes,
+      cs.tournament_king_split_payment_deadline_minutes,
+      cs.tournament_social_split_payment_deadline_minutes
      FROM club_bookings cb
      LEFT JOIN club_settings cs ON cs.club_id = cb.club_id
      WHERE cb.id = ? AND cb.club_id = ? AND cb.deleted_at IS NULL`,
@@ -149,10 +192,25 @@ export async function extendPaymentDeadlineAfterShareProgress(bookingId, clubId,
   )
   if (!rows?.length) return null
   const dateYmd = normalizeBookingDateYmd(rows[0].booking_date)
-  const rawSetting = parseInt(rows[0].split_payment_deadline_minutes, 10)
-  const settingMins = Number.isFinite(rawSetting) && rawSetting > 0 ? rawSetting : 30
+  let dataParsed = {}
+  try {
+    dataParsed =
+      typeof rows[0].data === 'object' && rows[0].data !== null
+        ? rows[0].data
+        : JSON.parse(rows[0].data || '{}')
+  } catch {
+    dataParsed = {}
+  }
+  const settingMins = pickSplitPaymentDeadlineMinutes(
+    {
+      split_payment_deadline_minutes: rows[0].split_payment_deadline_minutes,
+      tournament_king_split_payment_deadline_minutes: rows[0].tournament_king_split_payment_deadline_minutes,
+      tournament_social_split_payment_deadline_minutes: rows[0].tournament_social_split_payment_deadline_minutes,
+    },
+    dataParsed
+  )
   const om = overrideMinutes != null && overrideMinutes !== '' ? parseInt(overrideMinutes, 10) : NaN
-  const mins = Number.isFinite(om) && om > 0 ? om : settingMins
+  const mins = Number.isFinite(om) && om > 0 ? Math.max(1, Math.min(43200, om)) : settingMins
   const deadline = computePaymentDeadlineFromMinutes(dateYmd, mins)
   await updateBookingPaymentDeadline(bookingId, clubId, deadline)
   return deadline
@@ -163,7 +221,7 @@ export async function extendPaymentDeadlineAfterShareProgress(bookingId, clubId,
  */
 export async function reactivateExpiredSplitBooking(bookingId, clubId, extendMinutes) {
   const { rows } = await query(
-    `SELECT id, status, total_amount, paid_amount, booking_date FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
+    `SELECT id, status, total_amount, paid_amount, booking_date, data FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
     [bookingId, clubId]
   )
   if (!rows?.length) return { error: 'not_found' }
@@ -196,7 +254,28 @@ export async function reactivateExpiredSplitBooking(bookingId, clubId, extendMin
 
   const newStatus = paidAmount > 0.01 ? 'partially_paid' : 'pending_payments'
   const dateYmd = normalizeBookingDateYmd(rows[0].booking_date)
-  const deadline = computePaymentDeadlineFromMinutes(dateYmd, extendMinutes)
+  let dataParsed = {}
+  try {
+    dataParsed =
+      typeof rows[0].data === 'object' && rows[0].data !== null
+        ? rows[0].data
+        : JSON.parse(rows[0].data || '{}')
+  } catch {
+    dataParsed = {}
+  }
+  const om = extendMinutes != null && extendMinutes !== '' ? parseInt(extendMinutes, 10) : NaN
+  let minsToUse
+  if (Number.isFinite(om) && om > 0) {
+    minsToUse = Math.max(1, Math.min(43200, om))
+  } else {
+    const { rows: srows } = await query(
+      `SELECT split_payment_deadline_minutes, tournament_king_split_payment_deadline_minutes, tournament_social_split_payment_deadline_minutes
+       FROM club_settings WHERE club_id = ?`,
+      [clubId]
+    )
+    minsToUse = pickSplitPaymentDeadlineMinutes(srows?.[0] || {}, dataParsed)
+  }
+  const deadline = computePaymentDeadlineFromMinutes(dateYmd, minsToUse)
 
   await query(
     `UPDATE club_bookings SET status = ?, payment_deadline_at = ?, paid_amount = ? WHERE id = ? AND club_id = ?`,

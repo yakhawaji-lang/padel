@@ -504,7 +504,24 @@ router.post('/confirm', async (req, res) => {
     const normalized = await hasNormalizedTables()
     if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
 
-    const { lockId, clubId, courtId, date: dateRaw, startTime, endTime, memberId, memberName, totalAmount, paymentMethod, initiatorPaymentMethod, paymentShares, idempotencyKey, remainderPaymentMethod } = req.body || {}
+    const {
+      lockId,
+      clubId,
+      courtId,
+      date: dateRaw,
+      startTime,
+      endTime,
+      memberId,
+      memberName,
+      totalAmount,
+      paymentMethod,
+      initiatorPaymentMethod,
+      paymentShares,
+      idempotencyKey,
+      remainderPaymentMethod,
+      isTournament: bodyIsTournament,
+      tournamentType: bodyTournamentType,
+    } = req.body || {}
     if (!lockId || !clubId || !courtId || !dateRaw || !startTime || !endTime || !memberId) {
       return res.status(400).json({ error: 'lockId, clubId, courtId, date, startTime, endTime, memberId required' })
     }
@@ -612,11 +629,6 @@ router.post('/confirm', async (req, res) => {
       status = 'confirmed'
       paidAmount = totalAmount || 0
     }
-    const paymentDeadlineMinutes =
-      hasShares && (!payAtClub || isWalletPay) ? settings.splitPaymentDeadlineMinutes : null
-    const paymentDeadline = paymentDeadlineMinutes != null
-      ? new Date(Date.now() + paymentDeadlineMinutes * 60 * 1000)
-      : null
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD.' })
@@ -657,6 +669,16 @@ router.post('/confirm', async (req, res) => {
       ...(payAtClubFull && { initiatorPaymentMethod: 'at_club', paymentMethod: 'at_club' }),
       ...(hasShares && initiatorPaymentMethod && { initiatorPaymentMethod }),
     }
+    if (bodyIsTournament === true || bodyIsTournament === 'true') {
+      bData.isTournament = true
+      const ttRaw = bodyTournamentType != null ? String(bodyTournamentType).trim().toLowerCase() : ''
+      bData.tournamentType = ttRaw === 'social' ? 'social' : 'king'
+    }
+
+    const paymentDeadlineMinutes =
+      hasShares && (!payAtClub || isWalletPay) ? bookingService.pickSplitPaymentDeadlineMinutes(settings, bData) : null
+    const paymentDeadline =
+      paymentDeadlineMinutes != null ? new Date(Date.now() + paymentDeadlineMinutes * 60 * 1000) : null
 
     if (isWalletPay && !hasShares && walletApplied > 0) {
       const debit = await walletService.debitWallet(clubId, memberId, walletApplied, { reason: 'court_booking', refType: 'booking', refId: bid })

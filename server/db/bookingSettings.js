@@ -2,12 +2,15 @@
  * Booking settings - fetch club-specific booking configuration from DB
  */
 import { query } from './pool.js'
+import { ensureClubSettingsBookingColumns } from './normalizedData.js'
 
 const DEFAULTS = {
   lockMinutes: 10,
   paymentDeadlineMinutes: 10,
   splitManageMinutes: 15,
   splitPaymentDeadlineMinutes: 30,
+  tournamentKingSplitPaymentDeadlineMinutes: 30,
+  tournamentSocialSplitPaymentDeadlineMinutes: 30,
   refundDays: 3,
   allowIncompleteBookings: false,
   rescheduleFeeMode: 'none',
@@ -39,8 +42,11 @@ function parseCancelPolicyOverrides(raw) {
 export async function getBookingSettings(clubId) {
   if (!clubId) return { ...DEFAULTS }
   try {
+    await ensureClubSettingsBookingColumns()
     const { rows } = await query(
-      `SELECT lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings,
+      `SELECT lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes,
+       tournament_king_split_payment_deadline_minutes, tournament_social_split_payment_deadline_minutes,
+       refund_days, allow_incomplete_bookings,
        reschedule_fee_mode, reschedule_fee_value, free_reschedule_count, cancel_refund_hours_before, cancel_fee_mode, cancel_fee_value,
        cancel_policy_overrides
        FROM club_settings WHERE club_id = ?`,
@@ -53,6 +59,10 @@ export async function getBookingSettings(clubId) {
       paymentDeadlineMinutes: r.payment_deadline_minutes ?? DEFAULTS.paymentDeadlineMinutes,
       splitManageMinutes: r.split_manage_minutes ?? DEFAULTS.splitManageMinutes,
       splitPaymentDeadlineMinutes: r.split_payment_deadline_minutes ?? DEFAULTS.splitPaymentDeadlineMinutes,
+      tournamentKingSplitPaymentDeadlineMinutes:
+        r.tournament_king_split_payment_deadline_minutes ?? DEFAULTS.tournamentKingSplitPaymentDeadlineMinutes,
+      tournamentSocialSplitPaymentDeadlineMinutes:
+        r.tournament_social_split_payment_deadline_minutes ?? DEFAULTS.tournamentSocialSplitPaymentDeadlineMinutes,
       refundDays: r.refund_days ?? DEFAULTS.refundDays,
       allowIncompleteBookings: !!r.allow_incomplete_bookings,
       rescheduleFeeMode: r.reschedule_fee_mode || DEFAULTS.rescheduleFeeMode,
@@ -67,7 +77,9 @@ export async function getBookingSettings(clubId) {
     if (e?.message?.includes('cancel_policy_overrides')) {
       try {
         const { rows } = await query(
-          `SELECT lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings,
+          `SELECT lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes,
+           tournament_king_split_payment_deadline_minutes, tournament_social_split_payment_deadline_minutes,
+           refund_days, allow_incomplete_bookings,
            reschedule_fee_mode, reschedule_fee_value, free_reschedule_count, cancel_refund_hours_before, cancel_fee_mode, cancel_fee_value
            FROM club_settings WHERE club_id = ?`,
           [clubId]
@@ -79,6 +91,10 @@ export async function getBookingSettings(clubId) {
           paymentDeadlineMinutes: r.payment_deadline_minutes ?? DEFAULTS.paymentDeadlineMinutes,
           splitManageMinutes: r.split_manage_minutes ?? DEFAULTS.splitManageMinutes,
           splitPaymentDeadlineMinutes: r.split_payment_deadline_minutes ?? DEFAULTS.splitPaymentDeadlineMinutes,
+          tournamentKingSplitPaymentDeadlineMinutes:
+            r.tournament_king_split_payment_deadline_minutes ?? DEFAULTS.tournamentKingSplitPaymentDeadlineMinutes,
+          tournamentSocialSplitPaymentDeadlineMinutes:
+            r.tournament_social_split_payment_deadline_minutes ?? DEFAULTS.tournamentSocialSplitPaymentDeadlineMinutes,
           refundDays: r.refund_days ?? DEFAULTS.refundDays,
           allowIncompleteBookings: !!r.allow_incomplete_bookings,
           rescheduleFeeMode: r.reschedule_fee_mode || DEFAULTS.rescheduleFeeMode,

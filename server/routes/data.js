@@ -140,6 +140,12 @@ router.post('/club-settings', async (req, res) => {
       if (rawBooking.paymentDeadlineMinutes !== undefined) settings.paymentDeadlineMinutes = Number(rawBooking.paymentDeadlineMinutes)
       if (rawBooking.splitManageMinutes !== undefined) settings.splitManageMinutes = Number(rawBooking.splitManageMinutes)
       if (rawBooking.splitPaymentDeadlineMinutes !== undefined) settings.splitPaymentDeadlineMinutes = Number(rawBooking.splitPaymentDeadlineMinutes)
+      if (rawBooking.tournamentKingSplitPaymentDeadlineMinutes !== undefined) {
+        settings.tournamentKingSplitPaymentDeadlineMinutes = Number(rawBooking.tournamentKingSplitPaymentDeadlineMinutes)
+      }
+      if (rawBooking.tournamentSocialSplitPaymentDeadlineMinutes !== undefined) {
+        settings.tournamentSocialSplitPaymentDeadlineMinutes = Number(rawBooking.tournamentSocialSplitPaymentDeadlineMinutes)
+      }
       if (rawBooking.refundDays !== undefined) settings.refundDays = Number(rawBooking.refundDays)
       if (rawBooking.allowIncompleteBookings !== undefined) settings.allowIncompleteBookings = !!rawBooking.allowIncompleteBookings
     }

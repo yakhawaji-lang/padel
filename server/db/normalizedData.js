@@ -40,6 +40,8 @@ const BOOKING_SETTINGS_COLS = [
   { db: 'payment_deadline_minutes', js: 'paymentDeadlineMinutes', default: 10 },
   { db: 'split_manage_minutes', js: 'splitManageMinutes', default: 15 },
   { db: 'split_payment_deadline_minutes', js: 'splitPaymentDeadlineMinutes', default: 30 },
+  { db: 'tournament_king_split_payment_deadline_minutes', js: 'tournamentKingSplitPaymentDeadlineMinutes', default: 30 },
+  { db: 'tournament_social_split_payment_deadline_minutes', js: 'tournamentSocialSplitPaymentDeadlineMinutes', default: 30 },
   { db: 'refund_days', js: 'refundDays', default: 3 }
 ]
 const ALLOW_INCOMPLETE_DB = 'allow_incomplete_bookings'
@@ -93,12 +95,14 @@ function isServerGeneratedInviteToken(tok) {
 }
 
 /** Ensure club_settings has booking-related columns so all settings persist in padel_db */
-async function ensureClubSettingsBookingColumns() {
+export async function ensureClubSettingsBookingColumns() {
   const cols = [
     { name: 'lock_minutes', type: 'INT', def: '10' },
     { name: 'payment_deadline_minutes', type: 'INT', def: '10' },
     { name: 'split_manage_minutes', type: 'INT', def: '15' },
     { name: 'split_payment_deadline_minutes', type: 'INT', def: '30' },
+    { name: 'tournament_king_split_payment_deadline_minutes', type: 'INT', def: '30' },
+    { name: 'tournament_social_split_payment_deadline_minutes', type: 'INT', def: '30' },
     { name: 'refund_days', type: 'INT', def: '3' },
     { name: 'allow_incomplete_bookings', type: 'TINYINT(1)', def: '0' },
     { name: 'preparation_time_minutes', type: 'INT', def: '0' },
@@ -758,7 +762,7 @@ export async function getClubsFromNormalized() {
 
   let settingsRes
   try {
-    settingsRes = await query(`SELECT club_id, default_language, timezone, currency, booking_duration, preparation_time_minutes, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, payment_enabled_channels, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, reschedule_fee_mode, reschedule_fee_value, free_reschedule_count, cancel_refund_hours_before, cancel_fee_mode, cancel_fee_value, cancel_policy_overrides, updated_by FROM club_settings WHERE club_id IN (${placeholders})`, clubIds)
+    settingsRes = await query(`SELECT club_id, default_language, timezone, currency, booking_duration, preparation_time_minutes, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, payment_enabled_channels, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, tournament_king_split_payment_deadline_minutes, tournament_social_split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, reschedule_fee_mode, reschedule_fee_value, free_reschedule_count, cancel_refund_hours_before, cancel_fee_mode, cancel_fee_value, cancel_policy_overrides, updated_by FROM club_settings WHERE club_id IN (${placeholders})`, clubIds)
   } catch (e) {
     if (e?.message?.includes('Unknown column') && (e?.message?.includes('lock_minutes') || e?.message?.includes('preparation_time_minutes') || e?.message?.includes('working_hours_seasons') || e?.message?.includes('payment_enabled_channels') || e?.message?.includes('reschedule_fee'))) {
       await ensureClubSettingsBookingColumns()
@@ -1548,6 +1552,18 @@ export async function updateClubSettingsInDb(clubId, settings, actor = {}) {
   const paymentDeadlineMinutes = getSettingNum(s, 'paymentDeadlineMinutes', 'payment_deadline_minutes', 10)
   const splitManageMinutes = getSettingNum(s, 'splitManageMinutes', 'split_manage_minutes', 15)
   const splitPaymentDeadlineMinutes = getSettingNum(s, 'splitPaymentDeadlineMinutes', 'split_payment_deadline_minutes', 30)
+  const tournamentKingSplitPaymentDeadlineMinutes = getSettingNum(
+    s,
+    'tournamentKingSplitPaymentDeadlineMinutes',
+    'tournament_king_split_payment_deadline_minutes',
+    30
+  )
+  const tournamentSocialSplitPaymentDeadlineMinutes = getSettingNum(
+    s,
+    'tournamentSocialSplitPaymentDeadlineMinutes',
+    'tournament_social_split_payment_deadline_minutes',
+    30
+  )
   const refundDays = getSettingNum(s, 'refundDays', 'refund_days', 3)
   const allowIncomplete = getSettingBool(s, ALLOW_INCOMPLETE_JS, 'allow_incomplete_bookings') ? 1 : 0
   const normPolicyMode = (v, def) => {
@@ -1562,23 +1578,36 @@ export async function updateClubSettingsInDb(clubId, settings, actor = {}) {
   const cancelFeeMode = normPolicyMode(s.cancelFeeMode, 'none')
   const cancelFeeValue = toNum(s.cancelFeeValue, 0)
   const bookingParams = [
-    lockMinutes, paymentDeadlineMinutes, splitManageMinutes, splitPaymentDeadlineMinutes, refundDays, allowIncomplete,
-    rescheduleFeeMode, rescheduleFeeValue, freeRescheduleCount, cancelRefundHoursBefore, cancelFeeMode, cancelFeeValue,
+    lockMinutes,
+    paymentDeadlineMinutes,
+    splitManageMinutes,
+    splitPaymentDeadlineMinutes,
+    tournamentKingSplitPaymentDeadlineMinutes,
+    tournamentSocialSplitPaymentDeadlineMinutes,
+    refundDays,
+    allowIncomplete,
+    rescheduleFeeMode,
+    rescheduleFeeValue,
+    freeRescheduleCount,
+    cancelRefundHoursBefore,
+    cancelFeeMode,
+    cancelFeeValue,
     cancelPolicyOverridesJson,
-    actor.actorId || null, cid,
+    actor.actorId || null,
+    cid,
   ]
 
   const generalUpdateSql = `UPDATE club_settings SET default_language=?, timezone=?, currency=?, booking_duration=?, preparation_time_minutes=?, max_booking_advance=?, cancellation_policy=?, opening_time=?, closing_time=?, header_bg_color=?, header_text_color=?, hero_bg_color=?, hero_bg_opacity=?, hero_title_color=?, hero_text_color=?, hero_stats_color=?, social_links=?, booking_prices=?, working_hours_seasons=?, payment_enabled_channels=?, updated_at=NOW(), updated_by=? WHERE club_id=?`
-  const bookingUpdateSql = `UPDATE club_settings SET lock_minutes=?, payment_deadline_minutes=?, split_manage_minutes=?, split_payment_deadline_minutes=?, refund_days=?, allow_incomplete_bookings=?, reschedule_fee_mode=?, reschedule_fee_value=?, free_reschedule_count=?, cancel_refund_hours_before=?, cancel_fee_mode=?, cancel_fee_value=?, cancel_policy_overrides=?, updated_at=NOW(), updated_by=? WHERE club_id=?`
+  const bookingUpdateSql = `UPDATE club_settings SET lock_minutes=?, payment_deadline_minutes=?, split_manage_minutes=?, split_payment_deadline_minutes=?, tournament_king_split_payment_deadline_minutes=?, tournament_social_split_payment_deadline_minutes=?, refund_days=?, allow_incomplete_bookings=?, reschedule_fee_mode=?, reschedule_fee_value=?, free_reschedule_count=?, cancel_refund_hours_before=?, cancel_fee_mode=?, cancel_fee_value=?, cancel_policy_overrides=?, updated_at=NOW(), updated_by=? WHERE club_id=?`
 
   try {
     const { rows: existing } = await query('SELECT club_id FROM club_settings WHERE club_id = ?', [cid])
     if (!existing || existing.length === 0) {
-      const insertDefaults = [10, 10, 15, 30, 3, 0]
+      const insertDefaults = [10, 10, 15, 30, 30, 30, 3, 0]
       const insertParams = [cid, ...generalParams.slice(0, 20), ...insertDefaults, generalParams[20]]
       await query(
-        `INSERT INTO club_settings (club_id, default_language, timezone, currency, booking_duration, preparation_time_minutes, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, payment_enabled_channels, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, updated_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO club_settings (club_id, default_language, timezone, currency, booking_duration, preparation_time_minutes, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, payment_enabled_channels, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, tournament_king_split_payment_deadline_minutes, tournament_social_split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, updated_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         insertParams
       )
     } else {
@@ -1590,11 +1619,11 @@ export async function updateClubSettingsInDb(clubId, settings, actor = {}) {
       await ensureClubSettingsBookingColumns()
       const { rows: existing2 } = await query('SELECT club_id FROM club_settings WHERE club_id = ?', [cid])
       if (!existing2 || existing2.length === 0) {
-        const insertDefaults = [10, 10, 15, 30, 3, 0]
+        const insertDefaults = [10, 10, 15, 30, 30, 30, 3, 0]
         const insertParams = [cid, ...generalParams.slice(0, 20), ...insertDefaults, generalParams[20]]
         await query(
-          `INSERT INTO club_settings (club_id, default_language, timezone, currency, booking_duration, preparation_time_minutes, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, payment_enabled_channels, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, updated_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO club_settings (club_id, default_language, timezone, currency, booking_duration, preparation_time_minutes, max_booking_advance, cancellation_policy, opening_time, closing_time, header_bg_color, header_text_color, hero_bg_color, hero_bg_opacity, hero_title_color, hero_text_color, hero_stats_color, social_links, booking_prices, working_hours_seasons, payment_enabled_channels, lock_minutes, payment_deadline_minutes, split_manage_minutes, split_payment_deadline_minutes, tournament_king_split_payment_deadline_minutes, tournament_social_split_payment_deadline_minutes, refund_days, allow_incomplete_bookings, updated_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           insertParams
         )
       } else {
