@@ -50,6 +50,10 @@ import {
   splitPickedPhoneToCountryAndNational,
   phoneDigitsNormalized,
 } from './utils/phoneNormalize'
+import {
+  mergeTournamentTeamsFromPaymentShares,
+  tournamentTeamSyncChanged,
+} from './utils/tournamentBookingShareSync'
 
 function bookingJsonData(booking) {
   const d = booking?.data
@@ -766,6 +770,69 @@ function App({ currentUser }) {
     window.addEventListener('clubs-synced', onSynced)
     return () => window.removeEventListener('clubs-synced', onSynced)
   }, [clubId])
+
+  /** Split-payment shares → tournament team chips (sync with admin bookings / pay-invite flow). */
+  useEffect(() => {
+    if (isInitialMount.current || !currentClub?.id) return
+    const courtCount = currentClub.courts?.filter((c) => !c.maintenance).length || 4
+    const kingShell = () => ({
+      teams: [],
+      matches: [],
+      courts: new Array(courtCount).fill(null),
+      matchTimers: {},
+      courtWinners: {},
+      showMatchHistory: false,
+      showMatchSchedule: false,
+    })
+    const socialShell = () => ({
+      teams: [],
+      matches: [],
+      courts: new Array(courtCount).fill(null),
+      matchTimers: {},
+      groupStage: {},
+      qualifiedTeams: [],
+      tournamentStage: 'group',
+      semiFinals: [],
+      finals: [],
+      showMatchHistory: false,
+    })
+
+    setKingStateByTournamentId((prevKing) => {
+      let changed = false
+      const next = { ...prevKing }
+      for (const b of localBookings) {
+        if (!b?.isTournament) continue
+        if (String(b.tournamentType || 'king').toLowerCase() !== 'king') continue
+        const bid = String(b.id)
+        if (!bid) continue
+        const prev = next[bid] && typeof next[bid] === 'object' ? next[bid] : kingShell()
+        const merged = mergeTournamentTeamsFromPaymentShares(b, prev, { language, defaultTeamCount: 8 })
+        if (merged && tournamentTeamSyncChanged(prev, merged)) {
+          next[bid] = merged
+          changed = true
+        }
+      }
+      return changed ? next : prevKing
+    })
+
+    setSocialStateByTournamentId((prevSoc) => {
+      let changed = false
+      const next = { ...prevSoc }
+      for (const b of localBookings) {
+        if (!b?.isTournament) continue
+        if (String(b.tournamentType || 'king').toLowerCase() !== 'social') continue
+        const bid = String(b.id)
+        if (!bid) continue
+        const prev = next[bid] && typeof next[bid] === 'object' ? next[bid] : socialShell()
+        const merged = mergeTournamentTeamsFromPaymentShares(b, prev, { language, defaultTeamCount: 8 })
+        if (merged && tournamentTeamSyncChanged(prev, merged)) {
+          next[bid] = merged
+          changed = true
+        }
+      }
+      return changed ? next : prevSoc
+    })
+  }, [localBookings, currentClub?.id, language])
 
   useEffect(() => {
     if (!clubId) {

@@ -403,6 +403,48 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     }
   }
 
+  const handleResendTournamentShareWhatsApp = async (booking, share) => {
+    if (!club?.id || !booking?.id) return
+    if (!booking.isTournament) {
+      window.alert(language === 'en' ? 'This action is for tournament bookings only.' : 'هذا الإجراء لحجوزات البطولة فقط.')
+      return
+    }
+    const phone = String(share?.phone || '').trim()
+    const phoneDig = phone.replace(/\D/g, '')
+    if (phoneDig.length < 8) {
+      window.alert(language === 'en' ? 'Valid phone number required on this share.' : 'يلزم رقم جوال صالح على هذه الحصة.')
+      return
+    }
+    const amount = parseFloat(share?.amount) || 0
+    if (amount <= 0) {
+      window.alert(language === 'en' ? 'Share amount must be greater than zero to send payment invite.' : 'يجب أن يكون مبلغ الحصة أكبر من صفر لإرسال دعوة الدفع.')
+      return
+    }
+    const key = `wa-share-${share?.id || share?.inviteToken || phoneDig}`
+    setActionLoading(key)
+    try {
+      const res = await bookingApi.createTournamentGuestFeeShare({
+        bookingId: booking.id,
+        clubId: club.id,
+        phone,
+        amount,
+        guestKind: 'auto',
+        ...(share?.memberName || share?.member_name
+          ? { memberName: String(share.memberName || share.member_name).trim() }
+          : {}),
+      })
+      refreshFromServer()
+      const wa = res?.whatsappLink || res?.payUrl
+      if (wa && typeof window !== 'undefined') {
+        window.open(wa, '_blank', 'noopener,noreferrer')
+      }
+    } catch (e) {
+      window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const handleFulfillMemberShareRefund = async (shareId, fulfillment) => {
     if (!club?.id || !shareId) return
     const ful = String(fulfillment).toLowerCase()
@@ -685,6 +727,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       importExpiredPaidSuccess: 'Imported. Paying members were credited in their club wallets.',
       removeParticipant: 'Remove',
       removeParticipantTitle: 'Remove unpaid participant from split',
+      resendTournamentWhatsApp: 'WhatsApp again',
+      resendTournamentWhatsAppTitle: 'Regenerate invite link and open WhatsApp for this tournament share',
     },
     ar: {
       bookings: 'الحجوزات',
@@ -792,6 +836,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       importExpiredPaidSuccess: 'تم الاستيراد. وُجدت أرصدة في محافظ الأعضاء في هذا النادي.',
       removeParticipant: 'إزالة',
       removeParticipantTitle: 'إزالة مشارك لم يدفع من التقسيم',
+      resendTournamentWhatsApp: 'واتساب مرة أخرى',
+      resendTournamentWhatsAppTitle: 'تجديد رابط الدعوة وفتح واتساب لهذه حصة البطولة',
     },
   }
   const c = t[language] || t.en
@@ -1127,7 +1173,17 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                   const paymentShares = Array.isArray(b.paymentShares) ? b.paymentShares : []
                   const hasShares = paymentShares.length > 0
                   const currency = priceInfo.currency || club?.settings?.currency || 'SAR'
-                  const totalAmount = b.totalAmount ?? b.total_amount ?? priceInfo.price ?? 0
+                  const dbTotalNum = parseFloat(b.totalAmount ?? b.total_amount)
+                  const fallbackPrice = parseFloat(priceInfo.price)
+                  const fallbackAmount = parseFloat(b.amount)
+                  const totalAmount =
+                    Number.isFinite(dbTotalNum) && dbTotalNum > 0.009
+                      ? dbTotalNum
+                      : Number.isFinite(fallbackPrice) && fallbackPrice > 0.009
+                        ? fallbackPrice
+                        : Number.isFinite(fallbackAmount) && fallbackAmount > 0.009
+                          ? fallbackAmount
+                          : 0
                   const paidSumForPanel = effectiveSplitPaidSum(b)
                   const remainingForPanel = Math.max(0, (parseFloat(totalAmount) || 0) - paidSumForPanel)
                   const incompleteSplit =
@@ -1457,8 +1513,18 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                       const memberRefundNetVal =
                                         s.memberRefundNet != null ? s.memberRefundNet : s.member_refund_net
                                       const removeShareKey = `remove-share-${s.id || s.inviteToken || idx}`
+                                      const phoneDigShare = String(s.phone || '').replace(/\D/g, '')
+                                      const waShareKey = `wa-share-${s.id || s.inviteToken || phoneDigShare || idx}`
                                       const canAdminRemoveShare =
                                         !isRemoved && !isRefunded && !s.paidAt && !memberRefundPending && !!(s.id || s.inviteToken)
+                                      const canResendTournamentWa =
+                                        isTournamentRow &&
+                                        !isRemoved &&
+                                        !isRefunded &&
+                                        !s.paidAt &&
+                                        !memberRefundPending &&
+                                        phoneDigShare.length >= 8 &&
+                                        (parseFloat(s.amount) || 0) > 0.009
                                       return (
                                         <div key={s.id || idx} className={`booking-payment-share-item ${isRemoved ? 'share-removed' : memberRefundPending ? 'share-member-refund-pending' : s.paidAt ? 'paid' : 'pending'}`}>
                                           <div className="booking-payment-share-top">
@@ -1487,7 +1553,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                                 <span className="status-badge status-pending">{c.pending}</span>
                                               )}
                                             </span>
-                                            {(canMarkPaid || canAdminRemoveShare) && (
+                                            {(canMarkPaid || canAdminRemoveShare || canResendTournamentWa) && (
                                               <div className="booking-payment-share-actions">
                                                 {canMarkPaid && (
                                                   <button
@@ -1497,6 +1563,18 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                                     disabled={actionLoading === `share-${s.id}`}
                                                   >
                                                     {actionLoading === `share-${s.id}` ? '…' : (language === 'en' ? 'Mark paid' : 'تسجيل الدفع')}
+                                                  </button>
+                                                )}
+                                                {canResendTournamentWa && (
+                                                  <button
+                                                    type="button"
+                                                    className="booking-payment-share-wa-btn"
+                                                    title={c.resendTournamentWhatsAppTitle}
+                                                    aria-label={c.resendTournamentWhatsAppTitle}
+                                                    onClick={() => handleResendTournamentShareWhatsApp(b, s)}
+                                                    disabled={actionLoading === waShareKey}
+                                                  >
+                                                    {actionLoading === waShareKey ? '…' : c.resendTournamentWhatsApp}
                                                   </button>
                                                 )}
                                                 {canAdminRemoveShare && (
