@@ -73,7 +73,7 @@ export function parsePaymentShareInviteToken(returnPath) {
   return null
 }
 
-/** Registration should use email verification + phone + profileIncomplete for these returns. */
+/** Registration uses email verification + phone; profile incomplete banner only if required fields are missing. */
 export function isPaymentShareRegistrationReturn(returnPath) {
   const p = normalizePayReturnPath(returnPath)
   if (!p) return false

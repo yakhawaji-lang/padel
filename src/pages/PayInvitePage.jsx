@@ -15,6 +15,7 @@ import {
 } from '../utils/paymentShareDeepLink'
 import './PayInvitePage.css'
 import { UnifiedPaymentActionGrid } from '../components/UnifiedPaymentOptions'
+import { shouldShowProfileIncompleteBanner, inviteShareShowsPaymentActions } from '../utils/payInviteShareUi'
 
 /** Avoid languageStorage/appSettingsStorage on this route (keeps module graph smaller for eager + lazy safety). */
 function readPayInvitePageLanguage() {
@@ -381,14 +382,14 @@ const PayInvitePage = () => {
         day: 'numeric'
       })
     : '—'
-  const isPending = data?.bookingStatus === 'pending_payments' || data?.bookingStatus === 'partially_paid'
+  const canPayShare = inviteShareShowsPaymentActions(data)
   const amountStr = `${parseFloat(data.amount || 0).toFixed(2)} ${t('SAR', 'ر.س')}`
   const chosePayAtClub = data?.paymentMethod === 'at_club' && !data?.paidAt
 
   return (
     <div className="pay-invite-page">
       <div className="pay-invite-card">
-        {platformUser?.profileIncomplete ? (
+        {shouldShowProfileIncompleteBanner(platformUser) ? (
           <div className="pay-invite-profile-banner" role="region" aria-live="polite">
             <p className="pay-invite-profile-banner-text">
               {t(
@@ -398,18 +399,39 @@ const PayInvitePage = () => {
             </p>
           </div>
         ) : null}
-        <div className="pay-invite-badge">{t('Payment share', 'مشاركة في الدفع')}</div>
+        <div className="pay-invite-badge">
+          {data?.isTournamentBooking
+            ? t('Tournament — payment share', 'بطولة — مشاركة في الدفع')
+            : t('Payment share', 'مشاركة في الدفع')}
+        </div>
         <h1 className="pay-invite-title">
           {t("You're invited to participate", 'تمت دعوتك للمشاركة')}
         </h1>
         <p className="pay-invite-intro">
-          {t(
-            'You have been invited to share the cost of a court booking. Add your email and confirm it with the code we send you, then complete your account — you will go straight to payment (at the club or online). Your booking will appear under My Bookings (courts).',
-            'تمت دعوتك للمشاركة في دفع حجز ملعب. أدخل بريدك وأكّده بالكود، ثم أكمل بياناتك — ستنتقل مباشرة للدفع (في النادي أو إلكترونياً). سيظهر الحجز في «حجوزاتي» ضمن جدول الملاعب.'
-          )}
+          {data?.isTournamentBooking
+            ? t(
+                'You have been invited to share the cost of a tournament court booking. Add your email and confirm it with the code we send you, then complete your account — you will go straight to payment (at the club or online). The booking appears under My Bookings.',
+                'تمت دعوتك للمشاركة في دفع حجز ملعب ضمن بطولة. أدخل بريدك وأكّده بالكود، ثم أكمل بياناتك — ستنتقل مباشرة للدفع (في النادي أو إلكترونياً). يظهر الحجز في «حجوزاتي».'
+              )
+            : t(
+                'You have been invited to share the cost of a court booking. Add your email and confirm it with the code we send you, then complete your account — you will go straight to payment (at the club or online). Your booking will appear under My Bookings (courts).',
+                'تمت دعوتك للمشاركة في دفع حجز ملعب. أدخل بريدك وأكّده بالكود، ثم أكمل بياناتك — ستنتقل مباشرة للدفع (في النادي أو إلكترونياً). سيظهر الحجز في «حجوزاتي» ضمن جدول الملاعب.'
+              )}
         </p>
 
         <dl className="pay-invite-details">
+          {data?.isTournamentBooking && (data.tournamentLabelEn || data.tournamentType) ? (
+            <div className="pay-invite-detail-row">
+              <dt>{t('Tournament', 'البطولة')}</dt>
+              <dd>{language === 'ar' ? (data.tournamentLabelAr || data.tournamentLabelEn || data.tournamentType) : (data.tournamentLabelEn || data.tournamentType)}</dd>
+            </div>
+          ) : null}
+          {data?.bookingNote ? (
+            <div className="pay-invite-detail-row">
+              <dt>{t('Details', 'التفاصيل')}</dt>
+              <dd>{data.bookingNote}</dd>
+            </div>
+          ) : null}
           <div className="pay-invite-detail-row">
             <dt>{t('Date', 'التاريخ')}</dt>
             <dd>{bookingDate}</dd>
@@ -444,7 +466,15 @@ const PayInvitePage = () => {
           </div>
         ) : (
           <div className="pay-invite-actions">
-            {isPending && !markedPaid && (
+            {parseFloat(data?.amount || 0) < 0.01 && canPayShare && !markedPaid ? (
+              <p className="pay-invite-hint" role="status">
+                {t(
+                  'Your share amount is zero in our records. If that is wrong, contact the club so they can update the split amounts.',
+                  'حصتك تظهر صفراً في النظام. إذا كان ذلك خطأ، تواصل مع النادي لتحديث مبالغ المشاركة.'
+                )}
+              </p>
+            ) : null}
+            {canPayShare && !markedPaid && (
               <div className="pay-invite-payment-section">
                 <p className="pay-invite-payment-options-label">{t('Choose how to pay your share', 'اختر طريقة دفع حصتك')}</p>
                 <UnifiedPaymentActionGrid
@@ -474,7 +504,7 @@ const PayInvitePage = () => {
                 <p>{t('Payment recorded. Thank you!', 'تم تسجيل الدفع. شكراً لك!')}</p>
               </div>
             )}
-            {!isPending && !markedPaid && (
+            {!canPayShare && !markedPaid && (
               <p className="pay-invite-message">{t('This share is already settled.', 'تم تسوية هذه المشاركة.')}</p>
             )}
           </div>

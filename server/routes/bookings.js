@@ -3366,7 +3366,7 @@ router.get('/invite/:token', async (req, res) => {
     const innerJoinSql = (removedFilter) =>
       `SELECT bps.id, bps.booking_id, bps.club_id, bps.participant_type, bps.member_id, bps.member_name, bps.phone, bps.amount, bps.invite_token, bps.paid_at, bps.payment_method,
               bps.removed_at, bps.refunded_at,
-              cb.court_id, cb.booking_date, cb.start_time, cb.end_time, cb.status AS booking_status, cb.total_amount
+              cb.court_id, cb.booking_date, cb.start_time, cb.end_time, cb.status AS booking_status, cb.total_amount, cb.data AS booking_data
        FROM booking_payment_shares bps
        JOIN club_bookings cb ON cb.id = bps.booking_id AND cb.club_id = bps.club_id AND cb.deleted_at IS NULL
        WHERE LOWER(TRIM(bps.invite_token)) = ?${removedFilter}`
@@ -3394,7 +3394,7 @@ router.get('/invite/:token', async (req, res) => {
       let cb
       try {
         const r2 = await query(
-          `SELECT court_id, booking_date, start_time, end_time, status AS booking_status, total_amount
+          `SELECT court_id, booking_date, start_time, end_time, status AS booking_status, total_amount, data AS booking_data
            FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL LIMIT 1`,
           [bpsOnly.booking_id, bpsOnly.club_id]
         )
@@ -3405,6 +3405,7 @@ router.get('/invite/:token', async (req, res) => {
       if (!cb) return res.status(410).json({ error: 'Booking no longer available for this invite' })
       const r = { ...bpsOnly, ...cb }
       if (r.removed_at) return res.status(410).json({ error: 'Invite is no longer valid' })
+      const inviteExtras = invitePayloadExtrasFromBookingData(r.booking_data)
       return res.json({
         inviteToken: r.invite_token,
         bookingId: r.booking_id,
@@ -3421,11 +3422,13 @@ router.get('/invite/:token', async (req, res) => {
         startTime: r.start_time,
         endTime: r.end_time,
         bookingStatus: r.booking_status,
-        totalAmount: parseFloat(r.total_amount) || 0
+        totalAmount: parseFloat(r.total_amount) || 0,
+        ...inviteExtras,
       })
     }
     const r = rows[0]
     if (r.removed_at) return res.status(410).json({ error: 'Invite is no longer valid' })
+    const inviteExtras = invitePayloadExtrasFromBookingData(r.booking_data)
     res.json({
       inviteToken: r.invite_token,
       bookingId: r.booking_id,
@@ -3442,7 +3445,8 @@ router.get('/invite/:token', async (req, res) => {
       startTime: r.start_time,
       endTime: r.end_time,
       bookingStatus: r.booking_status,
-      totalAmount: parseFloat(r.total_amount) || 0
+      totalAmount: parseFloat(r.total_amount) || 0,
+      ...inviteExtras,
     })
   } catch (e) {
     console.error('bookings invite get error:', e)
@@ -3770,6 +3774,35 @@ function parseBookingJsonData(raw) {
     return JSON.parse(raw)
   } catch {
     return {}
+  }
+}
+
+/** Extra fields for GET /invite/:token (tournament vs court, labels for pay-invite UI). */
+function invitePayloadExtrasFromBookingData(raw) {
+  const d = parseBookingJsonData(raw)
+  const isTournament = !!(d && d.isTournament)
+  const tt = d && d.tournamentType != null ? String(d.tournamentType).toLowerCase().trim() : ''
+  let tournamentLabelEn = null
+  let tournamentLabelAr = null
+  if (isTournament) {
+    if (tt === 'social') {
+      tournamentLabelEn = 'Social tournament'
+      tournamentLabelAr = 'بطولة سوشيال'
+    } else if (tt === 'king') {
+      tournamentLabelEn = 'King of the Court'
+      tournamentLabelAr = 'ملك الملعب'
+    } else {
+      tournamentLabelEn = 'Tournament'
+      tournamentLabelAr = 'بطولة'
+    }
+  }
+  const note = d && (d.title || d.tournamentName || d.note)
+  return {
+    isTournamentBooking: isTournament,
+    tournamentType: tt || null,
+    tournamentLabelEn,
+    tournamentLabelAr,
+    bookingNote: note ? String(note).slice(0, 200) : null,
   }
 }
 

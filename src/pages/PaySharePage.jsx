@@ -9,6 +9,7 @@ import { getInviteByToken, recordPayment, getWalletBalance } from '../api/dbClie
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import './PaymentPage.css'
 import { UnifiedPaymentActionGrid } from '../components/UnifiedPaymentOptions'
+import { shouldShowProfileIncompleteBanner, inviteShareShowsPaymentActions } from '../utils/payInviteShareUi'
 
 const SHARE_FETCH_MS = 28000
 
@@ -295,12 +296,12 @@ const PaySharePage = () => {
   }
 
   const amountStr = `${parseFloat(data?.amount || 0).toFixed(2)} ${t('SAR', 'ر.س')}`
-  const isPending = data?.bookingStatus === 'pending_payments' || data?.bookingStatus === 'partially_paid'
+  const canPayShare = inviteShareShowsPaymentActions(data)
   const paidAt = data?.paidAt
   const paymentMethod = data?.paymentMethod
   const chosePayAtClub = paymentMethod === 'at_club' && !paidAt
 
-  if (!isPending) {
+  if (!canPayShare) {
     return (
       <div className="payment-page">
         <div className="payment-card">
@@ -314,7 +315,7 @@ const PaySharePage = () => {
   return (
     <div className="payment-page" dir={language === 'ar' ? 'rtl' : 'ltr'}>
       <div className="payment-card">
-        {platformUser?.profileIncomplete ? (
+        {shouldShowProfileIncompleteBanner(platformUser) ? (
           <div className="payment-profile-banner" role="region" aria-live="polite">
             <p className="payment-profile-banner-text">
               {language === 'ar'
@@ -326,6 +327,18 @@ const PaySharePage = () => {
         <h1 className="payment-title">{c.title}</h1>
 
         <dl className="payment-details">
+          {data?.isTournamentBooking && (data.tournamentLabelEn || data.tournamentType) ? (
+            <div className="payment-detail-row">
+              <dt>{t('Tournament', 'البطولة', language)}</dt>
+              <dd>{language === 'ar' ? (data.tournamentLabelAr || data.tournamentLabelEn || data.tournamentType) : (data.tournamentLabelEn || data.tournamentType)}</dd>
+            </div>
+          ) : null}
+          {data?.bookingNote ? (
+            <div className="payment-detail-row">
+              <dt>{t('Details', 'التفاصيل', language)}</dt>
+              <dd>{data.bookingNote}</dd>
+            </div>
+          ) : null}
           <div className="payment-detail-row">
             <dt>{t('Date', 'التاريخ', language)}</dt>
             <dd>{formatDate(data?.bookingDate, language)}</dd>
@@ -339,6 +352,14 @@ const PaySharePage = () => {
             <dd>{amountStr}</dd>
           </div>
         </dl>
+
+        {parseFloat(data?.amount || 0) < 0.01 && canPayShare ? (
+          <p className="payment-message" style={{ marginBottom: 12 }}>
+            {language === 'ar'
+              ? 'حصتك تظهر صفراً في النظام. إذا كان ذلك خطأ، تواصل مع النادي لتحديث مبالغ المشاركة.'
+              : 'Your share amount is zero in our records. If that is wrong, ask the club to update the split amounts.'}
+          </p>
+        ) : null}
 
         <p className="payment-options-label">{t('Choose payment method', 'اختر طريقة الدفع', language)}</p>
 

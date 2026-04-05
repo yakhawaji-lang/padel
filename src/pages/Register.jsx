@@ -276,7 +276,6 @@ const Register = () => {
       clubIds: joinClubId ? [joinClubId] : [],
       role: 'member',
       createdAt: new Date().toISOString(),
-      ...(isPaymentShareRegReturn ? { profileIncomplete: true } : {})
     }
     const ok = await upsertMember(newMember)
     if (!ok) {

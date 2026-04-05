@@ -21,6 +21,7 @@ import { getEffectivePaymentChannels, pickFirstPaymentMethod } from '../utils/pa
 import { UnifiedPaymentMethodPicker, UnifiedWalletRemainderPicker } from '../components/UnifiedPaymentOptions'
 import './ClubPublicPage.css'
 import { memberRelatesToCourtBooking } from '../utils/paymentShareMemberMatch.js'
+import { shouldShowProfileIncompleteBanner } from '../utils/payInviteShareUi'
 import { isTerminalBookingStatus } from '../utils/bookingMemberCancel'
 import '../components/BookingPaymentShare.css'
 import { CLUB_PUBLIC_TRANSLATIONS } from './clubPublicPageStrings.js'
@@ -1502,7 +1503,7 @@ const ClubPublicPage = () => {
           </div>
         </div>
       )}
-      {platformUser?.profileIncomplete && (
+      {shouldShowProfileIncompleteBanner(platformUser) && (
         <section className="club-public-profile-incomplete-banner" role="region" aria-live="polite">
           <div className="club-public-profile-incomplete-inner">
             <p className="club-public-profile-incomplete-text">{c.profileIncompleteText}</p>
