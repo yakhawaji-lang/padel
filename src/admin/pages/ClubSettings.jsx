@@ -8,6 +8,64 @@ import { getLegacyOpenCloseBounds, timeToMinutes as whToMinutes } from '../../ut
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
+/** نص تمهيدي احترافي لكل تبويب — يشرح الغرض والأولوية */
+const TAB_INTRO = {
+  basic: {
+    en: 'Define your club’s public identity: legal and display names, visuals, theme colors, and how visitors reach you. Changes here appear on your PlayTix club page and in listings—keep English and Arabic in sync where both audiences matter.',
+    ar: 'حدّد هوية النادي للزوار: الأسماء المعروضة والصور والألوان وقنوات التواصل. التعديلات تظهر في صفحة النادي على PlayTix وفي القوائم — يُفضّل توافق الحقول الإنجليزية والعربية عند استهداف الجمهورين.',
+  },
+  playtomic: {
+    en: 'Optional integration with Playtomic. Use venue ID and API credentials only if your club syncs or pulls data from Playtomic; leave blank if you operate fully on PlayTix.',
+    ar: 'تكامل اختياري مع Playtomic. استخدم معرف المكان ومفاتيح API فقط إذا كان النادي يزامن أو يستورد بيانات من Playtomic؛ اترك الحقول فارغة إذا كان العمل بالكامل داخل PlayTix.',
+  },
+  general: {
+    en: 'Regional defaults for the club experience: language visitors see first, timezone for dates and slots, and currency shown for prices. These affect calendars, booking copy, and receipts.',
+    ar: 'الإعدادات الإقليمية لتجربة النادي: اللغة الافتراضية والمنطقة الزمنية للمواعيد والتقويم، والعملة المعروضة للأسعار. تؤثر على الجداول ونصوص الحجز والإيصالات.',
+  },
+  booking: {
+    en: 'Control scheduling rules, payment windows, and split-booking behaviour. Shorter locks reduce ghost bookings; longer split deadlines help groups finish paying. Tournament timers apply only to King of the Court and Social events.',
+    ar: 'ضبط قواعد الجدولة ونوافذ الدفع والحجز المشترك. المهل الأقصر تقلل الحجوزات الوهمية؛ مهل أطول تساعد المجموعات على إتمام الدفع. مؤقتات البطولات تخص ملك الملعب والسوشيال فقط.',
+  },
+  courts: {
+    en: 'Maintain the court list shown to members and used in the booking grid. Mark maintenance to block new bookings without deleting history. Each court can have its own image for the facilities section.',
+    ar: 'إدارة قائمة الملاعب الظاهرة للأعضاء والمستخدمة في جدول الحجز. وضع «صيانة» يمنع الحجوزات الجديدة دون حذف السجل. يمكن إرفاق صورة لكل ملعب في قسم المرافق.',
+  },
+  hours: {
+    en: 'Seasonal working hours drive which time slots are bookable. Put your default season first, then date-specific overrides—the last matching season wins. Use one row for overnight shifts (e.g. close time after midnight).',
+    ar: 'أوقات العمل الموسمية تحدد الشرائح الزمنية المتاحة للحجز. ابدأ بالموسم الافتراضي ثم الاستثناءات حسب التاريخ — آخر موسم مطابق يُطبَّق. للوردية الليلية استخدم صفاً واحداً (وقت إغلاق بعد منتصف الليل).',
+  },
+  social: {
+    en: 'Links and icon styling for the header bar above your banner. Add only active profiles; URLs should be full https links. Preview updates as you pick colors.',
+    ar: 'روابط التواصل وتنسيق الأيقونات في الشريط فوق البنر. أضف حسابات فعّالة فقط؛ يُفضّل رابط https كامل. المعاينة تتحدث عند تغيير الألوان.',
+  },
+}
+
+function SettingsTabHero({ icon, titleEn, titleAr, tabId, lang }) {
+  const intro = TAB_INTRO[tabId]
+  if (!intro) return null
+  return (
+    <header className="cs-tab-hero">
+      <div className="cs-tab-hero-icon" aria-hidden="true">{icon}</div>
+      <div className="cs-tab-hero-text">
+        <h3 className="cs-tab-title">{t(titleEn, titleAr, lang)}</h3>
+        <p className="cs-tab-intro">{t(intro.en, intro.ar, lang)}</p>
+      </div>
+    </header>
+  )
+}
+
+function SettingsCard({ titleEn, titleAr, descEn, descAr, lang, children, className = '' }) {
+  return (
+    <section className={`cs-card ${className}`.trim()}>
+      <header className="cs-card-header">
+        <h4 className="cs-card-title">{t(titleEn, titleAr, lang)}</h4>
+        {(descEn || descAr) && <p className="cs-card-desc">{t(descEn || '', descAr || '', lang)}</p>}
+      </header>
+      <div className="cs-card-body">{children}</div>
+    </section>
+  )
+}
+
 const normalizeMMDD = (s) => {
   const raw = (s || '').toString().trim()
   const m = raw.match(/^(\d{1,2})-(\d{1,2})$/)
@@ -451,7 +509,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
         </div>
       )}
 
-      <div className="club-settings">
+      <div className={`club-settings${lang === 'ar' ? ' club-settings--rtl' : ''}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
         <div className="club-settings-tabs">
           {tabs.map(({ id, label, icon }) => (
             <button
@@ -468,14 +526,16 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
 
         <div className="settings-sections">
           {activeTab === 'basic' && (
-          <div className="settings-section">
-            <h3 className="settings-section-title">
-              <span className="section-icon">📋</span>
-              {t('Basic Information', 'المعلومات الأساسية', lang)}
-            </h3>
-
-            <div className="settings-field-group">
-              <h4 className="field-group-title">{t('Club Names', 'أسماء النادي', lang)}</h4>
+          <div className="settings-section cs-tab-panel">
+            <SettingsTabHero icon="📋" titleEn="Basic Information" titleAr="المعلومات الأساسية" tabId="basic" lang={lang} />
+            <div className="cs-tab-stack">
+            <SettingsCard
+              titleEn="Club identity"
+              titleAr="هوية النادي"
+              descEn="Official names as shown on your club page and in search."
+              descAr="الأسماء المعروضة في صفحة النادي وفي نتائج البحث."
+              lang={lang}
+            >
               <div className="form-row form-row-2">
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Club Name (English)', 'اسم النادي (إنجليزي)', lang)} *</label>
@@ -498,10 +558,15 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                   />
                 </div>
               </div>
-            </div>
+            </SettingsCard>
 
-            <div className="settings-field-group">
-              <h4 className="field-group-title">{t('Logo & Banner', 'الشعار والبنر', lang)}</h4>
+            <SettingsCard
+              titleEn="Logo & banner"
+              titleAr="الشعار والبنر"
+              descEn="High-quality images build trust. Logo is square-friendly; banner works best wide (e.g. 1200×400)."
+              descAr="صور واضحة ترفع ثقة الزوار. الشعار يفضّل مربعاً؛ البنر يفضّل عريضاً (مثلاً 1200×400)."
+              lang={lang}
+            >
               <div className="form-group settings-field">
                 <label className="field-label">{t('Club Logo', 'شعار النادي', lang)}</label>
                 <p className="field-hint">{t('URL or upload image. Shown in header and listings. Uploads are saved to Gallery and linked to the database.', 'رابط URL أو رفع صورة. يُعرض في الهيدر والقوائم. الصور المرفوعة تُحفظ في Gallery وترتبط بقاعدة البيانات.')}</p>
@@ -550,11 +615,15 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                 </div>
               )}
             </div>
-            </div>
+            </SettingsCard>
 
-            <div className="settings-field-group">
-              <h4 className="field-group-title">{t('Header Colors', 'ألوان الهيدر', lang)}</h4>
-              <p className="field-hint field-hint-block">{t('Colors for the section above the banner.', 'ألوان القسم فوق البنر.')}</p>
+            <SettingsCard
+              titleEn="Header bar colors"
+              titleAr="ألوان شريط الرأس"
+              descEn="The strip above your banner: background and text contrast should meet readability on mobile."
+              descAr="الشريط فوق البنر: يجب أن يضمن تبايناً جيداً بين الخلفية والنص خصوصاً على الجوال."
+              lang={lang}
+            >
               <div className="form-row form-row-2 color-fields-row">
                 <div className="color-field">
                   <label>{t('Background', 'الخلفية', lang)}</label>
@@ -571,11 +640,15 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                   </div>
                 </div>
               </div>
-            </div>
+            </SettingsCard>
 
-            <div className="settings-field-group">
-              <h4 className="field-group-title">{t('Hero Card (on banner)', 'بطاقة البنر', lang)}</h4>
-              <p className="field-hint field-hint-block">{t('Card overlay colors and transparency.', 'ألوان وشفافية البطاقة فوق البنر.')}</p>
+            <SettingsCard
+              titleEn="Hero card (over banner)"
+              titleAr="بطاقة البطلة فوق البنر"
+              descEn="Overlay card for title, stats, and CTA—adjust opacity so the photo still shows through."
+              descAr="بطاقة فوق الصورة للعنوان والإحصائيات — اضبط الشفافية ليبقى البنر واضحاً."
+              lang={lang}
+            >
               <div className="form-row form-row-multi hero-color-row">
                 <div className="form-group settings-field compact">
                   <label className="field-label">{t('Opacity (%)', 'الشفافية', lang)}</label>
@@ -610,10 +683,15 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                   </div>
                 </div>
               </div>
-            </div>
+            </SettingsCard>
 
-            <div className="settings-field-group">
-              <h4 className="field-group-title">{t('Tagline & Description', 'الشعار والوصف', lang)}</h4>
+            <SettingsCard
+              titleEn="Taglines"
+              titleAr="الشعارات القصيرة"
+              descEn="Short lines under the club name—use for positioning (e.g. indoor courts, tournaments)."
+              descAr="سطران تحت اسم النادي — للتمييز (مثل ملاعب داخلية، بطولات)."
+              lang={lang}
+            >
               <div className="form-row form-row-2">
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Tagline (English)', 'الشعار (إنجليزي)', lang)}</label>
@@ -624,10 +702,15 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                   <input type="text" className="settings-input" placeholder={t('مثال: ملاعب داخلية • ملك الملعب', 'مثال: ملاعب داخلية • ملك الملعب')} value={formData.taglineAr} onChange={(e) => setFormData(prev => ({ ...prev, taglineAr: e.target.value }))} />
                 </div>
               </div>
-            </div>
+            </SettingsCard>
 
-            <div className="settings-field-group">
-              <h4 className="field-group-title">{t('Contact Information', 'معلومات التواصل', lang)}</h4>
+            <SettingsCard
+              titleEn="Contact & location"
+              titleAr="التواصل والموقع"
+              descEn="Shown on the club page and may be used for maps and WhatsApp deep links from the app."
+              descAr="تظهر في صفحة النادي وقد تُستخدم للخرائط وروابط واتساب من التطبيق."
+              lang={lang}
+            >
               <div className="form-row form-row-2">
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Address (English)', 'العنوان (إنجليزي)', lang)}</label>
@@ -650,18 +733,22 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                   <input type="url" className="settings-input" placeholder="https://..." value={formData.website} onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))} />
                 </div>
               </div>
+            </SettingsCard>
             </div>
           </div>
           )}
 
           {activeTab === 'playtomic' && (
-          <div className="settings-section">
-            <h3 className="settings-section-title">
-              <span className="section-icon">🎾</span>
-              Playtomic Integration
-            </h3>
-            <p className="field-hint field-hint-block">{t('Connect your club to Playtomic for court bookings.', 'ربط النادي بـ Playtomic لحجوزات الملاعب.')}</p>
-            <div className="settings-field-group">
+          <div className="settings-section cs-tab-panel">
+            <SettingsTabHero icon="🎾" titleEn="Playtomic integration" titleAr="تكامل Playtomic" tabId="playtomic" lang={lang} />
+            <div className="cs-tab-stack">
+            <SettingsCard
+              titleEn="API credentials"
+              titleAr="بيانات الربط"
+              descEn="Store the venue identifier and secret key from your Playtomic operator dashboard. Treat the API key like a password."
+              descAr="أدخل معرف المكان والمفتاح السري من لوحة Playtomic. تعامل مع مفتاح API ككلمة مرور."
+              lang={lang}
+            >
               <div className="form-row form-row-2">
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Playtomic Venue ID', 'معرف المكان')}</label>
@@ -672,17 +759,22 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                   <input type="password" className="settings-input" placeholder={t('Enter your API key', 'أدخل مفتاح API')} value={formData.playtomicApiKey} onChange={(e) => setFormData(prev => ({ ...prev, playtomicApiKey: e.target.value }))} />
                 </div>
               </div>
+            </SettingsCard>
             </div>
           </div>
           )}
 
           {activeTab === 'general' && (
-          <div className="settings-section">
-            <h3 className="settings-section-title">
-              <span className="section-icon">⚙️</span>
-              {t('General Settings', 'الإعدادات العامة', lang)}
-            </h3>
-            <div className="settings-field-group">
+          <div className="settings-section cs-tab-panel">
+            <SettingsTabHero icon="⚙️" titleEn="General settings" titleAr="الإعدادات العامة" tabId="general" lang={lang} />
+            <div className="cs-tab-stack">
+            <SettingsCard
+              titleEn="Locale & money"
+              titleAr="اللغة والمنطقة والعملة"
+              descEn="First language for new visitors, IANA timezone name, and currency symbol for all price labels."
+              descAr="اللغة الأولى للزائر الجديد، والمنطقة الزمنية (مثل Asia/Riyadh)، والعملة لجميع الأسعار."
+              lang={lang}
+            >
               <div className="form-row form-row-2">
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Default Language', 'اللغة الافتراضية', lang)}</label>
@@ -705,18 +797,22 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                   </select>
                 </div>
               </div>
+            </SettingsCard>
             </div>
           </div>
           )}
 
           {activeTab === 'booking' && (
-          <div className="settings-section">
-            <h3 className="settings-section-title">
-              <span className="section-icon">📅</span>
-              {t('Booking Settings', 'إعدادات الحجز', lang)}
-            </h3>
-            <p className="field-hint field-hint-block">{t('Configure how court bookings work.', 'إعداد آلية حجز الملاعب.')}</p>
-            <div className="settings-field-group">
+          <div className="settings-section cs-tab-panel">
+            <SettingsTabHero icon="📅" titleEn="Booking settings" titleAr="إعدادات الحجز" tabId="booking" lang={lang} />
+            <div className="cs-tab-stack">
+            <SettingsCard
+              titleEn="Scheduling rules"
+              titleAr="قواعد الجدولة"
+              descEn="How long each booking must be at minimum, how far ahead members can book, and cancellation notice."
+              descAr="أقل مدة حجز، أقصى مدة للحجز المسبق، ومهلة الإلغاء قبل موعد الملعب."
+              lang={lang}
+            >
               <div className="form-row form-row-2">
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Minimum booking duration (min)', 'أقل مدة للحجز (دقيقة)', lang)}</label>
@@ -804,7 +900,16 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                   />
                 </div>
               </div>
-              <div className="form-row form-row-3" style={{ marginTop: 16 }}>
+            </SettingsCard>
+
+            <SettingsCard
+              titleEn="Payment & split timers"
+              titleAr="الدفع والمهلات للحجز المشترك"
+              descEn="Lock time reduces abandoned holds; split deadlines control how long organizers and participants have to pay."
+              descAr="مهلة القفل تقلل الحجوزات المهجورة؛ مهلات التقسيم تحدد زمن الدفع للمنظم والمشاركين."
+              lang={lang}
+            >
+              <div className="form-row form-row-3 cs-booking-timers-row">
                 {BOOKING_VISIBLE_NUMBER_FIELDS.map(({ key, default: def, max, labelEn, labelAr, hintEn, hintAr }) => (
                   <div key={key} className="form-group settings-field">
                     <label className="field-label">{t(labelEn, labelAr, lang)}</label>
@@ -836,7 +941,16 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                   </div>
                 ))}
               </div>
-              <div className="form-row" style={{ marginTop: 16 }}>
+            </SettingsCard>
+
+            <SettingsCard
+              titleEn="Split booking policy"
+              titleAr="سياسة الحجز المشترك"
+              descEn="When disabled, split groups must complete payment within your deadlines or the slot is released."
+              descAr="عند التعطيل يجب إتمام دفع المجموعة ضمن المهلات وإلا يُحرَّر الموعد."
+              lang={lang}
+            >
+              <div className="form-row">
                 <div className="form-group settings-field checkbox-field">
                   <label className="checkbox-label">
                     <input type="checkbox" checked={!!formData[BOOKING_CHECKBOX_FIELD]} onChange={(e) => setFormData(prev => ({ ...prev, [BOOKING_CHECKBOX_FIELD]: e.target.checked }))} className="settings-checkbox" />
@@ -844,71 +958,67 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                   </label>
                 </div>
               </div>
+            </SettingsCard>
 
-              <div
-                className="settings-field-group tournament-booking-settings-block"
-                style={{
-                  marginTop: 28,
-                  paddingTop: 22,
-                  borderTop: '1px solid #e2e8f0',
-                }}
-              >
-                <h4 className="field-group-title" style={{ marginBottom: 6 }}>
-                  {t('Tournament bookings (split payments)', 'حجوزات البطولات (الدفع المشترك)', lang)}
-                </h4>
-                <p className="field-hint field-hint-block" style={{ marginBottom: 16 }}>
-                  {t(
-                    'Deadlines for King of the Court and Social Tournament when participants pay their share (separate from the general split deadline above).',
-                    'مهلات منفصلة لبطولتي ملك الملعب والسوشيال عند دفع المشاركين لحصصهم (مستقلة عن مهلة التقسيم العامة أعلاه).',
-                    lang
-                  )}
-                </p>
-                <div className="form-row form-row-2">
-                  {TOURNAMENT_SPLIT_DEADLINE_FIELDS.map(({ key, default: def, max, labelBilingual, hintEn, hintAr }) => (
-                    <div key={key} className="form-group settings-field">
-                      <label className="field-label" style={{ lineHeight: 1.35 }}>{labelBilingual}</label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        className="settings-input"
-                        dir="ltr"
-                        lang="en"
-                        value={formData[key] === '' || formData[key] === undefined ? '' : String(formData[key])}
-                        onChange={(e) => {
-                          const raw = e.target.value.replace(/\D/g, '')
-                          if (raw === '') {
-                            setFormData(prev => ({ ...prev, [key]: '' }))
-                            return
-                          }
-                          const v = parseInt(raw, 10)
-                          if (!Number.isNaN(v)) setFormData(prev => ({ ...prev, [key]: v }))
-                        }}
-                        onBlur={() => {
-                          const v = Number(formData[key])
-                          if (formData[key] === '' || formData[key] === undefined || Number.isNaN(v) || v < 0 || (max != null && v > max)) {
-                            setFormData(prev => ({
-                              ...prev,
-                              [key]: max != null ? Math.min(max, Math.max(0, Number(prev[key]) || def)) : Math.max(0, Number(prev[key]) || def),
-                            }))
-                          }
-                        }}
-                      />
-                      {hintEn && <span className="field-hint">{t(hintEn, hintAr, lang)}</span>}
-                    </div>
-                  ))}
-                </div>
+            <SettingsCard
+              titleEn="Tournament bookings (split payments)"
+              titleAr="حجوزات البطولات (الدفع المشترك)"
+              descEn="Separate deadlines for King of the Court and Social Tournament participant payments. You can still extend a booking from the Bookings admin screen."
+              descAr="مهلات منفصلة لدفع المشاركين في ملك الملعب والسوشيال. يمكن تمديد الحجز من صفحة الحجوزات."
+              lang={lang}
+              className="cs-card--accent"
+            >
+              <div className="form-row form-row-2">
+                {TOURNAMENT_SPLIT_DEADLINE_FIELDS.map(({ key, default: def, max, labelBilingual, hintEn, hintAr }) => (
+                  <div key={key} className="form-group settings-field">
+                    <label className="field-label" style={{ lineHeight: 1.35 }}>{labelBilingual}</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      className="settings-input"
+                      dir="ltr"
+                      lang="en"
+                      value={formData[key] === '' || formData[key] === undefined ? '' : String(formData[key])}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/\D/g, '')
+                        if (raw === '') {
+                          setFormData(prev => ({ ...prev, [key]: '' }))
+                          return
+                        }
+                        const v = parseInt(raw, 10)
+                        if (!Number.isNaN(v)) setFormData(prev => ({ ...prev, [key]: v }))
+                      }}
+                      onBlur={() => {
+                        const v = Number(formData[key])
+                        if (formData[key] === '' || formData[key] === undefined || Number.isNaN(v) || v < 0 || (max != null && v > max)) {
+                          setFormData(prev => ({
+                            ...prev,
+                            [key]: max != null ? Math.min(max, Math.max(0, Number(prev[key]) || def)) : Math.max(0, Number(prev[key]) || def),
+                          }))
+                        }
+                      }}
+                    />
+                    {hintEn && <span className="field-hint">{t(hintEn, hintAr, lang)}</span>}
+                  </div>
+                ))}
               </div>
+            </SettingsCard>
             </div>
           </div>
           )}
 
           {activeTab === 'courts' && (
-          <div className="settings-section">
-            <h3 className="settings-section-title">
-              <span className="section-icon">🏟️</span>
-              {t('Courts Management', 'إدارة الملاعب', lang)}
-            </h3>
+          <div className="settings-section cs-tab-panel">
+            <SettingsTabHero icon="🏟️" titleEn="Courts management" titleAr="إدارة الملاعب" tabId="courts" lang={lang} />
+            <div className="cs-tab-stack">
+            <SettingsCard
+              titleEn="Your courts"
+              titleAr="ملاعبك"
+              descEn="List shown in the booking grid and on the club page. Maintenance hides a court from new bookings without deleting history."
+              descAr="القائمة في جدول الحجز وصفحة النادي. وضع الصيانة يخفي الملعب عن الحجوزات الجديدة دون حذف السجل."
+              lang={lang}
+            >
             <div className="courts-list">
               {courts.length > 0 ? (
                 <div className="courts-table">
@@ -965,9 +1075,17 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                 <div className="empty-state">{t('No courts added yet', 'لم تتم إضافة ملاعب بعد', lang)}</div>
               )}
             </div>
+            </SettingsCard>
 
-            <div className="court-form">
-              <h4 className="court-form-title">{editingCourt ? t('Edit Court', 'تعديل الملعب', lang) : t('Add New Court', 'إضافة ملعب جديد', lang)}</h4>
+            <SettingsCard
+              titleEn={editingCourt ? 'Edit court' : 'Add a court'}
+              titleAr={editingCourt ? 'تعديل الملعب' : 'إضافة ملعب'}
+              descEn="Names in both languages help mixed audiences. Image appears in the facilities section."
+              descAr="الاسم باللغتين يساعد الجمهور المختلط. الصورة تظهر في قسم المرافق."
+              lang={lang}
+            >
+            <div className="court-form cs-court-form-inner">
+              <h4 className="court-form-title sr-only">{editingCourt ? t('Edit Court', 'تعديل الملعب', lang) : t('Add New Court', 'إضافة ملعب جديد', lang)}</h4>
               <div className="form-row form-row-2 court-form-row">
                 <div className="form-group settings-field">
                   <label className="field-label">{t('Court Name (English)', 'اسم الملعب (إنجليزي)', lang)} *</label>
@@ -1023,22 +1141,22 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                 )}
               </div>
             </div>
+            </SettingsCard>
+            </div>
           </div>
           )}
 
           {activeTab === 'hours' && (
-          <div className="settings-section">
-            <h3 className="settings-section-title">
-              <span className="section-icon">🕐</span>
-              {t('Club Hours', 'أوقات العمل', lang)}
-            </h3>
-            <p className="field-hint field-hint-block">
-              {t(
-                'Seasons (MM-DD). Put the default season first, then overrides — the last matching season wins. Same-day period: open earlier than close (e.g. 07:00–12:00). Overnight: one row only — open evening, close next morning (e.g. 16:00–04:00 means until 4:00 the next day). Do not split at midnight. With overnight hours, legacy time pickers allow the full day; real rules follow these windows.',
-                'مواسم (شهر-يوم). الموسم الافتراضي أولاً ثم التفضيلات — آخر موسم مطابق يُطبَّق. نفس اليوم: الفتح قبل الإغلاق (مثل 07:00–12:00). عمل ليلي: صف واحد فقط — افتح مساءً وأغلق صباح اليوم التالي (مثل 16:00–04:00 يعني حتى 4 صباحاً لليوم التالي). لا تقسّم عند منتصف الليل. عند وجود عمل ليلي، حقول الوقت القديمة تسمح بيوم كامل والتحقق الفعلي حسب هذه النوافذ.',
-                lang
-              )}
-            </p>
+          <div className="settings-section cs-tab-panel">
+            <SettingsTabHero icon="🕐" titleEn="Club hours" titleAr="أوقات العمل" tabId="hours" lang={lang} />
+            <div className="cs-tab-stack">
+            <SettingsCard
+              titleEn="Seasons & time windows"
+              titleAr="المواسم والفترات"
+              descEn="Dates use MM-DD. Default season first, then overrides — last match wins. Overnight: one row (e.g. 16:00–04:00). Legacy pickers may show a full day; enforcement follows these rows."
+              descAr="التواريخ شهر-يوم. الموسم الافتراضي أولاً ثم الاستثناءات — آخر تطابق يُطبَّق. الليل: صف واحد (مثل 16:00–04:00). قد تظهر أوقات يوم كامل في حقول قديمة؛ التطبيق الفعلي حسب هذه الصفوف."
+              lang={lang}
+            >
             <div className="working-hours-seasons">
               {(formData.workingHoursSeasons || []).map((season, si) => (
                 <div key={season.id || si} className="working-hours-season">
@@ -1176,16 +1294,22 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                 + {t('Add season', 'إضافة موسم', lang)}
               </button>
             </div>
+            </SettingsCard>
+            </div>
           </div>
           )}
 
           {activeTab === 'social' && (
-          <div className="settings-section">
-            <h3 className="settings-section-title">
-              <span className="section-icon">🔗</span>
-              {t('Social Media', 'التواصل الاجتماعي', lang)}
-            </h3>
-            <p className="field-hint field-hint-block">{t('Social links appear in the header above the banner.', 'روابط التواصل تظهر في الشريط فوق البنر.')}</p>
+          <div className="settings-section cs-tab-panel">
+            <SettingsTabHero icon="🔗" titleEn="Social media" titleAr="التواصل الاجتماعي" tabId="social" lang={lang} />
+            <div className="cs-tab-stack">
+            <SettingsCard
+              titleEn="Links & icon style"
+              titleAr="الروابط وتنسيق الأيقونات"
+              descEn="Full https URLs. Colors update the live preview; icons sit in the header strip above your banner."
+              descAr="روابط https كاملة. الألوان تُحدّث المعاينة؛ الأيقونات في الشريط فوق البنر."
+              lang={lang}
+            >
             <div className="social-links-editor">
               {socialLinks.map((item, idx) => (
                 <div key={idx} className="social-link-row">
@@ -1248,6 +1372,8 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
               >
                 + {t('Add social link', 'إضافة رابط', lang)}
               </button>
+            </div>
+            </SettingsCard>
             </div>
           </div>
           )}
