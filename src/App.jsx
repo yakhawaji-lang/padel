@@ -54,6 +54,11 @@ import {
   mergeTournamentTeamsFromPaymentShares,
   tournamentTeamSyncChanged,
 } from './utils/tournamentBookingShareSync'
+import {
+  effectiveShareAmount,
+  effectivePendingGuestFee,
+  findPaymentShareForPendingGuest,
+} from './utils/paymentShareEffectiveAmounts'
 
 function bookingJsonData(booking) {
   const d = booking?.data
@@ -435,6 +440,7 @@ function App({ currentUser }) {
   /** معرفات أعضاء مثبتة للظهور في المنتقي بدون بحث (لكل نادي) */
   const [memberSelectorPinnedIds, setMemberSelectorPinnedIds] = useState([])
   const [memberSelectorGuestInviteBusy, setMemberSelectorGuestInviteBusy] = useState(false)
+  const [pendingGuestWaGuestId, setPendingGuestWaGuestId] = useState(null)
   const [teamMemberDragOverId, setTeamMemberDragOverId] = useState(null)
   const [showMemberPointsHistory, setShowMemberPointsHistory] = useState(false) // Show/hide member points history
   const [selectedMemberForHistory, setSelectedMemberForHistory] = useState(null) // Selected member ID for viewing history
@@ -5711,6 +5717,87 @@ function App({ currentUser }) {
     updateCurrentState,
   ])
 
+  const handlePendingGuestResendWhatsApp = useCallback(
+    async (guest) => {
+      const row = tournamentBookingRowForGuestInvite
+      if (!row?.id || !clubId) return
+
+      const platformMember = getCurrentPlatformUser()
+      const rawSid = getCurrentMemberId()
+      const sessionMemberId =
+        rawSid != null && String(rawSid).trim() !== '' ? String(rawSid).trim() : ''
+      const organizerFromBooking =
+        row?.initiatorMemberId ??
+        row?.memberId ??
+        row?.initiator_member_id ??
+        row?.member_id
+      const organizerId =
+        platformMember?.id != null && String(platformMember.id).trim() !== ''
+          ? String(platformMember.id).trim()
+          : sessionMemberId ||
+            (organizerFromBooking != null && String(organizerFromBooking).trim() !== ''
+              ? String(organizerFromBooking).trim()
+              : '')
+      const ca = getClubAdminSession()
+      const isClubAdminForThisClub =
+        ca && String(ca.clubId || '').trim() === String(clubId || '').trim()
+
+      if (!organizerId && !isClubAdminForThisClub) {
+        alert(t.memberSelectorGuestInviteNeedLogin)
+        return
+      }
+
+      const share = findPaymentShareForPendingGuest(row, guest)
+      const amount = share ? effectiveShareAmount(row, share) : parseFloat(guest.fee) || 0
+      if (amount <= 0.009) {
+        alert(
+          language === 'en'
+            ? 'Cannot send: share amount is zero. Set the booking total or share amounts in Bookings (admin).'
+            : 'تعذر الإرسال: المبلغ صفر. عيّن إجمالي الحجز أو مبالغ الحصص من صفحة الحجوزات.'
+        )
+        return
+      }
+
+      const phone = normalizeMemberSelectorPhoneDisplay(guest.phoneDisplay || '')
+      if (!phone || phoneDigitsNormalized(phone).length < 8) {
+        alert(t.memberSelectorGuestInviteNeedPhoneDigits)
+        return
+      }
+
+      setPendingGuestWaGuestId(guest.id)
+      try {
+        const res = await bookingApi.createTournamentGuestFeeShare({
+          bookingId: row.id,
+          clubId,
+          ...(organizerId ? { organizerMemberId: organizerId } : {}),
+          phone,
+          amount,
+          guestKind: 'auto',
+          ...(share?.memberName || share?.member_name
+            ? { memberName: String(share.memberName || share.member_name).trim() }
+            : {}),
+        })
+        await syncBookingsAfterApi()
+        const wa = res?.whatsappLink || res?.payUrl
+        if (wa && typeof window !== 'undefined') {
+          window.open(wa, '_blank', 'noopener,noreferrer')
+        }
+      } catch (e) {
+        const code = e?.apiCode
+        if (code === 'AMBIGUOUS_PHONE') {
+          alert(t.memberSelectorGuestInviteAmbiguousPhone)
+        } else if (code === 'ORGANIZER_OR_ADMIN_REQUIRED' || code === 'NOT_ALLOWED_ORGANIZER') {
+          alert(t.memberSelectorGuestInviteNeedLogin)
+        } else {
+          alert(e?.message || (language === 'en' ? 'Could not resend WhatsApp invite.' : 'تعذّر إعادة إرسال واتساب.'))
+        }
+      } finally {
+        setPendingGuestWaGuestId(null)
+      }
+    },
+    [tournamentBookingRowForGuestInvite, clubId, language, t, syncBookingsAfterApi]
+  )
+
   const clubCurrency = currentClub?.settings?.currency || 'SAR'
   const clubNameWhatsApp = currentClub?.nameAr || currentClub?.name || ''
   const tournamentDateStr =
@@ -7538,32 +7625,51 @@ function App({ currentUser }) {
                                 </span>
                                 <span className="member-chip__guest-status">{t.tournamentGuestPendingStatus}</span>
                                 <span className="member-chip__guest-fee">
-                                  {g.fee} {clubCurrency}
+                                  {tournamentBookingRowForGuestInvite
+                                    ? effectivePendingGuestFee(tournamentBookingRowForGuestInvite, g)
+                                    : parseFloat(g.fee) || 0}{' '}
+                                  {clubCurrency}
                                 </span>
                               </span>
-                              <button
-                                type="button"
-                                className="chip-remove"
-                                title={t.tournamentGuestPendingRemoveTitle}
-                                aria-label={t.tournamentGuestPendingRemoveTitle}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  e.preventDefault()
-                                  updateCurrentState((state) => ({
-                                    ...state,
-                                    teams: (state.teams || []).map((tm) =>
-                                      tm.id !== team.id
-                                        ? tm
-                                        : {
-                                            ...tm,
-                                            pendingFeeGuests: (tm.pendingFeeGuests || []).filter((x) => x.id !== g.id),
-                                          }
-                                    ),
-                                  }))
-                                }}
-                              >
-                                ×
-                              </button>
+                              <span className="member-chip__guest-actions">
+                                <button
+                                  type="button"
+                                  className="chip-wa"
+                                  title={t.tournamentGuestPendingWhatsAppTitle}
+                                  aria-label={t.tournamentGuestPendingWhatsAppTitle}
+                                  disabled={pendingGuestWaGuestId === g.id}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    e.preventDefault()
+                                    void handlePendingGuestResendWhatsApp(g)
+                                  }}
+                                >
+                                  {pendingGuestWaGuestId === g.id ? '…' : t.tournamentGuestPendingWhatsApp}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="chip-remove"
+                                  title={t.tournamentGuestPendingRemoveTitle}
+                                  aria-label={t.tournamentGuestPendingRemoveTitle}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    e.preventDefault()
+                                    updateCurrentState((state) => ({
+                                      ...state,
+                                      teams: (state.teams || []).map((tm) =>
+                                        tm.id !== team.id
+                                          ? tm
+                                          : {
+                                              ...tm,
+                                              pendingFeeGuests: (tm.pendingFeeGuests || []).filter((x) => x.id !== g.id),
+                                            }
+                                      ),
+                                    }))
+                                  }}
+                                >
+                                  ×
+                                </button>
+                              </span>
                             </span>
                           ))}
                           {(team.memberIds || []).length > 0 ? (

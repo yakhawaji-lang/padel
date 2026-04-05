@@ -3,6 +3,8 @@
  * Source of truth for "who was invited / registered": payment shares on the booking.
  */
 
+import { effectiveShareAmount } from './paymentShareEffectiveAmounts.js'
+
 function phoneDigits(raw) {
   return String(raw || '').replace(/\D/g, '')
 }
@@ -172,7 +174,8 @@ export function mergeTournamentTeamsFromPaymentShares(booking, prevState, option
 
     const token = (s.inviteToken || s.invite_token || '').toString()
     const gid = s.id != null ? `share-${s.id}` : token ? `tok-${token}` : `ph-${dig}`
-    const fee = String(parseFloat(s.amount) || 0)
+    const feeNum = effectiveShareAmount(booking, s)
+    const fee = String(feeNum)
     const display = String(ph).trim()
 
     let foundTeamIdx = -1
@@ -226,7 +229,7 @@ export function mergeTournamentTeamsFromPaymentShares(booking, prevState, option
     ids.push(mstr)
     const mp = { ...(t.memberTournamentPayments || {}) }
     const prevEntry = mp[mstr] && typeof mp[mstr] === 'object' ? mp[mstr] : {}
-    const feeNum = parseFloat(s.amount) || 0
+    const feeNum = effectiveShareAmount(booking, s)
     const feeStr =
       prevEntry.fee != null && String(prevEntry.fee).trim() !== ''
         ? String(prevEntry.fee)

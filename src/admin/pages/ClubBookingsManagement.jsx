@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { loadClubs, getClubById, getClubMembersFromStorage, getAllMembersFromStorage, deleteBookingFromClub, updateBookingInClub } from '../../storage/adminStorage'
 import { resolvePaymentShareDisplayName, effectiveSplitPaidSum } from '../../utils/paymentShareMemberMatch'
+import { effectiveShareAmount, shareRowIsActive } from '../../utils/paymentShareEffectiveAmounts'
 import * as bookingApi from '../../api/dbClient'
 import CalendarPicker from '../../components/CalendarPicker'
 import { calculateBookingPrice } from '../../utils/bookingPricing'
@@ -415,9 +416,13 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       window.alert(language === 'en' ? 'Valid phone number required on this share.' : 'يلزم رقم جوال صالح على هذه الحصة.')
       return
     }
-    const amount = parseFloat(share?.amount) || 0
-    if (amount <= 0) {
-      window.alert(language === 'en' ? 'Share amount must be greater than zero to send payment invite.' : 'يجب أن يكون مبلغ الحصة أكبر من صفر لإرسال دعوة الدفع.')
+    const amount = effectiveShareAmount(booking, share)
+    if (amount <= 0.009) {
+      window.alert(
+        language === 'en'
+          ? 'Cannot send invite: share amount is zero and booking total is missing or already fully allocated. Set amounts on shares or the booking total.'
+          : 'تعذر الإرسال: مبلغ الحصة صفر ولا يوجد إجمالي حجز أو المبالغ مخصصة بالكامل. عيّن مبالغ الحصص أو إجمالي الحجز.'
+      )
       return
     }
     const key = `wa-share-${share?.id || share?.inviteToken || phoneDig}`
@@ -1501,7 +1506,9 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                     const isBookerShare = (s) => String(s.memberId || '') === bookerId
                                     const bookerShares = paymentShares.filter(s => isBookerShare(s) && !s.inviteToken)
                                     const participantShares = paymentShares.filter(s => !isBookerShare(s) || !!s.inviteToken)
-                                    const sharesSum = paymentShares.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
+                                    const sharesSum = paymentShares
+                                      .filter((s) => shareRowIsActive(s))
+                                      .reduce((sum, s) => sum + effectiveShareAmount(b, s), 0)
                                     const bookerAmountFromCalc = Math.max(0, totalAmount - sharesSum)
                                     const bookerPaymentMethod = b.initiatorPaymentMethod || b.paymentMethod
                                     const renderShareRow = (s, idx, isBooker) => {
@@ -1517,6 +1524,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                       const waShareKey = `wa-share-${s.id || s.inviteToken || phoneDigShare || idx}`
                                       const canAdminRemoveShare =
                                         !isRemoved && !isRefunded && !s.paidAt && !memberRefundPending && !!(s.id || s.inviteToken)
+                                      const effectiveAmt = effectiveShareAmount(b, s)
                                       const canResendTournamentWa =
                                         isTournamentRow &&
                                         !isRemoved &&
@@ -1524,14 +1532,16 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                         !s.paidAt &&
                                         !memberRefundPending &&
                                         phoneDigShare.length >= 8 &&
-                                        (parseFloat(s.amount) || 0) > 0.009
+                                        effectiveAmt > 0.009
                                       return (
                                         <div key={s.id || idx} className={`booking-payment-share-item ${isRemoved ? 'share-removed' : memberRefundPending ? 'share-member-refund-pending' : s.paidAt ? 'paid' : 'pending'}`}>
                                           <div className="booking-payment-share-top">
                                             <span className="booking-payment-share-name">
                                               {resolvePaymentShareDisplayName(s, members)}{isBooker ? ` (${c.booker})` : ''}
                                             </span>
-                                            <span className="booking-payment-share-amount">{parseFloat(s.amount) || 0} {currency}</span>
+                                            <span className="booking-payment-share-amount">
+                                              {(isRemoved ? parseFloat(s.amount) || 0 : effectiveShareAmount(b, s))} {currency}
+                                            </span>
                                             <span className="booking-payment-share-status">
                                               {isRemoved ? (
                                                 <span className="status-badge status-removed">{c.removedParticipant}</span>

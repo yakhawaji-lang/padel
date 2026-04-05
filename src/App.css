@@ -2831,6 +2831,36 @@ button:active {
   opacity: 0.9;
 }
 
+.member-chip__guest-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.member-chip--guest-pending .chip-wa {
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(16, 185, 129, 0.4);
+  color: #ecfdf5;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.member-chip--guest-pending .chip-wa:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.55);
+}
+
+.member-chip--guest-pending .chip-wa:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .member-chip__name {
   max-width: 140px;
   overflow: hidden;
