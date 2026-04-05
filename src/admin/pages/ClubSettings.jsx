@@ -68,8 +68,9 @@ const TOURNAMENT_SPLIT_DEADLINE_FIELDS = [
     key: 'tournamentKingSplitPaymentDeadlineMinutes',
     default: 30,
     max: 43200,
-    labelEn: 'King of the Court — participant payment deadline (min)',
-    labelAr: 'ملك الملعب — مهلة دفع المشاركين (دقيقة)',
+    /** تسمية ثنائية اللغة في واجهة واحدة (كما طُلب في إعدادات النادي) */
+    labelBilingual:
+      'King of the Court — participant payment deadline (min) / ملك الملعب — مهلة دفع المشاركين (دقيقة)',
     hintEn: 'How long participants have to register and pay their share. Max 43200 (30 days). You can extend a booking later from Bookings (same as other split bookings).',
     hintAr: 'المدة المتاحة للمشاركين للتسجيل ودفع الحصص. الحد الأقصى 43200 دقيقة (30 يوماً). يمكن تمديد الحجز لاحقاً من صفحة الحجوزات كباقي الحجوزات المشتركة.',
   },
@@ -77,8 +78,8 @@ const TOURNAMENT_SPLIT_DEADLINE_FIELDS = [
     key: 'tournamentSocialSplitPaymentDeadlineMinutes',
     default: 30,
     max: 43200,
-    labelEn: 'Social Tournament — participant payment deadline (min)',
-    labelAr: 'بطولة سوشيال — مهلة دفع المشاركين (دقيقة)',
+    labelBilingual:
+      'Social Tournament — participant payment deadline (min) / بطولة سوشيال — مهلة دفع المشاركين (دقيقة)',
     hintEn: 'Same as above for Social Tournament bookings.',
     hintAr: 'نفس المهلة لحجوزات بطولة السوشيال.',
   },
@@ -422,12 +423,16 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
             <div className="cxp-modal-body">
               <p className="field-hint field-hint-block" style={{ marginBottom: 16 }}>{t('Review booking settings before saving:', 'مراجعة إعدادات الحجز قبل الحفظ:', lang)}</p>
               <ul className="save-confirm-values" style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '0.95rem' }}>
-                {BOOKING_CONFIRM_NUMBER_FIELDS.map(({ key, labelEn, labelAr, default: def }) => (
-                  <li key={key} style={{ padding: '8px 0', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-                    <span>{t(labelEn, labelAr, lang)}</span>
-                    <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{String(numDisplay(pendingUpdates.settings[key], def))}</strong>
-                  </li>
-                ))}
+                {BOOKING_CONFIRM_NUMBER_FIELDS.map((field) => {
+                  const { key, default: def, labelBilingual, labelEn, labelAr } = field
+                  const label = labelBilingual || t(labelEn, labelAr, lang)
+                  return (
+                    <li key={key} style={{ padding: '8px 0', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+                      <span style={{ lineHeight: 1.35 }}>{label}</span>
+                      <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{String(numDisplay(pendingUpdates.settings[key], def))}</strong>
+                    </li>
+                  )
+                })}
                 <li style={{ padding: '8px 0', display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center' }}>
                   <span>{t('Allow incomplete split bookings', 'السماح بحجوزات مشتركة غير مكتملة الدفع', lang)}</span>
                   <strong>{pendingUpdates.settings[BOOKING_CHECKBOX_FIELD] ? '✓ ' + t('Yes', 'نعم', lang) : '— ' + t('No', 'لا', lang)}</strong>
@@ -830,44 +835,68 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                     {hintEn && <span className="field-hint">{t(hintEn, hintAr, lang)}</span>}
                   </div>
                 ))}
-                <div className="form-group settings-field" style={{ gridColumn: '1 / -1', marginTop: 8 }}>
-                  <h4 className="field-group-title" style={{ marginBottom: 12 }}>{t('Tournament bookings (split payments)', 'حجوزات البطولات (الدفع المشترك)', lang)}</h4>
-                </div>
-                {TOURNAMENT_SPLIT_DEADLINE_FIELDS.map(({ key, default: def, max, labelEn, labelAr, hintEn, hintAr }) => (
-                  <div key={key} className="form-group settings-field">
-                    <label className="field-label">{t(labelEn, labelAr, lang)}</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      className="settings-input"
-                      dir="ltr"
-                      lang="en"
-                      value={formData[key] === '' || formData[key] === undefined ? '' : String(formData[key])}
-                      onChange={(e) => {
-                        const raw = e.target.value.replace(/\D/g, '')
-                        if (raw === '') {
-                          setFormData(prev => ({ ...prev, [key]: '' }))
-                          return
-                        }
-                        const v = parseInt(raw, 10)
-                        if (!Number.isNaN(v)) setFormData(prev => ({ ...prev, [key]: v }))
-                      }}
-                      onBlur={() => {
-                        const v = Number(formData[key])
-                        if (formData[key] === '' || formData[key] === undefined || Number.isNaN(v) || v < 0 || (max != null && v > max)) {
-                          setFormData(prev => ({ ...prev, [key]: max != null ? Math.min(max, Math.max(0, Number(prev[key]) || def)) : Math.max(0, Number(prev[key]) || def) }))
-                        }
-                      }}
-                    />
-                    {hintEn && <span className="field-hint">{t(hintEn, hintAr, lang)}</span>}
-                  </div>
-                ))}
-                <div className="form-group settings-field checkbox-field" style={{ alignSelf: 'flex-end' }}>
+              </div>
+              <div className="form-row" style={{ marginTop: 16 }}>
+                <div className="form-group settings-field checkbox-field">
                   <label className="checkbox-label">
                     <input type="checkbox" checked={!!formData[BOOKING_CHECKBOX_FIELD]} onChange={(e) => setFormData(prev => ({ ...prev, [BOOKING_CHECKBOX_FIELD]: e.target.checked }))} className="settings-checkbox" />
                     {t('Allow incomplete split bookings', 'السماح بحجوزات مشتركة غير مكتملة الدفع', lang)}
                   </label>
+                </div>
+              </div>
+
+              <div
+                className="settings-field-group tournament-booking-settings-block"
+                style={{
+                  marginTop: 28,
+                  paddingTop: 22,
+                  borderTop: '1px solid #e2e8f0',
+                }}
+              >
+                <h4 className="field-group-title" style={{ marginBottom: 6 }}>
+                  {t('Tournament bookings (split payments)', 'حجوزات البطولات (الدفع المشترك)', lang)}
+                </h4>
+                <p className="field-hint field-hint-block" style={{ marginBottom: 16 }}>
+                  {t(
+                    'Deadlines for King of the Court and Social Tournament when participants pay their share (separate from the general split deadline above).',
+                    'مهلات منفصلة لبطولتي ملك الملعب والسوشيال عند دفع المشاركين لحصصهم (مستقلة عن مهلة التقسيم العامة أعلاه).',
+                    lang
+                  )}
+                </p>
+                <div className="form-row form-row-2">
+                  {TOURNAMENT_SPLIT_DEADLINE_FIELDS.map(({ key, default: def, max, labelBilingual, hintEn, hintAr }) => (
+                    <div key={key} className="form-group settings-field">
+                      <label className="field-label" style={{ lineHeight: 1.35 }}>{labelBilingual}</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        className="settings-input"
+                        dir="ltr"
+                        lang="en"
+                        value={formData[key] === '' || formData[key] === undefined ? '' : String(formData[key])}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/\D/g, '')
+                          if (raw === '') {
+                            setFormData(prev => ({ ...prev, [key]: '' }))
+                            return
+                          }
+                          const v = parseInt(raw, 10)
+                          if (!Number.isNaN(v)) setFormData(prev => ({ ...prev, [key]: v }))
+                        }}
+                        onBlur={() => {
+                          const v = Number(formData[key])
+                          if (formData[key] === '' || formData[key] === undefined || Number.isNaN(v) || v < 0 || (max != null && v > max)) {
+                            setFormData(prev => ({
+                              ...prev,
+                              [key]: max != null ? Math.min(max, Math.max(0, Number(prev[key]) || def)) : Math.max(0, Number(prev[key]) || def),
+                            }))
+                          }
+                        }}
+                      />
+                      {hintEn && <span className="field-hint">{t(hintEn, hintAr, lang)}</span>}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
