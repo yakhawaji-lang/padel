@@ -373,6 +373,36 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     }
   }
 
+  const handleAdminRemovePendingShare = async (booking, share) => {
+    if (!club?.id || !booking?.id) return
+    const sid = share?.id
+    const tok = share?.inviteToken
+    if (!sid && !tok) {
+      window.alert(language === 'en' ? 'Cannot remove this row (missing share id).' : 'تعذر الإزالة — لا يوجد معرّف للحصة.')
+      return
+    }
+    const msg =
+      language === 'en'
+        ? 'Remove this participant from the split? They have not paid yet. Amounts for the booking will be recalculated.'
+        : 'إزالة هذا المشارك من التقسيم؟ لم يدفع بعد. سيعاد احتساب مبالغ الحجز.'
+    if (!window.confirm(msg)) return
+    const key = `remove-share-${sid || tok}`
+    setActionLoading(key)
+    try {
+      await bookingApi.adminRemovePendingShare({
+        bookingId: booking.id,
+        clubId: club.id,
+        ...(sid != null && sid !== '' ? { shareId: sid } : {}),
+        ...(tok ? { inviteToken: tok } : {}),
+      })
+      refreshFromServer()
+    } catch (e) {
+      window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const handleFulfillMemberShareRefund = async (shareId, fulfillment) => {
     if (!club?.id || !shareId) return
     const ful = String(fulfillment).toLowerCase()
@@ -653,6 +683,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       importExpiredPaidConfirm:
         'Credit all paid amounts on registered member shares to their wallets and void the related invoices? This cannot be undone.',
       importExpiredPaidSuccess: 'Imported. Paying members were credited in their club wallets.',
+      removeParticipant: 'Remove',
+      removeParticipantTitle: 'Remove unpaid participant from split',
     },
     ar: {
       bookings: 'الحجوزات',
@@ -758,7 +790,9 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       importExpiredPaidConfirm:
         'إيداع مبالغ المدفوع في محافظ الأعضاء المسجلين وإلغاء فواتير الحصص؟ لا يمكن التراجع.',
       importExpiredPaidSuccess: 'تم الاستيراد. وُجدت أرصدة في محافظ الأعضاء في هذا النادي.',
-    }
+      removeParticipant: 'إزالة',
+      removeParticipantTitle: 'إزالة مشارك لم يدفع من التقسيم',
+    },
   }
   const c = t[language] || t.en
 
@@ -1422,6 +1456,9 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                       const memberRefundPref = s.memberRefundRoute || s.member_refund_route || '—'
                                       const memberRefundNetVal =
                                         s.memberRefundNet != null ? s.memberRefundNet : s.member_refund_net
+                                      const removeShareKey = `remove-share-${s.id || s.inviteToken || idx}`
+                                      const canAdminRemoveShare =
+                                        !isRemoved && !isRefunded && !s.paidAt && !memberRefundPending && !!(s.id || s.inviteToken)
                                       return (
                                         <div key={s.id || idx} className={`booking-payment-share-item ${isRemoved ? 'share-removed' : memberRefundPending ? 'share-member-refund-pending' : s.paidAt ? 'paid' : 'pending'}`}>
                                           <div className="booking-payment-share-top">
@@ -1450,15 +1487,31 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                                 <span className="status-badge status-pending">{c.pending}</span>
                                               )}
                                             </span>
-                                            {canMarkPaid && (
-                                              <button
-                                                type="button"
-                                                className="booking-payment-mark-paid-btn"
-                                                onClick={() => handleMarkSharePaidAtClub(s)}
-                                                disabled={actionLoading === `share-${s.id}`}
-                                              >
-                                                {actionLoading === `share-${s.id}` ? '…' : (language === 'en' ? 'Mark paid' : 'تسجيل الدفع')}
-                                              </button>
+                                            {(canMarkPaid || canAdminRemoveShare) && (
+                                              <div className="booking-payment-share-actions">
+                                                {canMarkPaid && (
+                                                  <button
+                                                    type="button"
+                                                    className="booking-payment-mark-paid-btn"
+                                                    onClick={() => handleMarkSharePaidAtClub(s)}
+                                                    disabled={actionLoading === `share-${s.id}`}
+                                                  >
+                                                    {actionLoading === `share-${s.id}` ? '…' : (language === 'en' ? 'Mark paid' : 'تسجيل الدفع')}
+                                                  </button>
+                                                )}
+                                                {canAdminRemoveShare && (
+                                                  <button
+                                                    type="button"
+                                                    className="booking-payment-share-remove-btn"
+                                                    title={c.removeParticipantTitle}
+                                                    aria-label={c.removeParticipantTitle}
+                                                    onClick={() => handleAdminRemovePendingShare(b, s)}
+                                                    disabled={actionLoading === removeShareKey}
+                                                  >
+                                                    {actionLoading === removeShareKey ? '…' : c.removeParticipant}
+                                                  </button>
+                                                )}
+                                              </div>
                                             )}
                                           </div>
                                           {isRefunded && (

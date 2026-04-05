@@ -91,6 +91,7 @@ function needsDataActorHeaders(path, method) {
   if (m === 'POST' && path === '/api/invoices/purge') return true
   if (m === 'POST' && path === '/api/bookings/admin-fulfill-member-refund') return true
   if (m === 'POST' && path === '/api/bookings/admin-fulfill-member-share-refund') return true
+  if (m === 'POST' && path === '/api/bookings/admin-remove-pending-share') return true
   if (m === 'POST' && path === '/api/bookings/admin-extend-split-deadline') return true
   if (m === 'POST' && path === '/api/bookings/admin-import-expired-split-credits') return true
   if (m === 'POST' && path === '/api/bookings/record-payment') return true
@@ -908,6 +909,19 @@ export async function adminFulfillMemberShareRefund({ shareId, clubId, fulfillme
   return fetchJson('/api/bookings/admin-fulfill-member-share-refund', {
     method: 'POST',
     body: JSON.stringify({ shareId, clubId, fulfillment })
+  })
+}
+
+/** Club / platform admin: remove an unpaid split share (participant) */
+export async function adminRemovePendingShare({ bookingId, clubId, shareId, inviteToken }) {
+  return fetchJson('/api/bookings/admin-remove-pending-share', {
+    method: 'POST',
+    body: JSON.stringify({
+      bookingId,
+      clubId,
+      ...(shareId != null && shareId !== '' ? { shareId } : {}),
+      ...(inviteToken != null && String(inviteToken).trim() !== '' ? { inviteToken } : {}),
+    }),
   })
 }
 

@@ -2976,6 +2976,93 @@ router.post('/booker-remove-pending-share', async (req, res) => {
   }
 })
 
+/** POST /api/bookings/admin-remove-pending-share — أدمن النادي يزيل مشاركاً لم يدفع بعد (تقسيم / بطولة) */
+router.post('/admin-remove-pending-share', async (req, res) => {
+  try {
+    const { bookingId, clubId, shareId, inviteToken } = req.body || {}
+    if (!bookingId || !clubId) {
+      return res.status(400).json({ error: 'bookingId and clubId required' })
+    }
+    const hasShareId = shareId != null && String(shareId).trim() !== ''
+    const tokenNorm = normalizeInviteTokenParamExpress(inviteToken)
+    if (!hasShareId && !tokenNorm) {
+      return res.status(400).json({ error: 'shareId or inviteToken required' })
+    }
+    const actor = getActorFromRequest(req)
+    const at = String(actor.actorType || '').toLowerCase()
+    if (at === 'club_admin') {
+      if (!actor.clubId || String(actor.clubId) !== String(clubId)) {
+        return res.status(403).json({ error: 'Forbidden' })
+      }
+    } else if (at !== 'platform_admin') {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+
+    const { rows: bRows } = await query(
+      `SELECT status FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
+      [bookingId, clubId]
+    )
+    if (!bRows?.length) return res.status(404).json({ error: 'Booking not found' })
+    const st = (bRows[0].status || '').toString().toLowerCase()
+    if (['cancelled', 'cancelled_awaiting_refund_ack'].includes(st)) {
+      return res.status(400).json({ error: 'Cannot modify this booking' })
+    }
+
+    let row
+    if (hasShareId) {
+      try {
+        const r = await query(
+          `SELECT id, booking_id, club_id, invite_token, paid_at, removed_at, refunded_at FROM booking_payment_shares WHERE id = ? AND booking_id = ? AND club_id = ?`,
+          [shareId, bookingId, clubId]
+        )
+        row = r.rows?.[0]
+      } catch (e) {
+        if (!e?.message?.includes('refunded_at')) throw e
+        const r = await query(
+          `SELECT id, booking_id, club_id, invite_token, paid_at, removed_at FROM booking_payment_shares WHERE id = ? AND booking_id = ? AND club_id = ?`,
+          [shareId, bookingId, clubId]
+        )
+        row = r.rows?.[0] ? { ...r.rows[0], refunded_at: null } : undefined
+      }
+    } else {
+      const t = tokenNorm
+      try {
+        const r = await query(
+          `SELECT id, booking_id, club_id, invite_token, paid_at, removed_at, refunded_at FROM booking_payment_shares WHERE invite_token = ? AND booking_id = ? AND club_id = ?`,
+          [t, bookingId, clubId]
+        )
+        row = r.rows?.[0]
+      } catch (e) {
+        if (!e?.message?.includes('refunded_at')) throw e
+        const r = await query(
+          `SELECT id, booking_id, club_id, invite_token, paid_at, removed_at FROM booking_payment_shares WHERE invite_token = ? AND booking_id = ? AND club_id = ?`,
+          [t, bookingId, clubId]
+        )
+        row = r.rows?.[0] ? { ...r.rows[0], refunded_at: null } : undefined
+      }
+    }
+    if (!row) return res.status(404).json({ error: 'Share not found' })
+    if (row.paid_at) return res.status(400).json({ error: 'Share already paid — use refund flow' })
+    if (row.removed_at) return res.status(400).json({ error: 'Share already removed' })
+    if (row.refunded_at) return res.status(400).json({ error: 'Share already refunded' })
+
+    try {
+      await query(`UPDATE booking_payment_shares SET removed_at = NOW() WHERE id = ? AND club_id = ?`, [row.id, clubId])
+    } catch (e) {
+      if (!e?.message?.includes('removed_at')) throw e
+      return res.status(503).json({ error: 'Database migration required (removed_at)' })
+    }
+
+    await mergeClubBookingDataJson(bookingId, clubId, { splitInviteReopen: true })
+    const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bookingId, clubId)
+    if (clubId && rec?.bookingDate) slotCache.invalidateLocks(clubId, rec.bookingDate)
+    res.json({ ok: true, removedShareId: row.id, ...rec })
+  } catch (e) {
+    console.error('bookings admin-remove-pending-share error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
 /** POST /api/bookings/member-remove-own-share — مشارك يزيل نفسه قبل الدفع */
 router.post('/member-remove-own-share', async (req, res) => {
   try {

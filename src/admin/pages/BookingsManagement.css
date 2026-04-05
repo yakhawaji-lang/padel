@@ -399,13 +399,46 @@
 }
 .booking-payment-share-top {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: 12px;
+}
+.booking-payment-share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+.booking-payment-share-remove-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  cursor: pointer;
+}
+.booking-payment-share-remove-btn:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #f87171;
+}
+.booking-payment-share-remove-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 @media (max-width: 720px) {
   .booking-payment-share-top {
     grid-template-columns: 1fr 1fr;
+  }
+  .booking-payment-share-name {
+    grid-column: 1 / -1;
+  }
+  .booking-payment-share-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
   }
 }
 .booking-payment-share-item.paid {
