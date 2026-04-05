@@ -41,23 +41,61 @@ const Login = () => {
     setError('')
     setLoading(true)
     try {
-      const input = norm(formData.email)
+      const rawIdentifier = String(formData.email || '').trim()
       const password = (formData.password || '').trim()
+      const input = norm(formData.email)
       if (!input || !password) {
         setError(language === 'ar' ? 'أدخل البريد أو الاسم وكلمة المرور' : 'Enter email or name and password')
         return
       }
+
+      let member = null
+      let serverRejectedCredentials = false
       try {
-        const backend = (await import('../storage/backendStorage')).default
-        if (backend?.refreshStoreKeys) {
-          await backend.refreshStoreKeys(['all_members', 'padel_members'])
+        const bookingApi = await import('../api/dbClient')
+        const auth = await bookingApi.memberLogin(rawIdentifier, password)
+        if (auth?.ok && auth.memberId) {
+          try {
+            const backend = (await import('../storage/backendStorage')).default
+            if (backend?.refreshStoreKeys) {
+              await backend.refreshStoreKeys(['all_members', 'padel_members'])
+            }
+          } catch (_) {}
+          const membersAfter = getMergedMembersRaw()
+          member =
+            membersAfter.find((m) => String(m.id) === String(auth.memberId)) || {
+              id: auth.memberId,
+              name: auth.name || '',
+              email: auth.email || '',
+              mobile: auth.mobile || null,
+              phone: auth.mobile || null,
+              clubIds: [],
+              clubId: null,
+            }
         }
-      } catch (_) {}
-      const members = getMergedMembersRaw()
-      const member = members.find(m => {
-        const matchId = norm(m.email) === input || norm(m.name) === input || norm(m.mobile || m.phone || '') === input
-        return matchId && (m.password || '') === password
-      })
+      } catch (err) {
+        if (err?.status === 401 || err?.apiCode === 'AUTH_FAILED') {
+          serverRejectedCredentials = true
+        }
+      }
+
+      if (!member && !serverRejectedCredentials) {
+        try {
+          const backend = (await import('../storage/backendStorage')).default
+          if (backend?.refreshStoreKeys) {
+            await backend.refreshStoreKeys(['all_members', 'padel_members'])
+          }
+        } catch (_) {}
+        const members = getMergedMembersRaw()
+        member = members.find((m) => {
+          const matchId =
+            norm(m.email) === input ||
+            norm(m.name) === input ||
+            norm(m.mobile || m.phone || '') === input
+          return matchId && (m.password || '') === password
+        })
+      }
+
       if (member) {
         await setCurrentPlatformUser(member.id)
         const inviteTok = returnPath.startsWith('/') ? parsePaymentShareInviteToken(returnPath) : null

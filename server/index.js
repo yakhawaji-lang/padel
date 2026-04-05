@@ -33,6 +33,7 @@ import galleryRouter from './routes/gallery.js'
 import emailRouter from './routes/email.js'
 import notificationsRouter from './routes/notifications.js'
 import pushRouter from './routes/push.js'
+import memberAuthRouter from './routes/memberAuth.js'
 import { isConnected, getDbDiagnostics, getCurrentDatabase } from './db/pool.js'
 import { startBookingJobs } from './jobs/bookingJobs.js'
 import { startPushNotificationJob } from './jobs/pushNotificationsJob.js'
@@ -62,6 +63,7 @@ app.use('/api/gallery', galleryRouter)
 app.use('/api/email', emailRouter)
 app.use('/api/notifications', notificationsRouter)
 app.use('/api/push', pushRouter)
+app.use('/api/member-auth', memberAuthRouter)
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, db: isConnected() })

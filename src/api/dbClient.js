@@ -764,6 +764,14 @@ export async function dismissTrainingInvite(inviteId, memberId) {
   })
 }
 
+// ---- Member (platform) login — server verifies password_hash (bcrypt or legacy plain) ----
+export async function memberLogin(identifier, password) {
+  return fetchJson('/api/member-auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ identifier, password }),
+  })
+}
+
 // ---- Club join ----
 export async function joinClub(clubId, memberId) {
   return fetchJson('/api/clubs/join', {
