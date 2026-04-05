@@ -183,8 +183,14 @@ function applyBootstrapLanguageFromStorage(backendStorage) {
   try {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('playtix_app_language') : null
     if (raw) {
-      const p = JSON.parse(raw)
-      if (p === 'ar' || p === 'en') lang = p
+      try {
+        const p = JSON.parse(raw)
+        if (p === 'ar' || p === 'en') lang = p
+      } catch {
+        try {
+          localStorage.removeItem('playtix_app_language')
+        } catch (_) {}
+      }
     }
   } catch (_) {}
   try {

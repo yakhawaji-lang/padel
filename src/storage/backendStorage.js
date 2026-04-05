@@ -14,16 +14,25 @@ function fromLocal(key) {
   if (typeof localStorage === 'undefined') return null
   try {
     const raw = localStorage.getItem(LOCAL_PREFIX + key)
-    if (raw === null) return null
-    return JSON.parse(raw)
+    if (raw === null || raw === '') return null
+    try {
+      return JSON.parse(raw)
+    } catch {
+      return raw
+    }
   } catch {
-    return localStorage.getItem(LOCAL_PREFIX + key)
+    return null
   }
 }
 
 export async function bootstrap() {
   if (bootstrapped) return
   try {
+    // Load browser session into cache before network — correct X-Actor-* on first /api/data batch; safe when storage was cleared (empty).
+    LOCAL_ONLY_KEYS.forEach((k) => {
+      const local = fromLocal(k)
+      if (local !== null && local !== undefined) cache.set(k, local)
+    })
     api.configureDataActor?.(() => {
       const pa = cache.get('platform_admin_session')
       if (pa?.id) return { actorType: 'platform_admin', actorId: pa.id, actorName: pa.email }

@@ -6,6 +6,35 @@
   <!-- Optional: full API origin if /api is not on this host (e.g. content="https://api.playtix.app") -->
   <meta name="playtix-api-base" content="" />
   <title>PlayTix</title>
+  <script>
+    (function () {
+      try {
+        window.addEventListener('error', function (ev) {
+          var t = ev && ev.target
+          if (!t || t.tagName !== 'SCRIPT' || !t.src) return
+          var el = document.getElementById('root')
+          if (!el) return
+          if (el.children.length > 0 && !el.querySelector('[data-playtix-root]')) return
+          el.innerHTML =
+            '<div data-playtix-root style="padding:24px;font-family:system-ui,sans-serif;max-width:520px;margin:2rem auto;line-height:1.6">' +
+            '<h1 style="font-size:1.1rem">PlayTix</h1>' +
+            '<p>تعذّر تحميل ملفات التطبيق. بعد مسح بيانات التصفّح، جرّب <strong>تحديثاً قاسياً</strong> (Ctrl+Shift+R) أو أعد فتح <a href="/app/">/app/</a>.</p>' +
+            '<p lang="en" style="color:#64748b;font-size:14px">Script failed to load. Hard-refresh (Ctrl+Shift+R) or open <a href="/app/">/app/</a> directly.</p></div>'
+        }, true)
+      } catch (e) {}
+      try {
+        if (typeof localStorage === 'undefined') return
+        var k = 'playtix_app_language'
+        var raw = localStorage.getItem(k)
+        if (!raw) return
+        try {
+          JSON.parse(raw)
+        } catch (_) {
+          localStorage.removeItem(k)
+        }
+      } catch (_) {}
+    })()
+  </script>
 </head>
 <body>
   <div id="root"></div>

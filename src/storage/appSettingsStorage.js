@@ -14,11 +14,14 @@ function fromLocal(key) {
   if (typeof localStorage === 'undefined') return null
   try {
     const raw = localStorage.getItem(LOCAL_PREFIX + key)
-    if (raw === null) return null
-    const parsed = JSON.parse(raw)
-    return parsed
+    if (raw === null || raw === '') return null
+    try {
+      return JSON.parse(raw)
+    } catch {
+      return raw
+    }
   } catch {
-    return localStorage.getItem(LOCAL_PREFIX + key)
+    return null
   }
 }
 
