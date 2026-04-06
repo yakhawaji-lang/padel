@@ -5619,25 +5619,52 @@ function App({ currentUser }) {
 
   const tournamentBookingRowForGuestInvite = useMemo(() => {
     if (!viewedTournamentBooking?.id) return null
-    return bookings.find((b) => String(b.id) === String(viewedTournamentBooking.id)) || null
-  }, [bookings, viewedTournamentBooking])
+    const id = String(viewedTournamentBooking.id)
+    const fromMerged = bookings.find((b) => String(b.id) === id) || null
+    const fromLocal = localBookings.find((b) => String(b.id) === id) || null
+    const organizerIdFromRow = (r) => {
+      if (!r) return ''
+      const v =
+        r.initiatorMemberId ?? r.memberId ?? r.initiator_member_id ?? r.member_id
+      return v != null && String(v).trim() !== '' ? String(v).trim() : ''
+    }
+    // Prefer a row that still has organizer member id (merged list can lose fields after sync)
+    if (organizerIdFromRow(fromLocal) && !organizerIdFromRow(fromMerged)) return fromLocal
+    return fromMerged || fromLocal
+  }, [bookings, localBookings, viewedTournamentBooking])
 
   const resolveOrganizerMemberIdForFavorites = useCallback(() => {
-    const platformMember = getCurrentPlatformUser()
-    if (platformMember?.id != null && String(platformMember.id).trim() !== '') {
-      return String(platformMember.id).trim()
-    }
-    const rawSid = getCurrentMemberId()
-    if (rawSid != null && String(rawSid).trim() !== '') return String(rawSid).trim()
     const row = tournamentBookingRowForGuestInvite
-    const fromBooking =
+    const organizerFromBooking =
       row?.initiatorMemberId ??
       row?.memberId ??
       row?.initiator_member_id ??
       row?.member_id
-    if (fromBooking != null && String(fromBooking).trim() !== '') return String(fromBooking).trim()
-    return ''
-  }, [tournamentBookingRowForGuestInvite])
+    const platformMember = getCurrentPlatformUser()
+    const rawSid = getCurrentMemberId()
+    const sessionMemberId =
+      rawSid != null && String(rawSid).trim() !== '' ? String(rawSid).trim() : ''
+    let mid =
+      platformMember?.id != null && String(platformMember.id).trim() !== ''
+        ? String(platformMember.id).trim()
+        : sessionMemberId ||
+          (organizerFromBooking != null && String(organizerFromBooking).trim() !== ''
+            ? String(organizerFromBooking).trim()
+            : '')
+    if (!mid && clubId) {
+      const ca = getClubAdminSession()
+      const isClubAdminForThisClub =
+        ca && String(ca.clubId || '').trim() === String(clubId || '').trim()
+      const adminEmail = String(ca?.email || '').trim().toLowerCase()
+      if (isClubAdminForThisClub && adminEmail) {
+        const hit = members.find(
+          (m) => String(m?.email || '').trim().toLowerCase() === adminEmail
+        )
+        if (hit?.id != null && String(hit.id).trim() !== '') mid = String(hit.id).trim()
+      }
+    }
+    return mid
+  }, [tournamentBookingRowForGuestInvite, clubId, members])
 
   useEffect(() => {
     if (!openMemberSelectorForTeam) {
@@ -5690,11 +5717,7 @@ function App({ currentUser }) {
   const handleLoadMemberSelectorFavorites = useCallback(async () => {
     const mid = resolveOrganizerMemberIdForFavorites()
     if (!mid || !clubId) {
-      alert(
-        language === 'en'
-          ? 'Sign in as a PlayTix member linked to this club (or save the tournament with an organizer) to load favorites from My favorites.'
-          : 'سجّل الدخول كعضو منصة مرتبط بهذا النادي (أو احفظ البطولة مع منظم) لجلب المفضلة من «مفضلتي».'
-      )
+      alert(t.memberSelectorFavoritesNeedContext)
       return
     }
     setMemberSelectorFavoritesLoading(true)
@@ -5709,7 +5732,7 @@ function App({ currentUser }) {
     } finally {
       setMemberSelectorFavoritesLoading(false)
     }
-  }, [resolveOrganizerMemberIdForFavorites, clubId, language])
+  }, [resolveOrganizerMemberIdForFavorites, clubId, language, t])
 
   const getMemberSelectorBulkFavoritePicks = useCallback(() => {
     return memberSelectorFavoriteMembersInClub.filter((m) => memberSelectorFavBulkSelected[String(m.id)])

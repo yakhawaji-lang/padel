@@ -137,6 +137,8 @@ export const translations = {
     memberSelectorFavoritesDistributeHint:
       'Uses the default payment amount per row when set. Members are removed from other teams first (same as drag between teams).',
     memberSelectorFavoritesNoneInClub: 'No saved favorites are in this club’s member list. Add them to the club or pick another account’s favorites.',
+    memberSelectorFavoritesNeedContext:
+      'Favorites are stored per PlayTix member account. To load them here: sign in as that member (Members / home login), or open the club dashboard with an admin email that matches the same email on a member profile in this club’s directory, or save the tournament booking once while logged in as the member so the booking stores an organizer. Then tap «Load from My favorites» again.',
     tournamentGuestPendingStatus: 'Waiting for registration & payment',
     tournamentGuestPendingRemoveTitle: 'Remove from team list (does not cancel the payment link)',
     tournamentGuestPendingWhatsApp: 'WhatsApp again',
@@ -477,6 +479,8 @@ export const translations = {
     memberSelectorFavoritesDistributeHint:
       'يُستخدم مبلغ الدفع الافتراضي لكل صف عند ضبطه. يُزال العضو من الفرق الأخرى أولاً (مثل السحب بين الفرق).',
     memberSelectorFavoritesNoneInClub: 'لا يوجد من مفضلتك ضمن أعضاء هذا النادي. أضِفهم للنادي أو استخدم حساباً آخر له مفضلة.',
+    memberSelectorFavoritesNeedContext:
+      'المفضلة مرتبطة بحساب عضو في المنصة. لجلبها هنا: سجّل الدخول كذلك العضو (من صفحة الأعضاء أو الرئيسية)، أو ادخل لوحة النادي ببريد يطابق بريد عضو موجود في دليل النادي، أو احفظ حجز البطولة مرة وأنت مسجّل كعضو ليُحفظ المنظم. ثم أعِد الضغط على «جلب من مفضلتي».',
     tournamentGuestPendingStatus: 'في انتظار تسجيل العضو والدفع',
     tournamentGuestPendingRemoveTitle: 'إزالة من قائمة الفريق (لا يلغي رابط الدفع)',
     tournamentGuestPendingWhatsApp: 'واتساب مرة أخرى',
