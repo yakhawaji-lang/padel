@@ -127,6 +127,16 @@ export const translations = {
       'No PlayTix account was found for this number. The server should use the registration link; if you see this, refresh and try again.',
     memberSelectorGuestInviteAlreadyInClub:
       'This number belongs to someone already in the club directory — find them in the list above (search or pin).',
+    memberSelectorLoadFavorites: 'Load from My favorites',
+    memberSelectorFavoritesSection: 'My favorites (this club)',
+    memberSelectorFavoritesSelectAll: 'Select all',
+    memberSelectorFavoritesClearSelection: 'Clear selection',
+    memberSelectorFavoritesToThisTeam: 'Add selected → this team',
+    memberSelectorFavoritesRoundRobin: 'Distribute selected → round-robin all teams',
+    memberSelectorFavoritesSequentialTeams: 'Distribute selected → split evenly across teams',
+    memberSelectorFavoritesDistributeHint:
+      'Uses the default payment amount per row when set. Members are removed from other teams first (same as drag between teams).',
+    memberSelectorFavoritesNoneInClub: 'No saved favorites are in this club’s member list. Add them to the club or pick another account’s favorites.',
     tournamentGuestPendingStatus: 'Waiting for registration & payment',
     tournamentGuestPendingRemoveTitle: 'Remove from team list (does not cancel the payment link)',
     tournamentGuestPendingWhatsApp: 'WhatsApp again',
@@ -457,6 +467,16 @@ export const translations = {
       'لا يوجد حساب بهذا الرقم. يفترض أن يُستخدم رابط التسجيل؛ إن ظهرت هذه الرسالة حدّث الصفحة وأعد المحاولة.',
     memberSelectorGuestInviteAlreadyInClub:
       'هذا الرقم لعضو موجود في دليل النادي — ابحث عنه في القائمة أعلاه أو ثبّته.',
+    memberSelectorLoadFavorites: 'جلب من مفضلتي',
+    memberSelectorFavoritesSection: 'مفضلتي (في هذا النادي)',
+    memberSelectorFavoritesSelectAll: 'تحديد الكل',
+    memberSelectorFavoritesClearSelection: 'إلغاء التحديد',
+    memberSelectorFavoritesToThisTeam: 'إضافة المحددين ← هذا الفريق',
+    memberSelectorFavoritesRoundRobin: 'توزيع المحددين ← بالتناوب على كل الفرق',
+    memberSelectorFavoritesSequentialTeams: 'توزيع المحددين ← تقسيم متساوٍ بين الفرق',
+    memberSelectorFavoritesDistributeHint:
+      'يُستخدم مبلغ الدفع الافتراضي لكل صف عند ضبطه. يُزال العضو من الفرق الأخرى أولاً (مثل السحب بين الفرق).',
+    memberSelectorFavoritesNoneInClub: 'لا يوجد من مفضلتك ضمن أعضاء هذا النادي. أضِفهم للنادي أو استخدم حساباً آخر له مفضلة.',
     tournamentGuestPendingStatus: 'في انتظار تسجيل العضو والدفع',
     tournamentGuestPendingRemoveTitle: 'إزالة من قائمة الفريق (لا يلغي رابط الدفع)',
     tournamentGuestPendingWhatsApp: 'واتساب مرة أخرى',

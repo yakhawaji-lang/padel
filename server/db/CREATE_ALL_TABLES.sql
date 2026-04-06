@@ -533,7 +533,8 @@ CREATE TABLE IF NOT EXISTS member_favorites (
   favorite_member_id VARCHAR(255) NOT NULL,
   club_id VARCHAR(255) NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (member_id, favorite_member_id, club_id)
+  PRIMARY KEY (member_id, favorite_member_id, club_id),
+  INDEX idx_member_favorites_member_club (member_id, club_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS coach_training_invites (

@@ -442,6 +442,11 @@ function App({ currentUser }) {
   const [memberSelectorFeeDraft, setMemberSelectorFeeDraft] = useState({}) // { [memberId]: string }
   /** معرفات أعضاء مثبتة للظهور في المنتقي بدون بحث (لكل نادي) */
   const [memberSelectorPinnedIds, setMemberSelectorPinnedIds] = useState([])
+  /** مفضلات العضو من جدول member_favorites (member_id = منظم البطولة) */
+  const [memberSelectorFavoriteIds, setMemberSelectorFavoriteIds] = useState([])
+  const [memberSelectorFavoritesLoading, setMemberSelectorFavoritesLoading] = useState(false)
+  /** اختيار توزيع جماعي: { [memberId]: true } */
+  const [memberSelectorFavBulkSelected, setMemberSelectorFavBulkSelected] = useState({})
   const [memberSelectorGuestInviteBusy, setMemberSelectorGuestInviteBusy] = useState(false)
   const [pendingGuestWaGuestId, setPendingGuestWaGuestId] = useState(null)
   const [teamMemberDragOverId, setTeamMemberDragOverId] = useState(null)
@@ -5445,6 +5450,7 @@ function App({ currentUser }) {
     const team = teams.find((t) => t.id === openMemberSelectorForTeam)
     const onTeamIds = new Set((team?.memberIds || []).map((id) => String(id)))
     const pinned = new Set(memberSelectorPinnedIds.map(String))
+    const favSet = new Set(memberSelectorFavoriteIds.map(String))
     const nameOf = memberDisplayNameForSelector
     const sortByName = (a, b) => nameOf(a).localeCompare(nameOf(b), undefined, { sensitivity: 'base' })
     const searchDigits = phoneDigitsNormalized(memberSelectorSearch || '')
@@ -5456,6 +5462,7 @@ function App({ currentUser }) {
       .filter((m) => {
         if (onTeamIds.has(String(m.id))) return false
         if (pinned.has(String(m.id))) return true
+        if (favSet.has(String(m.id))) return true
         if (phoneSearchOk && phoneMatches(m)) return true
         return false
       })
@@ -5468,6 +5475,7 @@ function App({ currentUser }) {
     memberSelectorSearch,
     memberSelectorSearchNonce,
     memberSelectorPinnedIds,
+    memberSelectorFavoriteIds,
   ])
 
   const memberSelectorContactsSupported = useMemo(
@@ -5613,6 +5621,175 @@ function App({ currentUser }) {
     if (!viewedTournamentBooking?.id) return null
     return bookings.find((b) => String(b.id) === String(viewedTournamentBooking.id)) || null
   }, [bookings, viewedTournamentBooking])
+
+  const resolveOrganizerMemberIdForFavorites = useCallback(() => {
+    const platformMember = getCurrentPlatformUser()
+    if (platformMember?.id != null && String(platformMember.id).trim() !== '') {
+      return String(platformMember.id).trim()
+    }
+    const rawSid = getCurrentMemberId()
+    if (rawSid != null && String(rawSid).trim() !== '') return String(rawSid).trim()
+    const row = tournamentBookingRowForGuestInvite
+    const fromBooking =
+      row?.initiatorMemberId ??
+      row?.memberId ??
+      row?.initiator_member_id ??
+      row?.member_id
+    if (fromBooking != null && String(fromBooking).trim() !== '') return String(fromBooking).trim()
+    return ''
+  }, [tournamentBookingRowForGuestInvite])
+
+  useEffect(() => {
+    if (!openMemberSelectorForTeam) {
+      setMemberSelectorFavoriteIds([])
+      setMemberSelectorFavBulkSelected({})
+      setMemberSelectorFavoritesLoading(false)
+    }
+  }, [openMemberSelectorForTeam])
+
+  const memberSelectorFavoriteMembersInClub = useMemo(() => {
+    if (!openMemberSelectorForTeam || !memberSelectorFavoriteIds.length) return []
+    const team = teams.find((t) => t.id === openMemberSelectorForTeam)
+    const onTeam = new Set((team?.memberIds || []).map((id) => String(id)))
+    const favSet = new Set(memberSelectorFavoriteIds.map(String))
+    const nameOf = memberDisplayNameForSelector
+    return members
+      .filter((m) => favSet.has(String(m.id)) && !onTeam.has(String(m.id)))
+      .sort((a, b) => nameOf(a).localeCompare(nameOf(b), undefined, { sensitivity: 'base' }))
+  }, [openMemberSelectorForTeam, teams, members, memberSelectorFavoriteIds])
+
+  const stripMemberFromAllTeamsInState = (teamsList, memberId) => {
+    const mid = String(memberId)
+    return teamsList.map((t) => {
+      if (!(t.memberIds || []).some((x) => String(x) === mid)) return t
+      const ids = (t.memberIds || []).filter((x) => String(x) !== mid)
+      const mp = { ...(t.memberTournamentPayments || {}) }
+      delete mp[mid]
+      return { ...t, memberIds: ids, memberTournamentPayments: mp }
+    })
+  }
+
+  const addMemberToTeamInList = (teamsList, teamId, member, feeStr) =>
+    teamsList.map((t) => {
+      if (t.id !== teamId) return t
+      const mid = member.id
+      if ((t.memberIds || []).some((x) => String(x) === String(mid))) return t
+      return {
+        ...t,
+        memberIds: [...(t.memberIds || []), mid],
+        memberTournamentPayments: {
+          ...(t.memberTournamentPayments || {}),
+          [mid]: {
+            ...normalizeMemberPaymentEntry((t.memberTournamentPayments || {})[mid]),
+            fee: feeStr,
+          },
+        },
+      }
+    })
+
+  const handleLoadMemberSelectorFavorites = useCallback(async () => {
+    const mid = resolveOrganizerMemberIdForFavorites()
+    if (!mid || !clubId) {
+      alert(
+        language === 'en'
+          ? 'Sign in as a PlayTix member linked to this club (or save the tournament with an organizer) to load favorites from My favorites.'
+          : 'سجّل الدخول كعضو منصة مرتبط بهذا النادي (أو احفظ البطولة مع منظم) لجلب المفضلة من «مفضلتي».'
+      )
+      return
+    }
+    setMemberSelectorFavoritesLoading(true)
+    try {
+      const raw = await bookingApi.getFavoriteMembers(mid, clubId)
+      const ids = Array.isArray(raw) ? raw.map((x) => String(x)) : []
+      setMemberSelectorFavoriteIds(ids)
+      setMemberSelectorFavBulkSelected({})
+    } catch (e) {
+      console.error('load favorites for selector', e)
+      alert(language === 'en' ? 'Could not load favorites.' : 'تعذّر جلب المفضلة.')
+    } finally {
+      setMemberSelectorFavoritesLoading(false)
+    }
+  }, [resolveOrganizerMemberIdForFavorites, clubId, language])
+
+  const getMemberSelectorBulkFavoritePicks = useCallback(() => {
+    return memberSelectorFavoriteMembersInClub.filter((m) => memberSelectorFavBulkSelected[String(m.id)])
+  }, [memberSelectorFavoriteMembersInClub, memberSelectorFavBulkSelected])
+
+  const handleFavoritesAddToCurrentTeam = useCallback(() => {
+    const sel = getMemberSelectorBulkFavoritePicks()
+    const tid = openMemberSelectorForTeam
+    if (!sel.length || !tid) {
+      alert(language === 'en' ? 'Select at least one favorite below.' : 'اختر عضواً واحداً على الأقل من المفضلة.')
+      return
+    }
+    updateCurrentState((state) => {
+      let list = [...(state.teams || [])]
+      for (const member of sel) {
+        list = stripMemberFromAllTeamsInState(list, member.id)
+        const feeStr = resolveMemberFeeDraftStr(member.id)
+        list = addMemberToTeamInList(list, tid, member, feeStr)
+      }
+      return { ...state, teams: list }
+    })
+    setMemberSelectorFavBulkSelected({})
+  }, [
+    getMemberSelectorBulkFavoritePicks,
+    openMemberSelectorForTeam,
+    updateCurrentState,
+    resolveMemberFeeDraftStr,
+    language,
+  ])
+
+  const handleFavoritesDistributeRoundRobin = useCallback(() => {
+    const sel = getMemberSelectorBulkFavoritePicks()
+    if (!sel.length) {
+      alert(language === 'en' ? 'Select at least one favorite below.' : 'اختر عضواً واحداً على الأقل من المفضلة.')
+      return
+    }
+    const order = (teams || []).slice()
+    if (!order.length) return
+    updateCurrentState((state) => {
+      let list = [...(state.teams || [])]
+      sel.forEach((member, idx) => {
+        list = stripMemberFromAllTeamsInState(list, member.id)
+        const target = order[idx % order.length]
+        const feeStr = resolveMemberFeeDraftStr(member.id)
+        list = addMemberToTeamInList(list, target.id, member, feeStr)
+      })
+      return { ...state, teams: list }
+    })
+    setMemberSelectorFavBulkSelected({})
+  }, [getMemberSelectorBulkFavoritePicks, teams, updateCurrentState, resolveMemberFeeDraftStr, language])
+
+  const handleFavoritesDistributeSequential = useCallback(() => {
+    const sel = getMemberSelectorBulkFavoritePicks()
+    if (!sel.length) {
+      alert(language === 'en' ? 'Select at least one favorite below.' : 'اختر عضواً واحداً على الأقل من المفضلة.')
+      return
+    }
+    const order = (teams || []).slice()
+    if (!order.length) return
+    const k = order.length
+    const n = sel.length
+    const base = Math.floor(n / k)
+    const extra = n % k
+    updateCurrentState((state) => {
+      let list = [...(state.teams || [])]
+      let offset = 0
+      order.forEach((tm, ti) => {
+        const take = base + (ti < extra ? 1 : 0)
+        const slice = sel.slice(offset, offset + take)
+        offset += take
+        slice.forEach((member) => {
+          list = stripMemberFromAllTeamsInState(list, member.id)
+          const feeStr = resolveMemberFeeDraftStr(member.id)
+          list = addMemberToTeamInList(list, tm.id, member, feeStr)
+        })
+      })
+      return { ...state, teams: list }
+    })
+    setMemberSelectorFavBulkSelected({})
+  }, [getMemberSelectorBulkFavoritePicks, teams, updateCurrentState, resolveMemberFeeDraftStr, language])
 
   const tournamentGuestShareOpts = useMemo(() => {
     const row = tournamentBookingRowForGuestInvite
@@ -5861,6 +6038,7 @@ function App({ currentUser }) {
     setOpenMemberSelectorForTeam(teamId)
     setMemberSelectorSearch('')
     setMemberSelectorSearchNonce(0)
+    setMemberSelectorFavBulkSelected({})
   }
 
   const moveTeamMemberBetweenTeams = (memberId, fromTeamId, toTeamId) => {
@@ -8856,6 +9034,85 @@ function App({ currentUser }) {
                     </div>
                   </div>
                   <p className="member-selector-phone-hint">{t.memberSelectorPhoneHint}</p>
+                  <div className="member-selector-favorites-bar">
+                    <button
+                      type="button"
+                      className="btn-secondary btn-small"
+                      disabled={memberSelectorFavoritesLoading || !clubId}
+                      onClick={() => handleLoadMemberSelectorFavorites()}
+                    >
+                      {memberSelectorFavoritesLoading ? '…' : t.memberSelectorLoadFavorites}
+                    </button>
+                    {memberSelectorFavoriteIds.length > 0 ? (
+                      <span className="member-selector-favorites-meta">
+                        {language === 'en'
+                          ? `${memberSelectorFavoriteIds.length} in My favorites · ${memberSelectorFavoriteMembersInClub.length} in this club`
+                          : `${memberSelectorFavoriteIds.length} في مفضلتي · ${memberSelectorFavoriteMembersInClub.length} في هذا النادي`}
+                      </span>
+                    ) : null}
+                  </div>
+                  {memberSelectorFavoriteMembersInClub.length > 0 ? (
+                    <div className="member-selector-favorites-panel">
+                      <div className="member-selector-favorites-panel__head">
+                        <span className="member-selector-section-label">{t.memberSelectorFavoritesSection}</span>
+                        <div className="member-selector-favorites-panel__bulk">
+                          <button
+                            type="button"
+                            className="btn-secondary btn-small"
+                            onClick={() => {
+                              const next = {}
+                              memberSelectorFavoriteMembersInClub.forEach((m) => {
+                                next[String(m.id)] = true
+                              })
+                              setMemberSelectorFavBulkSelected(next)
+                            }}
+                          >
+                            {t.memberSelectorFavoritesSelectAll}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-secondary btn-small"
+                            onClick={() => setMemberSelectorFavBulkSelected({})}
+                          >
+                            {t.memberSelectorFavoritesClearSelection}
+                          </button>
+                        </div>
+                      </div>
+                      <ul className="member-selector-favorites-list">
+                        {memberSelectorFavoriteMembersInClub.map((m) => (
+                          <li key={m.id} className="member-selector-favorites-list__item">
+                            <label className="member-selector-favorites-list__label">
+                              <input
+                                type="checkbox"
+                                checked={!!memberSelectorFavBulkSelected[String(m.id)]}
+                                onChange={() =>
+                                  setMemberSelectorFavBulkSelected((prev) => ({
+                                    ...prev,
+                                    [String(m.id)]: !prev[String(m.id)],
+                                  }))
+                                }
+                              />
+                              <span>{memberDisplayNameForSelector(m)}</span>
+                            </label>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="member-selector-favorites-actions">
+                        <button type="button" className="btn-primary btn-small" onClick={() => handleFavoritesAddToCurrentTeam()}>
+                          {t.memberSelectorFavoritesToThisTeam}
+                        </button>
+                        <button type="button" className="btn-secondary btn-small" onClick={() => handleFavoritesDistributeRoundRobin()}>
+                          {t.memberSelectorFavoritesRoundRobin}
+                        </button>
+                        <button type="button" className="btn-secondary btn-small" onClick={() => handleFavoritesDistributeSequential()}>
+                          {t.memberSelectorFavoritesSequentialTeams}
+                        </button>
+                      </div>
+                      <p className="member-selector-favorites-hint">{t.memberSelectorFavoritesDistributeHint}</p>
+                    </div>
+                  ) : memberSelectorFavoriteIds.length > 0 ? (
+                    <p className="member-selector-favorites-empty">{t.memberSelectorFavoritesNoneInClub}</p>
+                  ) : null}
                   {memberSelectorShowGuestPayInvite ? (
                     <div className="member-selector-guest-invite">
                       <p className="member-selector-guest-invite__title">{t.memberSelectorGuestInviteTitle}</p>
