@@ -163,9 +163,9 @@ export function findPaymentShareForPendingGuest(booking, guestChip) {
   )
 }
 
-export function effectivePendingGuestFee(booking, guestChip) {
+export function effectivePendingGuestFee(booking, guestChip, options = {}) {
   if (!guestChip) return 0
   const sh = booking ? findPaymentShareForPendingGuest(booking, guestChip) : null
-  if (sh && booking) return effectiveShareAmount(booking, sh, {})
+  if (sh && booking) return effectiveShareAmount(booking, sh, options)
   return Math.round((parseFloat(guestChip.fee) || 0) * 100) / 100
 }

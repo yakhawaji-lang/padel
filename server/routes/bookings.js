@@ -3606,6 +3606,7 @@ router.get('/invite/:token', async (req, res) => {
       const r = { ...bpsOnly, ...cb }
       if (r.removed_at) return res.status(410).json({ error: 'Invite is no longer valid' })
       const inviteExtras = invitePayloadExtrasFromBookingData(r.booking_data)
+      const amountDisplay = await resolveInviteShareDisplayAmount(r, inviteExtras)
       return res.json({
         inviteToken: r.invite_token,
         bookingId: r.booking_id,
@@ -3614,7 +3615,7 @@ router.get('/invite/:token', async (req, res) => {
         memberId: r.member_id,
         memberName: r.member_name,
         phone: r.phone,
-        amount: parseFloat(r.amount) || 0,
+        amount: amountDisplay,
         paidAt: r.paid_at || undefined,
         paymentMethod: r.payment_method || undefined,
         courtId: r.court_id,
@@ -3629,6 +3630,7 @@ router.get('/invite/:token', async (req, res) => {
     const r = rows[0]
     if (r.removed_at) return res.status(410).json({ error: 'Invite is no longer valid' })
     const inviteExtras = invitePayloadExtrasFromBookingData(r.booking_data)
+    const amountDisplay = await resolveInviteShareDisplayAmount(r, inviteExtras)
     res.json({
       inviteToken: r.invite_token,
       bookingId: r.booking_id,
@@ -3637,7 +3639,7 @@ router.get('/invite/:token', async (req, res) => {
       memberId: r.member_id,
       memberName: r.member_name,
       phone: r.phone,
-      amount: parseFloat(r.amount) || 0,
+      amount: amountDisplay,
       paidAt: r.paid_at || undefined,
       paymentMethod: r.payment_method || undefined,
       courtId: r.court_id,
@@ -3975,6 +3977,103 @@ function parseBookingJsonData(raw) {
   } catch {
     return {}
   }
+}
+
+function digitsOnlyPhoneLike(raw) {
+  return String(raw || '').replace(/\D/g, '')
+}
+
+/**
+ * Read pending guest / member tournament fee from clubs.tournament_data (same shape as client kingStateByTournamentId).
+ */
+function feeFromClubTournamentDataForShare(tournamentDataRaw, bookingId, tournamentTypeLower, shareLike) {
+  let td = tournamentDataRaw
+  if (!td) return null
+  if (typeof td === 'string') {
+    try {
+      td = JSON.parse(td || '{}')
+    } catch {
+      return null
+    }
+  }
+  if (!td || typeof td !== 'object') return null
+  const bid = String(bookingId || '').trim()
+  if (!bid) return null
+  const tt = String(tournamentTypeLower || 'king').toLowerCase()
+  const map = tt === 'social' ? td.socialStateByTournamentId || {} : td.kingStateByTournamentId || {}
+  const state = map[bid]
+  if (!state?.teams || !Array.isArray(state.teams)) return null
+  const sharePhone = digitsOnlyPhoneLike(shareLike.phone)
+  const shareTok = String(shareLike.invite_token || shareLike.inviteToken || '').trim()
+  const shareMem = String(shareLike.member_id || shareLike.memberId || '').trim()
+  for (const team of state.teams) {
+    for (const g of team.pendingFeeGuests || []) {
+      const gTok = g.inviteToken != null ? String(g.inviteToken).trim() : ''
+      if (shareTok && gTok && shareTok === gTok) {
+        const f = parseFloat(g.fee)
+        if (Number.isFinite(f) && f > 0.009) return f
+      }
+      const gd = digitsOnlyPhoneLike(g.phoneDisplay)
+      if (sharePhone.length >= 8 && gd === sharePhone) {
+        const f = parseFloat(g.fee)
+        if (Number.isFinite(f) && f > 0.009) return f
+      }
+    }
+    const mp = team.memberTournamentPayments || {}
+    if (shareMem && mp[shareMem] && typeof mp[shareMem] === 'object') {
+      const f = parseFloat(mp[shareMem].fee)
+      if (Number.isFinite(f) && f > 0.009) return f
+    }
+  }
+  return null
+}
+
+/** Mirror client effectiveShareAmount split when DB row amount is 0 */
+function effectiveShareAmountFromDbRows(bookingTotal, allShareRows, targetRow) {
+  const active = (allShareRows || []).filter((s) => !s.removed_at)
+  const direct = parseFloat(targetRow.amount) || 0
+  if (direct > 0.009) return Math.round(direct * 100) / 100
+  const zeros = active.filter((s) => (parseFloat(s.amount) || 0) <= 0.009)
+  if (zeros.length === 0) return 0
+  const allocated = active.reduce((sum, s) => {
+    const v = parseFloat(s.amount) || 0
+    return sum + (v > 0.009 ? v : 0)
+  }, 0)
+  const remainder = Math.max(0, Math.round((bookingTotal - allocated) * 100) / 100)
+  if (remainder <= 0.009) return 0
+  return Math.round((remainder / zeros.length) * 100) / 100
+}
+
+async function resolveInviteShareDisplayAmount(r, inviteExtras) {
+  let amountOut = parseFloat(r.amount) || 0
+  if (amountOut > 0.009) return Math.round(amountOut * 100) / 100
+  if (inviteExtras.isTournamentBooking) {
+    try {
+      const cr = await query(
+        `SELECT tournament_data FROM clubs WHERE id = ? AND (deleted_at IS NULL) LIMIT 1`,
+        [r.club_id]
+      )
+      const tdRaw = cr.rows?.[0]?.tournament_data
+      const fb = feeFromClubTournamentDataForShare(tdRaw, r.booking_id, inviteExtras.tournamentType, r)
+      if (fb != null && fb > 0.009) amountOut = Math.round(fb * 100) / 100
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  if (amountOut < 0.01) {
+    try {
+      const sq = await query(
+        `SELECT id, amount, removed_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
+        [r.booking_id, r.club_id]
+      )
+      const total = parseFloat(r.total_amount) || 0
+      const eff = effectiveShareAmountFromDbRows(total, sq.rows || [], r)
+      if (eff > 0.009) amountOut = eff
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  return Math.round(amountOut * 100) / 100
 }
 
 /** Extra fields for GET /invite/:token (tournament vs court, labels for pay-invite UI). */

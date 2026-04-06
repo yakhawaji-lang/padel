@@ -5467,6 +5467,13 @@ function App({ currentUser }) {
     []
   )
 
+  /** Per-row fee in modal, or «Default payment amount» when the row is still empty */
+  const resolveMemberFeeDraftStr = useCallback((memberId) => {
+    const per = String(memberSelectorFeeDraft[memberId] ?? '').trim()
+    if (per !== '') return per
+    return String(memberSelectorBulkFee ?? '').trim()
+  }, [memberSelectorFeeDraft, memberSelectorBulkFee])
+
   const memberSelectorAfterPhoneSettled = useCallback(
     (display, { focusInput = true, membersOverride = null } = {}) => {
       const memberList = Array.isArray(membersOverride) ? membersOverride : members
@@ -5482,7 +5489,7 @@ function App({ currentUser }) {
         if (offClubMatches.length === 1) {
           const member = offClubMatches[0]
           const memberId = member.id
-          const feeStr = memberSelectorFeeDraft[memberId] ?? ''
+          const feeStr = resolveMemberFeeDraftStr(memberId)
           flushSync(() => {
             updateCurrentState((state) => ({
               ...state,
@@ -5520,7 +5527,7 @@ function App({ currentUser }) {
         }
       })
     },
-    [openMemberSelectorForTeam, teams, members, memberSelectorFeeDraft, updateCurrentState]
+    [openMemberSelectorForTeam, teams, members, memberSelectorFeeDraft, resolveMemberFeeDraftStr, updateCurrentState]
   )
 
   const handleMemberSelectorSearchByPhone = useCallback(async () => {
@@ -5595,6 +5602,19 @@ function App({ currentUser }) {
     if (!viewedTournamentBooking?.id) return null
     return bookings.find((b) => String(b.id) === String(viewedTournamentBooking.id)) || null
   }, [bookings, viewedTournamentBooking])
+
+  const tournamentGuestShareOpts = useMemo(() => {
+    const row = tournamentBookingRowForGuestInvite
+    if (!row?.id) return {}
+    const tid = String(row.id)
+    const tt = String(row.tournamentType || row.data?.tournamentType || 'king').toLowerCase()
+    const prev = tt === 'social' ? socialStateByTournamentId[tid] : kingStateByTournamentId[tid]
+    const tournamentData =
+      tt === 'social'
+        ? { socialStateByTournamentId: { [tid]: prev || { teams: [] } } }
+        : { kingStateByTournamentId: { [tid]: prev || { teams: [] } } }
+    return { tournamentData }
+  }, [tournamentBookingRowForGuestInvite, kingStateByTournamentId, socialStateByTournamentId])
 
   const memberSelectorGuestPhoneDigits = phoneDigitsNormalized(memberSelectorSearch || '')
   const memberSelectorNoClubPhoneMatch = !members.some((m) =>
@@ -5748,12 +5768,18 @@ function App({ currentUser }) {
       }
 
       const share = findPaymentShareForPendingGuest(row, guest)
-      const amount = share ? effectiveShareAmount(row, share) : parseFloat(guest.fee) || 0
+      let amount = share
+        ? effectiveShareAmount(row, share, tournamentGuestShareOpts)
+        : parseFloat(guest.fee) || 0
+      if (amount <= 0.009) {
+        const bulk = parseFloat(String(memberSelectorBulkFee || '').replace(',', '.')) || 0
+        if (bulk > 0.009) amount = bulk
+      }
       if (amount <= 0.009) {
         alert(
           language === 'en'
-            ? 'Cannot send: share amount is zero. Set the booking total or share amounts in Bookings (admin).'
-            : 'تعذر الإرسال: المبلغ صفر. عيّن إجمالي الحجز أو مبالغ الحصص من صفحة الحجوزات.'
+            ? 'Cannot send: share amount is zero. Enter a default payment amount at the top of the member picker, or set share amounts in Bookings (admin).'
+            : 'تعذر الإرسال: المبلغ صفر. أدخل «مبلغ الدفع الافتراضي» أعلى نافذة اختيار الأعضاء، أو عيّن المبالغ من صفحة الحجوزات.'
         )
         return
       }
@@ -5795,7 +5821,15 @@ function App({ currentUser }) {
         setPendingGuestWaGuestId(null)
       }
     },
-    [tournamentBookingRowForGuestInvite, clubId, language, t, syncBookingsAfterApi]
+    [
+      tournamentBookingRowForGuestInvite,
+      clubId,
+      language,
+      t,
+      syncBookingsAfterApi,
+      tournamentGuestShareOpts,
+      memberSelectorBulkFee,
+    ]
   )
 
   const clubCurrency = currentClub?.settings?.currency || 'SAR'
@@ -7626,7 +7660,7 @@ function App({ currentUser }) {
                                 <span className="member-chip__guest-status">{t.tournamentGuestPendingStatus}</span>
                                 <span className="member-chip__guest-fee">
                                   {tournamentBookingRowForGuestInvite
-                                    ? effectivePendingGuestFee(tournamentBookingRowForGuestInvite, g)
+                                    ? effectivePendingGuestFee(tournamentBookingRowForGuestInvite, g, tournamentGuestShareOpts)
                                     : parseFloat(g.fee) || 0}{' '}
                                   {clubCurrency}
                                 </span>
@@ -8839,7 +8873,7 @@ function App({ currentUser }) {
                             const team = teams.find((t) => t.id === openMemberSelectorForTeam)
                             const isSelected = (team?.memberIds || []).some((id) => String(id) === String(member.id))
                             const feeVal = memberSelectorFeeDraft[member.id] ?? ''
-                            const amt = parseFloat(String(feeVal).replace(',', '.')) || 0
+                            const amt = parseFloat(String(resolveMemberFeeDraftStr(member.id)).replace(',', '.')) || 0
                             const phoneForWa = memberPhoneRawForSelector(member)
                             const digits = String(phoneForWa).replace(/\D/g, '')
                             let waUrl = null
@@ -8940,7 +8974,7 @@ function App({ currentUser }) {
                                     checked={isSelected}
                                     onChange={(e) => {
                                       const checked = e.target.checked
-                                      const feeStr = memberSelectorFeeDraft[member.id] ?? ''
+                                      const feeStr = resolveMemberFeeDraftStr(member.id)
                                       updateCurrentState((state) => ({
                                         ...state,
                                         teams: (state.teams || []).map((t) => {

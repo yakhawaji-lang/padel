@@ -9,6 +9,16 @@ function phoneDigits(raw) {
   return String(raw || '').replace(/\D/g, '')
 }
 
+/** Wrap prevState so feeFromTournamentClubState can read pendingFeeGuests / memberTournamentPayments */
+function tournamentDataWrapperFromPrevState(booking, prevState) {
+  if (!booking?.id || !prevState?.teams) return undefined
+  const tid = String(booking.id)
+  const tt = String(booking.tournamentType || booking.data?.tournamentType || 'king').toLowerCase()
+  return tt === 'social'
+    ? { socialStateByTournamentId: { [tid]: prevState } }
+    : { kingStateByTournamentId: { [tid]: prevState } }
+}
+
 function shareIsActive(s) {
   return !(s.removedAt || s.removed_at)
 }
@@ -138,6 +148,8 @@ export function mergeTournamentTeamsFromPaymentShares(booking, prevState, option
   const { prev, teams: teamsIn } = normalizeTeamsFromPrev(prevState, defaultTeamCount, language)
   let teams = teamsIn
 
+  const shareOpts = { tournamentData: tournamentDataWrapperFromPrevState(booking, prevState) }
+
   const sigBefore = teamsPayloadSignature(teams)
 
   // 1) Prune members not allowed (booking participants + active share members + booker)
@@ -174,7 +186,7 @@ export function mergeTournamentTeamsFromPaymentShares(booking, prevState, option
 
     const token = (s.inviteToken || s.invite_token || '').toString()
     const gid = s.id != null ? `share-${s.id}` : token ? `tok-${token}` : `ph-${dig}`
-    const feeNum = effectiveShareAmount(booking, s)
+    const feeNum = effectiveShareAmount(booking, s, shareOpts)
     const fee = String(feeNum)
     const display = String(ph).trim()
 
@@ -229,7 +241,7 @@ export function mergeTournamentTeamsFromPaymentShares(booking, prevState, option
     ids.push(mstr)
     const mp = { ...(t.memberTournamentPayments || {}) }
     const prevEntry = mp[mstr] && typeof mp[mstr] === 'object' ? mp[mstr] : {}
-    const feeNum = effectiveShareAmount(booking, s)
+    const feeNum = effectiveShareAmount(booking, s, shareOpts)
     const feeStr =
       prevEntry.fee != null && String(prevEntry.fee).trim() !== ''
         ? String(prevEntry.fee)
