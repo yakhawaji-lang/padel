@@ -3636,6 +3636,33 @@ button:active {
   }
 }
 
+.tournament-member-pay-card__row--mark-paid {
+  width: 100%;
+  margin-top: 2px;
+}
+
+.tournament-member-pay-card__mark-paid {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 10px;
+  border: 1px solid #10b981;
+  background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
+  color: #065f46;
+  cursor: pointer;
+  transition: background 0.15s ease, filter 0.15s ease;
+}
+
+.tournament-member-pay-card__mark-paid:hover {
+  filter: brightness(0.97);
+  background: linear-gradient(180deg, #d1fae5 0%, #bbf7d0 100%);
+}
+
+.tournament-member-pay-card__mark-paid:active {
+  filter: brightness(0.94);
+}
+
 .tournament-member-pay-card__row--tracker {
   padding-top: 4px;
   border-top: 1px solid #f1f5f9;

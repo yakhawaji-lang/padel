@@ -219,6 +219,9 @@ function resolveTournamentMemberPaymentUi(booking, member, payEntry, nowMs, t, c
   const showTimer = deadlineMs != null && !hideTimer
   const cd = showTimer ? formatTournamentPayCountdown(deadlineMs, nowMs, t) : { label: '', urgent: false, passed: false }
 
+  const showMarkPaidAtClub =
+    !norm.clubReceived && (variant === 'online-pending' || variant === 'pending')
+
   return {
     variant,
     badgeKey,
@@ -226,6 +229,7 @@ function resolveTournamentMemberPaymentUi(booking, member, payEntry, nowMs, t, c
     timerLabel: cd.label,
     timerUrgent: cd.urgent,
     deadlinePassed: cd.passed,
+    showMarkPaidAtClub,
   }
 }
 
@@ -8151,6 +8155,24 @@ function App({ currentUser }) {
                                         </span>
                                       )}
                                     </div>
+                                    {payUi.showMarkPaidAtClub && (
+                                      <div className="tournament-member-pay-card__row tournament-member-pay-card__row--mark-paid">
+                                        <button
+                                          type="button"
+                                          className="tournament-member-pay-card__mark-paid"
+                                          title={t.tournamentPayMarkPaidAtClubTitle}
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            e.preventDefault()
+                                            if (!norm.clubReceived) {
+                                              toggleTeamMemberPaymentFlag(team.id, memberId, 'clubReceived')
+                                            }
+                                          }}
+                                        >
+                                          {t.tournamentPayMarkPaidAtClub}
+                                        </button>
+                                      </div>
+                                    )}
                                     <div className="tournament-member-pay-card__row tournament-member-pay-card__row--tracker">
                                       <span className="tournament-member-pay-card__tracker-label">{t.tournamentPayTrackerShort}</span>
                                       <div className="tournament-member-pay-card__tracker-btns">
@@ -8159,7 +8181,11 @@ function App({ currentUser }) {
                                           className={`tournament-pay-track-btn tournament-pay-track-btn--club${norm.clubReceived ? ' is-on' : ''}`}
                                           title={t.clubReceivedPaymentTitle}
                                           aria-pressed={norm.clubReceived}
-                                          onClick={() => toggleTeamMemberPaymentFlag(team.id, memberId, 'clubReceived')}
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            e.preventDefault()
+                                            toggleTeamMemberPaymentFlag(team.id, memberId, 'clubReceived')
+                                          }}
                                         >
                                           <span className="tournament-pay-track-btn__key">C</span>
                                           <span className="tournament-pay-track-btn__hint">{t.tournamentPayTrackClubShort}</span>
@@ -8169,7 +8195,11 @@ function App({ currentUser }) {
                                           className={`tournament-pay-track-btn tournament-pay-track-btn--member${norm.memberAck ? ' is-on' : ''}`}
                                           title={t.memberAckPaymentTitle}
                                           aria-pressed={norm.memberAck}
-                                          onClick={() => toggleTeamMemberPaymentFlag(team.id, memberId, 'memberAck')}
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            e.preventDefault()
+                                            toggleTeamMemberPaymentFlag(team.id, memberId, 'memberAck')
+                                          }}
                                         >
                                           <span className="tournament-pay-track-btn__key">M</span>
                                           <span className="tournament-pay-track-btn__hint">{t.tournamentPayTrackMemberShort}</span>
