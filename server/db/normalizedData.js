@@ -400,8 +400,8 @@ export async function saveMembersToNormalized(items, actor = {}) {
   } catch (_) {}
 }
 
-/** يحدّث app_store من جدول members + member_clubs (مصدر حقيقة بعد حذف عضو). */
-async function rewriteMembersAppStoreFromNormalized() {
+/** يحدّث app_store من جدول members + member_clubs (مصدر حقيقة بعد تسجيل/حذف عضو). */
+export async function rewriteMembersAppStoreFromNormalized() {
   try {
     const snapshot = await getMembersFromNormalized()
     const toStore = snapshot.map((m) => ({

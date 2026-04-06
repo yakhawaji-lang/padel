@@ -782,6 +782,15 @@ export async function memberLogin(identifier, password) {
   })
 }
 
+/** Persist new platform member to MySQL + member_clubs + app_store (no admin session required). */
+export async function registerPlatformMember(payload) {
+  return fetchJson('/api/member-auth/register', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    __skipGlobalSaving: true,
+  })
+}
+
 // ---- Club join ----
 export async function joinClub(clubId, memberId) {
   return fetchJson('/api/clubs/join', {

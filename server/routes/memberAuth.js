@@ -6,13 +6,21 @@ import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
 import bcrypt from 'bcryptjs'
 import { query } from '../db/pool.js'
-import { hasNormalizedTables } from '../db/normalizedData.js'
+import { hasNormalizedTables, rewriteMembersAppStoreFromNormalized } from '../db/normalizedData.js'
+import * as membershipService from '../services/membershipService.js'
 
 const router = Router()
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+const registerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 25,
   standardHeaders: true,
   legacyHeaders: false,
 })
@@ -92,6 +100,107 @@ async function findMemberRow(identifier) {
   if (matches.length !== 1) return null
   return matches[0]
 }
+
+/**
+ * تسجيل عضو المنصة في MySQL + member_clubs + app_store.
+ * الواجهة كانت تحفظ المحلي فقط لأن saveMembers لا يُرسل بدون جلسة أدمن — فيفشل joinClub/record-payment.
+ */
+router.post('/register', registerLimiter, async (req, res) => {
+  try {
+    const normalized = await hasNormalizedTables().catch(() => false)
+    if (!normalized) {
+      return res.status(503).json({ error: 'Database not ready', code: 'NO_DB' })
+    }
+
+    const body = req.body || {}
+    const id = body.id != null ? String(body.id).trim() : ''
+    const name = body.name != null ? String(body.name).trim() : ''
+    const nameAr = body.nameAr != null ? String(body.nameAr).trim() : null
+    const email = body.email != null ? String(body.email).trim().toLowerCase() : ''
+    const mobile = body.mobile != null ? String(body.mobile).trim() : ''
+    const pw = body.password != null ? String(body.password) : ''
+    const clubIds = Array.isArray(body.clubIds) ? body.clubIds.map((c) => String(c).trim()).filter(Boolean) : []
+
+    if (!id || !name) {
+      return res.status(400).json({ error: 'id and name required' })
+    }
+    if (!pw || pw.length < 4) {
+      return res.status(400).json({ error: 'password must be at least 4 characters' })
+    }
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'valid email required' })
+    }
+
+    const dupE = await query(
+      `SELECT id FROM members WHERE deleted_at IS NULL AND LOWER(TRIM(COALESCE(email,''))) = ? AND id <> ? LIMIT 2`,
+      [email, id]
+    )
+    if (dupE.rows?.length) {
+      return res.status(409).json({ error: 'Email already registered', code: 'EMAIL_EXISTS' })
+    }
+
+    const tail = phoneDigits(mobile).slice(-9)
+    if (tail.length >= 8) {
+      const { rows: phoneRows } = await query(
+        `SELECT id, mobile FROM members WHERE deleted_at IS NULL AND id <> ? AND mobile IS NOT NULL AND TRIM(mobile) <> ''`,
+        [id]
+      )
+      for (const r of phoneRows || []) {
+        if (phoneDigits(r.mobile).slice(-9) === tail) {
+          return res.status(409).json({ error: 'Phone already registered', code: 'PHONE_EXISTS' })
+        }
+      }
+    }
+
+    const hash = await bcrypt.hash(pw, 10)
+    const pointsJson = JSON.stringify([])
+
+    try {
+      await query(
+        `INSERT INTO members (id, name, name_ar, email, avatar, mobile, password_hash, total_points, total_games, total_wins, points_history, created_by)
+         VALUES (?, ?, ?, ?, NULL, ?, ?, 0, 0, 0, ?, NULL)
+         ON DUPLICATE KEY UPDATE
+           name = VALUES(name),
+           name_ar = VALUES(name_ar),
+           email = VALUES(email),
+           mobile = VALUES(mobile),
+           password_hash = VALUES(password_hash),
+           deleted_at = NULL,
+           deleted_by = NULL,
+           updated_at = NOW()`,
+        [id, name, nameAr || null, email || null, mobile || null, hash, pointsJson]
+      )
+    } catch (e) {
+      if (e?.message?.includes('Unknown column') && (e?.message?.includes('password_hash') || e?.message?.includes('mobile'))) {
+        await query(
+          `INSERT INTO members (id, name, name_ar, email, avatar, total_points, total_games, total_wins, points_history, created_by)
+           VALUES (?, ?, ?, ?, NULL, 0, 0, 0, ?, NULL)
+           ON DUPLICATE KEY UPDATE
+             name = VALUES(name),
+             name_ar = VALUES(name_ar),
+             email = VALUES(email),
+             deleted_at = NULL,
+             deleted_by = NULL,
+             updated_at = NOW()`,
+          [id, name, nameAr || null, email || null, pointsJson]
+        )
+      } else {
+        throw e
+      }
+    }
+
+    for (const cid of clubIds) {
+      await membershipService.addMemberToClub(id, cid)
+    }
+
+    await rewriteMembersAppStoreFromNormalized()
+
+    res.json({ ok: true, memberId: id })
+  } catch (e) {
+    console.error('member-auth register error:', e)
+    res.status(500).json({ error: e?.message || 'Server error' })
+  }
+})
 
 router.post('/login', loginLimiter, async (req, res) => {
   try {

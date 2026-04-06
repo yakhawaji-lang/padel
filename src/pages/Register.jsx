@@ -13,7 +13,13 @@ function formatPhoneFromUrl(s) {
 }
 import { getCurrentPlatformUser, setCurrentPlatformUser } from '../storage/platformAuth'
 import { upsertMember, getMergedMembersRaw, addMemberToClub } from '../storage/adminStorage'
-import { sendRegistrationWelcome, sendEmailVerificationCode, verifyEmailCode, sendWelcomeMemberEmail } from '../api/dbClient'
+import {
+  sendRegistrationWelcome,
+  sendEmailVerificationCode,
+  verifyEmailCode,
+  sendWelcomeMemberEmail,
+  registerPlatformMember,
+} from '../api/dbClient'
 import { getAppLanguage, setAppLanguage } from '../storage/languageStorage'
 import {
   isPaymentShareRegistrationReturn,
@@ -266,6 +272,13 @@ const Register = () => {
     }
     const name = (formData.name || '').trim() || (language === 'ar' ? 'مشارك' : 'Participant')
     const email = (formData.email || '').trim() || (phoneOnly ? `p${phoneDigits(formData.phone)}@pay-invite.playtix` : '')
+    const inviteTokenFromReturn = parsePaymentShareInviteToken(returnPath)
+    const bookingApiEarly = inviteTokenFromReturn || joinClubId ? await import('../api/dbClient') : null
+    let regClubIds = joinClubId ? [joinClubId] : []
+    if (!regClubIds.length && inviteTokenFromReturn && bookingApiEarly) {
+      const inv = await bookingApiEarly.getInviteByToken(inviteTokenFromReturn).catch(() => null)
+      if (inv?.clubId) regClubIds = [inv.clubId]
+    }
     const newMember = {
       id: Date.now().toString(),
       name,
@@ -273,17 +286,36 @@ const Register = () => {
       phone: formData.phone?.trim() || '',
       mobile: formData.phone?.trim() || '',
       password: effectivePassword,
-      clubIds: joinClubId ? [joinClubId] : [],
+      clubIds: regClubIds.length ? [...regClubIds] : [],
       role: 'member',
       createdAt: new Date().toISOString(),
+    }
+    try {
+      await registerPlatformMember({
+        id: newMember.id,
+        name: newMember.name,
+        email,
+        mobile: newMember.phone || newMember.mobile || '',
+        password: effectivePassword,
+        clubIds: regClubIds,
+      })
+    } catch (err) {
+      const code = err?.apiCode
+      if (code === 'EMAIL_EXISTS') {
+        setError(language === 'en' ? 'This email is already registered.' : 'هذا البريد مسجّل مسبقاً.')
+      } else if (code === 'PHONE_EXISTS') {
+        setError(c.phoneAlreadyRegistered)
+      } else {
+        setError(err?.message || (language === 'en' ? 'Registration failed.' : 'فشل التسجيل.'))
+      }
+      return
     }
     const ok = await upsertMember(newMember)
     if (!ok) {
       setError(language === 'en' ? 'Registration failed.' : 'فشل التسجيل.')
       return
     }
-    const inviteTokenFromReturn = parsePaymentShareInviteToken(returnPath)
-    const bookingApi = inviteTokenFromReturn || joinClubId ? await import('../api/dbClient') : null
+    const bookingApi = inviteTokenFromReturn || joinClubId ? bookingApiEarly : null
     if (joinClubId) {
       try {
         await bookingApi.joinClub(joinClubId, newMember.id)
