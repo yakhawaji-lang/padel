@@ -92,6 +92,7 @@ function needsDataActorHeaders(path, method) {
   if (m === 'POST' && path === '/api/bookings/admin-fulfill-member-refund') return true
   if (m === 'POST' && path === '/api/bookings/admin-fulfill-member-share-refund') return true
   if (m === 'POST' && path === '/api/bookings/admin-remove-pending-share') return true
+  if (m === 'POST' && path === '/api/bookings/admin-remove-all-pending-tournament-shares') return true
   if (m === 'POST' && path === '/api/bookings/admin-extend-split-deadline') return true
   if (m === 'POST' && path === '/api/bookings/admin-import-expired-split-credits') return true
   if (m === 'POST' && path === '/api/bookings/record-payment') return true
@@ -932,6 +933,14 @@ export async function adminRemovePendingShare({ bookingId, clubId, shareId, invi
       ...(shareId != null && shareId !== '' ? { shareId } : {}),
       ...(inviteToken != null && String(inviteToken).trim() !== '' ? { inviteToken } : {}),
     }),
+  })
+}
+
+/** Club admin: remove all unpaid non-booker payment shares on a tournament booking (King / Social). */
+export async function adminRemoveAllPendingTournamentShares({ bookingId, clubId }) {
+  return fetchJson('/api/bookings/admin-remove-all-pending-tournament-shares', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, clubId }),
   })
 }
 

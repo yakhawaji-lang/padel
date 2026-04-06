@@ -377,6 +377,37 @@
   padding-top: 12px;
   border-top: 1px solid #e2e8f0;
 }
+.booking-payment-shares-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.booking-payment-shares-head .booking-payment-shares-title {
+  margin: 0;
+}
+.booking-payment-remove-all-tournament-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #b91c1c;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+.booking-payment-remove-all-tournament-btn:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+.booking-payment-remove-all-tournament-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 .booking-payment-shares-title {
   margin: 0 0 10px 0;
   font-size: 12px;

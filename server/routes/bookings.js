@@ -3085,6 +3085,97 @@ router.post('/admin-remove-pending-share', async (req, res) => {
   }
 })
 
+/** POST /api/bookings/admin-remove-all-pending-tournament-shares — إزالة جميع حصص المشاركين غير المدفوعة في حجز بطولة (تبقى حصة الحاجز بدون دعوة) */
+router.post('/admin-remove-all-pending-tournament-shares', async (req, res) => {
+  try {
+    const { bookingId, clubId } = req.body || {}
+    if (!bookingId || !clubId) {
+      return res.status(400).json({ error: 'bookingId and clubId required' })
+    }
+    const actor = getActorFromRequest(req)
+    const at = String(actor.actorType || '').toLowerCase()
+    if (at === 'club_admin') {
+      if (!actor.clubId || String(actor.clubId) !== String(clubId)) {
+        return res.status(403).json({ error: 'Forbidden' })
+      }
+    } else if (at !== 'platform_admin') {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+
+    const { rows: bRows } = await query(
+      `SELECT member_id, initiator_member_id, status, data FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
+      [bookingId, clubId]
+    )
+    if (!bRows?.length) return res.status(404).json({ error: 'Booking not found' })
+    const st = (bRows[0].status || '').toString().toLowerCase()
+    if (['cancelled', 'cancelled_awaiting_refund_ack'].includes(st)) {
+      return res.status(400).json({ error: 'Cannot modify this booking' })
+    }
+
+    const data = parseBookingJsonData(bRows[0].data)
+    const isTournament =
+      data.isTournament === true || data.tournamentType != null || data.tournament_type != null
+    if (!isTournament) {
+      return res.status(400).json({ error: 'This action applies to tournament bookings only' })
+    }
+
+    const bookerId = String(bRows[0].initiator_member_id || bRows[0].member_id || '').trim()
+
+    let shareRows
+    try {
+      const r = await query(
+        `SELECT id, member_id, invite_token, paid_at, removed_at, refunded_at
+         FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
+        [bookingId, clubId]
+      )
+      shareRows = r.rows || []
+    } catch (e) {
+      if (!e?.message?.includes('refunded_at')) throw e
+      const r = await query(
+        `SELECT id, member_id, invite_token, paid_at, removed_at
+         FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
+        [bookingId, clubId]
+      )
+      shareRows = (r.rows || []).map((row) => ({ ...row, refunded_at: null }))
+    }
+
+    const toRemove = []
+    for (const row of shareRows) {
+      if (row.paid_at) continue
+      if (row.removed_at) continue
+      if (row.refunded_at) continue
+      const mid = String(row.member_id || '').trim()
+      const tok = (row.invite_token || '').toString().trim()
+      const isBookerSlot = bookerId && mid === bookerId && !tok
+      if (isBookerSlot) continue
+      toRemove.push(row.id)
+    }
+
+    if (toRemove.length === 0) {
+      return res.json({ ok: true, removedCount: 0, paidAmount: null, status: null, bookingDate: null })
+    }
+
+    const ph = toRemove.map(() => '?').join(',')
+    try {
+      await query(
+        `UPDATE booking_payment_shares SET removed_at = NOW() WHERE club_id = ? AND id IN (${ph})`,
+        [clubId, ...toRemove]
+      )
+    } catch (e) {
+      if (!e?.message?.includes('removed_at')) throw e
+      return res.status(503).json({ error: 'Database migration required (removed_at)' })
+    }
+
+    await mergeClubBookingDataJson(bookingId, clubId, { splitInviteReopen: true })
+    const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bookingId, clubId)
+    if (clubId && rec?.bookingDate) slotCache.invalidateLocks(clubId, rec.bookingDate)
+    res.json({ ok: true, removedCount: toRemove.length, ...rec })
+  } catch (e) {
+    console.error('bookings admin-remove-all-pending-tournament-shares error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
 /** POST /api/bookings/member-remove-own-share — مشارك يزيل نفسه قبل الدفع */
 router.post('/member-remove-own-share', async (req, res) => {
   try {

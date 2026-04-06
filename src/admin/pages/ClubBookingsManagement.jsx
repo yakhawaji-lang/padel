@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { loadClubs, getClubById, getClubMembersFromStorage, getAllMembersFromStorage, deleteBookingFromClub, updateBookingInClub } from '../../storage/adminStorage'
 import { resolvePaymentShareDisplayName, effectiveSplitPaidSum } from '../../utils/paymentShareMemberMatch'
-import { effectiveShareAmount, shareRowIsActive } from '../../utils/paymentShareEffectiveAmounts'
+import { effectiveShareAmount, shareAmountRaw, shareRowIsActive } from '../../utils/paymentShareEffectiveAmounts'
 import * as bookingApi from '../../api/dbClient'
 import CalendarPicker from '../../components/CalendarPicker'
 import { calculateBookingPrice } from '../../utils/bookingPricing'
@@ -416,7 +416,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       window.alert(language === 'en' ? 'Valid phone number required on this share.' : 'يلزم رقم جوال صالح على هذه الحصة.')
       return
     }
-    const amount = effectiveShareAmount(booking, share)
+    const amount = effectiveShareAmount(booking, share, { tournamentData: club?.tournamentData })
     if (amount <= 0.009) {
       window.alert(
         language === 'en'
@@ -734,6 +734,13 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       removeParticipantTitle: 'Remove unpaid participant from split',
       resendTournamentWhatsApp: 'WhatsApp again',
       resendTournamentWhatsAppTitle: 'Regenerate invite link and open WhatsApp for this tournament share',
+      removeAllTournamentParticipants: 'Remove all pending participants',
+      removeAllTournamentParticipantsTitle:
+        'Remove every unpaid tournament participant share at once (booker’s own unpaid slot is kept)',
+      removeAllTournamentParticipantsConfirm:
+        'This will permanently remove all unpaid participant shares on this tournament booking (invites and extra members). The booker’s own split row (if any) stays. Paid shares are not removed. Continue?',
+      removeAllTournamentParticipantsNone: 'No removable unpaid participant shares on this booking.',
+      removeAllTournamentParticipantsDone: 'Removed participant shares. Refresh if the list looks stale.',
     },
     ar: {
       bookings: 'الحجوزات',
@@ -843,9 +850,40 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       removeParticipantTitle: 'إزالة مشارك لم يدفع من التقسيم',
       resendTournamentWhatsApp: 'واتساب مرة أخرى',
       resendTournamentWhatsAppTitle: 'تجديد رابط الدعوة وفتح واتساب لهذه حصة البطولة',
+      removeAllTournamentParticipants: 'إزالة جميع المشاركين المعلقين',
+      removeAllTournamentParticipantsTitle:
+        'إزالة كل حصص المشاركين غير المدفوعة دفعة واحدة (تبقى حصة الحاجز إن وُجدت)',
+      removeAllTournamentParticipantsConfirm:
+        'سيتم إزالة جميع حصص المشاركين غير المدفوعة في هذا الحجز (الدعوات والأعضاء الإضافيين). حصة الحاجز نفسه تبقى إن وُجدت. الحصص المدفوعة لا تُزال. المتابعة؟',
+      removeAllTournamentParticipantsNone: 'لا توجد حصص مشاركين غير مدفوعة قابلة للإزالة في هذا الحجز.',
+      removeAllTournamentParticipantsDone: 'تمت إزالة حصص المشاركين. حدّث الصفحة إذا لم يتحدث العرض.',
     },
   }
   const c = t[language] || t.en
+
+  const handleRemoveAllTournamentParticipants = async (booking) => {
+    if (!club?.id || !booking?.id || !booking.isTournament) return
+    if (!window.confirm(c.removeAllTournamentParticipantsConfirm)) return
+    const key = `remove-all-tournament-shares-${booking.id}`
+    setActionLoading(key)
+    try {
+      const res = await bookingApi.adminRemoveAllPendingTournamentShares({
+        bookingId: booking.id,
+        clubId: club.id,
+      })
+      const n = res?.removedCount ?? res?.removed_count ?? 0
+      if (n === 0) {
+        window.alert(c.removeAllTournamentParticipantsNone)
+      } else {
+        window.alert(c.removeAllTournamentParticipantsDone)
+      }
+      refreshFromServer()
+    } catch (e) {
+      window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
+    } finally {
+      setActionLoading(null)
+    }
+  }
 
   const handleExtendExpiredSplitDeadline = async (b) => {
     if (!club?.id || !b?.id) return
@@ -1499,16 +1537,32 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                             )}
                             {hasShares && (
                               <div className="booking-payment-shares">
-                                <h5 className="booking-payment-shares-title">{c.amountPerParticipant}</h5>
+                                <div className="booking-payment-shares-head">
+                                  <h5 className="booking-payment-shares-title">{c.amountPerParticipant}</h5>
+                                  {isTournamentRow && !blockActions && (
+                                    <button
+                                      type="button"
+                                      className="booking-payment-remove-all-tournament-btn"
+                                      title={c.removeAllTournamentParticipantsTitle}
+                                      onClick={() => handleRemoveAllTournamentParticipants(b)}
+                                      disabled={actionLoading === `remove-all-tournament-shares-${b.id}`}
+                                    >
+                                      {actionLoading === `remove-all-tournament-shares-${b.id}`
+                                        ? '…'
+                                        : c.removeAllTournamentParticipants}
+                                    </button>
+                                  )}
+                                </div>
                                 <div className="booking-payment-shares-list">
                                   {(() => {
+                                    const shareOpts = { tournamentData: club?.tournamentData }
                                     const bookerId = String(b.memberId || b.initiatorMemberId || b.member_id || '')
-                                    const isBookerShare = (s) => String(s.memberId || '') === bookerId
-                                    const bookerShares = paymentShares.filter(s => isBookerShare(s) && !s.inviteToken)
-                                    const participantShares = paymentShares.filter(s => !isBookerShare(s) || !!s.inviteToken)
+                                    const isBookerShare = (s) => String(s.memberId || s.member_id || '') === bookerId
+                                    const bookerShares = paymentShares.filter(s => isBookerShare(s) && !s.inviteToken && !s.invite_token)
+                                    const participantShares = paymentShares.filter(s => !isBookerShare(s) || !!s.inviteToken || !!s.invite_token)
                                     const sharesSum = paymentShares
                                       .filter((s) => shareRowIsActive(s))
-                                      .reduce((sum, s) => sum + effectiveShareAmount(b, s), 0)
+                                      .reduce((sum, s) => sum + effectiveShareAmount(b, s, shareOpts), 0)
                                     const bookerAmountFromCalc = Math.max(0, totalAmount - sharesSum)
                                     const bookerPaymentMethod = b.initiatorPaymentMethod || b.paymentMethod
                                     const renderShareRow = (s, idx, isBooker) => {
@@ -1524,7 +1578,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                       const waShareKey = `wa-share-${s.id || s.inviteToken || phoneDigShare || idx}`
                                       const canAdminRemoveShare =
                                         !isRemoved && !isRefunded && !s.paidAt && !memberRefundPending && !!(s.id || s.inviteToken)
-                                      const effectiveAmt = effectiveShareAmount(b, s)
+                                      const effectiveAmt = effectiveShareAmount(b, s, shareOpts)
                                       const canResendTournamentWa =
                                         isTournamentRow &&
                                         !isRemoved &&
@@ -1540,7 +1594,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                               {resolvePaymentShareDisplayName(s, members)}{isBooker ? ` (${c.booker})` : ''}
                                             </span>
                                             <span className="booking-payment-share-amount">
-                                              {(isRemoved ? parseFloat(s.amount) || 0 : effectiveShareAmount(b, s))} {currency}
+                                              {(isRemoved ? shareAmountRaw(s) : effectiveShareAmount(b, s, shareOpts))}{' '}
+                                              {currency}
                                             </span>
                                             <span className="booking-payment-share-status">
                                               {isRemoved ? (
@@ -1678,7 +1733,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                             </div>
                                           )
                                         )}
-                                        {participantShares.map((s, idx) => renderShareRow(s, idx, String(s.memberId || '') === bookerId))}
+                                        {participantShares.map((s, idx) => renderShareRow(s, idx, false))}
                                       </>
                                     )
                                   })()}
