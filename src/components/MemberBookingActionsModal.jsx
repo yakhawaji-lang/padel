@@ -371,11 +371,23 @@ export default function MemberBookingActionsModal({
                   </label>
                   <label>
                     {c.start}
-                    <HalfHourTimeSelect value={startTime} onChange={setStartTime} className="member-booking-actions-input" />
+                    <HalfHourTimeSelect
+                      value={startTime}
+                      onChange={setStartTime}
+                      className="member-booking-actions-input"
+                      settings={club?.settings}
+                      isoDate={dateStr}
+                    />
                   </label>
                   <label>
                     {c.end}
-                    <HalfHourTimeSelect value={endTime} onChange={setEndTime} className="member-booking-actions-input" />
+                    <HalfHourTimeSelect
+                      value={endTime}
+                      onChange={setEndTime}
+                      className="member-booking-actions-input"
+                      settings={club?.settings}
+                      isoDate={dateStr}
+                    />
                   </label>
                 </div>
                 <button type="button" className="member-booking-actions-primary" disabled={busy} onClick={handleReschedule}>

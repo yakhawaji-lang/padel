@@ -40,24 +40,6 @@ export function getHalfHourTimeOptions(minStr, maxStr) {
   return out
 }
 
-/** Pick the closest valid half-hour option (used when legacy value was e.g. 23:59). */
-export function snapTimeToNearestHalfHourOption(value, minStr, maxStr) {
-  const opts = getHalfHourTimeOptions(minStr, maxStr)
-  if (!opts.length) return '00:00'
-  const raw = typeof value === 'string' && value.trim() ? value.trim() : '00:00'
-  const v = timeToMinutes(raw)
-  let best = opts[0]
-  let bestDiff = Infinity
-  for (const o of opts) {
-    const d = Math.abs(timeToMinutes(o) - v)
-    if (d < bestDiff) {
-      bestDiff = d
-      best = o
-    }
-  }
-  return best
-}
-
 export function minutesToHHMM(m) {
   const mm = Math.round(m)
   const h = Math.floor(mm / 60) % 24
@@ -247,6 +229,46 @@ export function getPublicBookingTimeSlots(settings, isoDate, stepMinutes = 30) {
     }
   }
   return slots
+}
+
+/** Half-hour labels (HH:mm) allowed on this calendar day per seasons & time windows; fallback full day if none. */
+export function getHalfHourTimeOptionsForDate(settings, isoDate) {
+  const slots = getPublicBookingTimeSlots(settings, isoDate, 30)
+  if (slots.length > 0) return slots
+  return getHalfHourTimeOptions(null, null)
+}
+
+/** Snap to nearest entry in a finite option list (same-day minute distance). */
+export function snapTimeToNearestInOptions(value, options) {
+  if (!options?.length) return '00:00'
+  const raw = typeof value === 'string' && value.trim() ? value.trim() : '00:00'
+  if (options.includes(raw)) return raw
+  const vm = timeToMinutes(raw)
+  let best = options[0]
+  let bestDiff = Infinity
+  for (const o of options) {
+    const d = Math.abs(timeToMinutes(o) - vm)
+    if (d < bestDiff) {
+      bestDiff = d
+      best = o
+    }
+  }
+  return best
+}
+
+/** Defaults for tournament/booking pickers from the club schedule on that ISO date. */
+export function defaultStartEndFromWorkingDay(settings, isoDate) {
+  if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(String(isoDate))) {
+    const leg = getLegacyOpenCloseBounds(settings || {})
+    return {
+      startTime: leg.openingTime || '09:00',
+      endTime: leg.closingTime || '18:00',
+    }
+  }
+  const opts = getHalfHourTimeOptionsForDate(settings, isoDate)
+  if (opts.length >= 2) return { startTime: opts[0], endTime: opts[opts.length - 1] }
+  if (opts.length === 1) return { startTime: opts[0], endTime: opts[0] }
+  return { startTime: '09:00', endTime: '18:00' }
 }
 
 export function getUnionTimeSlotsForDates(settings, isoDates, stepMinutes = 30) {

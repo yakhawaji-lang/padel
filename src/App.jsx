@@ -44,6 +44,8 @@ import {
   getUnionTimeSlotsForDates,
   getLegacyOpenCloseBounds,
   isSameDayIntervalWithinClubHours,
+  getHalfHourTimeOptionsForDate,
+  defaultStartEndFromWorkingDay,
 } from './utils/clubWorkingHours'
 import { isTerminalBookingStatus, isMemberCancelledBooking, bookingHasPendingMemberShareRefund } from './utils/bookingMemberCancel'
 import { phoneMatchesMemberSearch } from './utils/paymentShareMemberMatch'
@@ -4355,10 +4357,11 @@ function App({ currentUser }) {
     mergeBookings(updatedLocalBookings, playtomicBookings)
     setShowTournamentBookingModal(false)
     const today = new Date().toISOString().split('T')[0]
+    const nextT = defaultStartEndFromWorkingDay(currentClub?.settings, today)
     setTournamentBookingData({
       date: today,
-      startTime: clubLegacyHours.openingTime || '09:00',
-      endTime: clubLegacyHours.closingTime || '18:00',
+      startTime: nextT.startTime,
+      endTime: nextT.endTime,
       tournamentType: activeTab === 'social' ? 'social' : 'king',
       tournamentCourtIds: (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean),
       editingBookingId: null
@@ -6070,8 +6073,8 @@ function App({ currentUser }) {
                 <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600' }}>{language === 'en' ? 'Start Time' : 'وقت البداية'} *</label>
                 <HalfHourTimeSelect
                   value={tournamentBookingData.startTime}
-                  min={clubLegacyHours.openingTime}
-                  max={clubLegacyHours.closingTime}
+                  settings={currentClub?.settings}
+                  isoDate={tournamentBookingData.date}
                   onChange={(v) => setTournamentBookingData({ ...tournamentBookingData, startTime: v })}
                   required
                   className="search-input"
@@ -6082,8 +6085,8 @@ function App({ currentUser }) {
                 <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600' }}>{language === 'en' ? 'End Time' : 'وقت النهاية'} *</label>
                 <HalfHourTimeSelect
                   value={tournamentBookingData.endTime}
-                  min={clubLegacyHours.openingTime}
-                  max={clubLegacyHours.closingTime}
+                  settings={currentClub?.settings}
+                  isoDate={tournamentBookingData.date}
                   onChange={(v) => setTournamentBookingData({ ...tournamentBookingData, endTime: v })}
                   required
                   className="search-input"
@@ -7162,10 +7165,11 @@ function App({ currentUser }) {
                     e.preventDefault()
                     e.stopPropagation()
                     const today = new Date().toISOString().split('T')[0]
+                    const t0 = defaultStartEndFromWorkingDay(currentClub?.settings, today)
                     setTournamentBookingData({
                       date: today,
-                      startTime: clubLegacyHours.openingTime || '09:00',
-                      endTime: clubLegacyHours.closingTime || '18:00',
+                      startTime: t0.startTime,
+                      endTime: t0.endTime,
                       tournamentType: 'king',
                       tournamentCourtIds: (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean),
                       editingBookingId: null
@@ -7263,10 +7267,11 @@ function App({ currentUser }) {
                     e.preventDefault()
                     e.stopPropagation()
                     const today = new Date().toISOString().split('T')[0]
+                    const t0 = defaultStartEndFromWorkingDay(currentClub?.settings, today)
                     setTournamentBookingData({
                       date: today,
-                      startTime: clubLegacyHours.openingTime || '09:00',
-                      endTime: clubLegacyHours.closingTime || '18:00',
+                      startTime: t0.startTime,
+                      endTime: t0.endTime,
                       tournamentType: 'social',
                       tournamentCourtIds: (currentClub?.courts || []).filter(c => !c.maintenance).map(c => (c.id != null && c.id !== '') ? String(c.id) : String(c.name || '')).filter(Boolean),
                       editingBookingId: null
@@ -9032,6 +9037,7 @@ function App({ currentUser }) {
               courts={courtsListStable}
               clubOpeningTime={clubLegacyHours.openingTime}
               clubClosingTime={clubLegacyHours.closingTime}
+              clubSettings={currentClub?.settings}
               clubId={clubId}
               clubName={currentClub?.nameAr || currentClub?.name || ''}
               currency={currentClub?.settings?.currency || 'SAR'}
@@ -9146,6 +9152,7 @@ function BookingFormModal({
   courts: courtsProp,
   clubOpeningTime,
   clubClosingTime,
+  clubSettings,
   onSave,
   onDelete,
   onCancel,
@@ -9170,7 +9177,6 @@ function BookingFormModal({
     }
     return '10:00'
   })()
-  const closingForOpen = clubClosingTime || defaultEnd
 
   const mapParticipantsIn = (list) =>
     (list || []).map((p) => {
@@ -9194,6 +9200,14 @@ function BookingFormModal({
     participants: mapParticipantsIn(bookingData?.participants || []),
     notes: bookingData?.notes || '',
   })
+  const closingForOpen = useMemo(() => {
+    const d = formData.date
+    if (d && clubSettings && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      const slots = getHalfHourTimeOptionsForDate(clubSettings, d)
+      if (slots.length > 0) return slots[slots.length - 1]
+    }
+    return clubClosingTime || defaultEnd
+  }, [formData.date, clubSettings, clubClosingTime, defaultEnd])
   const [isOpenEnded, setIsOpenEnded] = useState(!!bookingData?.isOpenEnded)
   const [markFullyPaidAtClub, setMarkFullyPaidAtClub] = useState(false)
   const [participantSearch, setParticipantSearch] = useState('')
@@ -9227,17 +9241,31 @@ function BookingFormModal({
     const oe = !!bookingData.isOpenEnded
     setIsOpenEnded(oe)
     setMarkFullyPaidAtClub(false)
+    const dateNorm = (bookingData.date || '').toString().split('T')[0]
+    let closeForOpen = clubClosingTime || defaultEnd
+    if (dateNorm && clubSettings && /^\d{4}-\d{2}-\d{2}$/.test(dateNorm)) {
+      const slots = getHalfHourTimeOptionsForDate(clubSettings, dateNorm)
+      if (slots.length > 0) closeForOpen = slots[slots.length - 1]
+    }
     setFormData({
       id: bookingData.id || null,
-      date: (bookingData.date || '').toString().split('T')[0],
+      date: dateNorm,
       startTime: bookingData.startTime || defaultStart,
-      endTime: oe ? closingForOpen : (bookingData.endTime || defaultEnd),
+      endTime: oe ? closeForOpen : (bookingData.endTime || defaultEnd),
       resource: resourceVal,
       amount: bookingData.amount ?? '',
       participants: mapParticipantsIn(bookingData.participants || []),
       notes: bookingData.notes || '',
     })
-  }, [bookingSyncKey, defaultStart, defaultEnd, closingForOpen])
+  }, [bookingSyncKey, defaultStart, defaultEnd, clubClosingTime, clubSettings])
+
+  useEffect(() => {
+    if (!isOpenEnded || !formData.date || !clubSettings || !/^\d{4}-\d{2}-\d{2}$/.test(formData.date)) return
+    const slots = getHalfHourTimeOptionsForDate(clubSettings, formData.date)
+    if (!slots.length) return
+    const last = slots[slots.length - 1]
+    setFormData((prev) => (prev.endTime === last ? prev : { ...prev, endTime: last }))
+  }, [formData.date, isOpenEnded, clubSettings])
 
   // Calculate isEditMode based on formData.id (which syncs with bookingData.id)
   const isEditMode = !!(formData.id || bookingData?.id)
@@ -9397,6 +9425,10 @@ function BookingFormModal({
                   </label>
                   <HalfHourTimeSelect
                     value={formData.startTime}
+                    settings={clubSettings}
+                    isoDate={formData.date}
+                    min={clubOpeningTime}
+                    max={clubClosingTime}
                     onChange={(v) => setFormData({ ...formData, startTime: v })}
                     className="search-input"
                     required
@@ -9409,6 +9441,10 @@ function BookingFormModal({
                   <HalfHourTimeSelect
                     value={isOpenEnded ? closingForOpen : formData.endTime}
                     disabled={isOpenEnded}
+                    settings={clubSettings}
+                    isoDate={formData.date}
+                    min={clubOpeningTime}
+                    max={clubClosingTime}
                     onChange={(v) => setFormData({ ...formData, endTime: v })}
                     className="search-input"
                     required

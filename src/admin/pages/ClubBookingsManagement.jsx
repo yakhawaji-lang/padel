@@ -1772,6 +1772,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                 <HalfHourTimeSelect
                   value={editForm.startTime}
                   onChange={v => setEditForm(f => ({ ...f, startTime: v }))}
+                  settings={club?.settings}
+                  isoDate={editForm.dateStr}
                 />
               </div>
               <div className="form-row">
