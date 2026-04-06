@@ -5428,10 +5428,7 @@ function App({ currentUser }) {
     async (memberId) => {
       const id = String(memberId)
       if (!clubId) return
-      if (!canManageClubDirectoryFavorites) {
-        alert(t.memberSelectorClubFavoriteAdminOnly)
-        return
-      }
+      if (!canManageClubDirectoryFavorites) return
       const isFav = clubDirectoryFavoriteMemberIds.includes(id)
       setMemberSelectorDirectoryFavBusyId(id)
       try {
