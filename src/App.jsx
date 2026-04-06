@@ -42,7 +42,8 @@ import {
   getPublicBookingTimeSlots,
   getUnionTimeSlotsForDates,
   getLegacyOpenCloseBounds,
-  isSameDayIntervalWithinClubHours
+  isSameDayIntervalWithinClubHours,
+  TIME_INPUT_STEP_SECONDS,
 } from './utils/clubWorkingHours'
 import { isTerminalBookingStatus, isMemberCancelledBooking, bookingHasPendingMemberShareRefund } from './utils/bookingMemberCancel'
 import { phoneMatchesMemberSearch } from './utils/paymentShareMemberMatch'
@@ -6069,6 +6070,7 @@ function App({ currentUser }) {
                 <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600' }}>{language === 'en' ? 'Start Time' : 'وقت البداية'} *</label>
                 <input
                   type="time"
+                  step={TIME_INPUT_STEP_SECONDS}
                   value={tournamentBookingData.startTime}
                   min={clubLegacyHours.openingTime}
                   max={clubLegacyHours.closingTime}
@@ -6081,6 +6083,7 @@ function App({ currentUser }) {
                 <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600' }}>{language === 'en' ? 'End Time' : 'وقت النهاية'} *</label>
                 <input
                   type="time"
+                  step={TIME_INPUT_STEP_SECONDS}
                   value={tournamentBookingData.endTime}
                   min={clubLegacyHours.openingTime}
                   max={clubLegacyHours.closingTime}
@@ -9396,6 +9399,7 @@ function BookingFormModal({
                   </label>
                   <input
                     type="time"
+                    step={TIME_INPUT_STEP_SECONDS}
                     value={formData.startTime}
                     onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                     className="search-input"
@@ -9408,6 +9412,7 @@ function BookingFormModal({
                   </label>
                   <input
                     type="time"
+                    step={TIME_INPUT_STEP_SECONDS}
                     value={isOpenEnded ? closingForOpen : formData.endTime}
                     disabled={isOpenEnded}
                     onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}

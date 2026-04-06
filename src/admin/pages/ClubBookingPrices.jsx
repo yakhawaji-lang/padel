@@ -4,6 +4,7 @@ import './club-pages-common.css'
 import './ClubBookingPrices.css'
 import { getDefaultBookingPrices, mergeBookingPricesFromSaved, calculateBookingPrice } from '../../utils/bookingPricing'
 import { parseLocaleFloat, parseLocaleInt } from '../../utils/localeNumberParse'
+import { TIME_INPUT_STEP_SECONDS } from '../../utils/clubWorkingHours'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
@@ -302,9 +303,9 @@ const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
               {(prices.timeModifiers || []).map((tm, i) => (
                 <div key={i} className="cbp-modifier-card cbp-modifier-row">
                   <div className="cbp-time-range">
-                    <input type="time" value={tm.start || '06:00'} onChange={(e) => updateTimeModifier(i, 'start', e.target.value)} className="cbp-input" />
+                    <input type="time" step={TIME_INPUT_STEP_SECONDS} value={tm.start || '06:00'} onChange={(e) => updateTimeModifier(i, 'start', e.target.value)} className="cbp-input" />
                     <span>–</span>
-                    <input type="time" value={tm.end || '12:00'} onChange={(e) => updateTimeModifier(i, 'end', e.target.value)} className="cbp-input" />
+                    <input type="time" step={TIME_INPUT_STEP_SECONDS} value={tm.end || '12:00'} onChange={(e) => updateTimeModifier(i, 'end', e.target.value)} className="cbp-input" />
                   </div>
                   <div className="cbp-modifier-mult">
                     <label>{t('Multiplier', 'المضاعف', lang)}</label>
@@ -353,7 +354,7 @@ const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
             </div>
             <div>
               <label>{t('Start time', 'وقت البداية', lang)}</label>
-              <input type="time" value={preview.time} onChange={(e) => setPreview(p => ({ ...p, time: e.target.value }))} className="cbp-input" />
+              <input type="time" step={TIME_INPUT_STEP_SECONDS} value={preview.time} onChange={(e) => setPreview(p => ({ ...p, time: e.target.value }))} className="cbp-input" />
             </div>
             <div>
               <label>{t('Duration', 'المدة', lang)}</label>

@@ -4,7 +4,7 @@ import './ClubSettings.css'
 import '../pages/common.css'
 import SocialIcon, { PLATFORMS } from '../../components/SocialIcon'
 import { getImageUrl } from '../../api/dbClient'
-import { getLegacyOpenCloseBounds, timeToMinutes as whToMinutes } from '../../utils/clubWorkingHours'
+import { getLegacyOpenCloseBounds, timeToMinutes as whToMinutes, TIME_INPUT_STEP_SECONDS } from '../../utils/clubWorkingHours'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
@@ -1221,6 +1221,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                         <label className="field-label">{t('Open', 'الفتح', lang)}</label>
                         <input
                           type="time"
+                          step={TIME_INPUT_STEP_SECONDS}
                           className="settings-input settings-time-input"
                           value={p.open || '06:00'}
                           onChange={(e) => {
@@ -1236,6 +1237,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                         <label className="field-label">{t('Close', 'الإغلاق', lang)}</label>
                         <input
                           type="time"
+                          step={TIME_INPUT_STEP_SECONDS}
                           className="settings-input settings-time-input"
                           value={p.close || '23:00'}
                           onChange={(e) => {

@@ -3,6 +3,7 @@
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import * as bookingApi from '../api/dbClient'
+import { TIME_INPUT_STEP_SECONDS } from '../utils/clubWorkingHours'
 import './MemberBookingActionsModal.css'
 
 export default function MemberBookingActionsModal({
@@ -370,11 +371,11 @@ export default function MemberBookingActionsModal({
                   </label>
                   <label>
                     {c.start}
-                    <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="member-booking-actions-input" />
+                    <input type="time" step={TIME_INPUT_STEP_SECONDS} value={startTime} onChange={(e) => setStartTime(e.target.value)} className="member-booking-actions-input" />
                   </label>
                   <label>
                     {c.end}
-                    <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="member-booking-actions-input" />
+                    <input type="time" step={TIME_INPUT_STEP_SECONDS} value={endTime} onChange={(e) => setEndTime(e.target.value)} className="member-booking-actions-input" />
                   </label>
                 </div>
                 <button type="button" className="member-booking-actions-primary" disabled={busy} onClick={handleReschedule}>

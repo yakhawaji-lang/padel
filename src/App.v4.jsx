@@ -7115,6 +7115,7 @@ function BookingFormModal({ bookingData, members, onSave, onDelete, onCancel, tr
                 </label>
                 <input
                   type="time"
+                  step={1800}
                   value={formData.startTime}
                   onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                   className="search-input"
@@ -7127,6 +7128,7 @@ function BookingFormModal({ bookingData, members, onSave, onDelete, onCancel, tr
                 </label>
                 <input
                   type="time"
+                  step={1800}
                   value={formData.endTime}
                   onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
                   className="search-input"

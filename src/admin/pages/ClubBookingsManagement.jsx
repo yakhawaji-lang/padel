@@ -5,6 +5,7 @@ import { resolvePaymentShareDisplayName, effectiveSplitPaidSum } from '../../uti
 import { effectiveShareAmount, shareAmountRaw, shareRowIsActive } from '../../utils/paymentShareEffectiveAmounts'
 import * as bookingApi from '../../api/dbClient'
 import CalendarPicker from '../../components/CalendarPicker'
+import { TIME_INPUT_STEP_SECONDS } from '../../utils/clubWorkingHours'
 import { calculateBookingPrice } from '../../utils/bookingPricing'
 import {
   isTerminalBookingStatus,
@@ -1770,6 +1771,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                 <label>{c.time}</label>
                 <input
                   type="time"
+                  step={TIME_INPUT_STEP_SECONDS}
                   value={editForm.startTime}
                   onChange={e => setEditForm(f => ({ ...f, startTime: e.target.value }))}
                 />

@@ -9,6 +9,9 @@ export function timeToMinutes(t) {
   return (h || 0) * 60 + (m || 0)
 }
 
+/** Seconds for HTML5 `<input type="time" step={…}>`: 1800 = 30 minutes → minutes column is :00 and :30 only. */
+export const TIME_INPUT_STEP_SECONDS = 1800
+
 export function minutesToHHMM(m) {
   const mm = Math.round(m)
   const h = Math.floor(mm / 60) % 24
