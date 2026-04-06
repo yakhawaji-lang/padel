@@ -82,7 +82,7 @@ const ClubAdminSidebar = ({ club, language, onLanguageChange, open, onClose }) =
       </nav>
 
       <div className="club-admin-sidebar-footer">
-        <Link to={`/clubs/${clubId}`} className="back-to-club">
+        <Link to={`/club/${clubId}`} className="back-to-club">
           🏠 {language === 'en' ? 'Club Page' : 'صفحة النادي'}
         </Link>
         <Link to="/admin/all-clubs" className="back-to-main-admin">

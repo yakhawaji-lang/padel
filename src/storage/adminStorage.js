@@ -801,7 +801,8 @@ export const getClubById = (clubId, forceFromStorage = false) => {
   } else {
     clubs = loadClubs()
   }
-  return clubs?.find(club => club.id === clubId)
+  const id = clubId != null ? String(clubId) : ''
+  return clubs?.find((club) => club != null && String(club.id) === id)
 }
 
 export const updateClub = async (clubId, updates) => {

@@ -618,7 +618,14 @@ function App({ currentUser }) {
         if (clubId) {
           club = getClubById(clubId)
           if (!club) {
-            // Club not found, redirect to login
+            try {
+              await refreshClubsFromApi()
+            } catch (e) {
+              console.warn('refreshClubsFromApi on club route failed:', e?.message || e)
+            }
+            club = getClubById(clubId)
+          }
+          if (!club) {
             console.error('Club not found:', clubId)
             navigate('/login')
             return

@@ -329,7 +329,7 @@ const AllClubsDashboard = () => {
                       <p className="acd-club-meta">{t('Created', 'تاريخ الإنشاء', language)}: {formatDate(club.createdAt)}</p>
                     )}
                     <div className="acd-club-actions">
-                      <button type="button" className="acd-btn-icon" onClick={() => navigate(`/clubs/${club.id}`)} title={t('Club page', 'صفحة النادي', language)}>◉</button>
+                      <button type="button" className="acd-btn-icon" onClick={() => navigate(`/club/${club.id}`)} title={t('Club page', 'صفحة النادي', language)}>◉</button>
                       <button type="button" className="acd-btn-icon" onClick={() => navigate(`/admin/club/${club.id}`)} title={t('Admin', 'إدارة', language)}>⚙</button>
                       <button type="button" className="acd-btn-icon" onClick={() => navigate('/admin/manage-clubs')} title={t('Edit', 'تعديل', language)}>✎</button>
                       <button type="button" className="acd-btn acd-btn--small acd-btn--primary" onClick={() => handleAddClubAdmin(club)}>

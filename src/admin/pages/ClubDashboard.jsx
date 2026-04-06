@@ -337,7 +337,7 @@ const ClubDashboard = ({ club }) => {
                     </div>
                     <button 
                       className="tournament-view-btn"
-                      onClick={() => navigate(`/clubs/${clubId}`)}
+                      onClick={() => navigate(`/club/${clubId}`)}
                     >
                       {t.viewDetails} {language === 'ar' ? '←' : '→'}
                     </button>
@@ -368,7 +368,7 @@ const ClubDashboard = ({ club }) => {
                     </div>
                     <button 
                       className="tournament-view-btn"
-                      onClick={() => navigate(`/clubs/${clubId}`)}
+                      onClick={() => navigate(`/club/${clubId}`)}
                     >
                       {t.viewDetails} {language === 'ar' ? '←' : '→'}
                     </button>
@@ -392,7 +392,7 @@ const ClubDashboard = ({ club }) => {
               <div className="quick-actions-grid">
                 <button 
                   className="quick-action-btn action-primary"
-                  onClick={() => navigate(`/clubs/${club.id}`)}
+                  onClick={() => navigate(`/club/${club.id}`)}
                 >
                   <span className="action-icon">🏠</span>
                   <span className="action-label">{t.openClubPage}</span>

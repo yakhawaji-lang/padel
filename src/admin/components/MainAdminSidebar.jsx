@@ -168,7 +168,7 @@ const MainAdminSidebar = ({ clubs, language, onLanguageChange, open, onClose }) 
             displayClubs.map(club => (
               <div key={club.id} className="club-quick-item">
                 <Link
-                  to={`/clubs/${club.id}`}
+                  to={`/club/${club.id}`}
                   className="club-quick-link"
                 >
                   {club.logo ? <img src={club.logo} alt="" className="club-logo-small" /> : <span className="club-icon-small">🏢</span>}
