@@ -596,6 +596,8 @@ function App({ currentUser }) {
   const [viewedTournamentBooking, setViewedTournamentBooking] = useState(null) // { id, date, startTime, endTime, tournamentType } - which scheduled tournament is being viewed (shows its tabs)
   /** Bumps every second on Teams tab while a scheduled tournament is open — drives payment deadline countdowns */
   const [tournamentPayUiTick, setTournamentPayUiTick] = useState(0)
+  /** `tm-mpaid-${teamId}-${memberId}` while tournament card Mark paid calls the API */
+  const [tournamentMarkPaidBusyKey, setTournamentMarkPaidBusyKey] = useState(null)
 
   // No sidebar - club app uses top navigation only
   const [showResetConfirm, setShowResetConfirm] = useState(false) // Show/hide reset confirmation modal
@@ -5769,6 +5771,56 @@ function App({ currentUser }) {
     return { ...b, isTournament: true, tournamentType: vt }
   }, [tournamentBookingRowForGuestInvite, viewedTournamentBooking])
 
+  /** Same server action as Club admin → Bookings → Mark paid on a share (`/api/bookings/mark-share-paid-at-club`). */
+  const handleTournamentTeamMemberMarkPaid = async (teamId, memberId) => {
+    const booking = tournamentBookingRowForGuestInvite
+    const member = members.find((m) => String(m.id) === String(memberId))
+    if (!member) return
+
+    const share = booking ? findPaymentShareForMember(booking, member) : null
+    const shareUnpaid =
+      share &&
+      !(share.removedAt || share.removed_at) &&
+      !(share.paidAt || share.paid_at) &&
+      !(share.refundedAt || share.refunded_at) &&
+      ((share.id != null && String(share.id).trim() !== '') || share.inviteToken)
+
+    const busyKey = `tm-mpaid-${teamId}-${memberId}`
+    setTournamentMarkPaidBusyKey(busyKey)
+
+    const setClubReceivedTrue = () => {
+      updateCurrentState((state) => ({
+        ...state,
+        teams: (state.teams || []).map((t) => {
+          if (t.id !== teamId) return t
+          const mp = { ...(t.memberTournamentPayments || {}) }
+          const cur = normalizeMemberPaymentEntry(mp[memberId])
+          if (cur.clubReceived) return t
+          mp[memberId] = { ...cur, clubReceived: true }
+          return { ...t, memberTournamentPayments: mp }
+        }),
+      }))
+    }
+
+    try {
+      if (clubId && booking?.id && shareUnpaid && isLikelyServerBookingId(booking.id)) {
+        await bookingApi.markSharePaidAtClub(
+          share.id != null && String(share.id).trim() !== ''
+            ? { shareId: share.id, clubId }
+            : { inviteToken: share.inviteToken, clubId }
+        )
+        await syncBookingsAfterApi()
+      }
+      setClubReceivedTrue()
+    } catch (e) {
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(language === 'en' ? String(e?.message || 'Failed') : String(e?.message || 'فشل'))
+      }
+    } finally {
+      setTournamentMarkPaidBusyKey(null)
+    }
+  }
+
   useEffect(() => {
     if (!openMemberSelectorForTeam) {
       setMemberSelectorFavBulkSelected({})
@@ -8186,15 +8238,18 @@ function App({ currentUser }) {
                                           type="button"
                                           className="tournament-member-pay-card__mark-paid"
                                           title={t.tournamentPayMarkPaidAtClubTitle}
+                                          disabled={
+                                            tournamentMarkPaidBusyKey === `tm-mpaid-${team.id}-${memberId}`
+                                          }
                                           onClick={(e) => {
                                             e.stopPropagation()
                                             e.preventDefault()
-                                            if (!norm.clubReceived) {
-                                              toggleTeamMemberPaymentFlag(team.id, memberId, 'clubReceived')
-                                            }
+                                            void handleTournamentTeamMemberMarkPaid(team.id, memberId)
                                           }}
                                         >
-                                          {t.tournamentPayMarkPaidAtClub}
+                                          {tournamentMarkPaidBusyKey === `tm-mpaid-${team.id}-${memberId}`
+                                            ? '…'
+                                            : t.tournamentPayMarkPaidAtClub}
                                         </button>
                                       </div>
                                     )}
