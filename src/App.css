@@ -3663,6 +3663,12 @@ button:active {
   filter: brightness(0.94);
 }
 
+.tournament-member-pay-card__mark-paid:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  filter: none;
+}
+
 .tournament-member-pay-card__row--tracker {
   padding-top: 4px;
   border-top: 1px solid #f1f5f9;
