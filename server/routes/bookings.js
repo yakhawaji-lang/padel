@@ -1239,6 +1239,7 @@ router.post('/record-payment', async (req, res) => {
       } catch (invErr) {
         console.warn('[record-payment] wallet invoice:', invErr?.message)
       }
+      if (resolvedMemberId) await ensureMemberJoinedClub(resolvedMemberId, clubId)
       return res.json({ ok: true, paidAmount, status })
     }
 
@@ -1294,6 +1295,7 @@ router.post('/record-payment', async (req, res) => {
         console.warn('[record-payment] invoice:', invErr?.message)
       }
     }
+    if (resolvedMemberId) await ensureMemberJoinedClub(resolvedMemberId, clubId)
     res.json({ ok: true, paidAmount, status })
   } catch (e) {
     console.error('bookings record-payment error:', e)
@@ -1963,6 +1965,8 @@ router.post('/claim-invite-share', async (req, res) => {
         [String(memberId), row.id, clubId]
       )
     }
+    // قائمة الأعضاء تعتمد على member_clubs؛ ربط المشاركة وحده لا يكفي إذا فشل /api/clubs/join من الواجهة بصمت
+    await ensureMemberJoinedClub(String(memberId), String(clubId))
     res.json({ ok: true, bookingId: row.booking_id })
   } catch (e) {
     console.error('bookings claim-invite-share error:', e)
