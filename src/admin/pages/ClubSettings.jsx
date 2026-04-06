@@ -4,7 +4,8 @@ import './ClubSettings.css'
 import '../pages/common.css'
 import SocialIcon, { PLATFORMS } from '../../components/SocialIcon'
 import { getImageUrl } from '../../api/dbClient'
-import { getLegacyOpenCloseBounds, timeToMinutes as whToMinutes, TIME_INPUT_STEP_SECONDS } from '../../utils/clubWorkingHours'
+import { getLegacyOpenCloseBounds, timeToMinutes as whToMinutes } from '../../utils/clubWorkingHours'
+import HalfHourTimeSelect from '../../components/HalfHourTimeSelect'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
@@ -1219,15 +1220,13 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                     <div key={`${si}-p-${pi}`} className="working-hours-period-row">
                       <div className="form-group settings-field">
                         <label className="field-label">{t('Open', 'الفتح', lang)}</label>
-                        <input
-                          type="time"
-                          step={TIME_INPUT_STEP_SECONDS}
+                        <HalfHourTimeSelect
                           className="settings-input settings-time-input"
                           value={p.open || '06:00'}
-                          onChange={(e) => {
+                          onChange={(v) => {
                             const next = [...(formData.workingHoursSeasons || [])]
                             const periods = [...(next[si].periods || [])]
-                            periods[pi] = { ...periods[pi], open: e.target.value }
+                            periods[pi] = { ...periods[pi], open: v }
                             next[si] = { ...next[si], periods }
                             setFormData(prev => ({ ...prev, workingHoursSeasons: next }))
                           }}
@@ -1235,15 +1234,13 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
                       </div>
                       <div className="form-group settings-field">
                         <label className="field-label">{t('Close', 'الإغلاق', lang)}</label>
-                        <input
-                          type="time"
-                          step={TIME_INPUT_STEP_SECONDS}
+                        <HalfHourTimeSelect
                           className="settings-input settings-time-input"
                           value={p.close || '23:00'}
-                          onChange={(e) => {
+                          onChange={(v) => {
                             const next = [...(formData.workingHoursSeasons || [])]
                             const periods = [...(next[si].periods || [])]
-                            periods[pi] = { ...periods[pi], close: e.target.value }
+                            periods[pi] = { ...periods[pi], close: v }
                             next[si] = { ...next[si], periods }
                             setFormData(prev => ({ ...prev, workingHoursSeasons: next }))
                           }}

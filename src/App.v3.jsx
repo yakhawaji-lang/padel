@@ -12,6 +12,7 @@ import {
   getMatchesByTournamentId,
   deleteMatchesByTournament
 } from './storage'
+import HalfHourTimeSelect from './components/HalfHourTimeSelect'
 
 function App() {
   const [activeTab, setActiveTab] = useState('king') // 'king', 'social', 'members', 'oldTournaments', or 'bookings'
@@ -6761,11 +6762,9 @@ function BookingFormModal({ bookingData, members, onSave, onDelete, onCancel, tr
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', color: '#2c3e50' }}>
                   {translations.startTime}
                 </label>
-                <input
-                  type="time"
-                  step={1800}
+                <HalfHourTimeSelect
                   value={formData.startTime}
-                  onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                  onChange={(v) => setFormData({ ...formData, startTime: v })}
                   className="search-input"
                   required
                 />
@@ -6774,11 +6773,9 @@ function BookingFormModal({ bookingData, members, onSave, onDelete, onCancel, tr
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', color: '#2c3e50' }}>
                   {translations.endTime}
                 </label>
-                <input
-                  type="time"
-                  step={1800}
+                <HalfHourTimeSelect
                   value={formData.endTime}
-                  onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                  onChange={(v) => setFormData({ ...formData, endTime: v })}
                   className="search-input"
                   required
                 />

@@ -33,6 +33,7 @@ import LanguageIcon from './components/LanguageIcon'
 import ClubNotificationHub from './components/clubNotifications/ClubNotificationHub'
 import ClubPresenceBeacon from './components/clubNotifications/ClubPresenceBeacon'
 import ClubCalendarBookingDetailSheet from './components/ClubCalendarBookingDetailSheet'
+import HalfHourTimeSelect from './components/HalfHourTimeSelect'
 import { getBookingCalendarKind } from './utils/bookingCalendarKind'
 import { isLikelyServerBookingId, showInvoiceAlertFromApiResult } from './utils/bookingInvoiceSync'
 import * as bookingApi from './api/dbClient'
@@ -43,7 +44,6 @@ import {
   getUnionTimeSlotsForDates,
   getLegacyOpenCloseBounds,
   isSameDayIntervalWithinClubHours,
-  TIME_INPUT_STEP_SECONDS,
 } from './utils/clubWorkingHours'
 import { isTerminalBookingStatus, isMemberCancelledBooking, bookingHasPendingMemberShareRefund } from './utils/bookingMemberCancel'
 import { phoneMatchesMemberSearch } from './utils/paymentShareMemberMatch'
@@ -6068,27 +6068,25 @@ function App({ currentUser }) {
               </div>
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600' }}>{language === 'en' ? 'Start Time' : 'وقت البداية'} *</label>
-                <input
-                  type="time"
-                  step={TIME_INPUT_STEP_SECONDS}
+                <HalfHourTimeSelect
                   value={tournamentBookingData.startTime}
                   min={clubLegacyHours.openingTime}
                   max={clubLegacyHours.closingTime}
-                  onChange={(e) => setTournamentBookingData({ ...tournamentBookingData, startTime: e.target.value })}
+                  onChange={(v) => setTournamentBookingData({ ...tournamentBookingData, startTime: v })}
                   required
+                  className="search-input"
                   style={{ width: '100%', padding: '10px', border: '2px solid #ddd', borderRadius: '6px', fontSize: '16px' }}
                 />
               </div>
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600' }}>{language === 'en' ? 'End Time' : 'وقت النهاية'} *</label>
-                <input
-                  type="time"
-                  step={TIME_INPUT_STEP_SECONDS}
+                <HalfHourTimeSelect
                   value={tournamentBookingData.endTime}
                   min={clubLegacyHours.openingTime}
                   max={clubLegacyHours.closingTime}
-                  onChange={(e) => setTournamentBookingData({ ...tournamentBookingData, endTime: e.target.value })}
+                  onChange={(v) => setTournamentBookingData({ ...tournamentBookingData, endTime: v })}
                   required
+                  className="search-input"
                   style={{ width: '100%', padding: '10px', border: '2px solid #ddd', borderRadius: '6px', fontSize: '16px' }}
                 />
               </div>
@@ -9397,11 +9395,9 @@ function BookingFormModal({
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#1e293b' }}>
                     {translations.startTime}
                   </label>
-                  <input
-                    type="time"
-                    step={TIME_INPUT_STEP_SECONDS}
+                  <HalfHourTimeSelect
                     value={formData.startTime}
-                    onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                    onChange={(v) => setFormData({ ...formData, startTime: v })}
                     className="search-input"
                     required
                   />
@@ -9410,12 +9406,10 @@ function BookingFormModal({
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#1e293b' }}>
                     {translations.endTime}
                   </label>
-                  <input
-                    type="time"
-                    step={TIME_INPUT_STEP_SECONDS}
+                  <HalfHourTimeSelect
                     value={isOpenEnded ? closingForOpen : formData.endTime}
                     disabled={isOpenEnded}
-                    onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                    onChange={(v) => setFormData({ ...formData, endTime: v })}
                     className="search-input"
                     required
                   />

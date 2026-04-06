@@ -9,8 +9,54 @@ export function timeToMinutes(t) {
   return (h || 0) * 60 + (m || 0)
 }
 
-/** Seconds for HTML5 `<input type="time" step={…}>`: 1800 = 30 minutes → minutes column is :00 and :30 only. */
-export const TIME_INPUT_STEP_SECONDS = 1800
+function halfHourSlotInWindow(mins, minStr, maxStr) {
+  const hasMin = minStr != null && String(minStr).trim() !== ''
+  const hasMax = maxStr != null && String(maxStr).trim() !== ''
+  if (!hasMin && !hasMax) return true
+  const a = hasMin ? timeToMinutes(minStr) : 0
+  const b = hasMax ? timeToMinutes(maxStr) : 24 * 60 - 1
+  if (a <= b) return mins >= a && mins <= b
+  return mins >= a || mins <= b
+}
+
+/** All HH:mm strings in 30-minute steps that fall inside [minStr, maxStr] (inclusive minutes); supports overnight (min > max). */
+export function getHalfHourTimeOptions(minStr, maxStr) {
+  const out = []
+  for (let h = 0; h < 24; h++) {
+    for (const m of [0, 30]) {
+      const mins = h * 60 + m
+      if (halfHourSlotInWindow(mins, minStr, maxStr)) {
+        out.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+      }
+    }
+  }
+  if (out.length === 0) {
+    for (let h = 0; h < 24; h++) {
+      for (const m of [0, 30]) {
+        out.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+      }
+    }
+  }
+  return out
+}
+
+/** Pick the closest valid half-hour option (used when legacy value was e.g. 23:59). */
+export function snapTimeToNearestHalfHourOption(value, minStr, maxStr) {
+  const opts = getHalfHourTimeOptions(minStr, maxStr)
+  if (!opts.length) return '00:00'
+  const raw = typeof value === 'string' && value.trim() ? value.trim() : '00:00'
+  const v = timeToMinutes(raw)
+  let best = opts[0]
+  let bestDiff = Infinity
+  for (const o of opts) {
+    const d = Math.abs(timeToMinutes(o) - v)
+    if (d < bestDiff) {
+      bestDiff = d
+      best = o
+    }
+  }
+  return best
+}
 
 export function minutesToHHMM(m) {
   const mm = Math.round(m)
