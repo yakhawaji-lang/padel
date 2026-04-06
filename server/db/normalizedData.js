@@ -282,7 +282,6 @@ export async function saveMembersToNormalized(items, actor = {}) {
   if (!Array.isArray(items)) return
   const existing = await getMembersFromNormalized()
   const existingIds = new Set(existing.map(m => String(m?.id || '')).filter(Boolean))
-  const newIds = new Set(items.map(m => (m?.id != null ? String(m.id) : '')).filter(Boolean))
 
   const itemIds = items.map(m => (m?.id != null ? String(m.id) : '')).filter(Boolean)
   const currentMemberClubs = new Map()
@@ -363,13 +362,8 @@ export async function saveMembersToNormalized(items, actor = {}) {
     mergedClubIdsByMemberId.set(id, preserveMembership ? currentClubIds : mergedClubIds)
   }
 
-  for (const id of existingIds) {
-    if (!newIds.has(id) && id) {
-      await query('UPDATE members SET deleted_at=NOW(), deleted_by=? WHERE id=?', [actor.actorId || null, id])
-      await membershipService.removeAllMembershipsForMember(id)
-      await logAudit({ tableName: 'members', recordId: id, action: 'DELETE', ...actor })
-    }
-  }
+  // لا نحذف مؤقتاً الأعضاء الغائبين عن payload: أي حفظ جزئي من ذاكرة العميل كان يُسقط بقية المستخدمين من DB.
+  // الحذف الصريح فقط: softDeleteMemberNormalized أو واجهة مخصصة.
 
   // Dual-write to app_store so passwords are available for login merge (when password_hash column missing)
   try {
@@ -404,6 +398,52 @@ export async function saveMembersToNormalized(items, actor = {}) {
       [JSON.stringify(toStore)]
     )
   } catch (_) {}
+}
+
+/** يحدّث app_store من جدول members + member_clubs (مصدر حقيقة بعد حذف عضو). */
+async function rewriteMembersAppStoreFromNormalized() {
+  try {
+    const snapshot = await getMembersFromNormalized()
+    const toStore = snapshot.map((m) => ({
+      id: m.id,
+      name: m.name,
+      nameAr: m.nameAr,
+      email: m.email,
+      avatar: m.avatar,
+      phone: m.mobile ?? m.phone,
+      mobile: m.mobile ?? m.phone,
+      password: m.password ?? null,
+      clubIds: m.clubIds || [],
+      clubId: m.clubId,
+      totalPoints: m.totalPoints ?? 0,
+      totalGames: m.totalGames ?? 0,
+      totalWins: m.totalWins ?? 0,
+      pointsHistory: m.pointsHistory || [],
+    }))
+    await query(
+      `INSERT INTO app_store (\`key\`, value, updated_at) VALUES ('all_members', ?, NOW())
+       ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = NOW()`,
+      [JSON.stringify(toStore)]
+    )
+    await query(
+      `INSERT INTO app_store (\`key\`, value, updated_at) VALUES ('padel_members', ?, NOW())
+       ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = NOW()`,
+      [JSON.stringify(toStore)]
+    )
+  } catch (_) {}
+}
+
+/** حذف مؤقت لعضو واحد + إزالة عضوياته + مزامنة app_store. لا يُستدعى من حفظ القائمة الجزئي. */
+export async function softDeleteMemberNormalized(memberId, actor = {}) {
+  const id = String(memberId || '').trim()
+  if (!id) return false
+  const { rows } = await query(`SELECT id FROM members WHERE id = ? AND ${SOFT_DELETE_WHERE}`, [id])
+  if (!rows?.length) return false
+  await query('UPDATE members SET deleted_at=NOW(), deleted_by=? WHERE id=?', [actor.actorId || null, id])
+  await membershipService.removeAllMembershipsForMember(id)
+  await logAudit({ tableName: 'members', recordId: id, action: 'DELETE', ...actor })
+  await rewriteMembersAppStoreFromNormalized()
+  return true
 }
 
 /**

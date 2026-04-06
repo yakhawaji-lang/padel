@@ -7,7 +7,7 @@ import { Router } from 'express'
 import { query } from '../db/pool.js'
 import { getPaymentGatewaysFromTable, savePaymentGatewaysToTable } from '../db/paymentSettings.js'
 import { getActorFromRequest } from '../db/audit.js'
-import { hasNormalizedTables, getClubsFromNormalized, getMembersFromNormalized, getPlatformAdminsFromNormalized, saveClubsToNormalized, saveMembersToNormalized, savePlatformAdminsToNormalized, deleteClubPermanent, removeMemberFromClub, updateClubSettingsInDb } from '../db/normalizedData.js'
+import { hasNormalizedTables, getClubsFromNormalized, getMembersFromNormalized, getPlatformAdminsFromNormalized, saveClubsToNormalized, saveMembersToNormalized, savePlatformAdminsToNormalized, deleteClubPermanent, removeMemberFromClub, softDeleteMemberNormalized, updateClubSettingsInDb } from '../db/normalizedData.js'
 import { setMemberCoachStatus } from '../services/membershipService.js'
 
 const router = Router()
@@ -86,6 +86,30 @@ router.post('/member-set-coach', async (req, res) => {
     res.json({ ok: true })
   } catch (e) {
     console.error('member-set-coach error:', e)
+    res.status(500).json({ error: dbErrorMsg(e) })
+  }
+})
+
+/** POST /api/data/member-soft-delete - Soft-delete one platform member (explicit). Body: { memberId } */
+router.post('/member-soft-delete', async (req, res) => {
+  try {
+    const { memberId } = req.body || {}
+    if (!memberId) return res.status(400).json({ error: 'Missing memberId' })
+    const normalized = await useNormalized()
+    if (!normalized) return res.status(400).json({ error: 'Requires normalized tables' })
+    const actor = getActorFromRequest(req)
+    const act = {
+      actorType: actor.actorType || 'system',
+      actorId: actor.actorId,
+      actorName: actor.actorName,
+      clubId: actor.clubId,
+      ipAddress: actor.ipAddress,
+    }
+    const ok = await softDeleteMemberNormalized(memberId, act)
+    if (!ok) return res.status(404).json({ error: 'Member not found or already deleted' })
+    res.json({ ok: true })
+  } catch (e) {
+    console.error('member-soft-delete error:', e)
     res.status(500).json({ error: dbErrorMsg(e) })
   }
 })

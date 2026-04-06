@@ -1392,8 +1392,24 @@ export const updatePlatformAdmin = async (id, updates) => {
   return updated
 }
 
-/** Delete member entirely from platform (all_members + padel_members) */
+/** Delete member entirely from platform (soft-delete in DB; لا يعتمد على حفظ قائمة جزئية لتفادي حذف بقية الأعضاء) */
 export async function deleteMember(memberId) {
-  const members = getMergedMembersRaw().filter(m => m.id !== memberId)
-  return saveMembers(members)
+  if (memberId == null || String(memberId).trim() === '') return false
+  try {
+    if (USE_POSTGRES && _backendStorage?.api?.softDeleteMemberApi) {
+      await _backendStorage.api.softDeleteMemberApi(memberId)
+      await _backendStorage.refreshStoreKeys([MEMBER_STORAGE_KEYS.ALL, MEMBER_STORAGE_KEYS.PADEL])
+      const clubs = loadClubs()
+      syncMembersToClubs(clubs, { persist: false })
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('clubs-synced'))
+      }
+      return true
+    }
+    const members = getMergedMembersRaw().filter(m => String(m.id) !== String(memberId))
+    return saveMembers(members)
+  } catch (e) {
+    console.error('deleteMember error:', e)
+    return false
+  }
 }

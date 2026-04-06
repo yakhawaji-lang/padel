@@ -399,6 +399,13 @@ export async function deleteClubPermanent(clubId) {
 }
 
 /** Remove a member from one club in the database (explicit removal). Use when admin clicks "Remove from club". */
+export async function softDeleteMemberApi(memberId) {
+  return fetchJson('/api/data/member-soft-delete', {
+    method: 'POST',
+    body: JSON.stringify({ memberId }),
+  })
+}
+
 export async function removeMemberFromClubApi(memberId, clubId) {
   return fetchJson('/api/data/member-remove-from-club', {
     method: 'POST',
