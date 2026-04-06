@@ -87,19 +87,21 @@ export const translations = {
     defaultPaymentAmount: 'Default payment amount',
     applyFeeToAllMembers: 'Apply to all',
     memberSelectorPaymentHint:
-      'Set fees and use WhatsApp as needed. Under «Other club members», cards appear only after you type at least 3 digits of a mobile number, or pin members to always show them.',
+      'Set fees and use WhatsApp as needed. Under «Other club members», cards appear after 3+ phone digits match, or when the club has marked members as directory favorites (bookmark — saved for the whole club by admins).',
     memberSelectorPhonePlaceholder: 'Type mobile number (3+ digits)…',
     memberSelectorPhoneHint:
-      'Other members appear here only when the number matches, or when pinned. Current team members always show above.',
+      'Other members appear when the number matches, or when they are club directory favorites. Current team members always show above.',
     memberSelectorPickFromContacts: 'Choose from contacts',
     memberSelectorSearchPhone: 'Search',
     memberSelectorContactsNotSupported:
       'Choosing a number from contacts is not available in this browser. Use Chrome on Android (HTTPS), or type the number.',
     memberSelectorContactsFailed: 'Could not read contacts. Check permissions or try again.',
-    memberSelectorPinTitle: 'Bookmark — keep this member visible without searching',
-    memberSelectorUnpinTitle: 'Remove bookmark',
+    memberSelectorPinTitle: 'Club directory favorite — show without search (saved for this club by admins)',
+    memberSelectorUnpinTitle: 'Remove from club directory favorites',
+    memberSelectorClubFavoriteAdminOnly: 'Only the club owner or dashboard admin can change directory favorites. Use Club admin → Members, or log in as club admin here.',
+    memberSelectorClubFavoriteViewOnlyTitle: 'Club directory favorite (view only — log in as club admin to change)',
     memberSelectorEmptyCards:
-      'No cards to show. Add at least 3 digits of a mobile number, or pin members using the pin button after they appear.',
+      'No cards to show. Type at least 3 digits of a mobile number, or mark members as club favorites (bookmark) from this list or the admin Members page.',
     sendWhatsApp: 'WhatsApp',
     paymentAmountShort: 'Amount',
     clubReceivedPaymentTitle: 'Club received payment (front desk)',
@@ -108,7 +110,7 @@ export const translations = {
     close: 'Close',
     noMembersFound: 'No members found',
     memberSelectorOnTeam: 'On this team',
-    memberSelectorOtherMembers: 'Other club members (search or pinned)',
+    memberSelectorOtherMembers: 'Other club members (search or directory favorites)',
     memberSelectorGuestInviteTitle: 'No club member matches this number',
     memberSelectorGuestInviteHint:
       'Creates a WhatsApp message for tournament participation: bilingual text (King of the Court or Social), your share amount, and clearly labeled tap-to-open links for payment and the club page. After you send it, the guest appears on this team as pending until they register and pay.',
@@ -126,9 +128,12 @@ export const translations = {
     memberSelectorGuestInviteWrongFlowRegistered:
       'No PlayTix account was found for this number. The server should use the registration link; if you see this, refresh and try again.',
     memberSelectorGuestInviteAlreadyInClub:
-      'This number belongs to someone already in the club directory — find them in the list above (search or pin).',
-    memberSelectorLoadFavorites: 'Load from My favorites',
-    memberSelectorFavoritesSection: 'My favorites (this club)',
+      'This number belongs to someone already in the club directory — find them in the list above (search or favorites).',
+    memberSelectorClubFavoritesRefresh: 'Refresh list',
+    memberSelectorClubFavoritesRefreshTitle: 'Reload club data from the server (updates directory favorites)',
+    memberSelectorClubFavoritesEmptyHint:
+      'No directory favorites yet. Club admins can mark members with the bookmark in this list or on Members in the dashboard.',
+    memberSelectorFavoritesSection: 'Club directory favorites (for quick picks)',
     memberSelectorFavoritesSelectAll: 'Select all',
     memberSelectorFavoritesClearSelection: 'Clear selection',
     memberSelectorFavoritesToThisTeam: 'Add selected → this team',
@@ -136,9 +141,8 @@ export const translations = {
     memberSelectorFavoritesSequentialTeams: 'Distribute selected → split evenly across teams',
     memberSelectorFavoritesDistributeHint:
       'Uses the default payment amount per row when set. Members are removed from other teams first (same as drag between teams).',
-    memberSelectorFavoritesNoneInClub: 'No saved favorites are in this club’s member list. Add them to the club or pick another account’s favorites.',
-    memberSelectorFavoritesNeedContext:
-      'Favorites are stored per PlayTix member account. To load them here: sign in as that member (Members / home login), or open the club dashboard with an admin email that matches the same email on a member profile in this club’s directory, or save the tournament booking once while logged in as the member so the booking stores an organizer. Then tap «Load from My favorites» again.',
+    memberSelectorFavoritesNoneOnTeam:
+      'All directory favorites are already on teams. Remove someone from a team or add more favorites from the admin Members page.',
     tournamentGuestPendingStatus: 'Waiting for registration & payment',
     tournamentGuestPendingRemoveTitle: 'Remove from team list (does not cancel the payment link)',
     tournamentGuestPendingWhatsApp: 'WhatsApp again',
@@ -429,19 +433,22 @@ export const translations = {
     defaultPaymentAmount: 'مبلغ الدفع الافتراضي',
     applyFeeToAllMembers: 'تطبيق على الجميع',
     memberSelectorPaymentHint:
-      'حدد المبالغ واستخدم واتساب عند الحاجة. تحت «بقية أعضاء النادي» تظهر البطاقات فقط بعد كتابة 3 أرقام على الأقل من الجوال، أو بعد تثبيت العضو ليظهر دائماً.',
+      'حدد المبالغ واستخدم واتساب عند الحاجة. تحت «بقية أعضاء النادي» تظهر البطاقات بعد تطابق 3 أرقام من الجوال، أو إذا علّم النادي العضو كمفضّل في الدليل (إشارة مرجعية — تُحفظ للنادي كاملاً من لوحة الأدمن).',
     memberSelectorPhonePlaceholder: 'اكتب رقم الجوال (3 أرقام على الأقل)…',
     memberSelectorPhoneHint:
-      'يظهر العضو هنا عند تطابق الرقم، أو إن كان مثبتاً. أعضاء الفريق الحالي يظهرون دائماً في الأعلى.',
+      'يظهر العضو عند تطابق الرقم، أو إن كان ضمن مفضّلي دليل النادي. أعضاء الفريق الحالي يظهرون دائماً في الأعلى.',
     memberSelectorPickFromContacts: 'اختيار من جهات الاتصال',
     memberSelectorSearchPhone: 'بحث',
     memberSelectorContactsNotSupported:
       'اختيار الرقم من جهات الاتصال غير متاح في هذا المتصفح. استخدم Chrome على أندرويد (HTTPS)، أو اكتب الرقم.',
     memberSelectorContactsFailed: 'تعذّر قراءة جهات الاتصال. تحقّق من الأذونات أو أعِد المحاولة.',
-    memberSelectorPinTitle: 'إشارة مرجعية — إبقاء العضو ظاهراً دون بحث',
-    memberSelectorUnpinTitle: 'إزالة الإشارة المرجعية',
+    memberSelectorPinTitle: 'مفضّل دليل النادي — إظهار دون بحث (يحفظه المالك/الأدمن للنادي)',
+    memberSelectorUnpinTitle: 'إزالة من مفضّلي دليل النادي',
+    memberSelectorClubFavoriteAdminOnly:
+      'تغيير مفضّلي الدليل متاح لمالك النادي أو أدمن اللوحة فقط. استخدم «الأعضاء» في لوحة النادي، أو سجّل دخول أدمن هنا.',
+    memberSelectorClubFavoriteViewOnlyTitle: 'مفضّل دليل النادي (عرض فقط — سجّل دخول أدمن النادي للتعديل)',
     memberSelectorEmptyCards:
-      'لا توجد بطاقات. أدخل 3 أرقام على الأقل من الجوال، أو ثبّت أعضاءً بزر الدبوس بعد ظهورهم.',
+      'لا توجد بطاقات. أدخل 3 أرقام على الأقل من الجوال، أو علّم أعضاءً كمفضّلين (إشارة مرجعية) من هذه القائمة أو صفحة الأعضاء في الإدارة.',
     sendWhatsApp: 'واتساب',
     paymentAmountShort: 'المبلغ',
     clubReceivedPaymentTitle: 'استلام الدفع في النادي (الاستقبال)',
@@ -450,7 +457,7 @@ export const translations = {
     close: 'إغلاق',
     noMembersFound: 'لم يتم العثور على أعضاء',
     memberSelectorOnTeam: 'في هذا الفريق',
-    memberSelectorOtherMembers: 'بقية أعضاء النادي (بحث أو مثبتون)',
+    memberSelectorOtherMembers: 'بقية أعضاء النادي (بحث أو مفضّلو الدليل)',
     memberSelectorGuestInviteTitle: 'لا يوجد عضو بهذا الرقم في دليل النادي',
     memberSelectorGuestInviteHint:
       'يُنشئ رسالة واتساب لمشاركة في بطولة: نص بالعربية والإنجليزية (ملك الملعب أو سوشيال)، مبلغ الحصة، وروابط واضحة «اضغط للفتح» للدفع وصفحة النادي. بعد الإرسال يظهر الضيف في الفريق كمعلّق حتى يتسجّل ويدفع.',
@@ -468,9 +475,12 @@ export const translations = {
     memberSelectorGuestInviteWrongFlowRegistered:
       'لا يوجد حساب بهذا الرقم. يفترض أن يُستخدم رابط التسجيل؛ إن ظهرت هذه الرسالة حدّث الصفحة وأعد المحاولة.',
     memberSelectorGuestInviteAlreadyInClub:
-      'هذا الرقم لعضو موجود في دليل النادي — ابحث عنه في القائمة أعلاه أو ثبّته.',
-    memberSelectorLoadFavorites: 'جلب من مفضلتي',
-    memberSelectorFavoritesSection: 'مفضلتي (في هذا النادي)',
+      'هذا الرقم لعضو موجود في دليل النادي — ابحث عنه في القائمة أعلاه أو من المفضّلين.',
+    memberSelectorClubFavoritesRefresh: 'تحديث القائمة',
+    memberSelectorClubFavoritesRefreshTitle: 'إعادة تحميل بيانات النادي من الخادم (يشمل مفضّلي الدليل)',
+    memberSelectorClubFavoritesEmptyHint:
+      'لا يوجد مفضّلون في الدليل بعد. يمكن لأدمن النادي تعليم الأعضاء بالإشارة المرجعية من هنا أو من «الأعضاء» في لوحة التحكم.',
+    memberSelectorFavoritesSection: 'مفضّلو دليل النادي (اختيار سريع)',
     memberSelectorFavoritesSelectAll: 'تحديد الكل',
     memberSelectorFavoritesClearSelection: 'إلغاء التحديد',
     memberSelectorFavoritesToThisTeam: 'إضافة المحددين ← هذا الفريق',
@@ -478,9 +488,8 @@ export const translations = {
     memberSelectorFavoritesSequentialTeams: 'توزيع المحددين ← تقسيم متساوٍ بين الفرق',
     memberSelectorFavoritesDistributeHint:
       'يُستخدم مبلغ الدفع الافتراضي لكل صف عند ضبطه. يُزال العضو من الفرق الأخرى أولاً (مثل السحب بين الفرق).',
-    memberSelectorFavoritesNoneInClub: 'لا يوجد من مفضلتك ضمن أعضاء هذا النادي. أضِفهم للنادي أو استخدم حساباً آخر له مفضلة.',
-    memberSelectorFavoritesNeedContext:
-      'المفضلة مرتبطة بحساب عضو في المنصة. لجلبها هنا: سجّل الدخول كذلك العضو (من صفحة الأعضاء أو الرئيسية)، أو ادخل لوحة النادي ببريد يطابق بريد عضو موجود في دليل النادي، أو احفظ حجز البطولة مرة وأنت مسجّل كعضو ليُحفظ المنظم. ثم أعِد الضغط على «جلب من مفضلتي».',
+    memberSelectorFavoritesNoneOnTeam:
+      'كل مفضّلي الدليل مضافون بالفعل للفرق. أزِل عضواً من فريق أو أضِف مفضّلين من صفحة الأعضاء في الإدارة.',
     tournamentGuestPendingStatus: 'في انتظار تسجيل العضو والدفع',
     tournamentGuestPendingRemoveTitle: 'إزالة من قائمة الفريق (لا يلغي رابط الدفع)',
     tournamentGuestPendingWhatsApp: 'واتساب مرة أخرى',

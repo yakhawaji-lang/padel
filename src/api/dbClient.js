@@ -100,6 +100,10 @@ function needsDataActorHeaders(path, method) {
   if (m === 'POST' && path === '/api/bookings/record-remainder-payment') return true
   if (m === 'POST' && path === '/api/bookings/create-tournament-guest-fee-share') return true
   if (m === 'POST' && path.startsWith('/api/push/')) return true
+  {
+    const p = path.split('?')[0]
+    if ((m === 'POST' || m === 'DELETE') && p === '/api/clubs/directory-favorites') return true
+  }
   return false
 }
 
@@ -125,6 +129,7 @@ function isMutationMethod(method) {
 function shouldShowGlobalSavingForPath(path) {
   const raw = String(path || '')
   const p = raw.split('?')[0]
+  if (p === '/api/clubs/directory-favorites') return true
   // مزامنة تخزين عامة (متكررة) — لا تغطي النماذج
   if (p === '/api/data' || p === '/api/store' || p === '/api/store/batch') return false
   // حفظ تلقائي للبطولة / الإحصائيات — لا يُعرض غطاء عند كل نقرة أو منتقي وقت
@@ -753,6 +758,19 @@ export async function addFavoriteMember(memberId, clubId, favoriteMemberId) {
 export async function removeFavoriteMember(memberId, clubId, favoriteMemberId) {
   const params = new URLSearchParams({ memberId, clubId, favoriteMemberId })
   return fetchJson(`/api/bookings/favorites?${params}`, { method: 'DELETE' })
+}
+
+/** مفضلة دليل النادي — يضبطها المالك/الأدمن (جدول club_directory_favorites) */
+export async function addClubDirectoryFavorite(clubId, memberId) {
+  return fetchJson('/api/clubs/directory-favorites', {
+    method: 'POST',
+    body: JSON.stringify({ clubId, memberId }),
+  })
+}
+
+export async function removeClubDirectoryFavorite(clubId, memberId) {
+  const params = new URLSearchParams({ clubId, memberId })
+  return fetchJson(`/api/clubs/directory-favorites?${params}`, { method: 'DELETE' })
 }
 
 export async function recordCoachTrainingInvites({ clubId, bookingId, coachId, memberIds }) {

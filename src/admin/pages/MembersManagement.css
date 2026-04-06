@@ -12,6 +12,15 @@
   border-color: #059669 !important;
 }
 
+.cxp-directory-fav-toggle {
+  min-width: 88px;
+}
+.cxp-directory-fav-toggle--active {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%) !important;
+  color: #fff !important;
+  border-color: #4f46e5 !important;
+}
+
 .members-table {
   background: #fff;
   border-radius: 14px;

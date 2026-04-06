@@ -537,6 +537,16 @@ CREATE TABLE IF NOT EXISTS member_favorites (
   INDEX idx_member_favorites_member_club (member_id, club_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- مفضلة دليل النادي (يضبطها المالك/الأدمن من لوحة الأعضاء أو علامة التثبيت في اختيار الفرق)
+CREATE TABLE IF NOT EXISTS club_directory_favorites (
+  club_id VARCHAR(255) NOT NULL,
+  member_id VARCHAR(255) NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  created_by_actor_id VARCHAR(255) NULL,
+  PRIMARY KEY (club_id, member_id),
+  INDEX idx_cdf_club (club_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS coach_training_invites (
   id INT AUTO_INCREMENT PRIMARY KEY,
   club_id VARCHAR(255) NOT NULL,

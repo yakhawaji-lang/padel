@@ -26,7 +26,7 @@ import {
   getClubMembersFromStorage,
 } from './storage/adminStorage'
 import { getClubAdminSession } from './storage/clubAuth'
-import { getCurrentMemberId } from './storage/appSettingsStorage.js'
+import { getCurrentMemberId, getPlatformAdminSession } from './storage/appSettingsStorage.js'
 import { getCurrentPlatformUser } from './storage/platformAuth'
 import { getAppLanguage, setAppLanguage } from './storage/languageStorage'
 import LanguageIcon from './components/LanguageIcon'
@@ -354,8 +354,6 @@ function normalizeMemberSelectorPhoneDisplay(rawStr) {
 }
 
 /** دمج أعضاء النادي من التخزين الموحّد + club.members + نسخة محلية قديمة */
-const memberSelectorPinsStorageKey = (cid) => `playtix_member_selector_pins_${String(cid || '')}`
-
 function mergeClubMembersForApp(club, clubId, savedList) {
   try {
     const fromStorage = getClubMembersFromStorage(clubId) || []
@@ -440,11 +438,8 @@ function App({ currentUser }) {
   const [memberSelectorSearchNonce, setMemberSelectorSearchNonce] = useState(0)
   const [memberSelectorBulkFee, setMemberSelectorBulkFee] = useState('') // default fee applied to all rows in modal
   const [memberSelectorFeeDraft, setMemberSelectorFeeDraft] = useState({}) // { [memberId]: string }
-  /** معرفات أعضاء مثبتة للظهور في المنتقي بدون بحث (لكل نادي) */
-  const [memberSelectorPinnedIds, setMemberSelectorPinnedIds] = useState([])
-  /** مفضلات العضو من جدول member_favorites (member_id = منظم البطولة) */
-  const [memberSelectorFavoriteIds, setMemberSelectorFavoriteIds] = useState([])
-  const [memberSelectorFavoritesLoading, setMemberSelectorFavoritesLoading] = useState(false)
+  /** طلب شبكة لتفضيل/إلغاء تفضيل عضو في دليل النادي (جدول club_directory_favorites) */
+  const [memberSelectorDirectoryFavBusyId, setMemberSelectorDirectoryFavBusyId] = useState(null)
   /** اختيار توزيع جماعي: { [memberId]: true } */
   const [memberSelectorFavBulkSelected, setMemberSelectorFavBulkSelected] = useState({})
   const [memberSelectorGuestInviteBusy, setMemberSelectorGuestInviteBusy] = useState(false)
@@ -854,20 +849,6 @@ function App({ currentUser }) {
       return changed ? next : prevSoc
     })
   }, [localBookings, currentClub?.id, language])
-
-  useEffect(() => {
-    if (!clubId) {
-      setMemberSelectorPinnedIds([])
-      return
-    }
-    try {
-      const raw = localStorage.getItem(memberSelectorPinsStorageKey(clubId))
-      const arr = raw ? JSON.parse(raw) : []
-      setMemberSelectorPinnedIds(Array.isArray(arr) ? arr.map(String) : [])
-    } catch {
-      setMemberSelectorPinnedIds([])
-    }
-  }, [clubId])
 
   // Update document direction and persist language
   useEffect(() => {
@@ -5428,29 +5409,57 @@ function App({ currentUser }) {
 
   const standings = getStandings()
   const teams = currentState.teams || []
-  const toggleMemberSelectorPin = useCallback(
-    (memberId) => {
+
+  const clubDirectoryFavoriteMemberIds = useMemo(() => {
+    const raw = currentClub?.directoryFavoriteMemberIds
+    if (!Array.isArray(raw)) return []
+    return [...new Set(raw.map((x) => String(x)).filter(Boolean))]
+  }, [currentClub?.directoryFavoriteMemberIds])
+
+  const canManageClubDirectoryFavorites =
+    !!clubId &&
+    (() => {
+      const ca = getClubAdminSession()
+      if (ca?.userId && String(ca.clubId || '').trim() === String(clubId).trim()) return true
+      return !!getPlatformAdminSession()?.id
+    })()
+
+  const toggleClubDirectoryFavoriteMember = useCallback(
+    async (memberId) => {
       const id = String(memberId)
       if (!clubId) return
-      setMemberSelectorPinnedIds((prev) => {
-        const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-        try {
-          localStorage.setItem(memberSelectorPinsStorageKey(clubId), JSON.stringify(next))
-        } catch (_) {
-          /* ignore quota */
-        }
-        return next
-      })
+      if (!canManageClubDirectoryFavorites) {
+        alert(t.memberSelectorClubFavoriteAdminOnly)
+        return
+      }
+      const isFav = clubDirectoryFavoriteMemberIds.includes(id)
+      setMemberSelectorDirectoryFavBusyId(id)
+      try {
+        if (isFav) await bookingApi.removeClubDirectoryFavorite(clubId, id)
+        else await bookingApi.addClubDirectoryFavorite(clubId, id)
+        await refreshClubsFromApi()
+        const clubs = loadClubs()
+        const club = clubs.find((c) => String(c.id) === String(clubId))
+        if (club) setCurrentClub(club)
+      } catch (e) {
+        console.error('club directory favorite toggle', e)
+        alert(
+          language === 'en'
+            ? 'Could not update club favorites. Try again or use the club admin Members page.'
+            : 'تعذّر تحديث مفضلة النادي. أعد المحاولة أو استخدم صفحة الأعضاء في لوحة النادي.'
+        )
+      } finally {
+        setMemberSelectorDirectoryFavBusyId(null)
+      }
     },
-    [clubId]
+    [clubId, canManageClubDirectoryFavorites, clubDirectoryFavoriteMemberIds, language, t]
   )
 
   const memberSelectorPartitioned = useMemo(() => {
     if (!openMemberSelectorForTeam) return { onTeam: [], offTeam: [] }
     const team = teams.find((t) => t.id === openMemberSelectorForTeam)
     const onTeamIds = new Set((team?.memberIds || []).map((id) => String(id)))
-    const pinned = new Set(memberSelectorPinnedIds.map(String))
-    const favSet = new Set(memberSelectorFavoriteIds.map(String))
+    const dirFav = new Set(clubDirectoryFavoriteMemberIds.map(String))
     const nameOf = memberDisplayNameForSelector
     const sortByName = (a, b) => nameOf(a).localeCompare(nameOf(b), undefined, { sensitivity: 'base' })
     const searchDigits = phoneDigitsNormalized(memberSelectorSearch || '')
@@ -5461,8 +5470,7 @@ function App({ currentUser }) {
     const offTeam = members
       .filter((m) => {
         if (onTeamIds.has(String(m.id))) return false
-        if (pinned.has(String(m.id))) return true
-        if (favSet.has(String(m.id))) return true
+        if (dirFav.has(String(m.id))) return true
         if (phoneSearchOk && phoneMatches(m)) return true
         return false
       })
@@ -5474,8 +5482,7 @@ function App({ currentUser }) {
     members,
     memberSelectorSearch,
     memberSelectorSearchNonce,
-    memberSelectorPinnedIds,
-    memberSelectorFavoriteIds,
+    clubDirectoryFavoriteMemberIds,
   ])
 
   const memberSelectorContactsSupported = useMemo(
@@ -5633,57 +5640,23 @@ function App({ currentUser }) {
     return fromMerged || fromLocal
   }, [bookings, localBookings, viewedTournamentBooking])
 
-  const resolveOrganizerMemberIdForFavorites = useCallback(() => {
-    const row = tournamentBookingRowForGuestInvite
-    const organizerFromBooking =
-      row?.initiatorMemberId ??
-      row?.memberId ??
-      row?.initiator_member_id ??
-      row?.member_id
-    const platformMember = getCurrentPlatformUser()
-    const rawSid = getCurrentMemberId()
-    const sessionMemberId =
-      rawSid != null && String(rawSid).trim() !== '' ? String(rawSid).trim() : ''
-    let mid =
-      platformMember?.id != null && String(platformMember.id).trim() !== ''
-        ? String(platformMember.id).trim()
-        : sessionMemberId ||
-          (organizerFromBooking != null && String(organizerFromBooking).trim() !== ''
-            ? String(organizerFromBooking).trim()
-            : '')
-    if (!mid && clubId) {
-      const ca = getClubAdminSession()
-      const isClubAdminForThisClub =
-        ca && String(ca.clubId || '').trim() === String(clubId || '').trim()
-      const adminEmail = String(ca?.email || '').trim().toLowerCase()
-      if (isClubAdminForThisClub && adminEmail) {
-        const hit = members.find(
-          (m) => String(m?.email || '').trim().toLowerCase() === adminEmail
-        )
-        if (hit?.id != null && String(hit.id).trim() !== '') mid = String(hit.id).trim()
-      }
-    }
-    return mid
-  }, [tournamentBookingRowForGuestInvite, clubId, members])
-
   useEffect(() => {
     if (!openMemberSelectorForTeam) {
-      setMemberSelectorFavoriteIds([])
       setMemberSelectorFavBulkSelected({})
-      setMemberSelectorFavoritesLoading(false)
+      setMemberSelectorDirectoryFavBusyId(null)
     }
   }, [openMemberSelectorForTeam])
 
   const memberSelectorFavoriteMembersInClub = useMemo(() => {
-    if (!openMemberSelectorForTeam || !memberSelectorFavoriteIds.length) return []
+    if (!openMemberSelectorForTeam || !clubDirectoryFavoriteMemberIds.length) return []
     const team = teams.find((t) => t.id === openMemberSelectorForTeam)
     const onTeam = new Set((team?.memberIds || []).map((id) => String(id)))
-    const favSet = new Set(memberSelectorFavoriteIds.map(String))
+    const favSet = new Set(clubDirectoryFavoriteMemberIds.map(String))
     const nameOf = memberDisplayNameForSelector
     return members
       .filter((m) => favSet.has(String(m.id)) && !onTeam.has(String(m.id)))
       .sort((a, b) => nameOf(a).localeCompare(nameOf(b), undefined, { sensitivity: 'base' }))
-  }, [openMemberSelectorForTeam, teams, members, memberSelectorFavoriteIds])
+  }, [openMemberSelectorForTeam, teams, members, clubDirectoryFavoriteMemberIds])
 
   const stripMemberFromAllTeamsInState = (teamsList, memberId) => {
     const mid = String(memberId)
@@ -5714,25 +5687,17 @@ function App({ currentUser }) {
       }
     })
 
-  const handleLoadMemberSelectorFavorites = useCallback(async () => {
-    const mid = resolveOrganizerMemberIdForFavorites()
-    if (!mid || !clubId) {
-      alert(t.memberSelectorFavoritesNeedContext)
-      return
-    }
-    setMemberSelectorFavoritesLoading(true)
+  const handleRefreshClubDirectoryFavorites = useCallback(async () => {
+    if (!clubId) return
     try {
-      const raw = await bookingApi.getFavoriteMembers(mid, clubId)
-      const ids = Array.isArray(raw) ? raw.map((x) => String(x)) : []
-      setMemberSelectorFavoriteIds(ids)
-      setMemberSelectorFavBulkSelected({})
+      await refreshClubsFromApi()
+      const clubs = loadClubs()
+      const club = clubs.find((c) => String(c.id) === String(clubId))
+      if (club) setCurrentClub(club)
     } catch (e) {
-      console.error('load favorites for selector', e)
-      alert(language === 'en' ? 'Could not load favorites.' : 'تعذّر جلب المفضلة.')
-    } finally {
-      setMemberSelectorFavoritesLoading(false)
+      console.error('refresh club directory favorites', e)
     }
-  }, [resolveOrganizerMemberIdForFavorites, clubId, language, t])
+  }, [clubId])
 
   const getMemberSelectorBulkFavoritePicks = useCallback(() => {
     return memberSelectorFavoriteMembersInClub.filter((m) => memberSelectorFavBulkSelected[String(m.id)])
@@ -9061,18 +9026,23 @@ function App({ currentUser }) {
                     <button
                       type="button"
                       className="btn-secondary btn-small"
-                      disabled={memberSelectorFavoritesLoading || !clubId}
-                      onClick={() => handleLoadMemberSelectorFavorites()}
+                      disabled={!clubId}
+                      onClick={() => handleRefreshClubDirectoryFavorites()}
+                      title={t.memberSelectorClubFavoritesRefreshTitle}
                     >
-                      {memberSelectorFavoritesLoading ? '…' : t.memberSelectorLoadFavorites}
+                      {t.memberSelectorClubFavoritesRefresh}
                     </button>
-                    {memberSelectorFavoriteIds.length > 0 ? (
+                    {clubDirectoryFavoriteMemberIds.length > 0 ? (
                       <span className="member-selector-favorites-meta">
                         {language === 'en'
-                          ? `${memberSelectorFavoriteIds.length} in My favorites · ${memberSelectorFavoriteMembersInClub.length} in this club`
-                          : `${memberSelectorFavoriteIds.length} في مفضلتي · ${memberSelectorFavoriteMembersInClub.length} في هذا النادي`}
+                          ? `${clubDirectoryFavoriteMemberIds.length} marked in club directory · ${memberSelectorFavoriteMembersInClub.length} available for this team`
+                          : `${clubDirectoryFavoriteMemberIds.length} مُعلَّمون في دليل النادي · ${memberSelectorFavoriteMembersInClub.length} متاحون لهذا الفريق`}
                       </span>
-                    ) : null}
+                    ) : (
+                      <span className="member-selector-favorites-meta member-selector-favorites-meta--muted">
+                        {t.memberSelectorClubFavoritesEmptyHint}
+                      </span>
+                    )}
                   </div>
                   {memberSelectorFavoriteMembersInClub.length > 0 ? (
                     <div className="member-selector-favorites-panel">
@@ -9133,8 +9103,8 @@ function App({ currentUser }) {
                       </div>
                       <p className="member-selector-favorites-hint">{t.memberSelectorFavoritesDistributeHint}</p>
                     </div>
-                  ) : memberSelectorFavoriteIds.length > 0 ? (
-                    <p className="member-selector-favorites-empty">{t.memberSelectorFavoritesNoneInClub}</p>
+                  ) : clubDirectoryFavoriteMemberIds.length > 0 ? (
+                    <p className="member-selector-favorites-empty">{t.memberSelectorFavoritesNoneOnTeam}</p>
                   ) : null}
                   {memberSelectorShowGuestPayInvite ? (
                     <div className="member-selector-guest-invite">
@@ -9183,7 +9153,8 @@ function App({ currentUser }) {
                               )
                             }
                             const displayName = memberDisplayNameForSelector(member)
-                            const isPinned = memberSelectorPinnedIds.includes(String(member.id))
+                            const isDirFavorite = clubDirectoryFavoriteMemberIds.includes(String(member.id))
+                            const pinBusy = memberSelectorDirectoryFavBusyId === String(member.id)
                             return (
                               <div key={member.id} className="member-selector-row">
                                 <input
@@ -9238,14 +9209,27 @@ function App({ currentUser }) {
                                 )}
                                 <button
                                   type="button"
-                                  className={`member-selector-pin-btn${isPinned ? ' member-selector-pin-btn--active' : ''}`}
+                                  className={`member-selector-pin-btn${isDirFavorite ? ' member-selector-pin-btn--active' : ''}${!canManageClubDirectoryFavorites ? ' member-selector-pin-btn--readonly' : ''}`}
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    toggleMemberSelectorPin(member.id)
+                                    toggleClubDirectoryFavoriteMember(member.id)
                                   }}
-                                  title={isPinned ? t.memberSelectorUnpinTitle : t.memberSelectorPinTitle}
-                                  aria-label={isPinned ? t.memberSelectorUnpinTitle : t.memberSelectorPinTitle}
-                                  aria-pressed={isPinned}
+                                  disabled={pinBusy}
+                                  title={
+                                    !canManageClubDirectoryFavorites
+                                      ? t.memberSelectorClubFavoriteViewOnlyTitle
+                                      : isDirFavorite
+                                        ? t.memberSelectorUnpinTitle
+                                        : t.memberSelectorPinTitle
+                                  }
+                                  aria-label={
+                                    !canManageClubDirectoryFavorites
+                                      ? t.memberSelectorClubFavoriteViewOnlyTitle
+                                      : isDirFavorite
+                                        ? t.memberSelectorUnpinTitle
+                                        : t.memberSelectorPinTitle
+                                  }
+                                  aria-pressed={isDirFavorite}
                                 >
                                   <svg
                                     className="member-selector-pin-svg"

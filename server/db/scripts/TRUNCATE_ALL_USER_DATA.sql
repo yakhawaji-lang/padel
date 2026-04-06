@@ -38,6 +38,7 @@ TRUNCATE TABLE `member_wallet_ledger`;
 TRUNCATE TABLE `member_wallet`;
 
 -- ----- مفضلة وتدريب -----
+TRUNCATE TABLE `club_directory_favorites`;
 TRUNCATE TABLE `member_favorites`;
 TRUNCATE TABLE `coach_training_invites`;
 

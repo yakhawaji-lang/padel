@@ -34,6 +34,7 @@ DROP TABLE IF EXISTS member_stats;
 DROP TABLE IF EXISTS tournament_summaries;
 
 -- ----- مفضلة وتدريب -----
+DROP TABLE IF EXISTS club_directory_favorites;
 DROP TABLE IF EXISTS member_favorites;
 DROP TABLE IF EXISTS coach_training_invites;
 

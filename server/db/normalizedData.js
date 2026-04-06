@@ -641,7 +641,7 @@ async function resolveCancelPolicyOverridesJsonForSave(clubId, s) {
 }
 
 // ---------- Clubs ----------
-async function assembleClub(clubRow, courts, settings, adminUsers, offers, bookings, accounting, tournamentTypes, store, memberIds, paymentSharesByBooking = {}, memberCoaches = []) {
+async function assembleClub(clubRow, courts, settings, adminUsers, offers, bookings, accounting, tournamentTypes, store, memberIds, paymentSharesByBooking = {}, memberCoaches = [], directoryFavoriteMemberIds = []) {
   const s = settings?.[0] || {}
   const settingsObj = settingsFromSettingsRow(s)
   return {
@@ -672,6 +672,9 @@ async function assembleClub(clubRow, courts, settings, adminUsers, offers, booki
     tournaments: [],
     members: memberIds || [],
     memberCoaches: memberCoaches || [],
+    directoryFavoriteMemberIds: Array.isArray(directoryFavoriteMemberIds)
+      ? directoryFavoriteMemberIds.map((id) => String(id)).filter(Boolean)
+      : [],
     bookings: (bookings || []).map(b => {
       let data = b.data
       if (typeof data === 'string') {
@@ -809,7 +812,7 @@ export async function getClubsFromNormalized() {
       settingsRes = await query(`SELECT * FROM club_settings WHERE club_id IN (${placeholders})`, clubIds)
     } else throw e
   }
-  const [courtsRes, adminRes, offersRes, bookingsRes, accountingRes, ttRes, storeRes, mcRes, bpsRes] = await Promise.all([
+  const [courtsRes, adminRes, offersRes, bookingsRes, accountingRes, ttRes, storeRes, mcRes, bpsRes, cdfRes] = await Promise.all([
     query(`SELECT * FROM club_courts WHERE club_id IN (${placeholders}) AND deleted_at IS NULL`, clubIds),
     query(`SELECT * FROM club_admin_users WHERE club_id IN (${placeholders}) AND deleted_at IS NULL`, clubIds),
     query(`SELECT * FROM club_offers WHERE club_id IN (${placeholders}) AND deleted_at IS NULL`, clubIds),
@@ -851,6 +854,18 @@ export async function getClubsFromNormalized() {
           return await query(`SELECT booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link FROM booking_payment_shares WHERE club_id IN (${placeholders})`, clubIds)
         }
       }
+    })(),
+    (async () => {
+      try {
+        return await query(
+          `SELECT club_id, member_id FROM club_directory_favorites WHERE club_id IN (${placeholders})`,
+          clubIds
+        )
+      } catch (e) {
+        const msg = e?.message || ''
+        if (msg.includes("doesn't exist") || msg.includes('Unknown table')) return { rows: [] }
+        throw e
+      }
     })()
   ])
 
@@ -877,6 +892,13 @@ export async function getClubsFromNormalized() {
       if (!memberCoachesByClub[r.club_id]) memberCoachesByClub[r.club_id] = []
       memberCoachesByClub[r.club_id].push(r.member_id)
     }
+  })
+
+  const directoryFavoritesByClub = {}
+  ;(cdfRes?.rows || cdfRes || []).forEach((r) => {
+    if (!r?.club_id || r.member_id == null || String(r.member_id).trim() === '') return
+    if (!directoryFavoritesByClub[r.club_id]) directoryFavoritesByClub[r.club_id] = []
+    directoryFavoritesByClub[r.club_id].push(String(r.member_id))
   })
 
   const bpsRows = bpsRes?.rows || bpsRes || []
@@ -973,7 +995,8 @@ export async function getClubsFromNormalized() {
       (storeByClub[cid] || [])[0],
       membersByClub[cid],
       paymentSharesByBooking,
-      memberCoachesByClub[cid] || []
+      memberCoachesByClub[cid] || [],
+      directoryFavoritesByClub[cid] || []
     ))
   }
   return result

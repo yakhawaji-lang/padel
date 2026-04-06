@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { getClubMembersFromStorage, upsertMember, removeMemberFromClubs, deleteMember, refreshClubsFromApi, setMemberCoach } from '../../storage/adminStorage'
+import * as bookingApi from '../../api/dbClient'
 import { getAppLanguage } from '../../storage/languageStorage'
 import './club-pages-common.css'
 import './MembersManagement.css'
@@ -29,6 +30,7 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
   const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [togglingCoach, setTogglingCoach] = useState(null)
+  const [togglingDirectoryFav, setTogglingDirectoryFav] = useState(null)
   const [localCoachIds, setLocalCoachIds] = useState(() => new Set())
 
   const members = useMemo(() => {
@@ -107,10 +109,41 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
     }
   }
 
+  const directoryFavoriteIds = useMemo(() => {
+    const raw = club?.directoryFavoriteMemberIds
+    if (!Array.isArray(raw)) return new Set()
+    return new Set(raw.map((x) => String(x)))
+  }, [club?.directoryFavoriteMemberIds, refreshKey])
+
+  const isDirectoryFavorite = (member) => directoryFavoriteIds.has(String(member?.id || ''))
+
   const isCoach = (member) => {
     const id = String(member?.id || '')
     if (localCoachIds.has(id)) return true
     return (club?.memberCoaches || []).some(mc => String(mc) === id)
+  }
+
+  const handleToggleDirectoryFavorite = async (member) => {
+    if (!club?.id || !member?.id) return
+    const id = String(member.id)
+    const next = !isDirectoryFavorite(member)
+    setTogglingDirectoryFav(id)
+    try {
+      if (next) await bookingApi.addClubDirectoryFavorite(club.id, id)
+      else await bookingApi.removeClubDirectoryFavorite(club.id, id)
+      await refreshClubsFromApi()
+      setRefreshKey((k) => k + 1)
+      window.dispatchEvent(new CustomEvent('clubs-synced'))
+    } catch (e) {
+      console.error('directory favorite', e)
+      alert(
+        language === 'en'
+          ? 'Could not update directory favorite. Ensure the database migration ran and try again.'
+          : 'تعذّر تحديث المفضّل. تأكد من تنفيذ ترقية قاعدة البيانات وأعد المحاولة.'
+      )
+    } finally {
+      setTogglingDirectoryFav(null)
+    }
   }
 
   const handleToggleCoach = async (member) => {
@@ -236,6 +269,27 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
                 </div>
               </div>
               <div className="cxp-member-actions">
+                <button
+                  type="button"
+                  className={`cxp-btn cxp-btn--secondary cxp-directory-fav-toggle ${isDirectoryFavorite(member) ? 'cxp-directory-fav-toggle--active' : ''}`}
+                  style={{ padding: '6px 12px', fontSize: '0.8125rem' }}
+                  onClick={() => handleToggleDirectoryFavorite(member)}
+                  disabled={togglingDirectoryFav === String(member.id)}
+                  title={
+                    isDirectoryFavorite(member)
+                      ? t('Remove from club directory favorites', 'إزالة من مفضّلي دليل النادي', language)
+                      : t('Add to club directory favorites (tournament quick picks)', 'إضافة لمفضّلي دليل النادي (اختيار سريع للبطولة)', language)
+                  }
+                >
+                  {togglingDirectoryFav === String(member.id)
+                    ? '⋯'
+                    : isDirectoryFavorite(member)
+                      ? '🔖 ✓'
+                      : '🔖'}
+                  {isDirectoryFavorite(member)
+                    ? t('Favorite ✓', 'مفضّل ✓', language)
+                    : t('Favorite', 'مفضّل', language)}
+                </button>
                 <button
                   type="button"
                   className={`cxp-btn cxp-btn--secondary cxp-coach-toggle ${isCoach(member) ? 'cxp-coach-toggle--active' : ''}`}

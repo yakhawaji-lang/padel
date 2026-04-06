@@ -30,6 +30,7 @@ TRUNCATE TABLE booking_payment_shares;
 TRUNCATE TABLE booking_slot_locks;
 TRUNCATE TABLE payment_idempotency;
 TRUNCATE TABLE coach_training_invites;
+TRUNCATE TABLE club_directory_favorites;
 TRUNCATE TABLE member_favorites;
 TRUNCATE TABLE match_teams;
 TRUNCATE TABLE member_points_history;
