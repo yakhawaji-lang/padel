@@ -442,6 +442,9 @@ function App({ currentUser }) {
   const [memberSelectorDirectoryFavBusyId, setMemberSelectorDirectoryFavBusyId] = useState(null)
   /** اختيار توزيع جماعي: { [memberId]: true } */
   const [memberSelectorFavBulkSelected, setMemberSelectorFavBulkSelected] = useState({})
+  /** لوحة «الاختيار السريع» من دليل النادي — مخفية حتى يفتحها المستخدم ويُجرى الجلب */
+  const [memberSelectorQuickPicksOpen, setMemberSelectorQuickPicksOpen] = useState(false)
+  const [memberSelectorQuickPicksLoading, setMemberSelectorQuickPicksLoading] = useState(false)
   const [memberSelectorGuestInviteBusy, setMemberSelectorGuestInviteBusy] = useState(false)
   const [pendingGuestWaGuestId, setPendingGuestWaGuestId] = useState(null)
   const [teamMemberDragOverId, setTeamMemberDragOverId] = useState(null)
@@ -5641,6 +5644,8 @@ function App({ currentUser }) {
     if (!openMemberSelectorForTeam) {
       setMemberSelectorFavBulkSelected({})
       setMemberSelectorDirectoryFavBusyId(null)
+      setMemberSelectorQuickPicksOpen(false)
+      setMemberSelectorQuickPicksLoading(false)
     }
   }, [openMemberSelectorForTeam])
 
@@ -5695,6 +5700,25 @@ function App({ currentUser }) {
       console.error('refresh club directory favorites', e)
     }
   }, [clubId])
+
+  const toggleMemberSelectorQuickPicks = useCallback(async () => {
+    if (memberSelectorQuickPicksLoading) return
+    if (memberSelectorQuickPicksOpen) {
+      setMemberSelectorQuickPicksOpen(false)
+      return
+    }
+    setMemberSelectorQuickPicksOpen(true)
+    setMemberSelectorQuickPicksLoading(true)
+    try {
+      await handleRefreshClubDirectoryFavorites()
+    } finally {
+      setMemberSelectorQuickPicksLoading(false)
+    }
+  }, [
+    memberSelectorQuickPicksOpen,
+    memberSelectorQuickPicksLoading,
+    handleRefreshClubDirectoryFavorites,
+  ])
 
   const getMemberSelectorBulkFavoritePicks = useCallback(() => {
     return memberSelectorFavoriteMembersInClub.filter((m) => memberSelectorFavBulkSelected[String(m.id)])
@@ -6024,6 +6048,8 @@ function App({ currentUser }) {
     setMemberSelectorSearch('')
     setMemberSelectorSearchNonce(0)
     setMemberSelectorFavBulkSelected({})
+    setMemberSelectorQuickPicksOpen(false)
+    setMemberSelectorQuickPicksLoading(false)
   }
 
   const moveTeamMemberBetweenTeams = (memberId, fromTeamId, toTeamId) => {
@@ -8920,189 +8946,252 @@ function App({ currentUser }) {
 
           {/* Member Selector Modal */}
           {openMemberSelectorForTeam && (
-            <div className="modal-overlay" onClick={() => setOpenMemberSelectorForTeam(null)}>
-              <div className="member-selector-modal" onClick={(e) => e.stopPropagation()}>
-                <div className="modal-header">
-                  <h3>{t.selectTeamMembers}</h3>
-                  <button type="button" className="modal-close" onClick={() => setOpenMemberSelectorForTeam(null)}>×</button>
+            <div className="modal-overlay modal-overlay--member-selector" onClick={() => setOpenMemberSelectorForTeam(null)}>
+              <div className="member-selector-modal member-selector-modal--v2" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header member-selector-modal__header">
+                  <h3 id="member-selector-title">{t.selectTeamMembers}</h3>
+                  <button type="button" className="modal-close" onClick={() => setOpenMemberSelectorForTeam(null)} aria-label={t.close}>
+                    ×
+                  </button>
                 </div>
-                <div className="modal-body">
-                  <div className="member-selector-fee-toolbar">
-                    <label className="member-selector-fee-toolbar__label">
-                      <span>{t.defaultPaymentAmount}</span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        className="search-input member-selector-bulk-fee"
-                        value={memberSelectorBulkFee}
-                        onChange={(e) => setMemberSelectorBulkFee(e.target.value)}
-                        placeholder={language === 'en' ? 'e.g. 50' : 'مثال: 50'}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="btn-secondary btn-small"
-                      onClick={() => {
-                        const v = memberSelectorBulkFee
-                        const next = {}
-                        members.forEach(m => {
-                          next[m.id] = v
-                        })
-                        setMemberSelectorFeeDraft(next)
-                      }}
-                    >
-                      {t.applyFeeToAllMembers}
-                    </button>
-                  </div>
-                  <p className="member-selector-pay-hint">{t.memberSelectorPaymentHint}</p>
-                  <div className="member-selector-legend">
-                    <span><span className="legend-swatch legend-swatch--club">C</span> {t.clubReceivedPaymentTitle}</span>
-                    <span><span className="legend-swatch legend-swatch--member">M</span> {t.memberAckPaymentTitle}</span>
-                  </div>
-                  <div className="search-bar-container member-selector-phone-row">
-                    <input
-                      ref={memberSelectorPhoneInputRef}
-                      type="text"
-                      inputMode="tel"
-                      autoComplete="off"
-                      placeholder={t.memberSelectorPhonePlaceholder}
-                      value={memberSelectorSearch}
-                      onChange={(e) => setMemberSelectorSearch(e.currentTarget.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          handleMemberSelectorSearchByPhone()
-                        }
-                      }}
-                      className="search-input member-selector-phone-input"
-                      autoFocus
-                    />
-                    <div className="member-selector-phone-actions">
-                      <button
-                        type="button"
-                        className="member-selector-search-phone-btn"
-                        onClick={handleMemberSelectorSearchByPhone}
-                        title={t.memberSelectorSearchPhone}
-                        aria-label={t.memberSelectorSearchPhone}
-                      >
-                        {t.memberSelectorSearchPhone}
-                      </button>
-                      {memberSelectorContactsSupported ? (
+                <div className="modal-body member-selector-modal__body">
+                  <div className="member-selector-layout">
+                    <section className="member-selector-card member-selector-card--fee">
+                      <div className="member-selector-fee-toolbar member-selector-fee-toolbar--v2">
+                        <label className="member-selector-fee-toolbar__label">
+                          <span>{t.defaultPaymentAmount}</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            className="search-input member-selector-bulk-fee"
+                            value={memberSelectorBulkFee}
+                            onChange={(e) => setMemberSelectorBulkFee(e.target.value)}
+                            placeholder={language === 'en' ? 'e.g. 50' : 'مثال: 50'}
+                          />
+                        </label>
                         <button
                           type="button"
-                          className="member-selector-contacts-btn"
-                          onClick={handleMemberSelectorPickFromContacts}
-                          title={t.memberSelectorPickFromContacts}
-                          aria-label={t.memberSelectorPickFromContacts}
+                          className="btn-secondary btn-small member-selector-fee-toolbar__apply"
+                          onClick={() => {
+                            const v = memberSelectorBulkFee
+                            const next = {}
+                            members.forEach((m) => {
+                              next[m.id] = v
+                            })
+                            setMemberSelectorFeeDraft(next)
+                          }}
                         >
-                          <svg
-                            className="member-selector-contacts-icon"
-                            width="22"
-                            height="22"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                            aria-hidden
-                          >
-                            <path
-                              d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm13 0h3v2h-3v-2zm-3 3h6v2h-6v-2zm0 3h4v2h-4v-2z"
-                              fill="currentColor"
-                              opacity="0.92"
-                            />
-                            <path
-                              d="M8 8.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm8 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM8 18.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"
-                              fill="currentColor"
-                            />
-                          </svg>
+                          {t.applyFeeToAllMembers}
                         </button>
-                      ) : null}
-                    </div>
-                  </div>
-                  <p className="member-selector-phone-hint">{t.memberSelectorPhoneHint}</p>
-                  <div className="member-selector-favorites-bar">
-                    <button
-                      type="button"
-                      className="btn-secondary btn-small"
-                      disabled={!clubId}
-                      onClick={() => handleRefreshClubDirectoryFavorites()}
-                      title={t.memberSelectorClubFavoritesRefreshTitle}
-                    >
-                      {t.memberSelectorClubFavoritesRefresh}
-                    </button>
-                    {clubDirectoryFavoriteMemberIds.length > 0 ? (
-                      <span className="member-selector-favorites-meta">
-                        {language === 'en'
-                          ? `${clubDirectoryFavoriteMemberIds.length} marked in club directory · ${memberSelectorFavoriteMembersInClub.length} available for this team`
-                          : `${clubDirectoryFavoriteMemberIds.length} مُعلَّمون في دليل النادي · ${memberSelectorFavoriteMembersInClub.length} متاحون لهذا الفريق`}
-                      </span>
-                    ) : (
-                      <span className="member-selector-favorites-meta member-selector-favorites-meta--muted">
-                        {t.memberSelectorClubFavoritesEmptyHint}
-                      </span>
-                    )}
-                  </div>
-                  {memberSelectorFavoriteMembersInClub.length > 0 ? (
-                    <div className="member-selector-favorites-panel">
-                      <div className="member-selector-favorites-panel__head">
-                        <span className="member-selector-section-label">{t.memberSelectorFavoritesSection}</span>
-                        <div className="member-selector-favorites-panel__bulk">
+                      </div>
+                      <details className="member-selector-disclosure">
+                        <summary className="member-selector-disclosure__summary">{t.memberSelectorHelpDetailsTitle}</summary>
+                        <div className="member-selector-disclosure__body">
+                          <p className="member-selector-pay-hint">{t.memberSelectorPaymentHint}</p>
+                          <div className="member-selector-legend">
+                            <span>
+                              <span className="legend-swatch legend-swatch--club">C</span> {t.clubReceivedPaymentTitle}
+                            </span>
+                            <span>
+                              <span className="legend-swatch legend-swatch--member">M</span> {t.memberAckPaymentTitle}
+                            </span>
+                          </div>
+                        </div>
+                      </details>
+                    </section>
+
+                    <section className="member-selector-card member-selector-card--search">
+                      <div className="search-bar-container member-selector-phone-row member-selector-phone-row--v2">
+                        <input
+                          ref={memberSelectorPhoneInputRef}
+                          type="text"
+                          inputMode="tel"
+                          autoComplete="off"
+                          placeholder={t.memberSelectorPhonePlaceholder}
+                          value={memberSelectorSearch}
+                          onChange={(e) => setMemberSelectorSearch(e.currentTarget.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              handleMemberSelectorSearchByPhone()
+                            }
+                          }}
+                          className="search-input member-selector-phone-input"
+                          autoFocus
+                        />
+                        <div className="member-selector-phone-actions">
                           <button
                             type="button"
-                            className="btn-secondary btn-small"
-                            onClick={() => {
-                              const next = {}
-                              memberSelectorFavoriteMembersInClub.forEach((m) => {
-                                next[String(m.id)] = true
-                              })
-                              setMemberSelectorFavBulkSelected(next)
-                            }}
+                            className="member-selector-search-phone-btn"
+                            onClick={handleMemberSelectorSearchByPhone}
+                            title={t.memberSelectorSearchPhone}
+                            aria-label={t.memberSelectorSearchPhone}
                           >
-                            {t.memberSelectorFavoritesSelectAll}
+                            {t.memberSelectorSearchPhone}
                           </button>
-                          <button
-                            type="button"
-                            className="btn-secondary btn-small"
-                            onClick={() => setMemberSelectorFavBulkSelected({})}
-                          >
-                            {t.memberSelectorFavoritesClearSelection}
-                          </button>
+                          {memberSelectorContactsSupported ? (
+                            <button
+                              type="button"
+                              className="member-selector-contacts-btn"
+                              onClick={handleMemberSelectorPickFromContacts}
+                              title={t.memberSelectorPickFromContacts}
+                              aria-label={t.memberSelectorPickFromContacts}
+                            >
+                              <svg
+                                className="member-selector-contacts-icon"
+                                width="22"
+                                height="22"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                aria-hidden
+                              >
+                                <path
+                                  d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm13 0h3v2h-3v-2zm-3 3h6v2h-6v-2zm0 3h4v2h-4v-2z"
+                                  fill="currentColor"
+                                  opacity="0.92"
+                                />
+                                <path
+                                  d="M8 8.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm8 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM8 18.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"
+                                  fill="currentColor"
+                                />
+                              </svg>
+                            </button>
+                          ) : null}
                         </div>
                       </div>
-                      <ul className="member-selector-favorites-list">
-                        {memberSelectorFavoriteMembersInClub.map((m) => (
-                          <li key={m.id} className="member-selector-favorites-list__item">
-                            <label className="member-selector-favorites-list__label">
-                              <input
-                                type="checkbox"
-                                checked={!!memberSelectorFavBulkSelected[String(m.id)]}
-                                onChange={() =>
-                                  setMemberSelectorFavBulkSelected((prev) => ({
-                                    ...prev,
-                                    [String(m.id)]: !prev[String(m.id)],
-                                  }))
-                                }
-                              />
-                              <span>{memberDisplayNameForSelector(m)}</span>
-                            </label>
-                          </li>
-                        ))}
-                      </ul>
-                      <div className="member-selector-favorites-actions">
-                        <button type="button" className="btn-primary btn-small" onClick={() => handleFavoritesAddToCurrentTeam()}>
-                          {t.memberSelectorFavoritesToThisTeam}
-                        </button>
-                        <button type="button" className="btn-secondary btn-small" onClick={() => handleFavoritesDistributeRoundRobin()}>
-                          {t.memberSelectorFavoritesRoundRobin}
-                        </button>
-                        <button type="button" className="btn-secondary btn-small" onClick={() => handleFavoritesDistributeSequential()}>
-                          {t.memberSelectorFavoritesSequentialTeams}
-                        </button>
-                      </div>
-                      <p className="member-selector-favorites-hint">{t.memberSelectorFavoritesDistributeHint}</p>
-                    </div>
-                  ) : clubDirectoryFavoriteMemberIds.length > 0 ? (
-                    <p className="member-selector-favorites-empty">{t.memberSelectorFavoritesNoneOnTeam}</p>
-                  ) : null}
+                      <details className="member-selector-disclosure member-selector-disclosure--compact">
+                        <summary className="member-selector-disclosure__summary">{t.memberSelectorSearchHelpSummary}</summary>
+                        <p className="member-selector-phone-hint">{t.memberSelectorPhoneHint}</p>
+                      </details>
+                    </section>
+
+                    <section className="member-selector-card member-selector-card--quickpicks">
+                      <button
+                        type="button"
+                        className={`member-selector-quickpicks-toggle${memberSelectorQuickPicksOpen ? ' member-selector-quickpicks-toggle--open' : ''}`}
+                        aria-expanded={memberSelectorQuickPicksOpen}
+                        disabled={!clubId}
+                        onClick={() => toggleMemberSelectorQuickPicks()}
+                      >
+                        <span className="member-selector-quickpicks-toggle__text">
+                          <span className="member-selector-quickpicks-toggle__title">
+                            {memberSelectorQuickPicksOpen ? t.memberSelectorQuickPicksCollapse : t.memberSelectorQuickPicksExpand}
+                          </span>
+                          {!memberSelectorQuickPicksOpen ? (
+                            <span className="member-selector-quickpicks-toggle__sub">
+                              {language === 'en'
+                                ? clubDirectoryFavoriteMemberIds.length > 0
+                                  ? `${clubDirectoryFavoriteMemberIds.length} in directory (cached) — opens & syncs from server`
+                                  : t.memberSelectorQuickPicksClosedHint
+                                : clubDirectoryFavoriteMemberIds.length > 0
+                                  ? `${clubDirectoryFavoriteMemberIds.length} في الدليل (محلي) — يفتح ويُزامن من الخادم`
+                                  : t.memberSelectorQuickPicksClosedHint}
+                            </span>
+                          ) : null}
+                        </span>
+                        <svg
+                          className="member-selector-quickpicks-toggle__chev"
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                        >
+                          <path d="M6 9l6 6 6-6" />
+                        </svg>
+                      </button>
+                      {memberSelectorQuickPicksOpen ? (
+                        <div className="member-selector-quickpicks-panel" role="region" aria-label={t.memberSelectorFavoritesSection}>
+                          {memberSelectorQuickPicksLoading ? (
+                            <div className="member-selector-quickpicks-loading">
+                              <span className="member-selector-quickpicks-loading__dot" />
+                              {t.memberSelectorQuickPicksLoading}
+                            </div>
+                          ) : (
+                            <>
+                              <div className="member-selector-favorites-panel__head member-selector-favorites-panel__head--v2">
+                                <span className="member-selector-section-label member-selector-section-label--v2">
+                                  {t.memberSelectorFavoritesSection}
+                                </span>
+                                <div className="member-selector-favorites-panel__head-row">
+                                  <button
+                                    type="button"
+                                    className="member-selector-text-btn"
+                                    disabled={!clubId}
+                                    onClick={() => handleRefreshClubDirectoryFavorites()}
+                                  >
+                                    {t.memberSelectorClubFavoritesRefresh}
+                                  </button>
+                                  <div className="member-selector-favorites-panel__bulk">
+                                    <button
+                                      type="button"
+                                      className="btn-secondary btn-small"
+                                      onClick={() => {
+                                        const next = {}
+                                        memberSelectorFavoriteMembersInClub.forEach((m) => {
+                                          next[String(m.id)] = true
+                                        })
+                                        setMemberSelectorFavBulkSelected(next)
+                                      }}
+                                    >
+                                      {t.memberSelectorFavoritesSelectAll}
+                                    </button>
+                                    <button type="button" className="btn-secondary btn-small" onClick={() => setMemberSelectorFavBulkSelected({})}>
+                                      {t.memberSelectorFavoritesClearSelection}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                              {memberSelectorFavoriteMembersInClub.length > 0 ? (
+                                <>
+                                  <ul className="member-selector-favorites-list">
+                                    {memberSelectorFavoriteMembersInClub.map((m) => (
+                                      <li key={m.id} className="member-selector-favorites-list__item">
+                                        <label className="member-selector-favorites-list__label">
+                                          <input
+                                            type="checkbox"
+                                            checked={!!memberSelectorFavBulkSelected[String(m.id)]}
+                                            onChange={() =>
+                                              setMemberSelectorFavBulkSelected((prev) => ({
+                                                ...prev,
+                                                [String(m.id)]: !prev[String(m.id)],
+                                              }))
+                                            }
+                                          />
+                                          <span>{memberDisplayNameForSelector(m)}</span>
+                                        </label>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                  <div className="member-selector-favorites-actions">
+                                    <button type="button" className="btn-primary btn-small" onClick={() => handleFavoritesAddToCurrentTeam()}>
+                                      {t.memberSelectorFavoritesToThisTeam}
+                                    </button>
+                                    <button type="button" className="btn-secondary btn-small" onClick={() => handleFavoritesDistributeRoundRobin()}>
+                                      {t.memberSelectorFavoritesRoundRobin}
+                                    </button>
+                                    <button type="button" className="btn-secondary btn-small" onClick={() => handleFavoritesDistributeSequential()}>
+                                      {t.memberSelectorFavoritesSequentialTeams}
+                                    </button>
+                                  </div>
+                                  <p className="member-selector-favorites-hint">{t.memberSelectorFavoritesDistributeHint}</p>
+                                </>
+                              ) : clubDirectoryFavoriteMemberIds.length > 0 ? (
+                                <p className="member-selector-favorites-empty">{t.memberSelectorFavoritesNoneOnTeam}</p>
+                              ) : (
+                                <p className="member-selector-favorites-empty">{t.memberSelectorClubFavoritesEmptyHint}</p>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ) : null}
+                    </section>
+                  </div>
                   {memberSelectorShowGuestPayInvite ? (
                     <div className="member-selector-guest-invite">
                       <p className="member-selector-guest-invite__title">{t.memberSelectorGuestInviteTitle}</p>
