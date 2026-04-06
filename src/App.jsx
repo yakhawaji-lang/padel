@@ -63,6 +63,7 @@ import {
   findPaymentShareForPendingGuest,
 } from './utils/paymentShareEffectiveAmounts'
 import { findPaymentShareForMember } from './utils/paymentShareMemberMatch'
+import { effectiveTournamentSplitPaymentDeadlineMs } from './utils/tournamentPaymentDeadline'
 
 function bookingJsonData(booking) {
   const d = booking?.data
@@ -154,18 +155,6 @@ function shareIsEffectivelyPaid(share) {
   return !!(share.paidAt || share.paid_at)
 }
 
-function parseBookingPaymentDeadlineMs(booking) {
-  if (!booking) return null
-  const raw =
-    booking.paymentDeadlineAt ??
-    booking.payment_deadline_at ??
-    booking.data?.paymentDeadlineAt ??
-    booking.data?.payment_deadline_at
-  if (raw == null || raw === '') return null
-  const t = new Date(raw).getTime()
-  return Number.isFinite(t) ? t : null
-}
-
 function formatTournamentPayCountdown(deadlineMs, nowMs, t) {
   if (deadlineMs == null) return { label: '', urgent: false, passed: false }
   const rem = deadlineMs - nowMs
@@ -189,11 +178,11 @@ function formatTournamentPayCountdown(deadlineMs, nowMs, t) {
  * @param {number} nowMs
  * @param {object} t — translations
  */
-function resolveTournamentMemberPaymentUi(booking, member, payEntry, nowMs, t) {
+function resolveTournamentMemberPaymentUi(booking, member, payEntry, nowMs, t, clubSettings) {
   const norm = normalizeMemberPaymentEntry(payEntry)
   const share = booking && member ? findPaymentShareForMember(booking, member) : null
   const sharePaid = shareIsEffectivelyPaid(share)
-  const deadlineMs = parseBookingPaymentDeadlineMs(booking)
+  const deadlineMs = effectiveTournamentSplitPaymentDeadlineMs(booking, clubSettings)
 
   let variant = 'pending'
   let badgeKey = 'tournamentPayBadgeAwaitingPayment'
@@ -240,10 +229,10 @@ function resolveTournamentMemberPaymentUi(booking, member, payEntry, nowMs, t) {
   }
 }
 
-function resolveTournamentGuestPaymentUi(booking, guest, nowMs, t) {
+function resolveTournamentGuestPaymentUi(booking, guest, nowMs, t, clubSettings) {
   const share = booking ? findPaymentShareForPendingGuest(booking, guest) : null
   const sharePaid = shareIsEffectivelyPaid(share)
-  const deadlineMs = parseBookingPaymentDeadlineMs(booking)
+  const deadlineMs = effectiveTournamentSplitPaymentDeadlineMs(booking, clubSettings)
   const showTimer = deadlineMs != null && !sharePaid
   const cd = showTimer ? formatTournamentPayCountdown(deadlineMs, nowMs, t) : { label: '', urgent: false, passed: false }
   return {
@@ -5936,7 +5925,16 @@ function App({ currentUser }) {
 
   const tournamentTeamsPayNowMs = useMemo(
     () => Date.now(),
-    [tournamentPayUiTick, contentTab]
+    [
+      tournamentPayUiTick,
+      contentTab,
+      currentClub?.settings?.tournamentKingSplitPaymentDeadlineMinutes,
+      currentClub?.settings?.tournament_king_split_payment_deadline_minutes,
+      currentClub?.settings?.tournamentSocialSplitPaymentDeadlineMinutes,
+      currentClub?.settings?.tournament_social_split_payment_deadline_minutes,
+      currentClub?.settings?.splitPaymentDeadlineMinutes,
+      currentClub?.settings?.split_payment_deadline_minutes,
+    ]
   )
 
   const memberSelectorGuestPhoneDigits = phoneDigitsNormalized(memberSelectorSearch || '')
@@ -7984,7 +7982,8 @@ function App({ currentUser }) {
                               tournamentBookingRowForGuestInvite,
                               g,
                               tournamentTeamsPayNowMs,
-                              t
+                              t,
+                              currentClub?.settings
                             )
                             const guestVariantClass = guestPayUi.variant.replace(/_/g, '-')
                             return (
@@ -8077,7 +8076,8 @@ function App({ currentUser }) {
                                 member,
                                 payEntry,
                                 tournamentTeamsPayNowMs,
-                                t
+                                t,
+                                currentClub?.settings
                               )
                               const variantClass = payUi.variant.replace(/_/g, '-')
                               const feeDisplay = tournamentMemberDisplayFee(

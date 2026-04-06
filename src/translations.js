@@ -110,7 +110,8 @@ export const translations = {
     tournamentPayTrackClubShort: 'Club',
     tournamentPayTrackMemberShort: 'Member',
     tournamentPayTimerPrefix: 'Time left',
-    tournamentPayTimerHint: 'Time remaining until the booking payment deadline',
+    tournamentPayTimerHint:
+      'Time left uses the club\'s current tournament payment deadline (Settings > Bookings), from when the booking was locked.',
     tournamentPayTimerExpired: 'Deadline passed',
     tournamentPayBadgeAwaitingPayment: 'Awaiting payment',
     tournamentPayBadgeAwaitingClubConfirmation: 'Paid online — awaiting club confirmation',
@@ -477,7 +478,8 @@ export const translations = {
     tournamentPayTrackClubShort: 'النادي',
     tournamentPayTrackMemberShort: 'العضو',
     tournamentPayTimerPrefix: 'متبقٍ',
-    tournamentPayTimerHint: 'الوقت المتبقي حتى مهلة دفع الحجز',
+    tournamentPayTimerHint:
+      'الوقت المتبقي يعتمد على مهلة دفع البطولة الحالية في إعدادات النادي (الحجوزات)، منذ تأمين الحجز.',
     tournamentPayTimerExpired: 'انتهت المهلة',
     tournamentPayBadgeAwaitingPayment: 'بانتظار الدفع',
     tournamentPayBadgeAwaitingClubConfirmation: 'مدفوع إلكترونياً — بانتظار تأكيد النادي',
