@@ -62,6 +62,7 @@ import {
   effectivePendingGuestFee,
   findPaymentShareForPendingGuest,
 } from './utils/paymentShareEffectiveAmounts'
+import { findPaymentShareForMember } from './utils/paymentShareMemberMatch'
 
 function bookingJsonData(booking) {
   const d = booking?.data
@@ -146,12 +147,123 @@ function normalizeMemberPaymentEntry(raw) {
   }
 }
 
-function memberChipModifierClass(entry) {
-  const { clubReceived, memberAck } = normalizeMemberPaymentEntry(entry)
-  if (clubReceived && memberAck) return 'member-chip--both'
-  if (clubReceived) return 'member-chip--club'
-  if (memberAck) return 'member-chip--member'
-  return 'member-chip--pending'
+function shareIsEffectivelyPaid(share) {
+  if (!share) return false
+  if (share.removedAt || share.removed_at) return false
+  if (share.refundedAt || share.refunded_at) return false
+  return !!(share.paidAt || share.paid_at)
+}
+
+function parseBookingPaymentDeadlineMs(booking) {
+  if (!booking) return null
+  const raw =
+    booking.paymentDeadlineAt ??
+    booking.payment_deadline_at ??
+    booking.data?.paymentDeadlineAt ??
+    booking.data?.payment_deadline_at
+  if (raw == null || raw === '') return null
+  const t = new Date(raw).getTime()
+  return Number.isFinite(t) ? t : null
+}
+
+function formatTournamentPayCountdown(deadlineMs, nowMs, t) {
+  if (deadlineMs == null) return { label: '', urgent: false, passed: false }
+  const rem = deadlineMs - nowMs
+  if (rem <= 0) return { label: t.tournamentPayTimerExpired, urgent: true, passed: true }
+  const sec = Math.floor(rem / 1000)
+  const d = Math.floor(sec / 86400)
+  const h = Math.floor((sec % 86400) / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  const s = sec % 60
+  let label
+  if (d > 0) label = `${d}d ${h}h`
+  else if (h > 0) label = `${h}h ${m}m`
+  else label = `${m}:${String(s).padStart(2, '0')}`
+  return { label, urgent: rem < 3600000, passed: false }
+}
+
+/**
+ * @param {object|null} booking — tournament booking row (merged/local)
+ * @param {object} member
+ * @param {object} payEntry — team.memberTournamentPayments[memberId]
+ * @param {number} nowMs
+ * @param {object} t — translations
+ */
+function resolveTournamentMemberPaymentUi(booking, member, payEntry, nowMs, t) {
+  const norm = normalizeMemberPaymentEntry(payEntry)
+  const share = booking && member ? findPaymentShareForMember(booking, member) : null
+  const sharePaid = shareIsEffectivelyPaid(share)
+  const deadlineMs = parseBookingPaymentDeadlineMs(booking)
+
+  let variant = 'pending'
+  let badgeKey = 'tournamentPayBadgeAwaitingPayment'
+
+  if (sharePaid) {
+    if (norm.clubReceived && norm.memberAck) {
+      variant = 'settled'
+      badgeKey = 'tournamentPayBadgeFullyConfirmed'
+    } else if (norm.clubReceived) {
+      variant = 'online-club'
+      badgeKey = 'tournamentPayBadgePaidOnlineClubOnly'
+    } else if (norm.memberAck) {
+      variant = 'online-member'
+      badgeKey = 'tournamentPayBadgePaidOnlineMemberOnly'
+    } else {
+      variant = 'online-pending'
+      badgeKey = 'tournamentPayBadgeAwaitingClubConfirmation'
+    }
+  } else if (norm.clubReceived && norm.memberAck) {
+    variant = 'settled'
+    badgeKey = 'tournamentPayBadgeFullyConfirmed'
+  } else if (norm.clubReceived) {
+    variant = 'club-wait-member'
+    badgeKey = 'tournamentPayBadgeClubReceivedNeedMember'
+  } else if (norm.memberAck) {
+    variant = 'member-other'
+    badgeKey = 'tournamentPayBadgeMemberConfirmedOther'
+  }
+
+  const hideTimer =
+    sharePaid ||
+    (norm.clubReceived && norm.memberAck) ||
+    (norm.memberAck && !norm.clubReceived)
+  const showTimer = deadlineMs != null && !hideTimer
+  const cd = showTimer ? formatTournamentPayCountdown(deadlineMs, nowMs, t) : { label: '', urgent: false, passed: false }
+
+  return {
+    variant,
+    badgeKey,
+    showTimer,
+    timerLabel: cd.label,
+    timerUrgent: cd.urgent,
+    deadlinePassed: cd.passed,
+  }
+}
+
+function resolveTournamentGuestPaymentUi(booking, guest, nowMs, t) {
+  const share = booking ? findPaymentShareForPendingGuest(booking, guest) : null
+  const sharePaid = shareIsEffectivelyPaid(share)
+  const deadlineMs = parseBookingPaymentDeadlineMs(booking)
+  const showTimer = deadlineMs != null && !sharePaid
+  const cd = showTimer ? formatTournamentPayCountdown(deadlineMs, nowMs, t) : { label: '', urgent: false, passed: false }
+  return {
+    variant: sharePaid ? 'guest-paid' : 'guest-pending',
+    badgeKey: sharePaid ? 'tournamentPayBadgeGuestPaidOnline' : 'tournamentGuestPendingStatus',
+    showTimer,
+    timerLabel: cd.label,
+    timerUrgent: cd.urgent,
+    deadlinePassed: cd.passed,
+  }
+}
+
+function tournamentMemberDisplayFee(booking, member, payEntry, shareOpts) {
+  const norm = normalizeMemberPaymentEntry(payEntry)
+  const f = parseFloat(norm.fee)
+  if (Number.isFinite(f) && f > 0.009) return Math.round(f * 100) / 100
+  if (!booking || !member) return 0
+  const share = findPaymentShareForMember(booking, member)
+  if (!share) return 0
+  return effectiveShareAmount(booking, share, shareOpts || {})
 }
 
 function formatCalendarTooltipDate(dateRaw, language) {
@@ -485,6 +597,8 @@ function App({ currentUser }) {
     editingBookingId: null // عند التعديل من تقويم الحجوزات
   })
   const [viewedTournamentBooking, setViewedTournamentBooking] = useState(null) // { id, date, startTime, endTime, tournamentType } - which scheduled tournament is being viewed (shows its tabs)
+  /** Bumps every second on Teams tab while a scheduled tournament is open — drives payment deadline countdowns */
+  const [tournamentPayUiTick, setTournamentPayUiTick] = useState(0)
 
   // No sidebar - club app uses top navigation only
   const [showResetConfirm, setShowResetConfirm] = useState(false) // Show/hide reset confirmation modal
@@ -5813,6 +5927,18 @@ function App({ currentUser }) {
     return { tournamentData }
   }, [tournamentBookingRowForGuestInvite, kingStateByTournamentId, socialStateByTournamentId])
 
+  useEffect(() => {
+    if (contentTab !== 'teams') return
+    if (!viewedTournamentBooking?.id) return
+    const id = window.setInterval(() => setTournamentPayUiTick((x) => x + 1), 1000)
+    return () => window.clearInterval(id)
+  }, [contentTab, viewedTournamentBooking?.id])
+
+  const tournamentTeamsPayNowMs = useMemo(
+    () => Date.now(),
+    [tournamentPayUiTick, contentTab]
+  )
+
   const memberSelectorGuestPhoneDigits = phoneDigitsNormalized(memberSelectorSearch || '')
   const memberSelectorNoClubPhoneMatch = !members.some((m) =>
     phoneMatchesMemberSearch(memberSelectorSearch, memberPhoneRawForSelector(m))
@@ -7852,72 +7978,120 @@ function App({ currentUser }) {
                       <div className="team-members-selection">
                         <label className="team-members-label">{t.teamMembers}:</label>
                         <p className="team-members-drag-hint">{t.dragMembersBetweenTeamsHint}</p>
-                        <div className="selected-members-chips">
-                          {(team.pendingFeeGuests || []).map((g) => (
-                            <span key={g.id} className="member-chip member-chip--guest-pending">
-                              <span className="member-chip__guest-block">
-                                <span className="member-chip__name" title={g.phoneDisplay}>
-                                  {g.phoneDisplay}
-                                </span>
-                                <span className="member-chip__guest-status">{t.tournamentGuestPendingStatus}</span>
-                                <span className="member-chip__guest-fee">
-                                  {tournamentBookingRowForGuestInvite
-                                    ? effectivePendingGuestFee(tournamentBookingRowForGuestInvite, g, tournamentGuestShareOpts)
-                                    : parseFloat(g.fee) || 0}{' '}
-                                  {clubCurrency}
-                                </span>
-                              </span>
-                              <span className="member-chip__guest-actions">
-                                <button
-                                  type="button"
-                                  className="chip-wa"
-                                  title={t.tournamentGuestPendingWhatsAppTitle}
-                                  aria-label={t.tournamentGuestPendingWhatsAppTitle}
-                                  disabled={pendingGuestWaGuestId === g.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    e.preventDefault()
-                                    void handlePendingGuestResendWhatsApp(g)
-                                  }}
-                                >
-                                  {pendingGuestWaGuestId === g.id ? '…' : t.tournamentGuestPendingWhatsApp}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="chip-remove"
-                                  title={t.tournamentGuestPendingRemoveTitle}
-                                  aria-label={t.tournamentGuestPendingRemoveTitle}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    e.preventDefault()
-                                    updateCurrentState((state) => ({
-                                      ...state,
-                                      teams: (state.teams || []).map((tm) =>
-                                        tm.id !== team.id
-                                          ? tm
-                                          : {
-                                              ...tm,
-                                              pendingFeeGuests: (tm.pendingFeeGuests || []).filter((x) => x.id !== g.id),
-                                            }
-                                      ),
-                                    }))
-                                  }}
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            </span>
-                          ))}
+                        <div className="selected-members-chips selected-members-chips--tournament-pay-grid">
+                          {(team.pendingFeeGuests || []).map((g) => {
+                            const guestPayUi = resolveTournamentGuestPaymentUi(
+                              tournamentBookingRowForGuestInvite,
+                              g,
+                              tournamentTeamsPayNowMs,
+                              t
+                            )
+                            const guestVariantClass = guestPayUi.variant.replace(/_/g, '-')
+                            return (
+                              <div
+                                key={g.id}
+                                className={`tournament-member-pay-card tournament-member-pay-card--guest tournament-member-pay-card--${guestVariantClass}${
+                                  guestPayUi.deadlinePassed ? ' tournament-member-pay-card--deadline-passed' : ''
+                                }`}
+                              >
+                                <div className="tournament-member-pay-card__accent" aria-hidden />
+                                <div className="tournament-member-pay-card__inner">
+                                  <div className="tournament-member-pay-card__row tournament-member-pay-card__row--head">
+                                    <span className="tournament-member-pay-card__name" title={g.phoneDisplay}>
+                                      {g.phoneDisplay}
+                                    </span>
+                                    <div className="tournament-member-pay-card__head-actions">
+                                      <button
+                                        type="button"
+                                        className="tournament-member-pay-card__btn tournament-member-pay-card__btn--wa"
+                                        title={t.tournamentGuestPendingWhatsAppTitle}
+                                        aria-label={t.tournamentGuestPendingWhatsAppTitle}
+                                        disabled={pendingGuestWaGuestId === g.id}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          e.preventDefault()
+                                          void handlePendingGuestResendWhatsApp(g)
+                                        }}
+                                      >
+                                        {pendingGuestWaGuestId === g.id ? '…' : t.tournamentGuestPendingWhatsApp}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="tournament-member-pay-card__icon-btn tournament-member-pay-card__icon-btn--danger"
+                                        title={t.tournamentGuestPendingRemoveTitle}
+                                        aria-label={t.tournamentGuestPendingRemoveTitle}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          e.preventDefault()
+                                          updateCurrentState((state) => ({
+                                            ...state,
+                                            teams: (state.teams || []).map((tm) =>
+                                              tm.id !== team.id
+                                                ? tm
+                                                : {
+                                                    ...tm,
+                                                    pendingFeeGuests: (tm.pendingFeeGuests || []).filter((x) => x.id !== g.id),
+                                                  }
+                                            ),
+                                          }))
+                                        }}
+                                      >
+                                        ×
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="tournament-member-pay-card__row tournament-member-pay-card__row--status">
+                                    <span className="tournament-member-pay-card__fee">
+                                      {tournamentBookingRowForGuestInvite
+                                        ? effectivePendingGuestFee(tournamentBookingRowForGuestInvite, g, tournamentGuestShareOpts)
+                                        : parseFloat(g.fee) || 0}{' '}
+                                      {clubCurrency}
+                                    </span>
+                                    <span
+                                      className={`tournament-member-pay-card__badge tournament-member-pay-card__badge--${guestVariantClass}`}
+                                    >
+                                      {t[guestPayUi.badgeKey]}
+                                    </span>
+                                    {guestPayUi.showTimer && (
+                                      <span
+                                        className={`tournament-member-pay-card__timer${guestPayUi.timerUrgent ? ' is-urgent' : ''}`}
+                                        title={t.tournamentPayTimerHint}
+                                      >
+                                        <span className="tournament-member-pay-card__timer-label">{t.tournamentPayTimerPrefix}</span>
+                                        {guestPayUi.timerLabel}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
                           {(team.memberIds || []).length > 0 ? (
                             (team.memberIds || []).map(memberId => {
                               const member = members.find(m => m.id === memberId)
                               if (!member) return null
                               const payEntry = (team.memberTournamentPayments || {})[memberId]
-                              const chipClass = `member-chip ${memberChipModifierClass(payEntry)}`
+                              const norm = normalizeMemberPaymentEntry(payEntry)
+                              const payUi = resolveTournamentMemberPaymentUi(
+                                tournamentBookingRowForGuestInvite,
+                                member,
+                                payEntry,
+                                tournamentTeamsPayNowMs,
+                                t
+                              )
+                              const variantClass = payUi.variant.replace(/_/g, '-')
+                              const feeDisplay = tournamentMemberDisplayFee(
+                                tournamentBookingRowForGuestInvite,
+                                member,
+                                payEntry,
+                                tournamentGuestShareOpts
+                              )
                               return (
-                                <span
+                                <div
                                   key={memberId}
-                                  className={chipClass}
+                                  className={`tournament-member-pay-card tournament-member-pay-card--${variantClass}${
+                                    payUi.deadlinePassed ? ' tournament-member-pay-card--deadline-passed' : ''
+                                  }`}
                                   draggable
                                   onDragStart={(e) => {
                                     e.dataTransfer.setData(
@@ -7928,45 +8102,82 @@ function App({ currentUser }) {
                                   }}
                                   onDragEnd={() => setTeamMemberDragOverId(null)}
                                 >
-                                  <span className="member-chip__name" title={member.name}>{member.name}</span>
-                                  <button
-                                    type="button"
-                                    className={`chip-status chip-status--club${normalizeMemberPaymentEntry(payEntry).clubReceived ? ' is-on' : ''}`}
-                                    title={t.clubReceivedPaymentTitle}
-                                    onClick={() => toggleTeamMemberPaymentFlag(team.id, memberId, 'clubReceived')}
-                                  >
-                                    C
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className={`chip-status chip-status--member${normalizeMemberPaymentEntry(payEntry).memberAck ? ' is-on' : ''}`}
-                                    title={t.memberAckPaymentTitle}
-                                    onClick={() => toggleTeamMemberPaymentFlag(team.id, memberId, 'memberAck')}
-                                  >
-                                    M
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="chip-remove"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      e.preventDefault()
-                                      const currentIds = team.memberIds || []
-                                      const newIds = currentIds.filter(id => id !== memberId)
-                                      updateCurrentState(state => ({
-                                        ...state,
-                                        teams: (state.teams || []).map(t => {
-                                          if (t.id !== team.id) return t
-                                          const mp = { ...(t.memberTournamentPayments || {}) }
-                                          delete mp[memberId]
-                                          return { ...t, memberIds: newIds, memberTournamentPayments: mp }
-                                        })
-                                      }))
-                                    }}
-                                  >
-                                    ×
-                                  </button>
-                                </span>
+                                  <div className="tournament-member-pay-card__accent" aria-hidden />
+                                  <div className="tournament-member-pay-card__inner">
+                                    <div className="tournament-member-pay-card__row tournament-member-pay-card__row--head">
+                                      <span className="tournament-member-pay-card__name" title={member.name}>
+                                        {member.name}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        className="tournament-member-pay-card__icon-btn tournament-member-pay-card__icon-btn--danger"
+                                        title={language === 'en' ? 'Remove from team' : 'إزالة من الفريق'}
+                                        aria-label={language === 'en' ? 'Remove from team' : 'إزالة من الفريق'}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          e.preventDefault()
+                                          const currentIds = team.memberIds || []
+                                          const newIds = currentIds.filter(id => id !== memberId)
+                                          updateCurrentState(state => ({
+                                            ...state,
+                                            teams: (state.teams || []).map(tm => {
+                                              if (tm.id !== team.id) return tm
+                                              const mp = { ...(tm.memberTournamentPayments || {}) }
+                                              delete mp[memberId]
+                                              return { ...tm, memberIds: newIds, memberTournamentPayments: mp }
+                                            })
+                                          }))
+                                        }}
+                                      >
+                                        ×
+                                      </button>
+                                    </div>
+                                    <div className="tournament-member-pay-card__row tournament-member-pay-card__row--status">
+                                      <span className="tournament-member-pay-card__fee">
+                                        {feeDisplay} {clubCurrency}
+                                      </span>
+                                      <span
+                                        className={`tournament-member-pay-card__badge tournament-member-pay-card__badge--${variantClass}`}
+                                      >
+                                        {t[payUi.badgeKey]}
+                                      </span>
+                                      {payUi.showTimer && (
+                                        <span
+                                          className={`tournament-member-pay-card__timer${payUi.timerUrgent ? ' is-urgent' : ''}`}
+                                          title={t.tournamentPayTimerHint}
+                                        >
+                                          <span className="tournament-member-pay-card__timer-label">{t.tournamentPayTimerPrefix}</span>
+                                          {payUi.timerLabel}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="tournament-member-pay-card__row tournament-member-pay-card__row--tracker">
+                                      <span className="tournament-member-pay-card__tracker-label">{t.tournamentPayTrackerShort}</span>
+                                      <div className="tournament-member-pay-card__tracker-btns">
+                                        <button
+                                          type="button"
+                                          className={`tournament-pay-track-btn tournament-pay-track-btn--club${norm.clubReceived ? ' is-on' : ''}`}
+                                          title={t.clubReceivedPaymentTitle}
+                                          aria-pressed={norm.clubReceived}
+                                          onClick={() => toggleTeamMemberPaymentFlag(team.id, memberId, 'clubReceived')}
+                                        >
+                                          <span className="tournament-pay-track-btn__key">C</span>
+                                          <span className="tournament-pay-track-btn__hint">{t.tournamentPayTrackClubShort}</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className={`tournament-pay-track-btn tournament-pay-track-btn--member${norm.memberAck ? ' is-on' : ''}`}
+                                          title={t.memberAckPaymentTitle}
+                                          aria-pressed={norm.memberAck}
+                                          onClick={() => toggleTeamMemberPaymentFlag(team.id, memberId, 'memberAck')}
+                                        >
+                                          <span className="tournament-pay-track-btn__key">M</span>
+                                          <span className="tournament-pay-track-btn__hint">{t.tournamentPayTrackMemberShort}</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
                               )
                             })
                           ) : (team.pendingFeeGuests || []).length === 0 ? (

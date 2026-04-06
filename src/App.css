@@ -3346,6 +3346,375 @@ button:active {
   color: #64748b;
 }
 
+/* Tournament teams: per-member payment status + deadline (responsive cards) */
+.selected-members-chips--tournament-pay-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  align-content: start;
+}
+
+@media (min-width: 520px) {
+  .selected-members-chips--tournament-pay-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  }
+}
+
+.tournament-member-pay-card {
+  --tp-accent: #64748b;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  cursor: grab;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.tournament-member-pay-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
+.tournament-member-pay-card:active {
+  cursor: grabbing;
+}
+
+.tournament-member-pay-card--guest {
+  cursor: default;
+}
+
+.tournament-member-pay-card--guest:active {
+  cursor: default;
+}
+
+.tournament-member-pay-card__accent {
+  flex-shrink: 0;
+  width: 4px;
+  background: var(--tp-accent);
+  border-radius: 12px 0 0 12px;
+}
+
+[dir='rtl'] .tournament-member-pay-card__accent {
+  border-radius: 0 12px 12px 0;
+}
+
+.tournament-member-pay-card--pending {
+  --tp-accent: #64748b;
+}
+.tournament-member-pay-card--online-pending {
+  --tp-accent: #2563eb;
+}
+.tournament-member-pay-card--online-club,
+.tournament-member-pay-card--online-member {
+  --tp-accent: #0d9488;
+}
+.tournament-member-pay-card--settled {
+  --tp-accent: #15803d;
+}
+.tournament-member-pay-card--club-wait-member {
+  --tp-accent: #d97706;
+}
+.tournament-member-pay-card--member-other {
+  --tp-accent: #7c3aed;
+}
+.tournament-member-pay-card--guest-pending {
+  --tp-accent: #4f46e5;
+}
+.tournament-member-pay-card--guest-paid {
+  --tp-accent: #059669;
+}
+
+.tournament-member-pay-card--deadline-passed:not(.tournament-member-pay-card--settled):not(.tournament-member-pay-card--guest-paid) {
+  --tp-accent: #dc2626;
+}
+
+.tournament-member-pay-card__inner {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tournament-member-pay-card__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tournament-member-pay-card__row--head {
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.tournament-member-pay-card__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.3;
+  word-break: break-word;
+  min-width: 0;
+  flex: 1;
+}
+
+.tournament-member-pay-card__head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.tournament-member-pay-card__icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.tournament-member-pay-card__icon-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.tournament-member-pay-card__icon-btn--danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.tournament-member-pay-card__icon-btn--danger:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.tournament-member-pay-card__btn--wa {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  color: #065f46;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
+.tournament-member-pay-card__btn--wa:hover:not(:disabled) {
+  filter: brightness(0.97);
+}
+
+.tournament-member-pay-card__btn--wa:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.tournament-member-pay-card__row--status {
+  align-items: flex-start;
+  gap: 8px 10px;
+}
+
+.tournament-member-pay-card__fee {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.tournament-member-pay-card__badge {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  padding: 5px 10px;
+  border-radius: 999px;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.tournament-member-pay-card__badge--pending {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+.tournament-member-pay-card__badge--online-pending {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+.tournament-member-pay-card__badge--online-club,
+.tournament-member-pay-card__badge--online-member {
+  background: #ccfbf1;
+  color: #115e59;
+  border: 1px solid #5eead4;
+}
+.tournament-member-pay-card__badge--settled {
+  background: #dcfce7;
+  color: #14532d;
+  border: 1px solid #86efac;
+}
+.tournament-member-pay-card__badge--club-wait-member {
+  background: #ffedd5;
+  color: #9a3412;
+  border: 1px solid #fdba74;
+}
+.tournament-member-pay-card__badge--member-other {
+  background: #ede9fe;
+  color: #5b21b6;
+  border: 1px solid #c4b5fd;
+}
+.tournament-member-pay-card__badge--guest-pending {
+  background: #e0e7ff;
+  color: #3730a3;
+  border: 1px solid #a5b4fc;
+}
+.tournament-member-pay-card__badge--guest-paid {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+
+.tournament-member-pay-card__timer {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  margin-inline-start: auto;
+}
+
+.tournament-member-pay-card__timer .tournament-member-pay-card__timer-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+
+.tournament-member-pay-card__timer.is-urgent {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #9a3412;
+}
+
+.tournament-member-pay-card--deadline-passed .tournament-member-pay-card__timer {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+@media (max-width: 380px) {
+  .tournament-member-pay-card__timer {
+    margin-inline-start: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+.tournament-member-pay-card__row--tracker {
+  padding-top: 4px;
+  border-top: 1px solid #f1f5f9;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tournament-member-pay-card__tracker-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tournament-member-pay-card__tracker-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tournament-pay-track-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.tournament-pay-track-btn__key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  font-weight: 800;
+  font-size: 11px;
+  color: #475569;
+}
+
+.tournament-pay-track-btn__hint {
+  white-space: nowrap;
+}
+
+.tournament-pay-track-btn:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.tournament-pay-track-btn--club.is-on {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1e40af;
+}
+.tournament-pay-track-btn--club.is-on .tournament-pay-track-btn__key {
+  background: #bfdbfe;
+  color: #1e3a8a;
+}
+
+.tournament-pay-track-btn--member.is-on {
+  border-color: #fde047;
+  background: #fefce8;
+  color: #854d0e;
+}
+.tournament-pay-track-btn--member.is-on .tournament-pay-track-btn__key {
+  background: #fef08a;
+  color: #713f12;
+}
+
 .team-item-with-members--drop {
   outline: 2px dashed #3498db;
   outline-offset: 2px;
