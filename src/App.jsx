@@ -63,7 +63,10 @@ import {
   findPaymentShareForPendingGuest,
 } from './utils/paymentShareEffectiveAmounts'
 import { findPaymentShareForMember } from './utils/paymentShareMemberMatch'
-import { effectiveTournamentSplitPaymentDeadlineMs } from './utils/tournamentPaymentDeadline'
+import {
+  bookingIsTournamentForDeadline,
+  effectiveTournamentSplitPaymentDeadlineMs,
+} from './utils/tournamentPaymentDeadline'
 
 function bookingJsonData(booking) {
   const d = booking?.data
@@ -178,11 +181,12 @@ function formatTournamentPayCountdown(deadlineMs, nowMs, t) {
  * @param {number} nowMs
  * @param {object} t — translations
  */
-function resolveTournamentMemberPaymentUi(booking, member, payEntry, nowMs, t, clubSettings) {
+/** @param {object|null} deadlineBooking — row enriched with tournament type for club tournament-minute settings */
+function resolveTournamentMemberPaymentUi(booking, member, payEntry, nowMs, t, clubSettings, deadlineBooking) {
   const norm = normalizeMemberPaymentEntry(payEntry)
   const share = booking && member ? findPaymentShareForMember(booking, member) : null
   const sharePaid = shareIsEffectivelyPaid(share)
-  const deadlineMs = effectiveTournamentSplitPaymentDeadlineMs(booking, clubSettings)
+  const deadlineMs = effectiveTournamentSplitPaymentDeadlineMs(deadlineBooking ?? booking, clubSettings)
 
   let variant = 'pending'
   let badgeKey = 'tournamentPayBadgeAwaitingPayment'
@@ -233,10 +237,10 @@ function resolveTournamentMemberPaymentUi(booking, member, payEntry, nowMs, t, c
   }
 }
 
-function resolveTournamentGuestPaymentUi(booking, guest, nowMs, t, clubSettings) {
+function resolveTournamentGuestPaymentUi(booking, guest, nowMs, t, clubSettings, deadlineBooking) {
   const share = booking ? findPaymentShareForPendingGuest(booking, guest) : null
   const sharePaid = shareIsEffectivelyPaid(share)
-  const deadlineMs = effectiveTournamentSplitPaymentDeadlineMs(booking, clubSettings)
+  const deadlineMs = effectiveTournamentSplitPaymentDeadlineMs(deadlineBooking ?? booking, clubSettings)
   const showTimer = deadlineMs != null && !sharePaid
   const cd = showTimer ? formatTournamentPayCountdown(deadlineMs, nowMs, t) : { label: '', urgent: false, passed: false }
   return {
@@ -5747,6 +5751,24 @@ function App({ currentUser }) {
     return fromMerged || fromLocal
   }, [bookings, localBookings, viewedTournamentBooking])
 
+  /**
+   * Ensures countdown uses club tournament deadline minutes (king vs social) from settings:
+   * merges viewedTournamentBooking.tournamentType when the booking row omits it after sync.
+   */
+  const tournamentBookingForDeadline = useMemo(() => {
+    const b = tournamentBookingRowForGuestInvite
+    if (!b || !viewedTournamentBooking?.id) return b
+    if (String(b.id) !== String(viewedTournamentBooking.id)) return b
+    const vt = String(viewedTournamentBooking.tournamentType || '').toLowerCase()
+    if (vt !== 'king' && vt !== 'social') return b
+    const d = bookingJsonData(b)
+    const rowTt = String(b.tournamentType || d.tournamentType || d.tournament_type || '').toLowerCase()
+    if (bookingIsTournamentForDeadline(b) && (rowTt === 'king' || rowTt === 'social')) {
+      return b
+    }
+    return { ...b, isTournament: true, tournamentType: vt }
+  }, [tournamentBookingRowForGuestInvite, viewedTournamentBooking])
+
   useEffect(() => {
     if (!openMemberSelectorForTeam) {
       setMemberSelectorFavBulkSelected({})
@@ -5932,6 +5954,7 @@ function App({ currentUser }) {
     [
       tournamentPayUiTick,
       contentTab,
+      viewedTournamentBooking?.tournamentType,
       currentClub?.settings?.tournamentKingSplitPaymentDeadlineMinutes,
       currentClub?.settings?.tournament_king_split_payment_deadline_minutes,
       currentClub?.settings?.tournamentSocialSplitPaymentDeadlineMinutes,
@@ -7987,7 +8010,8 @@ function App({ currentUser }) {
                               g,
                               tournamentTeamsPayNowMs,
                               t,
-                              currentClub?.settings
+                              currentClub?.settings,
+                              tournamentBookingForDeadline
                             )
                             const guestVariantClass = guestPayUi.variant.replace(/_/g, '-')
                             return (
@@ -8081,7 +8105,8 @@ function App({ currentUser }) {
                                 payEntry,
                                 tournamentTeamsPayNowMs,
                                 t,
-                                currentClub?.settings
+                                currentClub?.settings,
+                                tournamentBookingForDeadline
                               )
                               const variantClass = payUi.variant.replace(/_/g, '-')
                               const feeDisplay = tournamentMemberDisplayFee(

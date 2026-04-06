@@ -1,7 +1,14 @@
 /**
- * Tournament split-payment deadline for UI: follows current club settings
- * (tournament king/social minutes) from booking lock time, aligned with server
- * bookingService.pickSplitPaymentDeadlineMinutes + computePaymentDeadlineFromMinutes.
+ * Tournament split-payment deadline for UI (Teams tab countdown).
+ *
+ * Uses club_settings minutes: `tournament_king_split_payment_deadline_minutes` or
+ * `tournament_social_split_payment_deadline_minutes` (fallback: split_payment_deadline_minutes),
+ * same rules as server `bookingService.pickSplitPaymentDeadlineMinutes`.
+ *
+ * Deadline instant = `locked_at` + those minutes, capped to end of the booking calendar day
+ * (`computeDeadlineMsFromAnchor` ↔ server `computePaymentDeadlineFromMinutes`).
+ *
+ * If `locked_at` is missing, falls back to stored `payment_deadline_at` on the row.
  */
 
 function bookingPayload(booking) {
