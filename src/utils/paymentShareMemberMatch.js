@@ -1,4 +1,5 @@
 import { phoneDigitsNormalized, splitPickedPhoneToCountryAndNational } from './phoneNormalize'
+import { effectiveShareAmount, shareRowIsActive as shareRowActiveForAmount } from './paymentShareEffectiveAmounts'
 
 /** Last 9 digits — match 05xxxxxxxx with 9665xxxxxxxx */
 export function phoneTailKey(s) {
@@ -89,11 +90,28 @@ export function sumActivePaidShareAmounts(paymentShares) {
 }
 
 /**
+ * مجموع المدفوع فعلياً باستخدام المبلغ الفعلي لكل حصة (مثل رسوم البطولة عندما amount في قاعدة البيانات = 0).
+ * @param {{ tournamentData?: object }} [options] — مرّر tournamentData النادي لمطابقة عميل effectiveShareAmount
+ */
+export function sumActivePaidShareEffectiveAmounts(booking, options = {}) {
+  if (!Array.isArray(booking?.paymentShares)) return 0
+  let sum = 0
+  for (const s of booking.paymentShares) {
+    if (!shareRowActiveForAmount(s)) continue
+    if (!(s.paidAt || s.paid_at)) continue
+    if (s.refundedAt || s.refunded_at) continue
+    sum += effectiveShareAmount(booking, s, options)
+  }
+  return Math.round(sum * 100) / 100
+}
+
+/**
  * يتزامن مع club_bookings.paid_amount عندما يتقدّم الدفع في الخادم (مثلاً تسوية متبقي من المحفظة)
  * بينما قائمة الحصص في العميل قديمة أو لا تعكس كل صفوف الدفع.
+ * @param {{ tournamentData?: object }} [options]
  */
-export function effectiveSplitPaidSum(booking) {
-  const fromShares = sumActivePaidShareAmounts(booking?.paymentShares)
+export function effectiveSplitPaidSum(booking, options = {}) {
+  const fromShares = sumActivePaidShareEffectiveAmounts(booking, options)
   const fromBooking = parseFloat(booking?.paidAmount ?? booking?.paid_amount ?? 0) || 0
   return Math.round(Math.max(fromShares, fromBooking) * 100) / 100
 }

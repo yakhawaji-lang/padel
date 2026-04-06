@@ -201,7 +201,8 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
         upcomingN += 1
         if (ds <= weekEndStr) weekUpcoming += 1
       }
-      const paid = effectiveSplitPaidSum(b)
+      const shareOptsKpi = { tournamentData: club?.tournamentData }
+      const paid = effectiveSplitPaidSum(b, shareOptsKpi)
       collected += paid
       const totRaw = b.totalAmount ?? b.total_amount
       const tot = parseFloat(totRaw)
@@ -211,6 +212,15 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
         gross = !Number.isNaN(pr) ? pr : 0
       } else if (Number.isNaN(gross)) {
         gross = 0
+      }
+      const sharesKpi = Array.isArray(b.paymentShares) ? b.paymentShares : []
+      const splitSumKpi = sharesKpi.length
+        ? sharesKpi
+            .filter((s) => shareRowIsActive(s))
+            .reduce((sum, s) => sum + effectiveShareAmount(b, s, shareOptsKpi), 0)
+        : 0
+      if (splitSumKpi > 0.009) {
+        gross = Math.max(Number(gross) || 0, Math.round(splitSumKpi * 100) / 100)
       }
       booked += gross
 
@@ -237,7 +247,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       collectionRate,
       deadlineExpiredKpi
     }
-  }, [bookings, today])
+  }, [bookings, today, club?.tournamentData])
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '—'
@@ -1228,12 +1238,22 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                         : Number.isFinite(fallbackAmount) && fallbackAmount > 0.009
                           ? fallbackAmount
                           : 0
-                  const paidSumForPanel = effectiveSplitPaidSum(b)
-                  const remainingForPanel = Math.max(0, (parseFloat(totalAmount) || 0) - paidSumForPanel)
+                  const shareOptsPanel = { tournamentData: club?.tournamentData }
+                  const sharesEffectiveSum = hasShares
+                    ? paymentShares
+                        .filter((s) => shareRowIsActive(s))
+                        .reduce((sum, s) => sum + effectiveShareAmount(b, s, shareOptsPanel), 0)
+                    : 0
+                  const paymentPanelTotal =
+                    hasShares && sharesEffectiveSum > 0.009
+                      ? Math.round(sharesEffectiveSum * 100) / 100
+                      : totalAmount
+                  const paidSumForPanel = effectiveSplitPaidSum(b, shareOptsPanel)
+                  const remainingForPanel = Math.max(0, paymentPanelTotal - paidSumForPanel)
                   const incompleteSplit =
                     hasShares &&
-                    Number(totalAmount) > 0 &&
-                    paidSumForPanel < Number(totalAmount) - 0.01
+                    paymentPanelTotal > 0 &&
+                    paidSumForPanel < paymentPanelTotal - 0.01
                   const unpaidSplitExpired = statusLc === 'expired' && incompleteSplit
                   const showPaymentPanel =
                     rowAwaitingRefundAck ||
@@ -1370,7 +1390,7 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                               <div className="booking-payment-detail-item">
                                 <span className="booking-payment-detail-label">{c.totalAmount}</span>
                                 <span className="booking-payment-detail-value booking-payment-total">
-                                  {totalAmount} {currency}
+                                  {paymentPanelTotal} {currency}
                                 </span>
                               </div>
                               {hasShares && (
@@ -1556,15 +1576,12 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                 </div>
                                 <div className="booking-payment-shares-list">
                                   {(() => {
-                                    const shareOpts = { tournamentData: club?.tournamentData }
+                                    const shareOpts = shareOptsPanel
                                     const bookerId = String(b.memberId || b.initiatorMemberId || b.member_id || '')
                                     const isBookerShare = (s) => String(s.memberId || s.member_id || '') === bookerId
                                     const bookerShares = paymentShares.filter(s => isBookerShare(s) && !s.inviteToken && !s.invite_token)
                                     const participantShares = paymentShares.filter(s => !isBookerShare(s) || !!s.inviteToken || !!s.invite_token)
-                                    const sharesSum = paymentShares
-                                      .filter((s) => shareRowIsActive(s))
-                                      .reduce((sum, s) => sum + effectiveShareAmount(b, s, shareOpts), 0)
-                                    const bookerAmountFromCalc = Math.max(0, totalAmount - sharesSum)
+                                    const bookerAmountFromCalc = Math.max(0, paymentPanelTotal - sharesEffectiveSum)
                                     const bookerPaymentMethod = b.initiatorPaymentMethod || b.paymentMethod
                                     const renderShareRow = (s, idx, isBooker) => {
                                       const isRefunded = !!s.refundedAt

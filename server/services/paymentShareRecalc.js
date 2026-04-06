@@ -4,6 +4,7 @@
 import { query } from '../db/pool.js'
 import * as bookingService from './bookingService.js'
 import * as invoiceService from './invoiceService.js'
+import { buildShareAmountResolveContext, resolveShareMonetaryAmountSync } from '../utils/paymentShareAmountResolve.js'
 
 export function shareRowCountsAsPaid(row) {
   if (!row) return false
@@ -34,19 +35,37 @@ export async function recalculateBookingPaymentAfterShareChange(bookingId, clubI
   let sharesRes
   try {
     sharesRes = await query(
-      `SELECT amount, paid_at, refunded_at, removed_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
+      `SELECT id, amount, paid_at, refunded_at, removed_at, member_id, phone, invite_token
+       FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
       [bookingId, clubId]
     )
   } catch (e) {
     if (!e?.message?.includes('refunded_at') && !e?.message?.includes('removed_at')) throw e
     sharesRes = await query(
-      `SELECT amount, paid_at, NULL AS refunded_at, NULL AS removed_at FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
+      `SELECT id, amount, paid_at, NULL AS refunded_at, NULL AS removed_at, member_id, phone, invite_token
+       FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
       [bookingId, clubId]
     )
   }
   const shares = sharesRes?.rows || []
 
-  const paidAmount = shares.filter(shareRowCountsAsPaid).reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
+  const resolveCtx =
+    shares.length > 0 ? await buildShareAmountResolveContext(clubId, bookingId, bRows[0], shares) : null
+
+  const paidAmount = shares.filter(shareRowCountsAsPaid).reduce((sum, s) => {
+    const amt = resolveCtx
+      ? resolveShareMonetaryAmountSync(s, resolveCtx)
+      : parseFloat(s.amount) || 0
+    return sum + amt
+  }, 0)
+  const expectedFromShares = shares
+    .filter(shareRowIsActive)
+    .reduce((sum, s) => {
+      const amt = resolveCtx
+        ? resolveShareMonetaryAmountSync(s, resolveCtx)
+        : parseFloat(s.amount) || 0
+      return sum + amt
+    }, 0)
   const totalAmount = parseFloat(bRows[0].total_amount) || 0
   let status = (bRows[0].status || '').toString()
   const forceStatus = opts.forceStatus
@@ -72,7 +91,9 @@ export async function recalculateBookingPaymentAfterShareChange(bookingId, clubI
   } else if (['cancelled', 'expired'].includes(status)) {
     /* keep */
   } else {
-    const allPaid = totalAmount > 0 && paidAmount >= totalAmount - 0.01
+    const dueTotal =
+      expectedFromShares > 0.009 ? Math.round(expectedFromShares * 100) / 100 : totalAmount
+    const allPaid = dueTotal > 0.009 && paidAmount >= dueTotal - 0.01
     if (allPaid) status = 'confirmed'
     else if (paidAmount > 0) status = 'partially_paid'
     else status = 'pending_payments'

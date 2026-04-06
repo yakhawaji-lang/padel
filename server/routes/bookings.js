@@ -19,6 +19,7 @@ import * as idempotency from '../db/idempotency.js'
 import { getBookingSettings } from '../db/bookingSettings.js'
 import { hasNormalizedTables, purgeClubBookingFromDb } from '../db/normalizedData.js'
 import * as slotCache from '../lib/slotCache.js'
+import { loadShareAmountResolveContext, resolveShareMonetaryAmountSync } from '../utils/paymentShareAmountResolve.js'
 import { sendPlatformMessage } from '../services/messageSend.js'
 import { buildPaymentShareWhatsAppPlainText } from '../../src/utils/sharePaymentInviteMessage.js'
 
@@ -1099,7 +1100,7 @@ router.post('/join-training', async (req, res) => {
 })
 
 const shareForInvoiceSql = `
-  SELECT bps.id, bps.booking_id, bps.amount, bps.member_id, bps.member_name, bps.phone, bps.paid_at,
+  SELECT bps.id, bps.booking_id, bps.amount, bps.member_id, bps.member_name, bps.phone, bps.invite_token, bps.paid_at,
     COALESCE(cs.currency, 'SAR') AS currency
   FROM booking_payment_shares bps
   INNER JOIN club_bookings cb ON cb.id = bps.booking_id AND cb.club_id = bps.club_id AND cb.deleted_at IS NULL
@@ -1172,6 +1173,24 @@ router.post('/record-payment', async (req, res) => {
 
     await attachShareToActorMemberIfMatched()
     const bid = share.booking_id
+    let shareResolvedAmount = Math.round((parseFloat(share.amount) || 0) * 100) / 100
+    try {
+      const resolveCtx = await loadShareAmountResolveContext(clubId, bid)
+      if (resolveCtx) {
+        shareResolvedAmount = resolveShareMonetaryAmountSync(
+          {
+            id: share.id,
+            amount: share.amount,
+            member_id: share.member_id,
+            phone: share.phone,
+            invite_token: share.invite_token,
+          },
+          resolveCtx
+        )
+      }
+    } catch (_) {
+      /* keep shareResolvedAmount from DB */
+    }
     const pmRaw = String(paymentMethod || '').toLowerCase().trim()
     const isWalletPay = pmRaw === 'wallet'
     const isAtClub = paymentMethod === 'at_club'
@@ -1185,7 +1204,7 @@ router.post('/record-payment', async (req, res) => {
         return res.status(403).json({ error: 'Wallet payment is only available for your own registered share' })
       }
       if (share.paid_at) return res.status(400).json({ error: 'Share already paid' })
-      const amt = Math.round((parseFloat(share.amount) || 0) * 100) / 100
+      const amt = shareResolvedAmount
       if (amt <= 0.009) return res.status(400).json({ error: 'Invalid share amount' })
       const debit = await walletService.debitWallet(clubId, mid, amt, {
         reason: 'booking_payment_share',
@@ -1227,7 +1246,7 @@ router.post('/record-payment', async (req, res) => {
           clubId,
           bookingId: bid,
           shareId: share.id,
-          amount: share.amount,
+          amount: shareResolvedAmount,
           currency: share.currency,
           memberId: resolvedMemberId,
           memberName: resolvedMemberName,
@@ -1282,7 +1301,7 @@ router.post('/record-payment', async (req, res) => {
           clubId,
           bookingId: bid,
           shareId: share.id,
-          amount: share.amount,
+          amount: shareResolvedAmount,
           currency: share.currency,
           memberId: resolvedMemberId,
           memberName: resolvedMemberName,
@@ -1501,16 +1520,34 @@ router.post('/record-remainder-payment', async (req, res) => {
       const invMethod = isWallet ? 'wallet' : isElectronic ? 'electronic' : isAtClub ? 'at_club' : 'other'
       const invRefGlobal =
         isWallet ? null : isElectronic && paymentReference != null ? String(paymentReference).trim() : null
+      let resolveCtxRemainder = null
+      try {
+        resolveCtxRemainder = await loadShareAmountResolveContext(clubId, bookingId)
+      } catch (_) {
+        resolveCtxRemainder = null
+      }
       for (const s of unpaid) {
         const sr = await query(`${shareForInvoiceSql} WHERE bps.id = ? AND bps.club_id = ?`, [s.id, clubId])
         const sh = sr.rows?.[0]
         if (!sh) continue
+        const invAmt = resolveCtxRemainder
+          ? resolveShareMonetaryAmountSync(
+              {
+                id: sh.id,
+                amount: sh.amount,
+                member_id: sh.member_id,
+                phone: sh.phone,
+                invite_token: sh.invite_token,
+              },
+              resolveCtxRemainder
+            )
+          : parseFloat(sh.amount) || 0
         try {
           await invoiceService.issueInvoiceForPaidShare({
             clubId,
             bookingId,
             shareId: sh.id,
-            amount: sh.amount,
+            amount: invAmt,
             currency: sh.currency,
             memberId: sh.member_id,
             memberName: sh.member_name,
@@ -1593,11 +1630,29 @@ router.post('/mark-share-paid-at-club', async (req, res) => {
         const { rows: dr } = await query('SELECT data FROM club_bookings WHERE id = ? AND club_id = ?', [bid, clubId])
         shareBookingKind = invoiceService.bookingInvoiceKindFromRowData(parseBookingJsonData(dr?.[0]?.data))
       } catch (_) {}
+      let markPaidInvAmt = Math.round((parseFloat(share.amount) || 0) * 100) / 100
+      try {
+        const resolveCtx = await loadShareAmountResolveContext(clubId, bid)
+        if (resolveCtx) {
+          markPaidInvAmt = resolveShareMonetaryAmountSync(
+            {
+              id: share.id,
+              amount: share.amount,
+              member_id: share.member_id,
+              phone: share.phone,
+              invite_token: share.invite_token,
+            },
+            resolveCtx
+          )
+        }
+      } catch (_) {
+        /* keep markPaidInvAmt */
+      }
       await invoiceService.issueInvoiceForPaidShare({
         clubId,
         bookingId: bid,
         shareId: share.id,
-        amount: share.amount,
+        amount: markPaidInvAmt,
         currency: share.currency,
         memberId: share.member_id,
         memberName: share.member_name,

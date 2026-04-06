@@ -5,6 +5,7 @@
 import crypto from 'crypto'
 import { logAudit } from '../db/audit.js'
 import { query, getPool } from '../db/pool.js'
+import { loadShareAmountResolveContext, resolveShareMonetaryAmountSync } from '../utils/paymentShareAmountResolve.js'
 
 let _tablesCached = null
 
@@ -218,7 +219,7 @@ export async function syncInvoicesForAllPaidSharesOnBooking({ clubId, bookingId 
   let rows
   try {
     const res = await query(
-      `SELECT bps.id, bps.amount, bps.member_id, bps.member_name, bps.phone,
+      `SELECT bps.id, bps.amount, bps.member_id, bps.member_name, bps.phone, bps.invite_token,
               bps.payment_method, bps.payment_reference,
               COALESCE(cs.currency, 'SAR') AS currency
        FROM booking_payment_shares bps
@@ -233,7 +234,7 @@ export async function syncInvoicesForAllPaidSharesOnBooking({ clubId, bookingId 
   } catch (e) {
     if (!e?.message?.includes('refunded_at') && !e?.message?.includes('removed_at')) throw e
     const res = await query(
-      `SELECT bps.id, bps.amount, bps.member_id, bps.member_name, bps.phone,
+      `SELECT bps.id, bps.amount, bps.member_id, bps.member_name, bps.phone, bps.invite_token,
               bps.payment_method, bps.payment_reference,
               COALESCE(cs.currency, 'SAR') AS currency
        FROM booking_payment_shares bps
@@ -245,14 +246,28 @@ export async function syncInvoicesForAllPaidSharesOnBooking({ clubId, bookingId 
     rows = (res?.rows || []).filter((r) => r)
   }
 
+  const resolveCtx = rows.length ? await loadShareAmountResolveContext(clubId, bookingId) : null
+
   let primaryForUi = null
   for (const r of rows) {
     try {
+      const resolvedAmt = resolveCtx
+        ? resolveShareMonetaryAmountSync(
+            {
+              id: r.id,
+              amount: r.amount,
+              member_id: r.member_id,
+              phone: r.phone,
+              invite_token: r.invite_token,
+            },
+            resolveCtx
+          )
+        : parseFloat(r.amount) || 0
       const inv = await issueInvoiceForPaidShare({
         clubId,
         bookingId,
         shareId: r.id,
-        amount: r.amount,
+        amount: resolvedAmt,
         currency: r.currency,
         memberId: r.member_id,
         memberName: r.member_name,
