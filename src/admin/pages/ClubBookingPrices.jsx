@@ -371,7 +371,7 @@ const ClubBookingPrices = ({ club, language = 'en', onUpdateClub }) => {
         </section>
 
         <footer className="cbp-footer">
-          <Link to={`/club/${club.id}`} className="cbp-footer-link" target="_blank" rel="noopener noreferrer">
+          <Link to={`/clubs/${club.id}`} className="cbp-footer-link" target="_blank" rel="noopener noreferrer">
             ↗ {t('View pricing on club page', 'عرض الأسعار في صفحة النادي', lang)}
           </Link>
         </footer>

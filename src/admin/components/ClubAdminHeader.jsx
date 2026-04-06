@@ -82,7 +82,7 @@ const ClubAdminHeader = ({ club, language, onLanguageChange }) => {
               <span className="club-admin-header__more-dots">⋯</span>
             </button>
             <div className={`club-admin-header__dropdown-menu ${menuOpen ? 'club-admin-header__dropdown-menu--open' : ''}`}>
-              <Link to={`/club/${clubId}`} className="club-admin-header__dropdown-item" onClick={() => setMenuOpen(false)}>
+              <Link to={`/clubs/${clubId}`} className="club-admin-header__dropdown-item" onClick={() => setMenuOpen(false)}>
                 🏠 {language === 'en' ? 'Club Page' : 'صفحة النادي'}
               </Link>
               <Link to="/admin/all-clubs" className="club-admin-header__dropdown-item" onClick={() => setMenuOpen(false)}>

@@ -192,7 +192,7 @@ export default function AllClubsManagement() {
                     </div>
                   </div>
                   <div className="acm-card-actions">
-                    <button type="button" className="acm-btn-icon" onClick={() => navigate(`/club/${club.id}`)} title={t('View', 'عرض', language)}>◉</button>
+                    <button type="button" className="acm-btn-icon" onClick={() => navigate(`/clubs/${club.id}`)} title={t('View', 'عرض', language)}>◉</button>
                     <button type="button" className="acm-btn-icon" onClick={() => navigate(`/admin/club/${club.id}`)} title={t('Admin', 'إدارة', language)}>⚙</button>
                     <button type="button" className="acm-btn-icon" onClick={() => openEdit(club)} title={t('Edit', 'تعديل', language)}>✎</button>
                     <button type="button" className="acm-btn-icon acm-btn-icon--danger" onClick={() => handleDelete(club.id)} title={t('Delete', 'حذف', language)}>×</button>
