@@ -108,7 +108,8 @@ function teamsPayloadSignature(teams) {
 /**
  * @param {object} booking — club booking row (isTournament, tournamentType, paymentShares, …)
  * @param {object|null} prevState — king or social state for this booking id
- * @param {{ language?: string, defaultTeamCount?: number }} options
+ * @param {{ language?: string, defaultTeamCount?: number, clubMemberIds?: Iterable<unknown> }} options
+ *   clubMemberIds — roster ids allowed to stay on teams when chosen manually in the club app (not only participants/shares).
  * @returns {object|null} — patch { teams, memberTournamentPayments fixes } merged into full state, or null if unchanged
  */
 export function mergeTournamentTeamsFromPaymentShares(booking, prevState, options = {}) {
@@ -144,6 +145,12 @@ export function mergeTournamentTeamsFromPaymentShares(booking, prevState, option
   }
 
   const allowedOnTeams = new Set([...participantAllow, ...shareMemberIds])
+  const clubMemberIds = options.clubMemberIds
+  if (clubMemberIds != null) {
+    for (const id of clubMemberIds) {
+      if (id != null && String(id).trim() !== '') allowedOnTeams.add(String(id))
+    }
+  }
 
   const { prev, teams: teamsIn } = normalizeTeamsFromPrev(prevState, defaultTeamCount, language)
   let teams = teamsIn

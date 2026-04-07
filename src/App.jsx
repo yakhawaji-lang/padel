@@ -911,6 +911,7 @@ function App({ currentUser }) {
   /** Split-payment shares → tournament team chips (sync with admin bookings / pay-invite flow). */
   useEffect(() => {
     if (isInitialMount.current || !currentClub?.id) return
+    const clubMemberIds = (members || []).map((m) => m.id).filter((id) => id != null && String(id).trim() !== '')
     const courtCount = currentClub.courts?.filter((c) => !c.maintenance).length || 4
     const kingShell = () => ({
       teams: [],
@@ -943,7 +944,11 @@ function App({ currentUser }) {
         const bid = String(b.id)
         if (!bid) continue
         const prev = next[bid] && typeof next[bid] === 'object' ? next[bid] : kingShell()
-        const merged = mergeTournamentTeamsFromPaymentShares(b, prev, { language, defaultTeamCount: 8 })
+        const merged = mergeTournamentTeamsFromPaymentShares(b, prev, {
+          language,
+          defaultTeamCount: 8,
+          clubMemberIds,
+        })
         if (merged && tournamentTeamSyncChanged(prev, merged)) {
           next[bid] = merged
           changed = true
@@ -961,7 +966,11 @@ function App({ currentUser }) {
         const bid = String(b.id)
         if (!bid) continue
         const prev = next[bid] && typeof next[bid] === 'object' ? next[bid] : socialShell()
-        const merged = mergeTournamentTeamsFromPaymentShares(b, prev, { language, defaultTeamCount: 8 })
+        const merged = mergeTournamentTeamsFromPaymentShares(b, prev, {
+          language,
+          defaultTeamCount: 8,
+          clubMemberIds,
+        })
         if (merged && tournamentTeamSyncChanged(prev, merged)) {
           next[bid] = merged
           changed = true
@@ -969,7 +978,7 @@ function App({ currentUser }) {
       }
       return changed ? next : prevSoc
     })
-  }, [localBookings, currentClub?.id, language])
+  }, [localBookings, currentClub?.id, language, members])
 
   // Update document direction and persist language
   useEffect(() => {
