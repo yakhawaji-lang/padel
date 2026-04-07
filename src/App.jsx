@@ -226,6 +226,8 @@ function resolveTournamentMemberPaymentUi(booking, member, payEntry, nowMs, t, c
   const showMarkPaidAtClub =
     !norm.clubReceived && (variant === 'online-pending' || variant === 'pending')
 
+  const trackerLocked = sharePaid || norm.clubReceived || norm.memberAck
+
   return {
     variant,
     badgeKey,
@@ -234,6 +236,8 @@ function resolveTournamentMemberPaymentUi(booking, member, payEntry, nowMs, t, c
     timerUrgent: cd.urgent,
     deadlinePassed: cd.passed,
     showMarkPaidAtClub,
+    sharePaid,
+    trackerLocked,
   }
 }
 
@@ -8258,9 +8262,17 @@ function App({ currentUser }) {
                                       <div className="tournament-member-pay-card__tracker-btns">
                                         <button
                                           type="button"
-                                          className={`tournament-pay-track-btn tournament-pay-track-btn--club${norm.clubReceived ? ' is-on' : ''}`}
+                                          className={`tournament-pay-track-btn tournament-pay-track-btn--club${
+                                            payUi.trackerLocked
+                                              ? ` is-locked${norm.clubReceived ? ' is-recorded-club' : ''}`
+                                              : norm.clubReceived
+                                                ? ' is-on'
+                                                : ''
+                                          }`}
                                           title={t.clubReceivedPaymentTitle}
                                           aria-pressed={norm.clubReceived}
+                                          aria-disabled={payUi.trackerLocked}
+                                          disabled={payUi.trackerLocked}
                                           onClick={(e) => {
                                             e.stopPropagation()
                                             e.preventDefault()
@@ -8272,9 +8284,21 @@ function App({ currentUser }) {
                                         </button>
                                         <button
                                           type="button"
-                                          className={`tournament-pay-track-btn tournament-pay-track-btn--member${norm.memberAck ? ' is-on' : ''}`}
+                                          className={`tournament-pay-track-btn tournament-pay-track-btn--member${
+                                            payUi.trackerLocked
+                                              ? ` is-locked${norm.memberAck ? ' is-recorded-member' : ''}${
+                                                  payUi.sharePaid && !norm.clubReceived && !norm.memberAck
+                                                    ? ' is-path-member-paid-online'
+                                                    : ''
+                                                }`
+                                              : norm.memberAck
+                                                ? ' is-on'
+                                                : ''
+                                          }`}
                                           title={t.memberAckPaymentTitle}
                                           aria-pressed={norm.memberAck}
+                                          aria-disabled={payUi.trackerLocked}
+                                          disabled={payUi.trackerLocked}
                                           onClick={(e) => {
                                             e.stopPropagation()
                                             e.preventDefault()

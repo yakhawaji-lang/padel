@@ -3723,29 +3723,97 @@ button:active {
   white-space: nowrap;
 }
 
-.tournament-pay-track-btn:hover {
+.tournament-pay-track-btn:not(:disabled):hover {
   border-color: #cbd5e1;
   background: #f8fafc;
 }
 
-.tournament-pay-track-btn--club.is-on {
+.tournament-pay-track-btn:disabled {
+  cursor: not-allowed;
+}
+
+/* Interactive (unlocked) selection — clearly clickable */
+.tournament-pay-track-btn--club.is-on:not(:disabled) {
   border-color: #93c5fd;
   background: #eff6ff;
   color: #1e40af;
 }
-.tournament-pay-track-btn--club.is-on .tournament-pay-track-btn__key {
+.tournament-pay-track-btn--club.is-on:not(:disabled) .tournament-pay-track-btn__key {
   background: #bfdbfe;
   color: #1e3a8a;
 }
 
-.tournament-pay-track-btn--member.is-on {
+.tournament-pay-track-btn--member.is-on:not(:disabled) {
   border-color: #fde047;
   background: #fefce8;
   color: #854d0e;
 }
-.tournament-pay-track-btn--member.is-on .tournament-pay-track-btn__key {
+.tournament-pay-track-btn--member.is-on:not(:disabled) .tournament-pay-track-btn__key {
   background: #fef08a;
   color: #713f12;
+}
+
+/* Locked after club/member confirmation or paid share — not interactive; muted “recorded” look */
+.tournament-pay-track-btn.is-locked:disabled {
+  box-shadow: none;
+}
+
+.tournament-pay-track-btn--club.is-locked.is-recorded-club:disabled,
+.tournament-pay-track-btn--club.is-locked.is-recorded-club:disabled:hover {
+  border-color: #5eead4;
+  background: #f0fdfa;
+  color: #0f766e;
+}
+.tournament-pay-track-btn--club.is-locked.is-recorded-club:disabled .tournament-pay-track-btn__key {
+  background: #99f6e4;
+  color: #115e59;
+}
+
+.tournament-pay-track-btn--club.is-locked:not(.is-recorded-club):disabled,
+.tournament-pay-track-btn--club.is-locked:not(.is-recorded-club):disabled:hover {
+  border-color: #e2e8f0;
+  background: #f1f5f9;
+  color: #94a3b8;
+  opacity: 0.92;
+}
+.tournament-pay-track-btn--club.is-locked:not(.is-recorded-club):disabled .tournament-pay-track-btn__key {
+  background: #e2e8f0;
+  color: #64748b;
+}
+
+.tournament-pay-track-btn--member.is-locked.is-recorded-member:disabled,
+.tournament-pay-track-btn--member.is-locked.is-recorded-member:disabled:hover {
+  border-color: #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+}
+.tournament-pay-track-btn--member.is-locked.is-recorded-member:disabled .tournament-pay-track-btn__key {
+  background: #fde68a;
+  color: #78350f;
+}
+
+/* Paid online, awaiting club flags — member side is the payment channel (muted, locked) */
+.tournament-pay-track-btn--member.is-locked.is-path-member-paid-online:not(.is-recorded-member):disabled,
+.tournament-pay-track-btn--member.is-locked.is-path-member-paid-online:not(.is-recorded-member):disabled:hover {
+  border-color: #c4b5fd;
+  background: #f5f3ff;
+  color: #5b21b6;
+}
+.tournament-pay-track-btn--member.is-locked.is-path-member-paid-online:not(.is-recorded-member):disabled .tournament-pay-track-btn__key {
+  background: #ddd6fe;
+  color: #4c1d95;
+}
+
+.tournament-pay-track-btn--member.is-locked:not(.is-recorded-member):not(.is-path-member-paid-online):disabled,
+.tournament-pay-track-btn--member.is-locked:not(.is-recorded-member):not(.is-path-member-paid-online):disabled:hover {
+  border-color: #e2e8f0;
+  background: #f1f5f9;
+  color: #94a3b8;
+  opacity: 0.92;
+}
+.tournament-pay-track-btn--member.is-locked:not(.is-recorded-member):not(.is-path-member-paid-online):disabled .tournament-pay-track-btn__key {
+  background: #e2e8f0;
+  color: #64748b;
 }
 
 .team-item-with-members--drop {
