@@ -602,6 +602,7 @@ function App({ currentUser }) {
   const [tournamentPayUiTick, setTournamentPayUiTick] = useState(0)
   /** `tm-mpaid-${teamId}-${memberId}` while tournament card Mark paid calls the API */
   const [tournamentMarkPaidBusyKey, setTournamentMarkPaidBusyKey] = useState(null)
+  const [tournamentRosterRemoveBusyKey, setTournamentRosterRemoveBusyKey] = useState(null)
 
   // No sidebar - club app uses top navigation only
   const [showResetConfirm, setShowResetConfirm] = useState(false) // Show/hide reset confirmation modal
@@ -5825,6 +5826,206 @@ function App({ currentUser }) {
     }
   }
 
+  const canActAsClubForBookingApi = useCallback(() => {
+    if (!clubId) return false
+    const ca = getClubAdminSession()
+    if (ca?.userId && String(ca.clubId || '').trim() === String(clubId).trim()) return true
+    return !!getPlatformAdminSession()?.id
+  }, [clubId])
+
+  const pickTournamentRefundMethodForShares = useCallback(
+    (shareRows) => {
+      const list = Array.isArray(shareRows) ? shareRows : []
+      const canWallet = list.every(
+        (sh) => (sh.memberId || sh.member_id) != null && String(sh.memberId || sh.member_id).trim() !== ''
+      )
+      if (!canWallet) {
+        if (!window.confirm(t.tournamentRemoveRefundCashOnlyGuest)) return null
+        return 'cash'
+      }
+      if (window.confirm(t.tournamentRemoveRefundWalletQ)) return 'wallet'
+      if (!window.confirm(t.tournamentRemoveRefundCashQ)) return null
+      return 'cash'
+    },
+    [t]
+  )
+
+  const handleTournamentTeamMemberRemove = async (teamId, memberId) => {
+    const booking = tournamentBookingRowForGuestInvite
+    const member = members.find((m) => String(m.id) === String(memberId))
+    if (!member) return
+    const share = booking ? findPaymentShareForMember(booking, member) : null
+    const hasRef =
+      !!share &&
+      ((share.id != null && String(share.id).trim() !== '') ||
+        !!(share.inviteToken || share.invite_token))
+    const paid =
+      !!share &&
+      hasRef &&
+      !!(share.paidAt || share.paid_at) &&
+      !(share.refundedAt || share.refunded_at) &&
+      !(share.removedAt || share.removed_at)
+    const unpaid =
+      !!share &&
+      hasRef &&
+      !(share.paidAt || share.paid_at) &&
+      !(share.removedAt || share.removed_at)
+
+    const canServer = !!(clubId && booking?.id && isLikelyServerBookingId(booking.id) && canActAsClubForBookingApi())
+    const busy = `tm-rem-${teamId}-${memberId}`
+    setTournamentRosterRemoveBusyKey(busy)
+
+    const removeLocally = () => {
+      updateCurrentState((state) => ({
+        ...state,
+        teams: (state.teams || []).map((tm) => {
+          if (tm.id !== teamId) return tm
+          const mp = { ...(tm.memberTournamentPayments || {}) }
+          delete mp[memberId]
+          return {
+            ...tm,
+            memberIds: (tm.memberIds || []).filter((id) => id !== memberId),
+            memberTournamentPayments: mp,
+          }
+        }),
+      }))
+    }
+
+    try {
+      if (canServer && share && hasRef) {
+        if (paid) {
+          if (!window.confirm(t.tournamentRemovePaidMemberConfirm)) return
+          const method = pickTournamentRefundMethodForShares([share])
+          if (!method) return
+          await bookingApi.adminRefundShare({
+            clubId,
+            ...(share.id != null && String(share.id).trim() !== ''
+              ? { shareId: share.id }
+              : { inviteToken: share.inviteToken || share.invite_token }),
+            refundMethod: method,
+            removeFromBooking: true,
+            refundNotes: 'tournament roster remove member',
+          })
+          await syncBookingsAfterApi()
+          removeLocally()
+        } else if (unpaid) {
+          if (!window.confirm(t.tournamentRemoveUnpaidShareConfirm)) return
+          await bookingApi.adminRemovePendingShare({
+            bookingId: booking.id,
+            clubId,
+            ...(share.id != null && String(share.id).trim() !== ''
+              ? { shareId: share.id }
+              : { inviteToken: share.inviteToken || share.invite_token }),
+          })
+          await syncBookingsAfterApi()
+          removeLocally()
+        } else {
+          if (!window.confirm(language === 'en' ? 'Remove from team?' : 'إزالة من الفريق؟')) return
+          removeLocally()
+        }
+      } else {
+        if (paid && !canServer) {
+          window.alert(t.tournamentRemoveNeedClubAdmin)
+          return
+        }
+        if (!window.confirm(language === 'en' ? 'Remove from team?' : 'إزالة من الفريق؟')) return
+        removeLocally()
+      }
+    } catch (e) {
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(language === 'en' ? String(e?.message || 'Failed') : String(e?.message || 'فشل'))
+      }
+    } finally {
+      setTournamentRosterRemoveBusyKey(null)
+    }
+  }
+
+  const handleTournamentPendingGuestRemove = async (teamId, guest) => {
+    const booking = tournamentBookingRowForGuestInvite
+    const share = booking ? findPaymentShareForPendingGuest(booking, guest) : null
+    const hasRef =
+      !!share &&
+      ((share.id != null && String(share.id).trim() !== '') ||
+        !!(share.inviteToken || share.invite_token))
+    const paid =
+      !!share &&
+      hasRef &&
+      !!(share.paidAt || share.paid_at) &&
+      !(share.refundedAt || share.refunded_at) &&
+      !(share.removedAt || share.removed_at)
+    const unpaid =
+      !!share &&
+      hasRef &&
+      !(share.paidAt || share.paid_at) &&
+      !(share.removedAt || share.removed_at)
+
+    const canServer = !!(clubId && booking?.id && isLikelyServerBookingId(booking.id) && canActAsClubForBookingApi())
+    const busy = `tm-grem-${guest.id}`
+    setTournamentRosterRemoveBusyKey(busy)
+
+    const removeGuestLocally = () => {
+      updateCurrentState((state) => ({
+        ...state,
+        teams: (state.teams || []).map((tm) =>
+          tm.id !== teamId
+            ? tm
+            : {
+                ...tm,
+                pendingFeeGuests: (tm.pendingFeeGuests || []).filter((x) => x.id !== guest.id),
+              }
+        ),
+      }))
+    }
+
+    try {
+      if (canServer && share && hasRef) {
+        if (paid) {
+          if (!window.confirm(t.tournamentRemovePaidMemberConfirm)) return
+          const method = pickTournamentRefundMethodForShares([share])
+          if (!method) return
+          await bookingApi.adminRefundShare({
+            clubId,
+            ...(share.id != null && String(share.id).trim() !== ''
+              ? { shareId: share.id }
+              : { inviteToken: share.inviteToken || share.invite_token }),
+            refundMethod: method,
+            removeFromBooking: true,
+            refundNotes: 'tournament roster remove guest',
+          })
+          await syncBookingsAfterApi()
+          removeGuestLocally()
+        } else if (unpaid) {
+          if (!window.confirm(t.tournamentRemoveUnpaidShareConfirm)) return
+          await bookingApi.adminRemovePendingShare({
+            bookingId: booking.id,
+            clubId,
+            ...(share.id != null && String(share.id).trim() !== ''
+              ? { shareId: share.id }
+              : { inviteToken: share.inviteToken || share.invite_token }),
+          })
+          await syncBookingsAfterApi()
+          removeGuestLocally()
+        } else {
+          if (!window.confirm(t.tournamentGuestPendingRemoveTitle)) return
+          removeGuestLocally()
+        }
+      } else {
+        if (paid && !canServer) {
+          window.alert(t.tournamentRemoveNeedClubAdmin)
+          return
+        }
+        if (!window.confirm(t.tournamentGuestPendingRemoveTitle)) return
+        removeGuestLocally()
+      }
+    } catch (e) {
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(language === 'en' ? String(e?.message || 'Failed') : String(e?.message || 'فشل'))
+      }
+    } finally {
+      setTournamentRosterRemoveBusyKey(null)
+    }
+  }
+
   useEffect(() => {
     if (!openMemberSelectorForTeam) {
       setMemberSelectorFavBulkSelected({})
@@ -8103,20 +8304,11 @@ function App({ currentUser }) {
                                         className="tournament-member-pay-card__icon-btn tournament-member-pay-card__icon-btn--danger"
                                         title={t.tournamentGuestPendingRemoveTitle}
                                         aria-label={t.tournamentGuestPendingRemoveTitle}
+                                        disabled={tournamentRosterRemoveBusyKey === `tm-grem-${g.id}`}
                                         onClick={(e) => {
                                           e.stopPropagation()
                                           e.preventDefault()
-                                          updateCurrentState((state) => ({
-                                            ...state,
-                                            teams: (state.teams || []).map((tm) =>
-                                              tm.id !== team.id
-                                                ? tm
-                                                : {
-                                                    ...tm,
-                                                    pendingFeeGuests: (tm.pendingFeeGuests || []).filter((x) => x.id !== g.id),
-                                                  }
-                                            ),
-                                          }))
+                                          void handleTournamentPendingGuestRemove(team.id, g)
                                         }}
                                       >
                                         ×
@@ -8198,20 +8390,11 @@ function App({ currentUser }) {
                                         className="tournament-member-pay-card__icon-btn tournament-member-pay-card__icon-btn--danger"
                                         title={language === 'en' ? 'Remove from team' : 'إزالة من الفريق'}
                                         aria-label={language === 'en' ? 'Remove from team' : 'إزالة من الفريق'}
+                                        disabled={tournamentRosterRemoveBusyKey === `tm-rem-${team.id}-${memberId}`}
                                         onClick={(e) => {
                                           e.stopPropagation()
                                           e.preventDefault()
-                                          const currentIds = team.memberIds || []
-                                          const newIds = currentIds.filter(id => id !== memberId)
-                                          updateCurrentState(state => ({
-                                            ...state,
-                                            teams: (state.teams || []).map(tm => {
-                                              if (tm.id !== team.id) return tm
-                                              const mp = { ...(tm.memberTournamentPayments || {}) }
-                                              delete mp[memberId]
-                                              return { ...tm, memberIds: newIds, memberTournamentPayments: mp }
-                                            })
-                                          }))
+                                          void handleTournamentTeamMemberRemove(team.id, memberId)
                                         }}
                                       >
                                         ×

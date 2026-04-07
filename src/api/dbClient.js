@@ -826,9 +826,11 @@ export async function recordPayment({ shareId, inviteToken, clubId, paymentRefer
 }
 
 export async function adminRefundShare({ shareId, inviteToken, clubId, refundMethod, refundReference, refundNotes, removeFromBooking }) {
+  const cid = String(clubId || '').trim()
   return fetchJson('/api/bookings/admin-refund-share', {
     method: 'POST',
-    body: JSON.stringify({ shareId, inviteToken, clubId, refundMethod, refundReference, refundNotes, removeFromBooking })
+    body: JSON.stringify({ shareId, inviteToken, clubId, refundMethod, refundReference, refundNotes, removeFromBooking }),
+    headers: buildPushSessionHeaders(cid),
   })
 }
 

@@ -123,6 +123,17 @@ export const translations = {
     tournamentPayBadgeGuestPaidOnline: 'Guest share paid online',
     tournamentPayMarkPaidAtClub: 'Mark paid',
     tournamentPayMarkPaidAtClubTitle: 'Record payment received at the club (front desk)',
+    tournamentRemovePaidMemberConfirm:
+      'This participant has a recorded payment. Refund (wallet or cash at desk) before removing from the team?',
+    tournamentRemoveRefundWalletQ:
+      'Credit the refund to their club wallet? OK = wallet. Cancel = then confirm cash at desk instead.',
+    tournamentRemoveRefundCashQ: 'Record cash refund at desk (no wallet credit)?',
+    tournamentRemoveRefundCashOnlyGuest:
+      'This invite is not linked to a member account — refund can only be recorded as cash at desk. Continue?',
+    tournamentRemoveNeedClubAdmin:
+      'Log in as this club’s dashboard admin to refund and remove a participant linked to a booking payment.',
+    tournamentRemoveUnpaidShareConfirm:
+      'Remove from the team and cancel their unpaid payment share on the booking?',
     dragMembersBetweenTeamsHint: 'Drag a member card to another team to move them.',
     close: 'Close',
     noMembersFound: 'No members found',
@@ -493,6 +504,16 @@ export const translations = {
     tournamentPayBadgeGuestPaidOnline: 'حصة الضيف مدفوعة إلكترونياً',
     tournamentPayMarkPaidAtClub: 'تسجيل الدفع',
     tournamentPayMarkPaidAtClubTitle: 'تسجيل استلام الدفع في النادي (الاستقبال)',
+    tournamentRemovePaidMemberConfirm:
+      'هذا المشارك لديه دفع مسجّل. استرداد المبلغ (محفظة أو نقد في الاستقبال) قبل الإزالة من الفريق؟',
+    tournamentRemoveRefundWalletQ:
+      'إيداع الاسترداد في محفظته في النادي؟ موافق = محفظة. إلغاء = ثم تأكيد الاسترداد نقداً.',
+    tournamentRemoveRefundCashQ: 'تسجيل استرداد نقدي في الاستقبال (بدون محفظة)؟',
+    tournamentRemoveRefundCashOnlyGuest:
+      'هذه الدعوة غير مرتبطة بحساب عضو — يمكن تسجيل الاسترداد نقداً فقط في الاستقبال. المتابعة؟',
+    tournamentRemoveNeedClubAdmin:
+      'سجّل دخول أدمن لوحة النادي لاسترداد مبلغ وإزالة مشارك مرتبط بدفع على الحجز.',
+    tournamentRemoveUnpaidShareConfirm: 'إزالة من الفريق وإلغاء حصة الدفع غير المدفوعة على الحجز؟',
     dragMembersBetweenTeamsHint: 'اسحب بطاقة العضو إلى فريق آخر لنقله.',
     close: 'إغلاق',
     noMembersFound: 'لم يتم العثور على أعضاء',

@@ -385,20 +385,66 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
     }
   }
 
-  const handleAdminRemovePendingShare = async (booking, share) => {
+  const pickRefundMethodForPaidShares = (paidShares) => {
+    const canWallet = paidShares.every((s) => (s.memberId || s.member_id))
+    if (!canWallet) {
+      if (!window.confirm(c.refundRemoveCashOnlyBecauseGuest)) return null
+      return 'cash'
+    }
+    if (window.confirm(c.refundRemoveChooseWalletQ)) return 'wallet'
+    if (!window.confirm(c.refundRemoveChooseCashQ)) return null
+    return 'cash'
+  }
+
+  const handleAdminRemoveParticipantShare = async (booking, share) => {
     if (!club?.id || !booking?.id) return
     const sid = share?.id
-    const tok = share?.inviteToken
+    const tok = share?.inviteToken || share?.invite_token
     if (!sid && !tok) {
       window.alert(language === 'en' ? 'Cannot remove this row (missing share id).' : 'تعذر الإزالة — لا يوجد معرّف للحصة.')
       return
     }
+    const key = `remove-share-${sid || tok}`
+    const shareOpts = { tournamentData: club?.tournamentData }
+    const paid =
+      !!(share.paidAt || share.paid_at) &&
+      !(share.refundedAt || share.refunded_at) &&
+      !(share.removedAt || share.removed_at)
+
+    if (paid) {
+      const amt = effectiveShareAmount(booking, share, shareOpts)
+      const intro =
+        language === 'en'
+          ? `This participant paid approximately ${amt} ${club?.settings?.currency || 'SAR'}. Refund before removal.`
+          : `دفع هذا المشارك تقريباً ${amt} ${club?.settings?.currency || 'ر.س'}. يلزم الاسترداد قبل الإزالة.`
+      if (!window.confirm(intro)) return
+      const method = pickRefundMethodForPaidShares([share])
+      if (!method) return
+      setActionLoading(key)
+      try {
+        await bookingApi.adminRefundShare({
+          clubId: club.id,
+          ...(sid != null && sid !== '' ? { shareId: sid } : {}),
+          ...(tok ? { inviteToken: tok } : {}),
+          refundMethod: method,
+          removeFromBooking: true,
+          refundNotes: 'admin remove participant',
+        })
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+        refreshFromServer()
+      } catch (e) {
+        window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
+      } finally {
+        setActionLoading(null)
+      }
+      return
+    }
+
     const msg =
       language === 'en'
         ? 'Remove this participant from the split? They have not paid yet. Amounts for the booking will be recalculated.'
         : 'إزالة هذا المشارك من التقسيم؟ لم يدفع بعد. سيعاد احتساب مبالغ الحجز.'
     if (!window.confirm(msg)) return
-    const key = `remove-share-${sid || tok}`
     setActionLoading(key)
     try {
       await bookingApi.adminRemovePendingShare({
@@ -749,9 +795,19 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       removeAllTournamentParticipantsTitle:
         'Remove every unpaid tournament participant share at once (booker’s own unpaid slot is kept)',
       removeAllTournamentParticipantsConfirm:
-        'This will permanently remove all unpaid participant shares on this tournament booking (invites and extra members). The booker’s own split row (if any) stays. Paid shares are not removed. Continue?',
-      removeAllTournamentParticipantsNone: 'No removable unpaid participant shares on this booking.',
-      removeAllTournamentParticipantsDone: 'Removed participant shares. Refresh if the list looks stale.',
+        'Remove all unpaid participant shares on this tournament booking? The booker’s own row (if any) stays.',
+      removeAllTournamentParticipantsNone: 'No participant shares to remove on this booking.',
+      removeAllTournamentParticipantsDone: 'Done. Refresh if the list looks stale.',
+      removePaidParticipant: 'Refund & remove',
+      removePaidParticipantTitle: 'Refund this payment (cash or wallet) then remove the participant',
+      refundRemovePaidIntro:
+        'One or more participants already paid. They must be refunded before removal. Approximate total:',
+      refundRemoveChooseWalletQ:
+        'Credit the refund to each paying member’s club wallet? Press OK for wallet, or Cancel to record cash refunds at the desk instead.',
+      refundRemoveChooseCashQ: 'Record cash refund at the desk for each paid participant (no wallet credit)?',
+      refundRemoveCashOnlyBecauseGuest:
+        'Some paid rows are not linked to a registered member — refunds can only be recorded as cash at the desk. Continue?',
+      refundRemovePartialFail: 'Some refunds failed:',
     },
     ar: {
       bookings: 'الحجوزات',
@@ -865,30 +921,102 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
       removeAllTournamentParticipantsTitle:
         'إزالة كل حصص المشاركين غير المدفوعة دفعة واحدة (تبقى حصة الحاجز إن وُجدت)',
       removeAllTournamentParticipantsConfirm:
-        'سيتم إزالة جميع حصص المشاركين غير المدفوعة في هذا الحجز (الدعوات والأعضاء الإضافيين). حصة الحاجز نفسه تبقى إن وُجدت. الحصص المدفوعة لا تُزال. المتابعة؟',
-      removeAllTournamentParticipantsNone: 'لا توجد حصص مشاركين غير مدفوعة قابلة للإزالة في هذا الحجز.',
-      removeAllTournamentParticipantsDone: 'تمت إزالة حصص المشاركين. حدّث الصفحة إذا لم يتحدث العرض.',
+        'إزالة جميع حصص المشاركين غير المدفوعة في هذا الحجز؟ تبقى حصة الحاجز إن وُجدت.',
+      removeAllTournamentParticipantsNone: 'لا توجد حصص مشاركين للإزالة في هذا الحجز.',
+      removeAllTournamentParticipantsDone: 'تم. حدّث الصفحة إذا لم يتحدث العرض.',
+      removePaidParticipant: 'استرداد وإزالة',
+      removePaidParticipantTitle: 'استرداد المبلغ (نقد أو محفظة) ثم إزالة المشارك',
+      refundRemovePaidIntro:
+        'يوجد مشاركون دفعوا بالفعل — يجب استرداد مبالغهم قبل الإزالة. الإجمالي التقريبي:',
+      refundRemoveChooseWalletQ:
+        'إيداع الاسترداد في محفظة كل عضو مسجّل في النادي؟ موافق = محفظة، إلغاء = تسجيل استرداد نقدي في الاستقبال.',
+      refundRemoveChooseCashQ: 'تسجيل استرداد نقدي في الاستقبال لكل مدفوع (بدون إيداع محفظة)؟',
+      refundRemoveCashOnlyBecauseGuest:
+        'بعض المدفوعين غير مرتبطين بحساب عضو — يمكن تسجيل الاسترداد نقداً فقط في الاستقبال. المتابعة؟',
+      refundRemovePartialFail: 'فشل جزء من الاسترداد:',
     },
   }
   const c = t[language] || t.en
 
   const handleRemoveAllTournamentParticipants = async (booking) => {
     if (!club?.id || !booking?.id || !booking.isTournament) return
-    if (!window.confirm(c.removeAllTournamentParticipantsConfirm)) return
     const key = `remove-all-tournament-shares-${booking.id}`
+    const bookerId = String(booking.memberId || booking.initiatorMemberId || booking.member_id || '').trim()
+    const shares = Array.isArray(booking.paymentShares) ? booking.paymentShares : []
+    const shareOpts = { tournamentData: club?.tournamentData }
+    const currency = club?.settings?.currency || 'SAR'
+
+    const isParticipantRow = (s) => {
+      const mid = String(s.memberId || s.member_id || '')
+      const tok = s.inviteToken || s.invite_token
+      const isBookerSlot = bookerId && mid === bookerId && !tok
+      return !isBookerSlot
+    }
+    const active = shares.filter(
+      (s) =>
+        isParticipantRow(s) &&
+        !(s.removedAt || s.removed_at) &&
+        !(s.refundedAt || s.refunded_at)
+    )
+    const paidList = active.filter((s) => s.paidAt || s.paid_at)
+    const unpaidCount = active.filter((s) => !(s.paidAt || s.paid_at)).length
+
+    if (active.length === 0) {
+      window.alert(c.removeAllTournamentParticipantsNone)
+      return
+    }
+
+    let refundMethod = null
+    if (paidList.length > 0) {
+      const totalApprox = paidList.reduce((sum, s) => sum + effectiveShareAmount(booking, s, shareOpts), 0)
+      const intro = `${c.refundRemovePaidIntro} ${totalApprox.toFixed(2)} ${currency} (${paidList.length}).`
+      if (!window.confirm(intro)) return
+      refundMethod = pickRefundMethodForPaidShares(paidList)
+      if (!refundMethod) return
+    }
+    if (!window.confirm(c.removeAllTournamentParticipantsConfirm)) return
+
     setActionLoading(key)
     try {
-      const res = await bookingApi.adminRemoveAllPendingTournamentShares({
-        bookingId: booking.id,
-        clubId: club.id,
-      })
-      const n = res?.removedCount ?? res?.removed_count ?? 0
-      if (n === 0) {
+      const errors = []
+      if (paidList.length > 0 && refundMethod) {
+        for (const s of paidList) {
+          const sid = s.id
+          const tok = s.inviteToken || s.invite_token
+          try {
+            await bookingApi.adminRefundShare({
+              clubId: club.id,
+              ...(sid != null && sid !== '' ? { shareId: sid } : {}),
+              ...(tok ? { inviteToken: tok } : {}),
+              refundMethod,
+              removeFromBooking: true,
+              refundNotes: 'admin remove all tournament participants',
+            })
+          } catch (e) {
+            errors.push(`${sid || tok || '?'}: ${e?.message || 'error'}`)
+          }
+        }
+      }
+
+      let n = 0
+      if (unpaidCount > 0) {
+        const res = await bookingApi.adminRemoveAllPendingTournamentShares({
+          bookingId: booking.id,
+          clubId: club.id,
+        })
+        n = res?.removedCount ?? res?.removed_count ?? 0
+      }
+
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      refreshFromServer()
+
+      if (errors.length) {
+        window.alert(`${c.refundRemovePartialFail}\n${errors.slice(0, 5).join('\n')}`)
+      } else if (paidList.length === 0 && n === 0) {
         window.alert(c.removeAllTournamentParticipantsNone)
       } else {
         window.alert(c.removeAllTournamentParticipantsDone)
       }
-      refreshFromServer()
     } catch (e) {
       window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
     } finally {
@@ -1594,8 +1722,15 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                       const removeShareKey = `remove-share-${s.id || s.inviteToken || idx}`
                                       const phoneDigShare = String(s.phone || '').replace(/\D/g, '')
                                       const waShareKey = `wa-share-${s.id || s.inviteToken || phoneDigShare || idx}`
+                                      const sharePaidForRemove =
+                                        !!(s.paidAt || s.paid_at) &&
+                                        !(s.refundedAt || s.refunded_at) &&
+                                        !(s.removedAt || s.removed_at)
                                       const canAdminRemoveShare =
-                                        !isRemoved && !isRefunded && !s.paidAt && !memberRefundPending && !!(s.id || s.inviteToken)
+                                        !isRemoved &&
+                                        !isRefunded &&
+                                        !memberRefundPending &&
+                                        !!(s.id || s.inviteToken || s.invite_token)
                                       const effectiveAmt = effectiveShareAmount(b, s, shareOpts)
                                       const canResendTournamentWa =
                                         isTournamentRow &&
@@ -1664,12 +1799,16 @@ const ClubBookingsManagement = ({ club, language, onRefresh }) => {
                                                   <button
                                                     type="button"
                                                     className="booking-payment-share-remove-btn"
-                                                    title={c.removeParticipantTitle}
-                                                    aria-label={c.removeParticipantTitle}
-                                                    onClick={() => handleAdminRemovePendingShare(b, s)}
+                                                    title={sharePaidForRemove ? c.removePaidParticipantTitle : c.removeParticipantTitle}
+                                                    aria-label={sharePaidForRemove ? c.removePaidParticipantTitle : c.removeParticipantTitle}
+                                                    onClick={() => handleAdminRemoveParticipantShare(b, s)}
                                                     disabled={actionLoading === removeShareKey}
                                                   >
-                                                    {actionLoading === removeShareKey ? '…' : c.removeParticipant}
+                                                    {actionLoading === removeShareKey
+                                                      ? '…'
+                                                      : sharePaidForRemove
+                                                        ? c.removePaidParticipant
+                                                        : c.removeParticipant}
                                                   </button>
                                                 )}
                                               </div>

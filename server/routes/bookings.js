@@ -2059,19 +2059,28 @@ router.post('/admin-refund-share', async (req, res) => {
       removeFromBooking
     } = req.body || {}
     if (!clubId) return res.status(400).json({ error: 'clubId required' })
+    const actor = getActorFromRequest(req)
+    const at = String(actor.actorType || '').toLowerCase()
+    if (at === 'club_admin') {
+      if (!actor.clubId || String(actor.clubId) !== String(clubId)) {
+        return res.status(403).json({ error: 'Forbidden' })
+      }
+    } else if (at !== 'platform_admin') {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
     const allowedMethods = new Set(['cash', 'wallet', 'electronic_reverse'])
     const rm = allowedMethods.has((refundMethod || '').toString()) ? refundMethod : 'cash'
     let shareRows
     async function loadShare(whereSql, params) {
       try {
         const r = await query(
-          `SELECT id, booking_id, member_id, amount, paid_at, refunded_at, removed_at FROM booking_payment_shares WHERE ${whereSql}`,
+          `SELECT id, booking_id, club_id, member_id, amount, phone, invite_token, paid_at, refunded_at, removed_at FROM booking_payment_shares WHERE ${whereSql}`,
           params
         )
         return r.rows
       } catch (_) {
         const r = await query(
-          `SELECT id, booking_id, member_id, amount, paid_at, refunded_at FROM booking_payment_shares WHERE ${whereSql}`,
+          `SELECT id, booking_id, club_id, member_id, amount, phone, invite_token, paid_at, refunded_at FROM booking_payment_shares WHERE ${whereSql}`,
           params
         )
         return (r.rows || []).map((x) => ({ ...x, removed_at: null }))
@@ -2092,14 +2101,31 @@ router.post('/admin-refund-share', async (req, res) => {
       return res.status(400).json({ error: 'Nothing to refund — share was not paid' })
     }
     const bid = row.booking_id
+    let refundAmt = Math.round((parseFloat(row.amount) || 0) * 100) / 100
+    try {
+      const resolveCtx = await loadShareAmountResolveContext(clubId, bid)
+      if (resolveCtx) {
+        refundAmt = resolveShareMonetaryAmountSync(
+          {
+            id: row.id,
+            amount: row.amount,
+            member_id: row.member_id,
+            phone: row.phone,
+            invite_token: row.invite_token,
+          },
+          resolveCtx
+        )
+      }
+    } catch (_) {
+      /* keep refundAmt from row.amount */
+    }
+    if (!Number.isFinite(refundAmt) || refundAmt <= 0.009) {
+      return res.status(400).json({ error: 'Invalid or zero refund amount' })
+    }
     if (rm === 'wallet') {
       const targetMemberId = row.member_id != null ? String(row.member_id).trim() : ''
       if (!targetMemberId) {
         return res.status(400).json({ error: 'Wallet refund requires a registered member on this share' })
-      }
-      const refundAmt = Math.round((parseFloat(row.amount) || 0) * 100) / 100
-      if (!Number.isFinite(refundAmt) || refundAmt <= 0.009) {
-        return res.status(400).json({ error: 'Invalid refund amount for wallet credit' })
       }
       const alreadyCredited = await walletService.hasShareRefundWalletCredit(clubId, targetMemberId, row.id)
       if (!alreadyCredited) {
