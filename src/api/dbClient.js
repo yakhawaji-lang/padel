@@ -762,15 +762,21 @@ export async function removeFavoriteMember(memberId, clubId, favoriteMemberId) {
 
 /** مفضلة دليل النادي — يضبطها المالك/الأدمن (جدول club_directory_favorites) */
 export async function addClubDirectoryFavorite(clubId, memberId) {
+  const h = buildPushSessionHeaders(clubId)
   return fetchJson('/api/clubs/directory-favorites', {
     method: 'POST',
     body: JSON.stringify({ clubId, memberId }),
+    ...(Object.keys(h).length ? { headers: h } : {}),
   })
 }
 
 export async function removeClubDirectoryFavorite(clubId, memberId) {
   const params = new URLSearchParams({ clubId, memberId })
-  return fetchJson(`/api/clubs/directory-favorites?${params}`, { method: 'DELETE' })
+  const h = buildPushSessionHeaders(clubId)
+  return fetchJson(`/api/clubs/directory-favorites?${params}`, {
+    method: 'DELETE',
+    ...(Object.keys(h).length ? { headers: h } : {}),
+  })
 }
 
 export async function recordCoachTrainingInvites({ clubId, bookingId, coachId, memberIds }) {
