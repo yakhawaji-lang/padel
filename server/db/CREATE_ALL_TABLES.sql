@@ -2,6 +2,7 @@
 -- PlayTix — إنشاء كل الجداول والحقول والفهارس (padel_db / u502561206_padel_db)
 -- ============================================================================
 -- الاستخدام: على قاعدة فارغة أو موجودة — CREATE IF NOT EXISTS لا يحذف بيانات.
+-- لتفريغ كل البيانات المخزّنة (الصفوف فقط) مع بذور تشغيل دنيا: server/db/CLEAR_ALL_DATA.sql
 -- بعد هذا الملف على قواعد قديمة، نفّذ أيضاً:
 --   server/db/migrations/phpmyadmin-u502561206-padel_db-SYNC-legacy-columns.sql
 -- رابط GitHub: https://github.com/yakhawaji-lang/padel/blob/main/server/db/CREATE_ALL_TABLES.sql

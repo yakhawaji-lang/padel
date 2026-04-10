@@ -1,6 +1,8 @@
 import { Router } from 'express'
 import { query, isConnected } from '../db/pool.js'
 import { getEntities, setEntities } from '../db/dataHelpers.js'
+import { truncateAllApplicationTables } from '../db/clearAllDataTables.js'
+import { runPaymentGatewaysMigration } from '../db/paymentGatewaysMigration.js'
 
 const router = Router()
 
@@ -32,17 +34,7 @@ router.get('/', async (req, res) => {
   // GET /api/init-db?reset=1 — إعادة تهيئة كاملة: حذف البيانات وإعادة الإنشاء (لـ u502561206_padel_db)
   if (req.query.reset === '1' && hasDb) {
     try {
-      await query('SET FOREIGN_KEY_CHECKS = 0')
-      await query('TRUNCATE TABLE matches')
-      await query('TRUNCATE TABLE member_stats')
-      await query('TRUNCATE TABLE tournament_summaries')
-      await query('DELETE FROM entities')
-      await query('DELETE FROM app_settings')
-      await query('TRUNCATE TABLE app_store')
-      for (const t of ['booking_payment_shares', 'member_clubs', 'club_courts', 'club_settings', 'club_admin_users', 'club_offers', 'club_bookings', 'club_accounting', 'club_tournament_types', 'club_store', 'clubs', 'members', 'platform_admins', 'audit_log']) {
-        try { await query(`TRUNCATE TABLE \`${t}\``) } catch (_) { /* table may not exist */ }
-      }
-      await query('SET FOREIGN_KEY_CHECKS = 1')
+      await truncateAllApplicationTables()
       // Run normal init
       for (let i = 0; i < STMTS.length; i++) {
         try {
@@ -50,6 +42,11 @@ router.get('/', async (req, res) => {
         } catch (stmtErr) {
           console.error('init-db reset stmt', i, 'failed:', stmtErr.message)
         }
+      }
+      try {
+        await runPaymentGatewaysMigration()
+      } catch (gwErr) {
+        console.warn('[init-db reset] payment gateways:', gwErr.message)
       }
       // لا إنشاء نوادي افتراضية — النظام يبدأ فارغاً
       const defaultOwner = {
