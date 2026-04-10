@@ -1061,8 +1061,11 @@ export async function deleteBookingFromClub(clubId, bookingId) {
 export async function addPendingClub(clubData) {
   const adminEmailKey = (clubData.adminEmail || clubData.email || '').trim().toLowerCase()
   const clubs = loadClubs()
-  const existing = clubs.find(c => (c.adminEmail || c.email || '').toLowerCase() === adminEmailKey)
-  if (existing) return { error: 'EMAIL_EXISTS' }
+  // مع الـ API: لا نعتمد على كاش المتصفح لاكتشاف التكرار — قد يبقى نادٍ «وهمي» بعد فشل حفظ سابق في DB infix فيظهر EMAIL_EXISTS رغم فراغ MySQL.
+  if (!(USE_POSTGRES && _backendStorage)) {
+    const existing = clubs.find(c => (c.adminEmail || c.email || '').toLowerCase() === adminEmailKey)
+    if (existing) return { error: 'EMAIL_EXISTS' }
+  }
   const newClub = {
     id: 'club-pending-' + Date.now(),
     name: clubData.name || '',
