@@ -1059,8 +1059,9 @@ export async function deleteBookingFromClub(clubId, bookingId) {
 
 /** Pending club registration - requires admin approval. Returns Promise when using Postgres. */
 export async function addPendingClub(clubData) {
+  const adminEmailKey = (clubData.adminEmail || clubData.email || '').trim().toLowerCase()
   const clubs = loadClubs()
-  const existing = clubs.find(c => (c.adminEmail || c.email || '').toLowerCase() === (clubData.adminEmail || clubData.email || '').toLowerCase())
+  const existing = clubs.find(c => (c.adminEmail || c.email || '').toLowerCase() === adminEmailKey)
   if (existing) return { error: 'EMAIL_EXISTS' }
   const newClub = {
     id: 'club-pending-' + Date.now(),
@@ -1100,6 +1101,31 @@ export async function addPendingClub(clubData) {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   }
+
+  if (USE_POSTGRES && _backendStorage) {
+    try {
+      const { registerPendingClub: registerPendingClubApi } = await import('../api/dbClient.js')
+      await registerPendingClubApi(newClub)
+      const merged = deduplicateClubs([...loadClubs().filter(c => c.id !== newClub.id), newClub])
+      _clubsCache = merged
+      _backendStorage.setCache(ADMIN_STORAGE_KEYS.CLUBS, merged)
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+      return { club: newClub }
+    } catch (e) {
+      console.error('addPendingClub (API):', e)
+      if (e?.status === 409 && (e?.apiCode === 'EMAIL_EXISTS' || String(e?.message || '').includes('EMAIL_EXISTS'))) {
+        return { error: 'EMAIL_EXISTS' }
+      }
+      if (e?.status === 409 && e?.apiCode === 'ALREADY_REGISTERED') {
+        try {
+          await refreshClubsFromApi()
+        } catch (_) {}
+        return { error: 'SAVE_FAILED' }
+      }
+      return { error: 'SAVE_FAILED' }
+    }
+  }
+
   clubs.push(newClub)
   await saveClubs(clubs)
   return { club: newClub }

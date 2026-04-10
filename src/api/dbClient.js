@@ -86,6 +86,8 @@ function buildPushSessionHeaders(clubId) {
 
 function needsDataActorHeaders(path, method) {
   const m = method || 'GET'
+  const basePath = path.split('?')[0]
+  if (basePath === '/api/data/register-pending-club' && (m === 'POST' || m === 'PUT')) return false
   if (path.startsWith('/api/data') && (m === 'POST' || m === 'PUT')) return true
   if (m === 'POST' && path === '/api/bookings/admin-purge') return true
   if (m === 'POST' && path === '/api/invoices/purge') return true
@@ -392,6 +394,14 @@ export async function setStoreBatch(items) {
   return fetchJson('/api/store/batch', {
     method: 'POST',
     body: JSON.stringify({ items })
+  })
+}
+
+/** تسجيل نادٍ قيد المراجعة من الصفحة العامة — لا يتطلب جلسة مسؤول (يُحفظ في قاعدة البيانات). */
+export async function registerPendingClub (club) {
+  return fetchWithRetry('/api/data/register-pending-club', {
+    method: 'POST',
+    body: JSON.stringify({ club })
   })
 }
 

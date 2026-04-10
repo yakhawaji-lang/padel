@@ -74,6 +74,71 @@ async function getFromEntities(key) {
   })
 }
 
+/**
+ * POST /api/data/register-pending-club — تسجيل نادٍ جديد من الصفحة العامة (بدون جلسة مسؤول).
+ * يُكمل مسار addPendingClub عندما يمنع hasPrivilegedDataActor حفظ admin_clubs عبر POST /api/data العادي.
+ */
+router.post('/register-pending-club', async (req, res) => {
+  try {
+    const normalized = await useNormalized()
+    if (!normalized) {
+      return res.status(400).json({ ok: false, error: 'Normalized schema required for club registration' })
+    }
+    const club = req.body?.club
+    if (!club || typeof club !== 'object') {
+      return res.status(400).json({ ok: false, error: 'Invalid club payload' })
+    }
+    if (String(club.status || '') !== 'pending') {
+      return res.status(400).json({ ok: false, error: 'Only pending club registrations are accepted' })
+    }
+    const id = String(club.id || '')
+    if (!/^club-pending-\d+$/.test(id)) {
+      return res.status(400).json({ ok: false, error: 'Invalid registration id' })
+    }
+    const name = String(club.name || '').trim()
+    if (!name) {
+      return res.status(400).json({ ok: false, error: 'Club name is required' })
+    }
+    const adminEmail = String(club.adminEmail || club.email || '').trim().toLowerCase()
+    if (!adminEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
+      return res.status(400).json({ ok: false, error: 'Valid admin email is required' })
+    }
+    const adminPassword = String(club.adminPassword || '')
+    if (adminPassword.length < 6) {
+      return res.status(400).json({ ok: false, error: 'Password must be at least 6 characters' })
+    }
+
+    const existing = await getClubsFromNormalized()
+    if (existing.some(c => String(c.id) === id)) {
+      return res.status(409).json({ ok: false, error: 'This registration already exists. Try logging in.', code: 'ALREADY_REGISTERED' })
+    }
+    const emailTaken = existing.some(c =>
+      String(c.adminEmail || c.email || '').trim().toLowerCase() === adminEmail
+    )
+    if (emailTaken) {
+      return res.status(409).json({ ok: false, error: 'EMAIL_EXISTS', code: 'EMAIL_EXISTS' })
+    }
+
+    const toSave = { ...club }
+    if (typeof toSave.commercialRegisterImage === 'string' && toSave.commercialRegisterImage.length > 250000) {
+      toSave.commercialRegisterImage = ''
+    }
+
+    const fwd = (req.headers['x-forwarded-for'] || '').toString().split(',')[0]?.trim()
+    const actor = {
+      actorType: 'system',
+      actorId: null,
+      actorName: 'public_club_registration',
+      ipAddress: fwd || req.socket?.remoteAddress || null
+    }
+    await saveClubsToNormalized([toSave], actor)
+    res.json({ ok: true, clubId: id })
+  } catch (e) {
+    console.error('register-pending-club error:', e)
+    res.status(500).json({ ok: false, error: dbErrorMsg(e) })
+  }
+})
+
 /** POST /api/data/member-set-coach - Set or unset a member as coach for a club. Body: { memberId, clubId, isCoach } */
 router.post('/member-set-coach', async (req, res) => {
   try {
