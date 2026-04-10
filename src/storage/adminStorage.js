@@ -1061,7 +1061,7 @@ export async function deleteBookingFromClub(clubId, bookingId) {
 export async function addPendingClub(clubData) {
   const adminEmailKey = (clubData.adminEmail || clubData.email || '').trim().toLowerCase()
   const clubs = loadClubs()
-  // مع الـ API: لا نعتمد على كاش المتصفح لاكتشاف التكرار — قد يبقى نادٍ «وهمي» بعد فشل حفظ سابق في DB infix فيظهر EMAIL_EXISTS رغم فراغ MySQL.
+  // مع الـ API: لا نعتمد على كاش المتصفح لاكتشاف التكرار — قد يبقى نادٍ وهمي بعد محاولة قديمة فشل حفظها في DB فيظهر EMAIL_EXISTS رغم فراغ MySQL.
   if (!(USE_POSTGRES && _backendStorage)) {
     const existing = clubs.find(c => (c.adminEmail || c.email || '').toLowerCase() === adminEmailKey)
     if (existing) return { error: 'EMAIL_EXISTS' }
@@ -1109,9 +1109,15 @@ export async function addPendingClub(clubData) {
     try {
       const { registerPendingClub: registerPendingClubApi } = await import('../api/dbClient.js')
       await registerPendingClubApi(newClub)
-      const merged = deduplicateClubs([...loadClubs().filter(c => c.id !== newClub.id), newClub])
-      _clubsCache = merged
-      _backendStorage.setCache(ADMIN_STORAGE_KEYS.CLUBS, merged)
+      // إعادة جلب النوادي من الخادم (نفس اتصال MySQL في DATABASE_URL، مثل u502561206_padel_db) لضمان تطابق الكاش مع ما وُجد في الجداول.
+      try {
+        await refreshClubsFromApi()
+      } catch (refreshErr) {
+        console.warn('addPendingClub refresh after register:', refreshErr?.message || refreshErr)
+        const merged = deduplicateClubs([...loadClubs().filter(c => c.id !== newClub.id), newClub])
+        _clubsCache = merged
+        _backendStorage.setCache(ADMIN_STORAGE_KEYS.CLUBS, merged)
+      }
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
       return { club: newClub }
     } catch (e) {

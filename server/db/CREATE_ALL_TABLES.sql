@@ -3,6 +3,7 @@
 -- ============================================================================
 -- الاستخدام: على قاعدة فارغة أو موجودة — CREATE IF NOT EXISTS لا يحذف بيانات.
 -- لتفريغ كل البيانات المخزّنة (الصفوف فقط) مع بذور تشغيل دنيا: server/db/CLEAR_ALL_DATA.sql
+-- تسجيل نادٍ جديد من الموقع يُحفَظ في الجداول العلائقية عبر POST /api/data/register-pending-club (نفس قاعدة DATABASE_URL / مثلاً u502561206_padel_db).
 -- بعد هذا الملف على قواعد قديمة، نفّذ أيضاً:
 --   server/db/migrations/phpmyadmin-u502561206-padel_db-SYNC-legacy-columns.sql
 -- رابط GitHub: https://github.com/yakhawaji-lang/padel/blob/main/server/db/CREATE_ALL_TABLES.sql

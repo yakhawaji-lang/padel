@@ -132,6 +132,7 @@ router.post('/register-pending-club', async (req, res) => {
       ipAddress: fwd || req.socket?.remoteAddress || null
     }
     await saveClubsToNormalized([toSave], actor)
+    console.info('[register-pending-club] saved to normalized DB', { clubId: id, adminEmail })
     res.json({ ok: true, clubId: id })
   } catch (e) {
     console.error('register-pending-club error:', e)
