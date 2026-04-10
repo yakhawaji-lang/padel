@@ -14,6 +14,7 @@ import {
   isWellFormedInviteToken,
 } from '../utils/paymentShareDeepLink'
 import './PayInvitePage.css'
+import LanguageIcon from '../components/LanguageIcon'
 import { UnifiedPaymentActionGrid } from '../components/UnifiedPaymentOptions'
 import { shouldShowProfileIncompleteBanner, inviteShareShowsPaymentActions } from '../utils/payInviteShareUi'
 
@@ -29,6 +30,39 @@ function readPayInvitePageLanguage() {
     }
   } catch (_) {}
   return 'en'
+}
+
+function writePayInvitePageLanguage(lang) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('playtix_app_language', JSON.stringify(lang))
+    }
+    if (typeof document !== 'undefined') {
+      document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
+      document.documentElement.lang = lang === 'ar' ? 'ar' : 'en'
+    }
+  } catch (_) {}
+}
+
+function PayInviteLangToggle({ language, setLanguage }) {
+  const next = language === 'en' ? 'ar' : 'en'
+  const aria =
+    language === 'ar'
+      ? 'Switch to English'
+      : 'التبديل إلى العربية'
+  return (
+    <div className="pay-invite-card-top">
+      <button
+        type="button"
+        className="pay-invite-lang-toggle"
+        onClick={() => setLanguage(next)}
+        aria-label={aria}
+        title={aria}
+      >
+        <LanguageIcon lang={next} size={22} showLabel={false} />
+      </button>
+    </div>
+  )
 }
 
 const INVITE_FETCH_MS = 28000
@@ -114,7 +148,11 @@ const PayInvitePage = () => {
   const [markedPaid, setMarkedPaid] = useState(false)
   const [walletBal, setWalletBal] = useState(null)
   const [walletLoading, setWalletLoading] = useState(false)
-  const language = readPayInvitePageLanguage()
+  const [language, setLanguage] = useState(() => readPayInvitePageLanguage())
+
+  useEffect(() => {
+    writePayInvitePageLanguage(language)
+  }, [language])
 
   const loadInvite = React.useCallback(async () => {
     const stored = readResumeInviteToken()
@@ -256,8 +294,9 @@ const PayInvitePage = () => {
 
   if (loading) {
     return (
-      <div className="pay-invite-page">
+      <div className={`pay-invite-page${language === 'ar' ? ' rtl' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
         <div className="pay-invite-card pay-invite-loading">
+          <PayInviteLangToggle language={language} setLanguage={setLanguage} />
           <div className="pay-invite-spinner" aria-hidden />
           <p>{t('Loading...', 'جاري التحميل...')}</p>
         </div>
@@ -316,8 +355,9 @@ const PayInvitePage = () => {
                 )
               : t('This link may have expired or is invalid. Make sure the API server is running and try again.', 'قد يكون الرابط منتهي الصلاحية أو غير صحيح. تأكد من تشغيل السيرفر ثم أعد المحاولة.')
     return (
-      <div className="pay-invite-page">
+      <div className={`pay-invite-page${language === 'ar' ? ' rtl' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
         <div className="pay-invite-card pay-invite-error">
+          <PayInviteLangToggle language={language} setLanguage={setLanguage} />
           <h1 className="pay-invite-title">{title}</h1>
           <p className="pay-invite-message">{message}</p>
           <div className="pay-invite-error-actions">
@@ -387,8 +427,9 @@ const PayInvitePage = () => {
   const chosePayAtClub = data?.paymentMethod === 'at_club' && !data?.paidAt
 
   return (
-    <div className="pay-invite-page">
+    <div className={`pay-invite-page${language === 'ar' ? ' rtl' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
       <div className="pay-invite-card">
+        <PayInviteLangToggle language={language} setLanguage={setLanguage} />
         {shouldShowProfileIncompleteBanner(platformUser) ? (
           <div className="pay-invite-profile-banner" role="region" aria-live="polite">
             <p className="pay-invite-profile-banner-text">

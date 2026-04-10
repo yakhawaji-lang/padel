@@ -19,6 +19,42 @@
   padding: 32px 28px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 10px 30px -4px rgba(0, 0, 0, 0.08);
   border: 1px solid rgba(226, 232, 240, 0.8);
+  position: relative;
+}
+
+.pay-invite-card-top {
+  display: flex;
+  width: 100%;
+  justify-content: flex-end;
+  margin: -12px 0 8px;
+}
+
+.pay-invite-lang-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px;
+  border: none;
+  border-radius: 12px;
+  background: #f1f5f9;
+  color: #0f172a;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.pay-invite-lang-toggle:hover {
+  background: #e2e8f0;
+}
+
+.pay-invite-lang-toggle:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.pay-invite-page.rtl .pay-invite-card-top {
+  justify-content: flex-start;
 }
 
 .pay-invite-profile-banner {
