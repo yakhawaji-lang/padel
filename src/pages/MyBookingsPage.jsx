@@ -64,6 +64,127 @@ function getAllowParticipantsAddSplit(booking) {
   return false
 }
 
+/** حقول JSON الحجز (بطولة): فِرق متاحة وتفضيلات الأعضاء */
+function parseBookingDataObject(booking) {
+  if (!booking?.data) return {}
+  const d = booking.data
+  if (typeof d === 'object' && d !== null && !Array.isArray(d)) return d
+  if (typeof d === 'string') {
+    try {
+      const p = JSON.parse(d)
+      return p && typeof p === 'object' && !Array.isArray(p) ? p : {}
+    } catch {
+      return {}
+    }
+  }
+  return {}
+}
+
+function getTournamentTeamSlotsForBooking(booking) {
+  const d = parseBookingDataObject(booking)
+  const raw = booking?.tournamentTeamSlots ?? d.tournamentTeamSlots
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((x) => ({
+      id: x && x.id != null ? String(x.id).trim() : '',
+      name: x && x.name != null ? String(x.name).trim().substring(0, 160) : '',
+    }))
+    .filter((x) => x.id !== '')
+}
+
+function getTournamentMemberTeamPreferencesForBooking(booking) {
+  const d = parseBookingDataObject(booking)
+  const p = booking?.tournamentMemberTeamPreferences ?? d.tournamentMemberTeamPreferences
+  if (!p || typeof p !== 'object') return {}
+  return p
+}
+
+function TournamentTeamPreferenceMyBookings({ booking, club, member, myShare, language, copy, onSaved }) {
+  const slots = getTournamentTeamSlotsForBooking(booking)
+  const inviteToken = String(myShare?.inviteToken || myShare?.invite_token || '').trim()
+  if (slots.length === 0 || !inviteToken || !club?.id || !member?.id) return null
+
+  const mid = String(member.id)
+  const prefsSnapshot = JSON.stringify(getTournamentMemberTeamPreferencesForBooking(booking))
+  const [teamId, setTeamId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  const [ok, setOk] = useState(false)
+
+  useEffect(() => {
+    let prefs = {}
+    try {
+      prefs = JSON.parse(prefsSnapshot)
+    } catch {
+      prefs = {}
+    }
+    const p = prefs[mid]
+    setTeamId(p != null && String(p) !== '' ? String(p) : '')
+    setOk(false)
+    setErr(null)
+  }, [prefsSnapshot, mid])
+
+  const save = async () => {
+    if (!teamId) return
+    setBusy(true)
+    setErr(null)
+    setOk(false)
+    try {
+      await bookingApi.memberTournamentTeamPreference({
+        inviteToken,
+        clubId: club.id,
+        memberId: mid,
+        preferredTeamId: teamId,
+      })
+      setOk(true)
+      if (typeof onSaved === 'function') await onSaved()
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
+    } catch (e) {
+      setErr(e?.message || (language === 'ar' ? 'تعذّر الحفظ' : 'Could not save'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const isAr = language === 'ar'
+  return (
+    <div
+      className="my-bookings-tournament-team-pref"
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      <h3 className="my-bookings-tournament-team-pref__title">{copy.tournamentTeamPrefTitle}</h3>
+      <p className="my-bookings-tournament-team-pref__hint">{copy.tournamentTeamPrefHint}</p>
+      <select
+        className="my-bookings-tournament-team-pref__select"
+        value={teamId}
+        onChange={(e) => setTeamId(e.target.value)}
+        aria-label={copy.tournamentTeamPrefChoose}
+      >
+        <option value="">{copy.tournamentTeamPrefChoose}</option>
+        {slots.map((s) => (
+          <option key={s.id} value={s.id}>
+            {(s.name || s.id).trim() || s.id}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        className="my-bookings-tournament-team-pref__save"
+        disabled={busy || !teamId}
+        onClick={(e) => {
+          e.stopPropagation()
+          void save()
+        }}
+      >
+        {busy ? (isAr ? 'جاري الحفظ…' : 'Saving…') : copy.tournamentTeamPrefSave}
+      </button>
+      {ok ? <p className="my-bookings-tournament-team-pref__ok">{copy.tournamentTeamPrefSaved}</p> : null}
+      {err ? <p className="my-bookings-tournament-team-pref__err">{err}</p> : null}
+    </div>
+  )
+}
+
 const SPLIT_PHONE_MIN_DIGITS = 8
 const SPLIT_PHONE_LOOKUP_MIN_DIGITS = 9
 
@@ -1025,6 +1146,11 @@ const MyBookingsPage = () => {
         'Front desk will confirm once they receive your payment. You can switch to card or Mada online below if you change your mind.',
       payAtClubStateBadge: 'Selected',
       switchToElectronicPayment: 'Switch to electronic payment',
+      tournamentTeamPrefTitle: 'Tournament team',
+      tournamentTeamPrefHint: 'After paying your share, pick the team you prefer. You can change this here anytime.',
+      tournamentTeamPrefChoose: 'Choose a team',
+      tournamentTeamPrefSave: 'Save team choice',
+      tournamentTeamPrefSaved: 'Saved.',
     },
     ar: {
       myBookings: 'حجوزاتي',
@@ -1139,6 +1265,11 @@ const MyBookingsPage = () => {
         'سيُؤكَّد الدفع من الاستقبال عند استلام المبلغ. يمكنك أدناه التبديل للدفع الإلكتروني (بطاقة أو مدى) إذا غيّرت رأيك.',
       payAtClubStateBadge: 'تم الاختيار',
       switchToElectronicPayment: 'التبديل إلى الدفع الإلكتروني',
+      tournamentTeamPrefTitle: 'فريق البطولة',
+      tournamentTeamPrefHint: 'بعد دفع حصتك اختر الفريق الذي تفضّله. يمكنك تغييره من هنا في أي وقت.',
+      tournamentTeamPrefChoose: 'اختر فريقاً',
+      tournamentTeamPrefSave: 'حفظ اختيار الفريق',
+      tournamentTeamPrefSaved: 'تم الحفظ.',
     }
   }
   const c = t[language] || t.en
@@ -1758,6 +1889,21 @@ const MyBookingsPage = () => {
                       ) : null}
                     </div>
                   </div>
+                  {r.isTournament &&
+                  r.mySplitShare &&
+                  (r.mySplitShare.paidAt || r.mySplitShare.paid_at) &&
+                  (r.mySplitShare.inviteToken || r.mySplitShare.invite_token) &&
+                  member ? (
+                    <TournamentTeamPreferenceMyBookings
+                      booking={r.booking}
+                      club={r.club}
+                      member={member}
+                      myShare={r.mySplitShare}
+                      language={language}
+                      copy={c}
+                      onSaved={refetchBookings}
+                    />
+                  ) : null}
                   {Array.isArray(r.visibleShares) && r.visibleShares.length > 0 && (
                     <div className="my-bookings-participants" onClick={(e) => e.stopPropagation()}>
                       <div className="my-bookings-participants-head">

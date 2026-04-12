@@ -6361,7 +6361,15 @@ function App({ currentUser }) {
     const tid = String(bookingId)
     const rosters = activeTab === 'king' ? kingStateByTournamentId[tid] : socialStateByTournamentId[tid]
     const rosterTeams = rosters?.teams
-    if (!Array.isArray(rosterTeams) || rosterTeams.length === 0) return
+    const bench = rosters?.rosterBench
+    const benchIds = Array.isArray(bench?.memberIds) ? bench.memberIds : []
+    const benchFees = bench?.memberFees && typeof bench.memberFees === 'object' ? bench.memberFees : {}
+    const hasTeams = Array.isArray(rosterTeams) && rosterTeams.length > 0
+    const hasBenchToSync = benchIds.some((id) => {
+      const fee = parseFloat(String(benchFees[String(id)] || '').replace(',', '.')) || 0
+      return fee > 0.009
+    })
+    if (!hasTeams && !hasBenchToSync) return
 
     const tmr = window.setTimeout(async () => {
       const booking = tournamentBookingRowForGuestInvite
@@ -6392,23 +6400,32 @@ function App({ currentUser }) {
       if (!organizerId && !isClubAdminForThisClub) return
 
       const toSync = []
-      for (const team of rosterTeams) {
-        for (const memberId of team.memberIds || []) {
-          const payEntry = (team.memberTournamentPayments || {})[memberId]
-          const norm = normalizeMemberPaymentEntry(payEntry)
-          const fee = parseFloat(String(norm.fee || '').replace(',', '.')) || 0
-          if (fee <= 0.009) continue
-          const member = members.find((m) => String(m.id) === String(memberId))
-          if (!member) continue
-          const share = findPaymentShareForMember(booking, member)
-          if (share && (share.removedAt || share.removed_at)) continue
-          if (share && (share.paidAt || share.paid_at)) continue
-          if (share) {
-            const sa = parseFloat(share.amount) || 0
-            if (Math.abs(sa - fee) < 0.02) continue
-          }
-          toSync.push({ memberId, fee })
+      const pushIfNeeded = (memberId, fee) => {
+        if (fee <= 0.009) return
+        const member = members.find((m) => String(m.id) === String(memberId))
+        if (!member) return
+        const share = findPaymentShareForMember(booking, member)
+        if (share && (share.removedAt || share.removed_at)) return
+        if (share && (share.paidAt || share.paid_at)) return
+        if (share) {
+          const sa = parseFloat(share.amount) || 0
+          if (Math.abs(sa - fee) < 0.02) return
         }
+        toSync.push({ memberId, fee })
+      }
+      if (Array.isArray(rosterTeams)) {
+        for (const team of rosterTeams) {
+          for (const memberId of team.memberIds || []) {
+            const payEntry = (team.memberTournamentPayments || {})[memberId]
+            const norm = normalizeMemberPaymentEntry(payEntry)
+            const fee = parseFloat(String(norm.fee || '').replace(',', '.')) || 0
+            pushIfNeeded(memberId, fee)
+          }
+        }
+      }
+      for (const memberId of benchIds) {
+        const fee = parseFloat(String(benchFees[String(memberId)] || '').replace(',', '.')) || 0
+        pushIfNeeded(memberId, fee)
       }
       if (toSync.length === 0) return
 

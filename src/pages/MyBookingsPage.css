@@ -2662,3 +2662,76 @@
   border: 1px solid rgba(217, 119, 6, 0.35);
   border-radius: 10px;
 }
+
+/* Tournament: member chooses preferred team after paying share */
+.my-bookings-tournament-team-pref {
+  margin: 0 16px 14px;
+  padding: 14px 16px;
+  border-radius: var(--mb-radius);
+  border: 1px solid #c7d2fe;
+  background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+  text-align: start;
+}
+
+.my-bookings-tournament-team-pref__title {
+  margin: 0 0 6px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--mb-text);
+}
+
+.my-bookings-tournament-team-pref__hint {
+  margin: 0 0 12px;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--mb-text-muted);
+}
+
+.my-bookings-tournament-team-pref__select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--mb-radius-sm);
+  border: 1px solid var(--mb-border);
+  font-size: 0.9375rem;
+  background: var(--mb-surface);
+  margin-bottom: 10px;
+}
+
+.my-bookings-tournament-team-pref__save {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--mb-radius-sm);
+  border: none;
+  background: linear-gradient(135deg, var(--mb-primary) 0%, var(--mb-primary-hover) 100%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.my-bookings-tournament-team-pref__save:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.my-bookings-tournament-team-pref__ok,
+.my-bookings-tournament-team-pref__err {
+  margin: 8px 0 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.my-bookings-tournament-team-pref__ok {
+  color: var(--mb-success);
+}
+
+.my-bookings-tournament-team-pref__err {
+  color: var(--mb-danger);
+}
+
+@media (min-width: 640px) {
+  .my-bookings-tournament-team-pref {
+    margin-left: 20px;
+    margin-right: 20px;
+  }
+}
