@@ -2915,6 +2915,204 @@ router.post('/create-tournament-guest-fee-share', async (req, res) => {
   }
 })
 
+/**
+ * POST /api/bookings/tournament-upsert-club-member-share
+ * عضو مسجّل مسبقاً في دليل النادي: إنشاء أو تحديث حصة دفع (pay-share + واتساب) لحجز بطولة.
+ * يكمّل create-tournament-guest-fee-share الذي يرفض ALREADY_IN_CLUB.
+ */
+router.post('/tournament-upsert-club-member-share', async (req, res) => {
+  try {
+    const normalized = await hasNormalizedTables()
+    if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
+
+    const { bookingId, clubId, targetMemberId, amount, organizerMemberId, memberName: bodyMemberName } = req.body || {}
+    const bid = bookingId != null ? String(bookingId).trim() : ''
+    if (!bid || !clubId || targetMemberId == null || String(targetMemberId).trim() === '') {
+      return res.status(400).json({ error: 'bookingId, clubId, and targetMemberId required' })
+    }
+    const tid = String(targetMemberId).trim()
+    const amt = Math.round((parseFloat(amount) || 0) * 100) / 100
+    if (amt <= 0.009) {
+      return res.status(400).json({ error: 'amount must be greater than 0' })
+    }
+
+    const adminGate = await assertClubPushActor(req, clubId)
+    const isClubOrPlatformAdmin = adminGate.ok === true
+    const orgId = String(organizerMemberId ?? '').trim()
+
+    const { rows: bRows } = await query(
+      `SELECT id, member_id, initiator_member_id, total_amount, status, data, booking_date, start_time, end_time
+       FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
+      [bid, clubId]
+    )
+    if (!bRows?.length) return res.status(404).json({ error: 'Booking not found' })
+    const b = bRows[0]
+    const initiator = String(b.initiator_member_id || b.member_id || '').trim()
+
+    let data = {}
+    try {
+      data = typeof b.data === 'object' ? b.data : JSON.parse(b.data || '{}')
+    } catch {
+      data = {}
+    }
+    const isTournamentBooking =
+      data.isTournament === true || data.tournamentType != null || data.tournament_type != null
+    if (!isTournamentBooking) {
+      return res.status(400).json({ error: 'This action applies to tournament bookings only' })
+    }
+    const st = (b.status || '').toString()
+    if (['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st)) {
+      return res.status(400).json({ error: 'Cannot add shares to this booking' })
+    }
+
+    let organizerAllowed = isClubOrPlatformAdmin
+    if (!organizerAllowed) {
+      if (initiator && orgId && orgId === initiator) organizerAllowed = true
+      else if (orgId) {
+        const { rows: mcTournament } = await query(
+          `SELECT 1 AS ok FROM member_clubs WHERE club_id = ? AND member_id = ? LIMIT 1`,
+          [String(clubId), orgId]
+        )
+        if (mcTournament?.length) organizerAllowed = true
+      }
+    }
+    if (!organizerAllowed) {
+      return res.status(403).json({
+        error:
+          'organizerMemberId required (club member on this club), or log in as this club’s admin / platform admin.',
+        code: 'NOT_ALLOWED_ORGANIZER',
+      })
+    }
+
+    const { rows: mcTarget } = await query(
+      `SELECT 1 AS ok FROM member_clubs WHERE club_id = ? AND member_id = ? LIMIT 1`,
+      [String(clubId), tid]
+    )
+    if (!mcTarget?.length) {
+      return res.status(400).json({ error: 'Member is not in this club directory', code: 'NOT_IN_CLUB_DIRECTORY' })
+    }
+
+    const { rows: memRows } = await query(
+      `SELECT id, name, mobile FROM members WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+      [tid]
+    )
+    if (!memRows?.length) return res.status(404).json({ error: 'Member not found' })
+    const mem = memRows[0]
+    const phoneNorm = normalizePhoneForBookingShare(mem.mobile || '')
+    const shareName =
+      (bodyMemberName && String(bodyMemberName).trim()) || (mem.name && String(mem.name).trim()) || null
+
+    let activeSumRes
+    try {
+      activeSumRes = await query(
+        `SELECT COALESCE(SUM(amount), 0) AS s FROM booking_payment_shares WHERE booking_id = ? AND club_id = ? AND (removed_at IS NULL)`,
+        [bid, clubId]
+      )
+    } catch (e) {
+      if (!e?.message?.includes('removed_at')) throw e
+      activeSumRes = await query(
+        `SELECT COALESCE(SUM(amount), 0) AS s FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
+        [bid, clubId]
+      )
+    }
+    const activeSum = parseFloat(activeSumRes?.rows?.[0]?.s) || 0
+    const totalAmount = parseFloat(b.total_amount) || 0
+    const skipTotalCap = totalAmount <= 0.009
+
+    let existingRes
+    try {
+      existingRes = await query(
+        `SELECT id, amount, paid_at, invite_token FROM booking_payment_shares
+         WHERE booking_id = ? AND club_id = ? AND member_id = ? AND (removed_at IS NULL)
+         ORDER BY id DESC LIMIT 1`,
+        [bid, clubId, tid]
+      )
+    } catch (e) {
+      if (!e?.message?.includes('removed_at')) throw e
+      existingRes = await query(
+        `SELECT id, amount, paid_at, invite_token FROM booking_payment_shares
+         WHERE booking_id = ? AND club_id = ? AND member_id = ?
+         ORDER BY id DESC LIMIT 1`,
+        [bid, clubId, tid]
+      )
+    }
+    const row = existingRes?.rows?.[0] || null
+    if (row?.paid_at) {
+      return res.status(400).json({ error: 'Share already paid for this member', code: 'SHARE_ALREADY_PAID' })
+    }
+
+    const oldAmt = row ? parseFloat(row.amount) || 0 : 0
+    if (!skipTotalCap && activeSum - oldAmt + amt > totalAmount + 0.02) {
+      return res.status(400).json({ error: 'Total split exceeds booking amount' })
+    }
+
+    const baseUrl = getPayBaseUrlFromRequest(req)
+    const addSplitClubPage = `${baseUrl}/clubs/${encodeURIComponent(String(clubId))}`
+    const addSplitMeta = await loadClubShareMeta(clubId)
+    const addSplitDate = bookingDateYmd(b)
+    let addStart = b.start_time || ''
+    let addEnd = b.end_time || ''
+    try {
+      if (!addStart && data.startTime) addStart = data.startTime
+      if (!addEnd && data.endTime) addEnd = data.endTime
+    } catch (_) {}
+    const ttRaw = String(data.tournamentType || data.tournament_type || 'king').toLowerCase()
+    const tournamentKindForMsg = ttRaw === 'social' ? 'social' : 'king'
+
+    let token = row?.invite_token ? normalizeInviteTokenParamExpress(row.invite_token) || row.invite_token : null
+    if (!token || !/^inv_[a-f0-9]{32}$/.test(String(token))) {
+      token = `inv_${crypto.randomBytes(16).toString('hex')}`
+    }
+    const payUrl = payInviteOrShareUrlWithTokenQuery(baseUrl, 'pay-share', token)
+    const plain =
+      addSplitMeta && payUrl
+        ? buildPaymentShareWhatsAppPlainText({
+            clubName: addSplitMeta.displayName,
+            bookingDate: addSplitDate,
+            startTime: addStart || '—',
+            endTime: addEnd,
+            shareAmount: amt,
+            currency: addSplitMeta.currency,
+            paymentUrl: payUrl,
+            clubPageUrl: addSplitClubPage,
+            externalWebsite: addSplitMeta.website,
+            mode: 'pay_share',
+            tournamentKind: tournamentKindForMsg,
+          })
+        : ''
+    const waLink = plain ? shareWhatsappLinkFromPlainText(plain) : shareWhatsappLinkFromPlainText(payUrl)
+
+    if (row?.id) {
+      await query(
+        `UPDATE booking_payment_shares SET amount = ?, whatsapp_link = ?, invite_token = ?, member_name = COALESCE(?, member_name), phone = COALESCE(NULLIF(?, ''), phone), participant_type = 'registered'
+         WHERE id = ? AND club_id = ? AND paid_at IS NULL`,
+        [amt, waLink || null, token, shareName, phoneNorm || null, row.id, clubId]
+      )
+    } else {
+      await ensureMemberJoinedClub(tid, clubId)
+      await query(
+        `INSERT INTO booking_payment_shares (booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token)
+         VALUES (?, ?, 'registered', ?, ?, ?, ?, ?, ?)`,
+        [bid, clubId, tid, shareName, phoneNorm || null, amt, waLink || null, token]
+      )
+    }
+
+    const rec = await paymentShareRecalc.recalculateBookingPaymentAfterShareChange(bid, clubId)
+    if (clubId && rec?.bookingDate) slotCache.invalidateLocks(clubId, rec.bookingDate)
+    res.json({
+      ok: true,
+      inviteToken: token,
+      payUrl,
+      payInviteUrl: payUrl,
+      whatsappLink: waLink,
+      ...rec,
+    })
+  } catch (e) {
+    console.error('bookings tournament-upsert-club-member-share error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
 /** POST /api/bookings/booker-update-share-phone — الحاجز يصحح رقم الضيف؛ يُبقى invite_token حتى لا تُبطَل روابط واتساب المرسلة سابقاً */
 router.post('/booker-update-share-phone', async (req, res) => {
   try {

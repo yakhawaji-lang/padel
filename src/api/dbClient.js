@@ -101,6 +101,7 @@ function needsDataActorHeaders(path, method) {
   if (m === 'POST' && path === '/api/bookings/set-allow-co-add-split') return true
   if (m === 'POST' && path === '/api/bookings/record-remainder-payment') return true
   if (m === 'POST' && path === '/api/bookings/create-tournament-guest-fee-share') return true
+  if (m === 'POST' && path === '/api/bookings/tournament-upsert-club-member-share') return true
   if (m === 'POST' && path.startsWith('/api/push/')) return true
   {
     const p = path.split('?')[0]
@@ -910,6 +911,17 @@ export async function createTournamentGuestFeeShare({
   return fetchJson('/api/bookings/create-tournament-guest-fee-share', {
     method: 'POST',
     body: JSON.stringify(body),
+  })
+}
+
+/** بطولة: عضو مسجّل في دليل النادي — حصة pay-share + واتساب (يكمل مسار الضيف الذي يرفض ALREADY_IN_CLUB) */
+export async function tournamentUpsertClubMemberShare(payload) {
+  const cid = String(payload?.clubId || '').trim()
+  const pushH = buildPushSessionHeaders(cid)
+  return fetchJson('/api/bookings/tournament-upsert-club-member-share', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    ...(Object.keys(pushH).length ? { headers: pushH } : {}),
   })
 }
 

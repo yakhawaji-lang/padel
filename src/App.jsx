@@ -187,6 +187,9 @@ function resolveTournamentMemberPaymentUi(booking, member, payEntry, nowMs, t, c
   const share = booking && member ? findPaymentShareForMember(booking, member) : null
   const sharePaid = shareIsEffectivelyPaid(share)
   const deadlineMs = effectiveTournamentSplitPaymentDeadlineMs(deadlineBooking ?? booking, clubSettings)
+  const serverBooking = !!(booking?.id && isLikelyServerBookingId(booking.id))
+  /** لا تُظهر مهلة انتهاء الدفع قبل وجود حصة في الخادم — يتجنب «انتهت المهلة» مع 0 ريال ولا رابط دفع */
+  const awaitingServerShare = !!(serverBooking && deadlineMs != null && !share && !sharePaid)
 
   let variant = 'pending'
   let badgeKey = 'tournamentPayBadgeAwaitingPayment'
@@ -219,14 +222,17 @@ function resolveTournamentMemberPaymentUi(booking, member, payEntry, nowMs, t, c
   const hideTimer =
     sharePaid ||
     (norm.clubReceived && norm.memberAck) ||
-    (norm.memberAck && !norm.clubReceived)
+    (norm.memberAck && !norm.clubReceived) ||
+    awaitingServerShare
   const showTimer = deadlineMs != null && !hideTimer
   const cd = showTimer ? formatTournamentPayCountdown(deadlineMs, nowMs, t) : { label: '', urgent: false, passed: false }
 
   const showMarkPaidAtClub =
-    !norm.clubReceived && (variant === 'online-pending' || variant === 'pending')
+    !norm.clubReceived &&
+    (variant === 'online-pending' || variant === 'pending') &&
+    (!serverBooking || !!share)
 
-  const trackerLocked = sharePaid || norm.clubReceived || norm.memberAck
+  const trackerLocked = sharePaid || norm.clubReceived || norm.memberAck || awaitingServerShare
 
   return {
     variant,
@@ -6230,6 +6236,96 @@ function App({ currentUser }) {
     ]
   )
 
+  /** عضو من دليل النادي: إنشاء/تحديث حصة pay-share على الخادم (ضيف البطولة كان يستبعد ALREADY_IN_CLUB) */
+  useEffect(() => {
+    if (contentTab !== 'teams') return
+    const bookingId = viewedTournamentBooking?.id
+    if (!clubId || !bookingId || !isLikelyServerBookingId(bookingId)) return
+    if (activeTab !== 'king' && activeTab !== 'social') return
+
+    const tid = String(bookingId)
+    const rosters = activeTab === 'king' ? kingStateByTournamentId[tid] : socialStateByTournamentId[tid]
+    const rosterTeams = rosters?.teams
+    if (!Array.isArray(rosterTeams) || rosterTeams.length === 0) return
+
+    const tmr = window.setTimeout(async () => {
+      const booking = tournamentBookingRowForGuestInvite
+      if (!booking || String(booking.id) !== tid || !isLikelyServerBookingId(booking.id)) return
+
+      const platformMember = getCurrentPlatformUser()
+      const rawSid = getCurrentMemberId()
+      const sessionMemberId =
+        rawSid != null && String(rawSid).trim() !== '' ? String(rawSid).trim() : ''
+      const organizerFromBooking =
+        booking?.initiatorMemberId ??
+        booking?.memberId ??
+        booking?.initiator_member_id ??
+        booking?.member_id
+      let organizerId =
+        platformMember?.id != null && String(platformMember.id).trim() !== ''
+          ? String(platformMember.id).trim()
+          : sessionMemberId ||
+            (organizerFromBooking != null && String(organizerFromBooking).trim() !== ''
+              ? String(organizerFromBooking).trim()
+              : '')
+      const ca = getClubAdminSession()
+      const isClubAdminForThisClub =
+        ca && String(ca.clubId || '').trim() === String(clubId || '').trim()
+      if (!organizerId && isClubAdminForThisClub && ca?.userId) {
+        organizerId = String(ca.userId).trim()
+      }
+      if (!organizerId && !isClubAdminForThisClub) return
+
+      const toSync = []
+      for (const team of rosterTeams) {
+        for (const memberId of team.memberIds || []) {
+          const payEntry = (team.memberTournamentPayments || {})[memberId]
+          const norm = normalizeMemberPaymentEntry(payEntry)
+          const fee = parseFloat(String(norm.fee || '').replace(',', '.')) || 0
+          if (fee <= 0.009) continue
+          const member = members.find((m) => String(m.id) === String(memberId))
+          if (!member) continue
+          const share = findPaymentShareForMember(booking, member)
+          if (share && (share.removedAt || share.removed_at)) continue
+          if (share && (share.paidAt || share.paid_at)) continue
+          if (share) {
+            const sa = parseFloat(share.amount) || 0
+            if (Math.abs(sa - fee) < 0.02) continue
+          }
+          toSync.push({ memberId, fee })
+        }
+      }
+      if (toSync.length === 0) return
+
+      try {
+        for (const { memberId: mid, fee } of toSync) {
+          await bookingApi.tournamentUpsertClubMemberShare({
+            clubId,
+            bookingId,
+            targetMemberId: mid,
+            amount: fee,
+            ...(organizerId ? { organizerMemberId: organizerId } : {}),
+          })
+        }
+        await syncBookingsAfterApi()
+      } catch (e) {
+        console.warn('tournament-upsert-club-member-share sync:', e)
+      }
+    }, 700)
+
+    return () => window.clearTimeout(tmr)
+  }, [
+    contentTab,
+    clubId,
+    viewedTournamentBooking?.id,
+    activeTab,
+    kingStateByTournamentId,
+    socialStateByTournamentId,
+    tournamentBookingRowForGuestInvite,
+    members,
+    syncBookingsAfterApi,
+  ])
+
   const memberSelectorGuestPhoneDigits = phoneDigitsNormalized(memberSelectorSearch || '')
   const memberSelectorNoClubPhoneMatch = !members.some((m) =>
     phoneMatchesMemberSearch(memberSelectorSearch, memberPhoneRawForSelector(m))
@@ -8366,6 +8462,14 @@ function App({ currentUser }) {
                               if (!member) return null
                               const payEntry = (team.memberTournamentPayments || {})[memberId]
                               const norm = normalizeMemberPaymentEntry(payEntry)
+                              const shareRowForMember = tournamentBookingRowForGuestInvite
+                                ? findPaymentShareForMember(tournamentBookingRowForGuestInvite, member)
+                                : null
+                              const registeredMemberWa = String(
+                                shareRowForMember?.whatsappLink || shareRowForMember?.whatsapp_link || ''
+                              ).trim()
+                              const showRegisteredMemberWa =
+                                registeredMemberWa && !shareIsEffectivelyPaid(shareRowForMember)
                               const payUi = resolveTournamentMemberPaymentUi(
                                 tournamentBookingRowForGuestInvite,
                                 member,
@@ -8404,20 +8508,37 @@ function App({ currentUser }) {
                                       <span className="tournament-member-pay-card__name" title={member.name}>
                                         {member.name}
                                       </span>
-                                      <button
-                                        type="button"
-                                        className="tournament-member-pay-card__icon-btn tournament-member-pay-card__icon-btn--danger"
-                                        title={language === 'en' ? 'Remove from team' : 'إزالة من الفريق'}
-                                        aria-label={language === 'en' ? 'Remove from team' : 'إزالة من الفريق'}
-                                        disabled={tournamentRosterRemoveBusyKey === `tm-rem-${team.id}-${memberId}`}
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          e.preventDefault()
-                                          void handleTournamentTeamMemberRemove(team.id, memberId)
-                                        }}
-                                      >
-                                        ×
-                                      </button>
+                                      <div className="tournament-member-pay-card__head-actions">
+                                        {showRegisteredMemberWa ? (
+                                          <button
+                                            type="button"
+                                            className="tournament-member-pay-card__btn tournament-member-pay-card__btn--wa"
+                                            title={t.tournamentGuestPendingWhatsAppTitle}
+                                            aria-label={t.tournamentGuestPendingWhatsAppTitle}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              e.preventDefault()
+                                              window.open(registeredMemberWa, '_blank', 'noopener,noreferrer')
+                                            }}
+                                          >
+                                            {t.tournamentGuestPendingWhatsApp}
+                                          </button>
+                                        ) : null}
+                                        <button
+                                          type="button"
+                                          className="tournament-member-pay-card__icon-btn tournament-member-pay-card__icon-btn--danger"
+                                          title={language === 'en' ? 'Remove from team' : 'إزالة من الفريق'}
+                                          aria-label={language === 'en' ? 'Remove from team' : 'إزالة من الفريق'}
+                                          disabled={tournamentRosterRemoveBusyKey === `tm-rem-${team.id}-${memberId}`}
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            e.preventDefault()
+                                            void handleTournamentTeamMemberRemove(team.id, memberId)
+                                          }}
+                                        >
+                                          ×
+                                        </button>
+                                      </div>
                                     </div>
                                     <div className="tournament-member-pay-card__row tournament-member-pay-card__row--status">
                                       <span className="tournament-member-pay-card__fee">
