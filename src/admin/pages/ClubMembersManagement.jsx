@@ -278,7 +278,7 @@ const ClubMembersManagement = ({ club, language: langProp }) => {
                   title={
                     isDirectoryFavorite(member)
                       ? t('Remove from club directory favorites', 'إزالة من مفضّلي دليل النادي', language)
-                      : t('Add to club directory favorites (tournament quick picks)', 'إضافة لمفضّلي دليل النادي (اختيار سريع للبطولة)', language)
+                      : t('Add to club directory favorites', 'إضافة لمفضّلي دليل النادي', language)
                   }
                 >
                   {togglingDirectoryFav === String(member.id)
