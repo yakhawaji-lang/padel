@@ -1438,7 +1438,7 @@ function App({ currentUser }) {
       matchesPlayed: 0,
       memberIds: [], // Array of member IDs linked to this team
       memberTournamentPayments: {},
-      pendingFeeGuests: [], // { id, phoneDisplay, fee, inviteToken } — invited via WhatsApp, not in club yet
+      pendingFeeGuests: [], // { id, phoneDisplay, memberName?, fee, inviteToken } — ضيف عبر واتساب؛ الاسم من booking_payment_shares.member_name إن وُجد
     }
     updateCurrentState(state => ({
       ...state,
@@ -8271,6 +8271,16 @@ function App({ currentUser }) {
                         <p className="team-members-drag-hint">{t.dragMembersBetweenTeamsHint}</p>
                         <div className="selected-members-chips selected-members-chips--tournament-pay-grid">
                           {(team.pendingFeeGuests || []).map((g) => {
+                            const shareRow = tournamentBookingRowForGuestInvite
+                              ? findPaymentShareForPendingGuest(tournamentBookingRowForGuestInvite, g)
+                              : null
+                            const nameFromShare = String(shareRow?.memberName || shareRow?.member_name || '').trim()
+                            const guestDisplayName =
+                              nameFromShare || String(g.memberName || '').trim() || g.phoneDisplay
+                            const guestTitle =
+                              guestDisplayName !== g.phoneDisplay
+                                ? `${guestDisplayName} — ${g.phoneDisplay}`
+                                : guestDisplayName
                             const guestPayUi = resolveTournamentGuestPaymentUi(
                               tournamentBookingRowForGuestInvite,
                               g,
@@ -8290,8 +8300,8 @@ function App({ currentUser }) {
                                 <div className="tournament-member-pay-card__accent" aria-hidden />
                                 <div className="tournament-member-pay-card__inner">
                                   <div className="tournament-member-pay-card__row tournament-member-pay-card__row--head">
-                                    <span className="tournament-member-pay-card__name" title={g.phoneDisplay}>
-                                      {g.phoneDisplay}
+                                    <span className="tournament-member-pay-card__name" title={guestTitle}>
+                                      {guestDisplayName}
                                     </span>
                                     <div className="tournament-member-pay-card__head-actions">
                                       <button

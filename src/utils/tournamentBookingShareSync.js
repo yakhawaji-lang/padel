@@ -92,6 +92,7 @@ function teamsPayloadSignature(teams) {
         ph: phoneDigits(g.phoneDisplay),
         fee: String(g.fee || ''),
         tok: g.inviteToken || '',
+        nm: String(g.memberName || '').trim(),
       }))
       .sort((a, b) => String(a.id).localeCompare(String(b.id))),
     mp: Object.keys(t.memberTournamentPayments || {})
@@ -196,6 +197,7 @@ export function mergeTournamentTeamsFromPaymentShares(booking, prevState, option
     const feeNum = effectiveShareAmount(booking, s, shareOpts)
     const fee = String(feeNum)
     const display = String(ph).trim()
+    const shareGuestName = String(s.memberName || s.member_name || '').trim()
 
     let foundTeamIdx = -1
     let foundGuestIdx = -1
@@ -217,6 +219,7 @@ export function mergeTournamentTeamsFromPaymentShares(booking, prevState, option
           phoneDisplay: display,
           fee,
           inviteToken: token || pg[foundGuestIdx].inviteToken || null,
+          ...(shareGuestName ? { memberName: shareGuestName } : {}),
         }
       }
       teams[foundTeamIdx] = { ...t, pendingFeeGuests: pg }
@@ -229,6 +232,7 @@ export function mergeTournamentTeamsFromPaymentShares(booking, prevState, option
         phoneDisplay: display,
         fee,
         inviteToken: token || null,
+        ...(shareGuestName ? { memberName: shareGuestName } : {}),
       })
       teams[ti] = { ...t, pendingFeeGuests: pg }
     }
