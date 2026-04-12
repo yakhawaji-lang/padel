@@ -99,6 +99,20 @@ function getTournamentMemberTeamPreferencesForBooking(booking) {
   return p
 }
 
+function getMemberTournamentTeamPref(booking, memberId) {
+  if (!memberId) return ''
+  const prefs = getTournamentMemberTeamPreferencesForBooking(booking)
+  const v = prefs[String(memberId)]
+  return v != null && String(v).trim() !== '' ? String(v).trim() : ''
+}
+
+function shareRowEffectivelyPaid(share) {
+  if (!share) return false
+  if (share.removedAt || share.removed_at) return false
+  if (share.refundedAt || share.refunded_at) return false
+  return !!(share.paidAt || share.paid_at)
+}
+
 function TournamentTeamPreferenceMyBookings({ booking, club, member, myShare, language, copy, onSaved }) {
   const slots = getTournamentTeamSlotsForBooking(booking)
   const inviteToken = String(myShare?.inviteToken || myShare?.invite_token || '').trim()
@@ -313,7 +327,7 @@ function phoneKeysMatch(phoneA, phoneB) {
   return ka === kb || ka.endsWith(kb) || kb.endsWith(ka)
 }
 
-function getBookingDisplayProps({ booking, club, memberId }, language) {
+function getBookingDisplayProps({ booking, club, memberId, member }, language) {
   const dateStr = booking.dateStr || booking.date || (booking.startDate && (typeof booking.startDate === 'string' ? booking.startDate : booking.startDate.toISOString?.()?.split('T')[0])) || ''
   const timeStr = (booking.startTime || booking.timeSlot || '') + (booking.endTime ? ` – ${booking.endTime}` : '')
   const isTournament = booking?.isTournament === true
@@ -336,10 +350,23 @@ function getBookingDisplayProps({ booking, club, memberId }, language) {
   let tournamentAwaitingClub = false
   if (isTournament && memberId) {
     tournamentEntry = getTournamentMemberPaymentEntry(club, booking, memberId)
-    const memberPaymentDone = !!(tournamentEntry && (tournamentEntry.clubReceived || tournamentEntry.memberAck))
+    const shareRow = member ? findPaymentShareForMember(booking, member) : null
+    const sharePaid = shareRowEffectivelyPaid(shareRow)
+    const teamPaid = !!(tournamentEntry && (tournamentEntry.clubReceived || tournamentEntry.memberAck))
+    const memberPaymentDone = teamPaid || sharePaid
     isPaid = memberPaymentDone
     isPendingPayment = !memberPaymentDone && !['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st)
-    tournamentAwaitingClub = !!(tournamentEntry && tournamentEntry.paymentMethod === 'at_club' && !tournamentEntry.clubReceived && !tournamentEntry.memberAck)
+    const atClubFromTeam = !!(
+      tournamentEntry &&
+      tournamentEntry.paymentMethod === 'at_club' &&
+      !teamPaid
+    )
+    const atClubFromShare = !!(
+      shareRow &&
+      shareRow.paymentMethod === 'at_club' &&
+      !sharePaid
+    )
+    tournamentAwaitingClub = atClubFromTeam || atClubFromShare
   } else if (!isTournament) {
     const shares = Array.isArray(booking?.paymentShares) ? booking.paymentShares : []
     const total =
@@ -1151,6 +1178,11 @@ const MyBookingsPage = () => {
       tournamentTeamPrefChoose: 'Choose a team',
       tournamentTeamPrefSave: 'Save team choice',
       tournamentTeamPrefSaved: 'Saved.',
+      tournamentSplitInvitedUnpaid:
+        'You were added to this tournament payment split. Pay your share to confirm your spot.',
+      tournamentSplitPaidPickTeam: 'Share paid — choose your team below.',
+      tournamentSplitTeamSaved: 'Team choice saved. The club will see you on that team.',
+      tournamentSplitPaidNoSlots: 'Your tournament share is paid.',
     },
     ar: {
       myBookings: 'حجوزاتي',
@@ -1270,6 +1302,11 @@ const MyBookingsPage = () => {
       tournamentTeamPrefChoose: 'اختر فريقاً',
       tournamentTeamPrefSave: 'حفظ اختيار الفريق',
       tournamentTeamPrefSaved: 'تم الحفظ.',
+      tournamentSplitInvitedUnpaid:
+        'أُضِفت إلى تقسيم دفع البطولة. أكمل دفع حصتك لتأكيد مشاركتك.',
+      tournamentSplitPaidPickTeam: 'تم دفع الحصة — اختر فريقك أدناه.',
+      tournamentSplitTeamSaved: 'تم حفظ الفريق. سيظهر اسمك مع ذلك الفريق في لوحة النادي.',
+      tournamentSplitPaidNoSlots: 'تم دفع حصتك في البطولة.',
     }
   }
   const c = t[language] || t.en
@@ -1495,7 +1532,7 @@ const MyBookingsPage = () => {
     const memberIdStr = String(member?.id || '')
     const isInitiator = String(booking.memberId || booking.initiatorMemberId || '') === memberIdStr
     const userShare = findPaymentShareForMember(booking, member)
-    if (userShare?.paidAt) return null
+    if (shareRowEffectivelyPaid(userShare)) return null
     const inviteToken = userShare?.inviteToken
     const chosePayAtClub = userShare && userShare.paymentMethod === 'at_club' && !userShare.paidAt
     if (userShare && club?.id) {
@@ -1524,7 +1561,7 @@ const MyBookingsPage = () => {
   }
 
   const renderBookingRow = ({ booking, club }, i) => {
-    let { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isTournament, isPaid, isPendingPayment, isAwaitingRefundAck, tournamentEntry, tournamentAwaitingClub, terminalCancelled } = getBookingDisplayProps({ booking, club, memberId: member?.id }, language)
+    let { dateStr, timeStr, courtName, priceVal, currencyStr, clubName, clubLink, isTraining, isTournament, isPaid, isPendingPayment, isAwaitingRefundAck, tournamentEntry, tournamentAwaitingClub, terminalCancelled } = getBookingDisplayProps({ booking, club, memberId: member?.id, member }, language)
     if (!booking.isTournament) {
       const isInitiator = String(booking.memberId || booking.initiatorMemberId || '') === String(member?.id || '')
       if (!isInitiator && member) {
@@ -1532,6 +1569,21 @@ const MyBookingsPage = () => {
         if (share && share.amount != null && share.amount !== '') {
           priceVal = share.amount
         }
+      }
+    } else if (member) {
+      if (tournamentEntry?.fee) {
+        const fv = parseFloat(String(tournamentEntry.fee).replace(',', '.'))
+        if (Number.isFinite(fv) && fv > 0) priceVal = tournamentEntry.fee
+      }
+      const share = findPaymentShareForMember(booking, member)
+      if (
+        (priceVal == null || priceVal === '' || (typeof priceVal === 'number' && !Number.isFinite(priceVal))) &&
+        share &&
+        share.amount != null &&
+        share.amount !== ''
+      ) {
+        const sv = parseFloat(String(share.amount).replace(',', '.'))
+        if (Number.isFinite(sv) && sv > 0) priceVal = share.amount
       }
     } else if (tournamentEntry?.fee) {
       const fv = parseFloat(String(tournamentEntry.fee).replace(',', '.'))
@@ -1888,10 +1940,25 @@ const MyBookingsPage = () => {
                         </div>
                       ) : null}
                     </div>
+                    {r.isTournament && r.mySplitShare && member ? (
+                      <p
+                        className="my-bookings-tournament-participant-hint"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {(() => {
+                          const slots = getTournamentTeamSlotsForBooking(r.booking)
+                          const pref = getMemberTournamentTeamPref(r.booking, member.id)
+                          if (!r.isPaid) return c.tournamentSplitInvitedUnpaid
+                          if (slots.length > 0 && !pref) return c.tournamentSplitPaidPickTeam
+                          if (slots.length > 0 && pref) return c.tournamentSplitTeamSaved
+                          return c.tournamentSplitPaidNoSlots
+                        })()}
+                      </p>
+                    ) : null}
                   </div>
                   {r.isTournament &&
                   r.mySplitShare &&
-                  (r.mySplitShare.paidAt || r.mySplitShare.paid_at) &&
+                  shareRowEffectivelyPaid(r.mySplitShare) &&
                   (r.mySplitShare.inviteToken || r.mySplitShare.invite_token) &&
                   member ? (
                     <TournamentTeamPreferenceMyBookings
@@ -2215,7 +2282,8 @@ const MyBookingsPage = () => {
                   )}
                   {filter === 'upcoming' && r.club && r.payOptions &&
                     (['pending_payments', 'partially_paid'].includes((r.booking.status || '').toString()) ||
-                      r.payOptions.type === 'tournament') && (
+                      r.payOptions.type === 'tournament' ||
+                      (r.booking.isTournament && r.payOptions.type === 'share')) && (
                     <div className="my-bookings-card-pay-wrap" onClick={(e) => e.stopPropagation()}>
                       {r.payOptions.chosePayAtClub ? (
                         <section

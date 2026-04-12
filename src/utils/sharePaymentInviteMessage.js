@@ -46,6 +46,8 @@ export function buildPaymentShareWhatsAppPlainText(opts = {}) {
     externalWebsite = '',
     mode = 'pay_invite',
     tournamentKind = '',
+    /** When set with a pay URL, use direct pay-share wording (registered members). */
+    tournamentPayLinkStyle = '',
   } = opts
 
   const name = (clubName || '').trim() || 'the club'
@@ -70,7 +72,15 @@ export function buildPaymentShareWhatsAppPlainText(opts = {}) {
   const linkSection = []
   if (pay) {
     if (isTournament) {
-      if (mode === 'pay_share') {
+      if (mode === 'pay_share' && tournamentPayLinkStyle === 'direct_share') {
+        linkSection.push(
+          ...linkBlock(
+            'Open this link to pay your tournament share on PlayTix:',
+            'افتح الرابط لدفع حصتك في البطولة على PlayTix:',
+            pay
+          )
+        )
+      } else if (mode === 'pay_share') {
         linkSection.push(
           ...linkBlock(
             'Open this link to join the club and pay your tournament share:',

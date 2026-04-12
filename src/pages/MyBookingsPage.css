@@ -2663,6 +2663,18 @@
   border-radius: 10px;
 }
 
+/* Tournament: split participant status (pay / team choice) */
+.my-bookings-tournament-participant-hint {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--mb-text-muted);
+  background: #f8fafc;
+  border-radius: var(--mb-radius-sm);
+  border: 1px solid var(--mb-border);
+}
+
 /* Tournament: member chooses preferred team after paying share */
 .my-bookings-tournament-team-pref {
   margin: 0 16px 14px;

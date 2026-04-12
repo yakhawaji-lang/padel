@@ -64,6 +64,7 @@ import {
   phoneDigitsNormalized,
 } from './utils/phoneNormalize'
 import {
+  applyTournamentMemberTeamPreferences,
   mergeTournamentTeamsFromPaymentShares,
   tournamentTeamSyncChanged,
 } from './utils/tournamentBookingShareSync'
@@ -965,8 +966,11 @@ function App({ currentUser }) {
           defaultTeamCount: 8,
           clubMemberIds,
         })
-        if (merged && tournamentTeamSyncChanged(prev, merged)) {
-          next[bid] = merged
+        const base = merged != null ? merged : prev
+        const withPrefs = applyTournamentMemberTeamPreferences(b, base)
+        const final = withPrefs != null ? withPrefs : merged
+        if (final != null && tournamentTeamSyncChanged(prev, final)) {
+          next[bid] = final
           changed = true
         }
       }
@@ -987,8 +991,11 @@ function App({ currentUser }) {
           defaultTeamCount: 8,
           clubMemberIds,
         })
-        if (merged && tournamentTeamSyncChanged(prev, merged)) {
-          next[bid] = merged
+        const base = merged != null ? merged : prev
+        const withPrefs = applyTournamentMemberTeamPreferences(b, base)
+        const final = withPrefs != null ? withPrefs : merged
+        if (final != null && tournamentTeamSyncChanged(prev, final)) {
+          next[bid] = final
           changed = true
         }
       }
@@ -10223,6 +10230,14 @@ function App({ currentUser }) {
                             const amt = parseFloat(String(resolveMemberFeeDraftStr(member.id)).replace(',', '.')) || 0
                             const phoneForWa = memberPhoneRawForSelector(member)
                             const digits = String(phoneForWa).replace(/\D/g, '')
+                            const shareForWa =
+                              tournamentBookingRowForGuestInvite &&
+                              findPaymentShareForMember(tournamentBookingRowForGuestInvite, member)
+                            const shareTokWa = String(
+                              shareForWa?.inviteToken || shareForWa?.invite_token || ''
+                            ).trim()
+                            const payShareAbsWa = shareTokWa ? paySharePublicUrl(shareTokWa) : ''
+                            const tourKindWa = activeTab === 'social' ? 'social' : 'king'
                             let waUrl = null
                             if (digits.length >= 8) {
                               waUrl = buildWhatsAppLinkForRegistered(
@@ -10233,7 +10248,13 @@ function App({ currentUser }) {
                                 amt,
                                 clubCurrency,
                                 language,
-                                clubId || ''
+                                clubId || '',
+                                payShareAbsWa
+                                  ? {
+                                      payShareAbsoluteUrl: payShareAbsWa,
+                                      tournamentKind: tourKindWa,
+                                    }
+                                  : {}
                               )
                             }
                             const displayName = memberDisplayNameForSelector(member)

@@ -848,11 +848,23 @@ export function getMemberBookings(memberId) {
   const clubs = loadClubs()
   const results = []
   const memberIdStr = String(memberId)
+  const tournamentHasActiveShareForMember = (booking, mid) => {
+    if (!booking?.isTournament || !Array.isArray(booking.paymentShares)) return false
+    return booking.paymentShares.some((s) => {
+      if (s.removedAt || s.removed_at) return false
+      return String(s.memberId || s.member_id || '') === String(mid)
+    })
+  }
+
   clubs.forEach(club => {
     const list = club?.bookings && Array.isArray(club.bookings) ? club.bookings : []
     list.forEach(b => {
       if (b.isTournament) {
-        if (!isMemberInTournamentBooking(club, b, memberIdStr)) return
+        const initiator =
+          String(b.memberId || b.initiatorMemberId || b.member_id || b.initiator_member_id || '') === memberIdStr
+        const inRoster = isMemberInTournamentBooking(club, b, memberIdStr)
+        const splitShare = tournamentHasActiveShareForMember(b, memberIdStr)
+        if (!inRoster && !splitShare && !initiator) return
       } else {
         const ok = member
           ? memberRelatesToCourtBooking(b, member)

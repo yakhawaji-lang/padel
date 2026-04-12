@@ -60,8 +60,23 @@ export function buildWhatsAppLink(phone, clubName, dateStr, timeStr, amount, cur
   return `https://wa.me/${base}?text=${encodeURIComponent(plain)}`
 }
 
-/** Registered members — bilingual message; payment flow via My Bookings until pay-share link exists */
-export function buildWhatsAppLinkForRegistered(phone, clubName, dateStr, timeStr, amount, currency, language, clubId) {
+/**
+ * Registered members — bilingual message.
+ * @param {object} [inviteOpts]
+ * @param {string} [inviteOpts.payShareAbsoluteUrl] — full URL to `/pay-share/:token` when a token exists
+ * @param {''|'king'|'social'} [inviteOpts.tournamentKind] — tournament label in the message body
+ */
+export function buildWhatsAppLinkForRegistered(
+  phone,
+  clubName,
+  dateStr,
+  timeStr,
+  amount,
+  currency,
+  language,
+  clubId,
+  inviteOpts = {}
+) {
   if (!phone || String(phone).replace(/\D/g, '').length < 8) return null
   const p = normalizePhone(phone)
   const num = p.replace(/\D/g, '')
@@ -72,6 +87,10 @@ export function buildWhatsAppLinkForRegistered(phone, clubName, dateStr, timeStr
       ? `${window.location.origin}${basePath ? `${basePath}/` : '/'}my-bookings`
       : ''
   const clubPage = clubId ? buildClubPublicAbsoluteUrl(clubId) : myBookingsUrl
+  const payShareAbs = String(inviteOpts.payShareAbsoluteUrl || '').trim()
+  const tkRaw = String(inviteOpts.tournamentKind || '').toLowerCase().trim()
+  const tournamentKind = tkRaw === 'social' ? 'social' : tkRaw === 'king' ? 'king' : ''
+  const paymentUrl = payShareAbs || myBookingsUrl
   const plain = buildPaymentShareWhatsAppPlainText({
     clubName: clubName || 'Club',
     bookingDate: dateStr,
@@ -79,10 +98,12 @@ export function buildWhatsAppLinkForRegistered(phone, clubName, dateStr, timeStr
     endTime: '',
     shareAmount: amount,
     currency,
-    paymentUrl: myBookingsUrl,
+    paymentUrl,
     clubPageUrl: clubPage || myBookingsUrl,
     externalWebsite: '',
     mode: 'pay_share',
+    tournamentKind: payShareAbs ? tournamentKind : '',
+    tournamentPayLinkStyle: payShareAbs ? 'direct_share' : '',
   })
   return `https://wa.me/${base}?text=${encodeURIComponent(plain)}`
 }

@@ -4,6 +4,7 @@
  */
 
 import { effectiveShareAmount } from './paymentShareEffectiveAmounts.js'
+import { emptyRosterBench, removeMemberFromBench, stripMemberFromTeamsList } from './tournamentRosterState.js'
 
 function phoneDigits(raw) {
   return String(raw || '').replace(/\D/g, '')
@@ -269,7 +270,109 @@ export function mergeTournamentTeamsFromPaymentShares(booking, prevState, option
   }
 }
 
+function takeMemberPaymentEntryFromTeams(teams, memberId) {
+  const mid = String(memberId)
+  for (const t of teams || []) {
+    const mp = t.memberTournamentPayments || {}
+    const row = mp[mid]
+    if (row && typeof row === 'object') return { ...row }
+  }
+  return null
+}
+
+function parseTournamentMemberTeamPreferencesFromBooking(booking) {
+  let fromData = {}
+  const d = booking?.data
+  if (d && typeof d === 'object' && !Array.isArray(d)) {
+    const p = d.tournamentMemberTeamPreferences
+    if (p && typeof p === 'object') fromData = { ...p }
+  } else if (typeof d === 'string') {
+    try {
+      const parsed = JSON.parse(d)
+      const p = parsed?.tournamentMemberTeamPreferences
+      if (p && typeof p === 'object') fromData = { ...p }
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  const root = booking?.tournamentMemberTeamPreferences
+  return { ...fromData, ...(typeof root === 'object' && root ? root : {}) }
+}
+
+/**
+ * After share merge, place members on the team they chose in My Bookings / Pay Share
+ * (`club_bookings.data.tournamentMemberTeamPreferences`).
+ */
+export function applyTournamentMemberTeamPreferences(booking, state) {
+  if (!booking?.isTournament || !state || typeof state !== 'object' || !Array.isArray(state.teams)) return null
+  const prefs = parseTournamentMemberTeamPreferencesFromBooking(booking)
+  const entries = Object.entries(prefs).filter(([, tid]) => tid != null && String(tid).trim() !== '')
+  if (entries.length === 0) return null
+
+  let teams = state.teams.map((t) => ({
+    ...t,
+    memberIds: [...(t.memberIds || [])],
+    memberTournamentPayments: { ...(t.memberTournamentPayments || {}) },
+  }))
+  const rb0 = state.rosterBench && typeof state.rosterBench === 'object' ? state.rosterBench : emptyRosterBench()
+  let rb = {
+    ...rb0,
+    memberIds: [...(rb0.memberIds || [])],
+    guests: [...(rb0.guests || [])],
+    memberFees: { ...(rb0.memberFees || {}) },
+  }
+
+  const sigBefore = teamsPayloadSignature(teams)
+  const benchBefore = JSON.stringify({
+    ids: [...(rb.memberIds || [])].map(String).sort(),
+    fees: rb.memberFees || {},
+  })
+
+  for (const [memberId, prefTeamId] of entries) {
+    const mid = String(memberId)
+    const targetIdx = teams.findIndex((t) => String(t.id) === String(prefTeamId))
+    if (targetIdx < 0) continue
+
+    const pe = takeMemberPaymentEntryFromTeams(teams, mid)
+    const paymentEntry = pe || emptyPaymentEntry()
+
+    teams = stripMemberFromTeamsList(teams, mid)
+    rb = removeMemberFromBench(rb, mid)
+
+    const idx2 = teams.findIndex((t) => String(t.id) === String(prefTeamId))
+    if (idx2 < 0) continue
+    const t = teams[idx2]
+    const ids = [...(t.memberIds || [])]
+    if (!ids.some((id) => String(id) === mid)) ids.push(mid)
+    const mp = { ...(t.memberTournamentPayments || {}) }
+    mp[mid] = { ...emptyPaymentEntry(), ...paymentEntry }
+    teams[idx2] = { ...t, memberIds: ids, memberTournamentPayments: mp }
+  }
+
+  const sigAfter = teamsPayloadSignature(teams)
+  const benchAfter = JSON.stringify({
+    ids: [...(rb.memberIds || [])].map(String).sort(),
+    fees: rb.memberFees || {},
+  })
+  if (sigAfter === sigBefore && benchAfter === benchBefore) return null
+
+  return {
+    ...state,
+    teams,
+    rosterBench: rb,
+  }
+}
+
+function rosterBenchSignature(bench) {
+  const b = bench && typeof bench === 'object' ? bench : emptyRosterBench()
+  return JSON.stringify({
+    ids: [...(b.memberIds || [])].map(String).sort(),
+    fees: b.memberFees || {},
+  })
+}
+
 export function tournamentTeamSyncChanged(prevState, merged) {
   if (!merged) return false
-  return teamsPayloadSignature(prevState?.teams) !== teamsPayloadSignature(merged.teams)
+  if (teamsPayloadSignature(prevState?.teams) !== teamsPayloadSignature(merged.teams)) return true
+  return rosterBenchSignature(prevState?.rosterBench) !== rosterBenchSignature(merged.rosterBench)
 }
