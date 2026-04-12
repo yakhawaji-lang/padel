@@ -5592,6 +5592,12 @@ function App({ currentUser }) {
     if (!openMemberSelectorForTeam) return { onTeam: [], offTeam: [] }
     const team = teams.find((t) => t.id === openMemberSelectorForTeam)
     const onTeamIds = new Set((team?.memberIds || []).map((id) => String(id)))
+    const rosteredInTournament = new Set()
+    for (const tm of teams || []) {
+      for (const id of tm.memberIds || []) {
+        rosteredInTournament.add(String(id))
+      }
+    }
     const dirFav = new Set(clubDirectoryFavoriteMemberIds.map(String))
     const nameOf = memberDisplayNameForSelector
     const sortByName = (a, b) => nameOf(a).localeCompare(nameOf(b), undefined, { sensitivity: 'base' })
@@ -5602,8 +5608,11 @@ function App({ currentUser }) {
     const onTeam = members.filter((m) => onTeamIds.has(String(m.id))).sort(sortByName)
     const offTeam = members
       .filter((m) => {
-        if (onTeamIds.has(String(m.id))) return false
-        if (dirFav.has(String(m.id))) return true
+        const mid = String(m.id)
+        if (onTeamIds.has(mid)) return false
+        /** مضاف في فريق آخر في نفس البطولة — لا يُعرض في قائمة الاختيار */
+        if (rosteredInTournament.has(mid)) return false
+        if (dirFav.has(mid)) return true
         if (phoneSearchOk && phoneMatches(m)) return true
         return false
       })
@@ -5641,8 +5650,16 @@ function App({ currentUser }) {
       if (teamId && searchDigits.length >= 3) {
         const team = teams.find((x) => x.id === teamId)
         const onTeamIds = new Set((team?.memberIds || []).map((id) => String(id)))
+        const rosteredInTournament = new Set()
+        for (const tm of teams || []) {
+          for (const id of tm.memberIds || []) {
+            rosteredInTournament.add(String(id))
+          }
+        }
         const offClubMatches = memberList.filter((m) => {
-          if (onTeamIds.has(String(m.id))) return false
+          const mid = String(m.id)
+          if (onTeamIds.has(mid)) return false
+          if (rosteredInTournament.has(mid)) return false
           return phoneMatchesMemberSearch(display, memberPhoneRawForSelector(m))
         })
         if (offClubMatches.length === 1) {
@@ -6052,12 +6069,16 @@ function App({ currentUser }) {
 
   const memberSelectorFavoriteMembersInClub = useMemo(() => {
     if (!openMemberSelectorForTeam || !clubDirectoryFavoriteMemberIds.length) return []
-    const team = teams.find((t) => t.id === openMemberSelectorForTeam)
-    const onTeam = new Set((team?.memberIds || []).map((id) => String(id)))
+    const rosteredInTournament = new Set()
+    for (const tm of teams || []) {
+      for (const id of tm.memberIds || []) {
+        rosteredInTournament.add(String(id))
+      }
+    }
     const favSet = new Set(clubDirectoryFavoriteMemberIds.map(String))
     const nameOf = memberDisplayNameForSelector
     return members
-      .filter((m) => favSet.has(String(m.id)) && !onTeam.has(String(m.id)))
+      .filter((m) => favSet.has(String(m.id)) && !rosteredInTournament.has(String(m.id)))
       .sort((a, b) => nameOf(a).localeCompare(nameOf(b), undefined, { sensitivity: 'base' }))
   }, [openMemberSelectorForTeam, teams, members, clubDirectoryFavoriteMemberIds])
 
