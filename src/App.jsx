@@ -38,6 +38,16 @@ import { getBookingCalendarKind } from './utils/bookingCalendarKind'
 import { isLikelyServerBookingId, showInvoiceAlertFromApiResult } from './utils/bookingInvoiceSync'
 import * as bookingApi from './api/dbClient'
 import { buildWhatsAppLink, buildWhatsAppLinkForRegistered } from './components/BookingPaymentShare'
+import TournamentShareSnippetButton from './components/TournamentShareSnippetButton'
+import {
+  TOURNAMENT_ROSTER_MODAL_TEAM_ID,
+  emptyRosterBench,
+  stripMemberFromAllTeamsAndBench,
+  addMemberToBenchInState,
+  addGuestToBenchInState,
+  removeGuestByIdFromTeamsAndBench,
+  removeMemberFromBench,
+} from './utils/tournamentRosterState'
 import playtomicApi from './services/playtomicApi'
 import {
   getPublicBookingTimeSlots,
@@ -556,6 +566,7 @@ function App({ currentUser }) {
   /** يزيد عند الضغط على «بحث» أو بعد جهات الاتصال لإجبار إعادة حساب القائمة حتى لو لم يتغير النص */
   const [memberSelectorSearchNonce, setMemberSelectorSearchNonce] = useState(0)
   const [memberSelectorBulkFee, setMemberSelectorBulkFee] = useState('') // default fee applied to all rows in modal
+  const [tournamentEqualSplitPool, setTournamentEqualSplitPool] = useState('')
   const [memberSelectorFeeDraft, setMemberSelectorFeeDraft] = useState({}) // { [memberId]: string }
   /** طلب شبكة لتفضيل/إلغاء تفضيل عضو في دليل النادي (جدول club_directory_favorites) */
   const [memberSelectorDirectoryFavBusyId, setMemberSelectorDirectoryFavBusyId] = useState(null)
@@ -669,7 +680,8 @@ function App({ currentUser }) {
     matchTimers: {},
     courtWinners: {},
     showMatchHistory: false,
-    showMatchSchedule: false
+    showMatchSchedule: false,
+    rosterBench: emptyRosterBench(),
   })
 
   // حالة ملك الملعب لكل بطولة مجدولة (مفتاح = معرف الحجز)
@@ -686,7 +698,8 @@ function App({ currentUser }) {
     tournamentStage: 'group',
     semiFinals: [],
     finals: [],
-    showMatchHistory: false
+    showMatchHistory: false,
+    rosterBench: emptyRosterBench(),
   })
 
   // حالة السوشيال لكل بطولة مجدولة (مفتاح = معرف الحجز)
@@ -927,6 +940,7 @@ function App({ currentUser }) {
       courtWinners: {},
       showMatchHistory: false,
       showMatchSchedule: false,
+      rosterBench: emptyRosterBench(),
     })
     const socialShell = () => ({
       teams: [],
@@ -939,6 +953,7 @@ function App({ currentUser }) {
       semiFinals: [],
       finals: [],
       showMatchHistory: false,
+      rosterBench: emptyRosterBench(),
     })
 
     setKingStateByTournamentId((prevKing) => {
@@ -1154,6 +1169,18 @@ function App({ currentUser }) {
     : activeTab === 'social'
       ? (socialStateByTournamentId[viewedTournamentBooking?.id] ?? getDefaultSocialState())
       : getDefaultKingState() // fallback (members, etc.)
+
+  const rosterBenchForSelector = useMemo(() => {
+    const rb = currentState?.rosterBench
+    if (rb && typeof rb === 'object') {
+      return {
+        memberIds: Array.isArray(rb.memberIds) ? rb.memberIds : [],
+        guests: Array.isArray(rb.guests) ? rb.guests : [],
+        memberFees: rb.memberFees && typeof rb.memberFees === 'object' ? rb.memberFees : {},
+      }
+    }
+    return emptyRosterBench()
+  }, [currentState?.rosterBench])
 
   // معرف البطولة الفعلي للحفظ (حجز معروض أو currentTournamentId)
   const effectiveTournamentId = (activeTab === 'king' || activeTab === 'social') && viewedTournamentBooking?.id ? viewedTournamentBooking.id : currentTournamentId
@@ -5590,6 +5617,40 @@ function App({ currentUser }) {
 
   const memberSelectorPartitioned = useMemo(() => {
     if (!openMemberSelectorForTeam) return { onTeam: [], offTeam: [] }
+
+    const dirFav = new Set(clubDirectoryFavoriteMemberIds.map(String))
+    const nameOf = memberDisplayNameForSelector
+    const sortByName = (a, b) => nameOf(a).localeCompare(nameOf(b), undefined, { sensitivity: 'base' })
+    const searchDigits = phoneDigitsNormalized(memberSelectorSearch || '')
+    const phoneSearchOk = searchDigits.length >= 3
+    const phoneMatches = (m) =>
+      phoneMatchesMemberSearch(memberSelectorSearch, memberPhoneRawForSelector(m))
+
+    if (openMemberSelectorForTeam === TOURNAMENT_ROSTER_MODAL_TEAM_ID) {
+      const benchIds = new Set((rosterBenchForSelector.memberIds || []).map((id) => String(id)))
+      const rosteredInTournament = new Set()
+      for (const tm of teams || []) {
+        for (const id of tm.memberIds || []) {
+          rosteredInTournament.add(String(id))
+        }
+      }
+      for (const id of rosterBenchForSelector.memberIds || []) {
+        rosteredInTournament.add(String(id))
+      }
+      const onTeam = members.filter((m) => benchIds.has(String(m.id))).sort(sortByName)
+      const offTeam = members
+        .filter((m) => {
+          const mid = String(m.id)
+          if (benchIds.has(mid)) return false
+          if (rosteredInTournament.has(mid)) return false
+          if (dirFav.has(mid)) return true
+          if (phoneSearchOk && phoneMatches(m)) return true
+          return false
+        })
+        .sort(sortByName)
+      return { onTeam, offTeam }
+    }
+
     const team = teams.find((t) => t.id === openMemberSelectorForTeam)
     const onTeamIds = new Set((team?.memberIds || []).map((id) => String(id)))
     const rosteredInTournament = new Set()
@@ -5598,19 +5659,14 @@ function App({ currentUser }) {
         rosteredInTournament.add(String(id))
       }
     }
-    const dirFav = new Set(clubDirectoryFavoriteMemberIds.map(String))
-    const nameOf = memberDisplayNameForSelector
-    const sortByName = (a, b) => nameOf(a).localeCompare(nameOf(b), undefined, { sensitivity: 'base' })
-    const searchDigits = phoneDigitsNormalized(memberSelectorSearch || '')
-    const phoneSearchOk = searchDigits.length >= 3
-    const phoneMatches = (m) =>
-      phoneMatchesMemberSearch(memberSelectorSearch, memberPhoneRawForSelector(m))
+    for (const id of rosterBenchForSelector.memberIds || []) {
+      rosteredInTournament.add(String(id))
+    }
     const onTeam = members.filter((m) => onTeamIds.has(String(m.id))).sort(sortByName)
     const offTeam = members
       .filter((m) => {
         const mid = String(m.id)
         if (onTeamIds.has(mid)) return false
-        /** مضاف في فريق آخر في نفس البطولة — لا يُعرض في قائمة الاختيار */
         if (rosteredInTournament.has(mid)) return false
         if (dirFav.has(mid)) return true
         if (phoneSearchOk && phoneMatches(m)) return true
@@ -5625,6 +5681,7 @@ function App({ currentUser }) {
     memberSelectorSearch,
     memberSelectorSearchNonce,
     clubDirectoryFavoriteMemberIds,
+    rosterBenchForSelector,
   ])
 
   const memberSelectorContactsSupported = useMemo(
@@ -5648,40 +5705,59 @@ function App({ currentUser }) {
       const teamId = openMemberSelectorForTeam
       const searchDigits = phoneDigitsNormalized(display)
       if (teamId && searchDigits.length >= 3) {
-        const team = teams.find((x) => x.id === teamId)
-        const onTeamIds = new Set((team?.memberIds || []).map((id) => String(id)))
         const rosteredInTournament = new Set()
         for (const tm of teams || []) {
           for (const id of tm.memberIds || []) {
             rosteredInTournament.add(String(id))
           }
         }
-        const offClubMatches = memberList.filter((m) => {
-          const mid = String(m.id)
-          if (onTeamIds.has(mid)) return false
-          if (rosteredInTournament.has(mid)) return false
-          return phoneMatchesMemberSearch(display, memberPhoneRawForSelector(m))
-        })
-        if (offClubMatches.length === 1) {
-          const member = offClubMatches[0]
-          const memberId = member.id
-          const feeStr = resolveMemberFeeDraftStr(memberId)
-          flushSync(() => {
-            updateCurrentState((state) => ({
-              ...state,
-              teams: (state.teams || []).map((t) => {
-                if (t.id !== teamId) return t
-                if ((t.memberIds || []).some((id) => String(id) === String(memberId))) return t
-                const ids = [...(t.memberIds || []).filter((id) => String(id) !== String(memberId)), memberId]
-                const mp = { ...(t.memberTournamentPayments || {}) }
-                mp[memberId] = {
-                  ...normalizeMemberPaymentEntry(mp[memberId]),
-                  fee: feeStr,
-                }
-                return { ...t, memberIds: ids, memberTournamentPayments: mp }
-              }),
-            }))
+        const benchIdsSel = new Set((rosterBenchForSelector.memberIds || []).map((id) => String(id)))
+        if (teamId === TOURNAMENT_ROSTER_MODAL_TEAM_ID) {
+          const offClubMatches = memberList.filter((m) => {
+            const mid = String(m.id)
+            if (benchIdsSel.has(mid)) return false
+            if (rosteredInTournament.has(mid)) return false
+            return phoneMatchesMemberSearch(display, memberPhoneRawForSelector(m))
           })
+          if (offClubMatches.length === 1) {
+            const member = offClubMatches[0]
+            const memberId = member.id
+            const feeStr = resolveMemberFeeDraftStr(memberId)
+            flushSync(() => {
+              updateCurrentState((state) => addMemberToBenchInState(state, memberId, feeStr))
+            })
+          }
+        } else {
+          const team = teams.find((x) => x.id === teamId)
+          const onTeamIds = new Set((team?.memberIds || []).map((id) => String(id)))
+          const offClubMatches = memberList.filter((m) => {
+            const mid = String(m.id)
+            if (onTeamIds.has(mid)) return false
+            if (rosteredInTournament.has(mid)) return false
+            if (benchIdsSel.has(mid)) return false
+            return phoneMatchesMemberSearch(display, memberPhoneRawForSelector(m))
+          })
+          if (offClubMatches.length === 1) {
+            const member = offClubMatches[0]
+            const memberId = member.id
+            const feeStr = resolveMemberFeeDraftStr(memberId)
+            flushSync(() => {
+              updateCurrentState((state) => ({
+                ...state,
+                teams: (state.teams || []).map((t) => {
+                  if (t.id !== teamId) return t
+                  if ((t.memberIds || []).some((id) => String(id) === String(memberId))) return t
+                  const ids = [...(t.memberIds || []).filter((id) => String(id) !== String(memberId)), memberId]
+                  const mp = { ...(t.memberTournamentPayments || {}) }
+                  mp[memberId] = {
+                    ...normalizeMemberPaymentEntry(mp[memberId]),
+                    fee: feeStr,
+                  }
+                  return { ...t, memberIds: ids, memberTournamentPayments: mp }
+                }),
+              }))
+            })
+          }
         }
       }
       requestAnimationFrame(() => {
@@ -5703,7 +5779,15 @@ function App({ currentUser }) {
         }
       })
     },
-    [openMemberSelectorForTeam, teams, members, memberSelectorFeeDraft, resolveMemberFeeDraftStr, updateCurrentState]
+    [
+      openMemberSelectorForTeam,
+      teams,
+      members,
+      memberSelectorFeeDraft,
+      resolveMemberFeeDraftStr,
+      updateCurrentState,
+      rosterBenchForSelector,
+    ]
   )
 
   const handleMemberSelectorSearchByPhone = useCallback(async () => {
@@ -6075,12 +6159,15 @@ function App({ currentUser }) {
         rosteredInTournament.add(String(id))
       }
     }
+    for (const id of rosterBenchForSelector.memberIds || []) {
+      rosteredInTournament.add(String(id))
+    }
     const favSet = new Set(clubDirectoryFavoriteMemberIds.map(String))
     const nameOf = memberDisplayNameForSelector
     return members
       .filter((m) => favSet.has(String(m.id)) && !rosteredInTournament.has(String(m.id)))
       .sort((a, b) => nameOf(a).localeCompare(nameOf(b), undefined, { sensitivity: 'base' }))
-  }, [openMemberSelectorForTeam, teams, members, clubDirectoryFavoriteMemberIds])
+  }, [openMemberSelectorForTeam, teams, members, clubDirectoryFavoriteMemberIds, rosterBenchForSelector])
 
   const stripMemberFromAllTeamsInState = (teamsList, memberId) => {
     const mid = String(memberId)
@@ -6154,6 +6241,13 @@ function App({ currentUser }) {
       return
     }
     updateCurrentState((state) => {
+      if (tid === TOURNAMENT_ROSTER_MODAL_TEAM_ID) {
+        let next = { ...state }
+        for (const member of sel) {
+          next = addMemberToBenchInState(next, member.id, resolveMemberFeeDraftStr(member.id))
+        }
+        return next
+      }
       let list = [...(state.teams || [])]
       for (const member of sel) {
         list = stripMemberFromAllTeamsInState(list, member.id)
@@ -6395,6 +6489,7 @@ function App({ currentUser }) {
       return
     }
     if (!viewedTournamentBooking?.id || !clubId) return
+    const teamIdForGuest = openMemberSelectorForTeam
     setMemberSelectorGuestInviteBusy(true)
     try {
       const res = await bookingApi.createTournamentGuestFeeShare({
@@ -6406,36 +6501,41 @@ function App({ currentUser }) {
         guestKind: 'auto',
       })
       await syncBookingsAfterApi()
-      const teamId = openMemberSelectorForTeam
       const token = res?.inviteToken
-      if (teamId) {
+      if (teamIdForGuest) {
         const phoneDig = phoneDigitsNormalized(phone)
-        updateCurrentState((state) => ({
-          ...state,
-          teams: (state.teams || []).map((t) => {
-            if (t.id !== teamId) return t
-            const prev = Array.isArray(t.pendingFeeGuests) ? t.pendingFeeGuests : []
-            const rest = prev.filter((g) => phoneDigitsNormalized(g.phoneDisplay || '') !== phoneDig)
-            return {
-              ...t,
-              pendingFeeGuests: [
-                ...rest,
-                {
-                  id: `pending-${token || `${Date.now()}`}`,
-                  phoneDisplay: phone,
-                  fee: String(amt),
-                  inviteToken: token || null,
-                },
-              ],
-            }
-          }),
-        }))
+        const guestRow = {
+          id: `pending-${token || `${Date.now()}`}`,
+          phoneDisplay: phone,
+          fee: String(amt),
+          inviteToken: token || null,
+        }
+        if (teamIdForGuest === TOURNAMENT_ROSTER_MODAL_TEAM_ID) {
+          updateCurrentState((state) => addGuestToBenchInState(state, guestRow))
+        } else {
+          updateCurrentState((state) => ({
+            ...state,
+            teams: (state.teams || []).map((t) => {
+              if (t.id !== teamIdForGuest) return t
+              const prev = Array.isArray(t.pendingFeeGuests) ? t.pendingFeeGuests : []
+              const rest = prev.filter((g) => phoneDigitsNormalized(g.phoneDisplay || '') !== phoneDig)
+              return {
+                ...t,
+                pendingFeeGuests: [...rest, guestRow],
+              }
+            }),
+          }))
+        }
       }
-      setOpenMemberSelectorForTeam(null)
+      if (teamIdForGuest !== TOURNAMENT_ROSTER_MODAL_TEAM_ID) {
+        setOpenMemberSelectorForTeam(null)
+      }
       setMemberSelectorSearch('')
-      const wa = res?.whatsappLink || res?.payUrl
-      if (wa && typeof window !== 'undefined') {
-        window.open(wa, '_blank', 'noopener,noreferrer')
+      if (teamIdForGuest !== TOURNAMENT_ROSTER_MODAL_TEAM_ID) {
+        const wa = res?.whatsappLink || res?.payUrl
+        if (wa && typeof window !== 'undefined') {
+          window.open(wa, '_blank', 'noopener,noreferrer')
+        }
       }
     } catch (e) {
       const code = e?.apiCode
@@ -6569,16 +6669,25 @@ function App({ currentUser }) {
     viewedTournamentBooking?.date != null ? String(viewedTournamentBooking.date).split('T')[0] : ''
   const tournamentTimeLabel = `${viewedTournamentBooking?.startTime || ''} – ${viewedTournamentBooking?.endTime || ''}`
 
-  const openTeamMemberSelector = (teamId) => {
-    const team = teams.find(t => t.id === teamId)
-    const pay = team?.memberTournamentPayments || {}
+  const openTournamentRosterModal = () => {
+    const rb = currentState.rosterBench || emptyRosterBench()
     const draft = {}
-    members.forEach(m => {
-      const saved = pay[m.id]?.fee
+    members.forEach((m) => {
+      const mid = String(m.id)
+      let saved = rb.memberFees[mid]
+      if (saved == null || String(saved).trim() === '') {
+        for (const t of teams || []) {
+          const f = (t.memberTournamentPayments || {})[m.id]?.fee
+          if (f != null && String(f).trim() !== '') {
+            saved = f
+            break
+          }
+        }
+      }
       draft[m.id] = saved != null && saved !== '' ? String(saved) : String(memberSelectorBulkFee || '')
     })
     setMemberSelectorFeeDraft(draft)
-    setOpenMemberSelectorForTeam(teamId)
+    setOpenMemberSelectorForTeam(TOURNAMENT_ROSTER_MODAL_TEAM_ID)
     setMemberSelectorSearch('')
     setMemberSelectorSearchNonce(0)
     setMemberSelectorFavBulkSelected({})
@@ -6586,25 +6695,123 @@ function App({ currentUser }) {
     setMemberSelectorQuickPicksLoading(false)
   }
 
+  const assignTournamentMemberFromBenchToTeam = (memberId, toTeamId) => {
+    if (!memberId || !toTeamId) return
+    updateCurrentState((state) => {
+      const rb = state.rosterBench || emptyRosterBench()
+      const mid = String(memberId)
+      if (!(rb.memberIds || []).some((id) => String(id) === mid)) return state
+      const feeStr =
+        rb.memberFees[mid] != null && String(rb.memberFees[mid]).trim() !== ''
+          ? String(rb.memberFees[mid])
+          : String(memberSelectorBulkFee || '')
+      const mf = { ...(rb.memberFees || {}) }
+      delete mf[mid]
+      const list = state.teams || []
+      return {
+        ...state,
+        rosterBench: {
+          ...rb,
+          memberIds: (rb.memberIds || []).filter((id) => String(id) !== mid),
+          memberFees: mf,
+        },
+        teams: list.map((t) => {
+          if (t.id !== toTeamId) return t
+          const ids = [...(t.memberIds || []).filter((id) => String(id) !== mid), memberId]
+          const mp = { ...(t.memberTournamentPayments || {}) }
+          mp[memberId] = {
+            ...normalizeMemberPaymentEntry(mp[memberId]),
+            fee: feeStr,
+          }
+          return { ...t, memberIds: ids, memberTournamentPayments: mp }
+        }),
+      }
+    })
+  }
+
+  const moveTournamentMemberToBench = (memberId, fromTeamId) => {
+    if (!memberId || !fromTeamId) return
+    updateCurrentState((state) => {
+      const list = state.teams || []
+      const from = list.find((t) => t.id === fromTeamId)
+      if (!from || !(from.memberIds || []).some((id) => String(id) === String(memberId))) return state
+      const rawEntry = (from.memberTournamentPayments || {})[memberId]
+      const entry = normalizeMemberPaymentEntry(rawEntry)
+      const feeStr = entry.fee != null && String(entry.fee).trim() !== '' ? String(entry.fee) : ''
+      const rb = state.rosterBench || emptyRosterBench()
+      const mid = String(memberId)
+      const hasBench = (rb.memberIds || []).some((id) => String(id) === mid)
+      return {
+        ...state,
+        teams: list.map((t) => {
+          if (t.id !== fromTeamId) return t
+          const ids = (t.memberIds || []).filter((id) => String(id) !== mid)
+          const mp = { ...(t.memberTournamentPayments || {}) }
+          delete mp[memberId]
+          return { ...t, memberIds: ids, memberTournamentPayments: mp }
+        }),
+        rosterBench: {
+          ...rb,
+          memberIds: hasBench ? rb.memberIds : [...(rb.memberIds || []), memberId],
+          memberFees: { ...(rb.memberFees || {}), [mid]: feeStr },
+        },
+      }
+    })
+  }
+
+  const assignTournamentGuestToTeam = (guest, toTeamId) => {
+    if (!guest?.id || !toTeamId) return
+    const gid = String(guest.id)
+    updateCurrentState((state) => {
+      const { teams: tl, rosterBench: rbNext } = removeGuestByIdFromTeamsAndBench(
+        state.teams,
+        state.rosterBench,
+        gid
+      )
+      return {
+        ...state,
+        teams: tl.map((t) => {
+          if (t.id !== toTeamId) return t
+          const prev = Array.isArray(t.pendingFeeGuests) ? t.pendingFeeGuests : []
+          return { ...t, pendingFeeGuests: [...prev.filter((g) => String(g.id) !== gid), guest] }
+        }),
+        rosterBench: rbNext,
+      }
+    })
+  }
+
+  const moveTournamentGuestToBench = (guest, fromTeamId) => {
+    if (!guest?.id || !fromTeamId) return
+    updateCurrentState((state) => {
+      const { teams: tl, rosterBench: rb0 } = removeGuestByIdFromTeamsAndBench(
+        state.teams,
+        state.rosterBench,
+        guest.id
+      )
+      return addGuestToBenchInState({ ...state, teams: tl, rosterBench: rb0 }, guest)
+    })
+  }
+
   const moveTeamMemberBetweenTeams = (memberId, fromTeamId, toTeamId) => {
     if (!memberId || !fromTeamId || !toTeamId || fromTeamId === toTeamId) return
+    const mid = String(memberId)
     updateCurrentState(state => {
       const list = state.teams || []
       const from = list.find(t => t.id === fromTeamId)
-      if (!from || !(from.memberIds || []).includes(memberId)) return state
+      if (!from || !(from.memberIds || []).some((id) => String(id) === mid)) return state
       const rawEntry = (from.memberTournamentPayments || {})[memberId]
       const entry = normalizeMemberPaymentEntry(rawEntry)
       return {
         ...state,
         teams: list.map(t => {
           if (t.id === fromTeamId) {
-            const ids = (t.memberIds || []).filter(id => id !== memberId)
+            const ids = (t.memberIds || []).filter(id => String(id) !== mid)
             const mp = { ...(t.memberTournamentPayments || {}) }
             delete mp[memberId]
             return { ...t, memberIds: ids, memberTournamentPayments: mp }
           }
           if (t.id === toTeamId) {
-            const ids = [...(t.memberIds || []).filter(id => id !== memberId), memberId]
+            const ids = [...(t.memberIds || []).filter(id => String(id) !== mid), memberId]
             const mp = { ...(t.memberTournamentPayments || {}), [memberId]: entry }
             return { ...t, memberIds: ids, memberTournamentPayments: mp }
           }
@@ -6626,6 +6833,246 @@ function App({ currentUser }) {
       }),
     }))
   }
+
+  const paySharePublicUrl = useCallback((inviteToken) => {
+    if (typeof window === 'undefined') return ''
+    const tok = String(inviteToken || '').trim()
+    if (!tok) return ''
+    const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '')
+    return `${window.location.origin}${base}/pay-share/${encodeURIComponent(tok)}`
+  }, [])
+
+  const tournamentParticipantFeesTotal = useMemo(() => {
+    let sum = 0
+    const add = (v) => {
+      const n = parseFloat(String(v || '').replace(',', '.')) || 0
+      if (n > 0) sum += n
+    }
+    const rb = currentState.rosterBench || emptyRosterBench()
+    for (const mid of rb.memberIds || []) add(rb.memberFees[String(mid)])
+    for (const g of rb.guests || []) add(g.fee)
+    for (const tm of teams || []) {
+      for (const mid of tm.memberIds || []) add((tm.memberTournamentPayments || {})[mid]?.fee)
+      for (const g of tm.pendingFeeGuests || []) add(g.fee)
+    }
+    return Math.round(sum * 100) / 100
+  }, [currentState.rosterBench, teams])
+
+  const tournamentRosterPoolEntries = useMemo(() => {
+    const out = []
+    const rb = currentState.rosterBench || emptyRosterBench()
+    for (const mid of rb.memberIds || []) {
+      const m = members.find((x) => String(x.id) === String(mid))
+      if (!m) continue
+      out.push({
+        key: `bench-m-${mid}`,
+        type: 'member',
+        memberId: m.id,
+        fromTeamId: 'bench',
+        label: m.name,
+        sub: t.tournamentRosterUnassignedBadge,
+      })
+    }
+    for (const g of rb.guests || []) {
+      const label = String(g.memberName || '').trim() || g.phoneDisplay
+      out.push({
+        key: `bench-g-${g.id}`,
+        type: 'guest',
+        guest: g,
+        fromTeamId: 'bench',
+        label,
+        sub: t.tournamentRosterUnassignedBadge,
+      })
+    }
+    for (const team of teams || []) {
+      for (const mid of team.memberIds || []) {
+        const m = members.find((x) => String(x.id) === String(mid))
+        if (!m) continue
+        out.push({
+          key: `t-${team.id}-m-${mid}`,
+          type: 'member',
+          memberId: m.id,
+          fromTeamId: team.id,
+          label: m.name,
+          sub: team.name,
+        })
+      }
+      for (const g of team.pendingFeeGuests || []) {
+        const gl = String(g.memberName || '').trim() || g.phoneDisplay
+        out.push({
+          key: `t-${team.id}-g-${g.id}`,
+          type: 'guest',
+          guest: g,
+          fromTeamId: team.id,
+          label: gl,
+          sub: team.name,
+        })
+      }
+    }
+    return out
+  }, [currentState.rosterBench, teams, members, t])
+
+  const applyTournamentEqualSplitPool = useCallback(() => {
+    const total = parseFloat(String(tournamentEqualSplitPool || '').replace(',', '.')) || 0
+    if (total <= 0.009) {
+      alert(language === 'en' ? 'Enter a positive total amount.' : 'أدخل إجمالياً أكبر من صفر.')
+      return
+    }
+    const entries = []
+    const rb = currentState.rosterBench || emptyRosterBench()
+    for (const mid of rb.memberIds || []) entries.push({ kind: 'benchMember', id: mid })
+    for (const g of rb.guests || []) entries.push({ kind: 'benchGuest', id: g.id })
+    for (const tm of teams || []) {
+      for (const mid of tm.memberIds || []) entries.push({ kind: 'teamMember', teamId: tm.id, id: mid })
+      for (const g of tm.pendingFeeGuests || []) entries.push({ kind: 'teamGuest', teamId: tm.id, id: g.id })
+    }
+    if (entries.length === 0) {
+      alert(language === 'en' ? 'Add participants first.' : 'أضِف مشاركين أولاً.')
+      return
+    }
+    const each = Math.round((total / entries.length) * 100) / 100
+    updateCurrentState((state) => {
+      let next = { ...state }
+      const feeStr = String(each)
+      for (const e of entries) {
+        if (e.kind === 'benchMember') {
+          const rb0 = next.rosterBench || emptyRosterBench()
+          next = {
+            ...next,
+            rosterBench: {
+              ...rb0,
+              memberFees: { ...(rb0.memberFees || {}), [String(e.id)]: feeStr },
+            },
+          }
+        } else if (e.kind === 'benchGuest') {
+          const rb1 = next.rosterBench || emptyRosterBench()
+          next = {
+            ...next,
+            rosterBench: {
+              ...rb1,
+              guests: (rb1.guests || []).map((g) =>
+                String(g.id) === String(e.id) ? { ...g, fee: feeStr } : g
+              ),
+            },
+          }
+        } else if (e.kind === 'teamMember') {
+          next = {
+            ...next,
+            teams: (next.teams || []).map((tm) => {
+              if (tm.id !== e.teamId) return tm
+              const mp = { ...(tm.memberTournamentPayments || {}) }
+              const cur = normalizeMemberPaymentEntry(mp[e.id])
+              mp[e.id] = { ...cur, fee: feeStr }
+              return { ...tm, memberTournamentPayments: mp }
+            }),
+          }
+        } else if (e.kind === 'teamGuest') {
+          next = {
+            ...next,
+            teams: (next.teams || []).map((tm) => {
+              if (tm.id !== e.teamId) return tm
+              const pg = (tm.pendingFeeGuests || []).map((g) =>
+                String(g.id) === String(e.id) ? { ...g, fee: feeStr } : g
+              )
+              return { ...tm, pendingFeeGuests: pg }
+            }),
+          }
+        }
+      }
+      return next
+    })
+    setTournamentEqualSplitPool('')
+  }, [tournamentEqualSplitPool, currentState.rosterBench, teams, updateCurrentState, language])
+
+  const handleTournamentRosterDropOnTeam = (toTeamId, e) => {
+    e.preventDefault()
+    setTeamMemberDragOverId(null)
+    let payload = null
+    try {
+      payload = JSON.parse(e.dataTransfer.getData('application/json') || '{}')
+    } catch {
+      payload = null
+    }
+    if (!payload || typeof payload !== 'object') return
+    if (payload.type === 'guest' && payload.guest && payload.fromTeamId != null && payload.fromTeamId !== toTeamId) {
+      assignTournamentGuestToTeam(payload.guest, toTeamId)
+      return
+    }
+    if (!payload.memberId || payload.fromTeamId == null) return
+    if (payload.fromTeamId === toTeamId) return
+    if (payload.fromTeamId === 'bench') {
+      assignTournamentMemberFromBenchToTeam(payload.memberId, toTeamId)
+      return
+    }
+    moveTeamMemberBetweenTeams(payload.memberId, payload.fromTeamId, toTeamId)
+  }
+
+  const handleTournamentRosterDropOnBench = (e) => {
+    e.preventDefault()
+    setTeamMemberDragOverId(null)
+    let payload = null
+    try {
+      payload = JSON.parse(e.dataTransfer.getData('application/json') || '{}')
+    } catch {
+      payload = null
+    }
+    if (!payload || typeof payload !== 'object') return
+    const from = payload.fromTeamId
+    if (!from || from === 'bench') return
+    if (payload.type === 'guest' && payload.guest) {
+      moveTournamentGuestToBench(payload.guest, from)
+      return
+    }
+    if (payload.memberId) {
+      moveTournamentMemberToBench(payload.memberId, from)
+    }
+  }
+
+  useEffect(() => {
+    const bid = viewedTournamentBooking?.id
+    if (!clubId || !bid || !isLikelyServerBookingId(bid)) return
+    if (activeTab !== 'king' && activeTab !== 'social') return
+    if (!Array.isArray(teams) || teams.length === 0) return
+    const teamSlots = teams.map((tm) => ({
+      id: String(tm.id),
+      name: String(tm.name || '').trim() || String(tm.id),
+    }))
+    const platformMember = getCurrentPlatformUser()
+    const rawSid = getCurrentMemberId()
+    const sessionMemberId =
+      rawSid != null && String(rawSid).trim() !== '' ? String(rawSid).trim() : ''
+    const organizerFromBooking =
+      tournamentBookingRowForGuestInvite?.initiatorMemberId ??
+      tournamentBookingRowForGuestInvite?.memberId ??
+      tournamentBookingRowForGuestInvite?.initiator_member_id ??
+      tournamentBookingRowForGuestInvite?.member_id
+    let organizerId =
+      platformMember?.id != null && String(platformMember.id).trim() !== ''
+        ? String(platformMember.id).trim()
+        : sessionMemberId ||
+          (organizerFromBooking != null && String(organizerFromBooking).trim() !== ''
+            ? String(organizerFromBooking).trim()
+            : '')
+    const ca = getClubAdminSession()
+    const isClubAdminForThisClub =
+      ca && String(ca.clubId || '').trim() === String(clubId || '').trim()
+    if (!organizerId && isClubAdminForThisClub && ca?.userId) {
+      organizerId = String(ca.userId).trim()
+    }
+    if (!organizerId && !isClubAdminForThisClub) return
+
+    const tmr = window.setTimeout(() => {
+      bookingApi
+        .adminSyncTournamentTeamSlots({
+          bookingId: bid,
+          clubId,
+          teamSlots,
+          ...(organizerId ? { organizerMemberId: organizerId } : {}),
+        })
+        .catch(() => {})
+    }, 1400)
+    return () => window.clearTimeout(tmr)
+  }, [clubId, viewedTournamentBooking?.id, activeTab, teams, tournamentBookingRowForGuestInvite])
 
   const matches = currentState.matches || []
   const courts = currentState.courts || [null, null, null, null]
@@ -8241,9 +8688,22 @@ function App({ currentUser }) {
             <div className="tab-content">
               {!(activeTab === 'social' && (tournamentStage === 'semi' || tournamentStage === 'final')) && (
                 <div className="section">
-            <div className="section-header">
+            <div className="section-header section-header--tournament-teams">
               <h2>{t.teams} ({teams.length})</h2>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <div className="section-header--tournament-teams__actions">
+                {(activeTab === 'king' || activeTab === 'social') && (
+                  <>
+                    <button type="button" className="btn-primary" onClick={openTournamentRosterModal}>
+                      {t.tournamentSelectParticipants}
+                    </button>
+                    <div className="tournament-roster-total-fees" title={t.tournamentRosterTotalLabel}>
+                      <span className="tournament-roster-total-fees__label">{t.tournamentRosterTotalLabel}</span>
+                      <span className="tournament-roster-total-fees__value">
+                        {tournamentParticipantFeesTotal.toFixed(2)} {clubCurrency}
+                      </span>
+                    </div>
+                  </>
+                )}
                 {activeTab === 'social' && Object.keys(groupStage).length === 0 && teams.length >= 12 && (
                   <button 
                     className="btn-primary" 
@@ -8252,7 +8712,7 @@ function App({ currentUser }) {
                     {language === 'en' ? 'Initialize Groups' : 'تهيئة المجموعات'}
                   </button>
                 )}
-                <button className="btn-primary" onClick={addTeam}>{t.add}</button>
+                <button type="button" className="btn-primary" onClick={addTeam}>{t.add}</button>
               </div>
             </div>
             {activeTab === 'social' && tournamentStage === 'group' && Object.keys(groupStage).length > 0 ? (
@@ -8344,6 +8804,53 @@ function App({ currentUser }) {
                     )}
                   </div>
                 )}
+                {(activeTab === 'king' || activeTab === 'social') && (
+                  <>
+                    {tournamentRosterPoolEntries.length > 0 ? (
+                      <div className="tournament-roster-pool">
+                        <div className="tournament-roster-pool__head">
+                          <h3 className="tournament-roster-pool__title">{t.tournamentRosterPoolTitle}</h3>
+                          <p className="tournament-roster-pool__hint">{t.tournamentRosterPoolDragHint}</p>
+                        </div>
+                        <div className="tournament-roster-pool__chips" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                          {tournamentRosterPoolEntries.map((ent) => (
+                            <div
+                              key={ent.key}
+                              className="tournament-roster-pool__chip"
+                              draggable
+                              onDragStart={(e) => {
+                                const payload =
+                                  ent.type === 'member'
+                                    ? { type: 'member', memberId: ent.memberId, fromTeamId: ent.fromTeamId }
+                                    : { type: 'guest', guest: ent.guest, fromTeamId: ent.fromTeamId }
+                                e.dataTransfer.setData('application/json', JSON.stringify(payload))
+                                e.dataTransfer.effectAllowed = 'move'
+                              }}
+                              onDragEnd={() => setTeamMemberDragOverId(null)}
+                            >
+                              <span className="tournament-roster-pool__chip-label">{ent.label}</span>
+                              <span className="tournament-roster-pool__chip-sub">{ent.sub}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    <div
+                      className={`tournament-roster-bench-zone${
+                        teamMemberDragOverId === '__bench__' ? ' tournament-roster-bench-zone--active' : ''
+                      }`}
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        e.dataTransfer.dropEffect = 'move'
+                        setTeamMemberDragOverId('__bench__')
+                      }}
+                      onDragLeave={() => setTeamMemberDragOverId(null)}
+                      onDrop={handleTournamentRosterDropOnBench}
+                    >
+                      {t.tournamentRosterBenchDropHint}
+                    </div>
+                  </>
+                )}
                 <div className="teams-list">
                   {teams.map(team => (
                   <div
@@ -8354,19 +8861,7 @@ function App({ currentUser }) {
                       e.dataTransfer.dropEffect = 'move'
                       setTeamMemberDragOverId(team.id)
                     }}
-                    onDrop={(e) => {
-                      e.preventDefault()
-                      setTeamMemberDragOverId(null)
-                      let payload = null
-                      try {
-                        payload = JSON.parse(e.dataTransfer.getData('application/json') || '{}')
-                      } catch {
-                        payload = null
-                      }
-                      if (payload?.memberId && payload?.fromTeamId) {
-                        moveTeamMemberBetweenTeams(payload.memberId, payload.fromTeamId, team.id)
-                      }
-                    }}
+                    onDrop={(e) => handleTournamentRosterDropOnTeam(team.id, e)}
                   >
                     <div className="team-main">
                       <input
@@ -8382,10 +8877,14 @@ function App({ currentUser }) {
                         −
                       </button>
                     </div>
-                    {(members.length > 0 || (team.pendingFeeGuests || []).length > 0) && (
+                    {(activeTab === 'king' || activeTab === 'social' || members.length > 0 || (team.pendingFeeGuests || []).length > 0) && (
                       <div className="team-members-selection">
                         <label className="team-members-label">{t.teamMembers}:</label>
-                        <p className="team-members-drag-hint">{t.dragMembersBetweenTeamsHint}</p>
+                        <p className="team-members-drag-hint">
+                          {activeTab === 'king' || activeTab === 'social'
+                            ? t.tournamentRosterTeamDropHint
+                            : t.dragMembersBetweenTeamsHint}
+                        </p>
                         <div className="selected-members-chips selected-members-chips--tournament-pay-grid">
                           {(team.pendingFeeGuests || []).map((g) => {
                             const shareRow = tournamentBookingRowForGuestInvite
@@ -8407,12 +8906,28 @@ function App({ currentUser }) {
                               tournamentBookingForDeadline
                             )
                             const guestVariantClass = guestPayUi.variant.replace(/_/g, '-')
+                            const guestShareTok = String(
+                              shareRow?.inviteToken || shareRow?.invite_token || g.inviteToken || ''
+                            ).trim()
+                            const guestFeeAmt =
+                              tournamentBookingRowForGuestInvite
+                                ? effectivePendingGuestFee(tournamentBookingRowForGuestInvite, g, tournamentGuestShareOpts)
+                                : parseFloat(g.fee) || 0
                             return (
                               <div
                                 key={g.id}
                                 className={`tournament-member-pay-card tournament-member-pay-card--guest tournament-member-pay-card--${guestVariantClass}${
                                   guestPayUi.deadlinePassed ? ' tournament-member-pay-card--deadline-passed' : ''
                                 }`}
+                                draggable
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData(
+                                    'application/json',
+                                    JSON.stringify({ type: 'guest', guest: g, fromTeamId: team.id })
+                                  )
+                                  e.dataTransfer.effectAllowed = 'move'
+                                }}
+                                onDragEnd={() => setTeamMemberDragOverId(null)}
                               >
                                 <div className="tournament-member-pay-card__accent" aria-hidden />
                                 <div className="tournament-member-pay-card__inner">
@@ -8435,6 +8950,25 @@ function App({ currentUser }) {
                                       >
                                         {pendingGuestWaGuestId === g.id ? '…' : t.tournamentGuestPendingWhatsApp}
                                       </button>
+                                      {guestShareTok && shareRow && !shareIsEffectivelyPaid(shareRow) ? (
+                                        <TournamentShareSnippetButton
+                                          payUrl={paySharePublicUrl(guestShareTok)}
+                                          clubName={String(currentClub?.name || clubNameWhatsApp || '').trim()}
+                                          amount={guestFeeAmt}
+                                          currency={clubCurrency}
+                                          language={language}
+                                          tournamentLabel={
+                                            language === 'ar'
+                                              ? activeTab === 'social'
+                                                ? 'بطولة سوشيال'
+                                                : 'ملك الملعب'
+                                              : activeTab === 'social'
+                                                ? 'Social'
+                                                : 'King'
+                                          }
+                                          className="tournament-member-pay-card__share-snippet"
+                                        />
+                                      ) : null}
                                       <button
                                         type="button"
                                         className="tournament-member-pay-card__icon-btn tournament-member-pay-card__icon-btn--danger"
@@ -8507,6 +9041,10 @@ function App({ currentUser }) {
                                 payEntry,
                                 tournamentGuestShareOpts
                               )
+                              const memberShareTok = String(
+                                shareRowForMember?.inviteToken || shareRowForMember?.invite_token || ''
+                              ).trim()
+                              const memberFeeNum = parseFloat(String(feeDisplay || '').replace(',', '.')) || 0
                               return (
                                 <div
                                   key={memberId}
@@ -8517,7 +9055,11 @@ function App({ currentUser }) {
                                   onDragStart={(e) => {
                                     e.dataTransfer.setData(
                                       'application/json',
-                                      JSON.stringify({ memberId, fromTeamId: team.id })
+                                      JSON.stringify({
+                                        type: 'member',
+                                        memberId,
+                                        fromTeamId: team.id,
+                                      })
                                     )
                                     e.dataTransfer.effectAllowed = 'move'
                                   }}
@@ -8544,6 +9086,25 @@ function App({ currentUser }) {
                                           >
                                             {t.tournamentGuestPendingWhatsApp}
                                           </button>
+                                        ) : null}
+                                        {memberShareTok && shareRowForMember && !shareIsEffectivelyPaid(shareRowForMember) ? (
+                                          <TournamentShareSnippetButton
+                                            payUrl={paySharePublicUrl(memberShareTok)}
+                                            clubName={String(currentClub?.name || clubNameWhatsApp || '').trim()}
+                                            amount={memberFeeNum}
+                                            currency={clubCurrency}
+                                            language={language}
+                                            tournamentLabel={
+                                              language === 'ar'
+                                                ? activeTab === 'social'
+                                                  ? 'بطولة سوشيال'
+                                                  : 'ملك الملعب'
+                                                : activeTab === 'social'
+                                                  ? 'Social'
+                                                  : 'King'
+                                            }
+                                            className="tournament-member-pay-card__share-snippet"
+                                          />
                                         ) : null}
                                         <button
                                           type="button"
@@ -8659,16 +9220,13 @@ function App({ currentUser }) {
                               )
                             })
                           ) : (team.pendingFeeGuests || []).length === 0 ? (
-                            <span className="no-selected-members">{t.selectTeamMembers}</span>
+                            <span className="no-selected-members">
+                              {activeTab === 'king' || activeTab === 'social'
+                                ? t.tournamentRosterEmptyTeamHint
+                                : t.selectTeamMembers}
+                            </span>
                           ) : null}
                         </div>
-                        <button
-                          className="btn-secondary btn-small"
-                          style={{ marginTop: '8px', width: '100%' }}
-                          onClick={() => openTeamMemberSelector(team.id)}
-                        >
-                          {t.selectTeamMembers}
-                        </button>
                       </div>
                     )}
                   </div>
@@ -9638,7 +10196,11 @@ function App({ currentUser }) {
             <div className="modal-overlay modal-overlay--member-selector" onClick={() => setOpenMemberSelectorForTeam(null)}>
               <div className="member-selector-modal member-selector-modal--v2" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header member-selector-modal__header">
-                  <h3 id="member-selector-title">{t.selectTeamMembers}</h3>
+                  <h3 id="member-selector-title">
+                    {openMemberSelectorForTeam === TOURNAMENT_ROSTER_MODAL_TEAM_ID
+                      ? t.tournamentSelectParticipants
+                      : t.selectTeamMembers}
+                  </h3>
                   <button type="button" className="modal-close" onClick={() => setOpenMemberSelectorForTeam(null)} aria-label={t.close}>
                     ×
                   </button>
@@ -9673,6 +10235,28 @@ function App({ currentUser }) {
                           {t.applyFeeToAllMembers}
                         </button>
                       </div>
+                      {openMemberSelectorForTeam === TOURNAMENT_ROSTER_MODAL_TEAM_ID ? (
+                        <div className="member-selector-equal-split">
+                          <label className="member-selector-equal-split__label">
+                            <span>{t.tournamentEqualSplitLabel}</span>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              className="search-input member-selector-equal-split__input"
+                              value={tournamentEqualSplitPool}
+                              onChange={(e) => setTournamentEqualSplitPool(e.target.value)}
+                              placeholder={language === 'en' ? 'e.g. 800' : 'مثال: 800'}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            className="btn-secondary btn-small member-selector-equal-split__apply"
+                            onClick={() => applyTournamentEqualSplitPool()}
+                          >
+                            {t.tournamentEqualSplitApply}
+                          </button>
+                        </div>
+                      ) : null}
                       <details className="member-selector-disclosure">
                         <summary className="member-selector-disclosure__summary">{t.memberSelectorHelpDetailsTitle}</summary>
                         <div className="member-selector-disclosure__body">
@@ -9859,14 +10443,20 @@ function App({ currentUser }) {
                                   </ul>
                                   <div className="member-selector-favorites-actions">
                                     <button type="button" className="btn-primary btn-small" onClick={() => handleFavoritesAddToCurrentTeam()}>
-                                      {t.memberSelectorFavoritesToThisTeam}
+                                      {openMemberSelectorForTeam === TOURNAMENT_ROSTER_MODAL_TEAM_ID
+                                        ? t.tournamentRosterFavoritesToBench
+                                        : t.memberSelectorFavoritesToThisTeam}
                                     </button>
-                                    <button type="button" className="btn-secondary btn-small" onClick={() => handleFavoritesDistributeRoundRobin()}>
-                                      {t.memberSelectorFavoritesRoundRobin}
-                                    </button>
-                                    <button type="button" className="btn-secondary btn-small" onClick={() => handleFavoritesDistributeSequential()}>
-                                      {t.memberSelectorFavoritesSequentialTeams}
-                                    </button>
+                                    {openMemberSelectorForTeam !== TOURNAMENT_ROSTER_MODAL_TEAM_ID ? (
+                                      <>
+                                        <button type="button" className="btn-secondary btn-small" onClick={() => handleFavoritesDistributeRoundRobin()}>
+                                          {t.memberSelectorFavoritesRoundRobin}
+                                        </button>
+                                        <button type="button" className="btn-secondary btn-small" onClick={() => handleFavoritesDistributeSequential()}>
+                                          {t.memberSelectorFavoritesSequentialTeams}
+                                        </button>
+                                      </>
+                                    ) : null}
                                   </div>
                                   <p className="member-selector-favorites-hint">{t.memberSelectorFavoritesDistributeHint}</p>
                                 </>
@@ -9906,10 +10496,20 @@ function App({ currentUser }) {
                       .filter((s) => s.list.length > 0)
                       .map((section) => (
                         <React.Fragment key={section.key}>
-                          <div className="member-selector-section-label">{section.title}</div>
+                          <div className="member-selector-section-label">
+                            {openMemberSelectorForTeam === TOURNAMENT_ROSTER_MODAL_TEAM_ID && section.key === 'on'
+                              ? t.tournamentRosterBenchSection
+                              : section.title}
+                          </div>
                           {section.list.map((member) => {
                             const team = teams.find((t) => t.id === openMemberSelectorForTeam)
-                            const isSelected = (team?.memberIds || []).some((id) => String(id) === String(member.id))
+                            const onBenchIds = new Set(
+                              (rosterBenchForSelector.memberIds || []).map((id) => String(id))
+                            )
+                            const isSelected =
+                              openMemberSelectorForTeam === TOURNAMENT_ROSTER_MODAL_TEAM_ID
+                                ? onBenchIds.has(String(member.id))
+                                : (team?.memberIds || []).some((id) => String(id) === String(member.id))
                             const feeVal = memberSelectorFeeDraft[member.id] ?? ''
                             const amt = parseFloat(String(resolveMemberFeeDraftStr(member.id)).replace(',', '.')) || 0
                             const phoneForWa = memberPhoneRawForSelector(member)
@@ -9940,27 +10540,39 @@ function App({ currentUser }) {
                                   onChange={(e) => {
                                     const v = e.target.value
                                     setMemberSelectorFeeDraft((d) => ({ ...d, [member.id]: v }))
-                                    if (isSelected) {
-                                      updateCurrentState((state) => ({
-                                        ...state,
-                                        teams: (state.teams || []).map((t) =>
-                                          t.id === openMemberSelectorForTeam
-                                            ? {
-                                                ...t,
-                                                memberTournamentPayments: {
-                                                  ...(t.memberTournamentPayments || {}),
-                                                  [member.id]: {
-                                                    ...normalizeMemberPaymentEntry(
-                                                      (t.memberTournamentPayments || {})[member.id]
-                                                    ),
-                                                    fee: v,
-                                                  },
-                                                },
-                                              }
-                                            : t
-                                        ),
-                                      }))
+                                    if (!isSelected) return
+                                    if (openMemberSelectorForTeam === TOURNAMENT_ROSTER_MODAL_TEAM_ID) {
+                                      updateCurrentState((state) => {
+                                        const rb = state.rosterBench || emptyRosterBench()
+                                        return {
+                                          ...state,
+                                          rosterBench: {
+                                            ...rb,
+                                            memberFees: { ...(rb.memberFees || {}), [String(member.id)]: v },
+                                          },
+                                        }
+                                      })
+                                      return
                                     }
+                                    updateCurrentState((state) => ({
+                                      ...state,
+                                      teams: (state.teams || []).map((t) =>
+                                        t.id === openMemberSelectorForTeam
+                                          ? {
+                                              ...t,
+                                              memberTournamentPayments: {
+                                                ...(t.memberTournamentPayments || {}),
+                                                [member.id]: {
+                                                  ...normalizeMemberPaymentEntry(
+                                                    (t.memberTournamentPayments || {})[member.id]
+                                                  ),
+                                                  fee: v,
+                                                },
+                                              },
+                                            }
+                                          : t
+                                      ),
+                                    }))
                                   }}
                                   aria-label={t.paymentAmountShort}
                                 />
@@ -10027,6 +10639,20 @@ function App({ currentUser }) {
                                     onChange={(e) => {
                                       const checked = e.target.checked
                                       const feeStr = resolveMemberFeeDraftStr(member.id)
+                                      if (openMemberSelectorForTeam === TOURNAMENT_ROSTER_MODAL_TEAM_ID) {
+                                        updateCurrentState((state) => {
+                                          if (checked) return addMemberToBenchInState(state, member.id, feeStr)
+                                          const rb = state.rosterBench || emptyRosterBench()
+                                          if (!(rb.memberIds || []).some((id) => String(id) === String(member.id))) {
+                                            return state
+                                          }
+                                          return {
+                                            ...state,
+                                            rosterBench: removeMemberFromBench(rb, member.id),
+                                          }
+                                        })
+                                        return
+                                      }
                                       updateCurrentState((state) => ({
                                         ...state,
                                         teams: (state.teams || []).map((t) => {

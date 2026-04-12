@@ -102,6 +102,8 @@ function needsDataActorHeaders(path, method) {
   if (m === 'POST' && path === '/api/bookings/record-remainder-payment') return true
   if (m === 'POST' && path === '/api/bookings/create-tournament-guest-fee-share') return true
   if (m === 'POST' && path === '/api/bookings/tournament-upsert-club-member-share') return true
+  if (m === 'POST' && path === '/api/bookings/admin-sync-tournament-team-slots') return true
+  if (m === 'POST' && path === '/api/bookings/member-tournament-team-preference') return true
   if (m === 'POST' && path.startsWith('/api/push/')) return true
   {
     const p = path.split('?')[0]
@@ -922,6 +924,23 @@ export async function tournamentUpsertClubMemberShare(payload) {
     method: 'POST',
     body: JSON.stringify(payload),
     ...(Object.keys(pushH).length ? { headers: pushH } : {}),
+  })
+}
+
+export async function adminSyncTournamentTeamSlots(payload) {
+  const cid = String(payload?.clubId || '').trim()
+  const pushH = buildPushSessionHeaders(cid)
+  return fetchJson('/api/bookings/admin-sync-tournament-team-slots', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    ...(Object.keys(pushH).length ? { headers: pushH } : {}),
+  })
+}
+
+export async function memberTournamentTeamPreference(payload) {
+  return fetchJson('/api/bookings/member-tournament-team-preference', {
+    method: 'POST',
+    body: JSON.stringify(payload),
   })
 }
 

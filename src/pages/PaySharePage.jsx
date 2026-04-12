@@ -5,7 +5,7 @@
  */
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { getInviteByToken, recordPayment, getWalletBalance } from '../api/dbClient'
+import { getInviteByToken, recordPayment, getWalletBalance, memberTournamentTeamPreference } from '../api/dbClient'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import './PaymentPage.css'
 import { UnifiedPaymentActionGrid } from '../components/UnifiedPaymentOptions'
@@ -31,6 +31,89 @@ const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 function clubPublicPath(clubId) {
   if (clubId == null || String(clubId).trim() === '') return '/'
   return `/clubs/${encodeURIComponent(String(clubId))}`
+}
+
+function canPickTournamentTeamAfterPay(data, platformUser) {
+  if (!data?.paidAt || !platformUser?.id) return false
+  if (!data.isTournamentBooking) return false
+  const slots = Array.isArray(data.tournamentTeamSlots) ? data.tournamentTeamSlots : []
+  if (slots.length === 0) return false
+  if (String(platformUser.id) !== String(data.memberId)) return false
+  return true
+}
+
+function PayShareTournamentTeamPrefBlock({ data, token, platformUser, language, onReload }) {
+  const slots = Array.isArray(data?.tournamentTeamSlots) ? data.tournamentTeamSlots : []
+  const [teamId, setTeamId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  const [ok, setOk] = useState(false)
+
+  useEffect(() => {
+    const prefs = data?.tournamentMemberTeamPreferences || {}
+    const v = prefs[String(platformUser.id)]
+    setTeamId(v != null && String(v) !== '' ? String(v) : '')
+    setErr(null)
+    setOk(false)
+  }, [data?.tournamentMemberTeamPreferences, data?.inviteToken, platformUser?.id])
+
+  const save = async () => {
+    if (!token || !data?.clubId || !platformUser?.id || !teamId) return
+    setBusy(true)
+    setErr(null)
+    setOk(false)
+    try {
+      await memberTournamentTeamPreference({
+        inviteToken: token,
+        clubId: data.clubId,
+        memberId: String(platformUser.id),
+        preferredTeamId: teamId,
+      })
+      setOk(true)
+      await onReload?.()
+    } catch (e) {
+      setErr(e?.message || (language === 'ar' ? 'تعذّر الحفظ' : 'Could not save'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const c = {
+    title: t('Preferred team', 'الفريق المفضّل', language),
+    hint: t(
+      'You can change this later from this payment page while logged in.',
+      'يمكنك تغييره لاحقاً من هذه الصفحة طالما مسجّل الدخول.',
+      language
+    ),
+    choose: t('Choose a team', 'اختر فريقاً', language),
+    save: t('Save team choice', 'حفظ اختيار الفريق', language),
+    saved: t('Saved.', 'تم الحفظ.', language),
+  }
+
+  return (
+    <section className="pay-share-team-pref" aria-label={c.title}>
+      <h2 className="pay-share-team-pref__title">{c.title}</h2>
+      <p className="pay-share-team-pref__hint">{c.hint}</p>
+      <select
+        className="pay-share-team-pref__select"
+        value={teamId}
+        onChange={(e) => setTeamId(e.target.value)}
+        aria-label={c.choose}
+      >
+        <option value="">{c.choose}</option>
+        {slots.map((s) => (
+          <option key={s.id} value={String(s.id)}>
+            {String(s.name || s.id).trim() || String(s.id)}
+          </option>
+        ))}
+      </select>
+      <button type="button" className="pay-share-team-pref__save" disabled={busy || !teamId} onClick={() => void save()}>
+        {busy ? t('Saving…', 'جاري الحفظ…', language) : c.save}
+      </button>
+      {ok ? <p className="pay-share-team-pref__ok">{c.saved}</p> : null}
+      {err ? <p className="pay-share-team-pref__err">{err}</p> : null}
+    </section>
+  )
 }
 
 const formatDate = (dateStr, lang) => {
@@ -151,14 +234,21 @@ const PaySharePage = () => {
     }
   }, [platformUser?.id, data?.clubId, data?.paidAt])
 
+  useEffect(() => {
+    if (!success || !data || !platformUser) return
+    if (canPickTournamentTeamAfterPay(data, platformUser)) return
+    const tmr = window.setTimeout(() => navigate('/my-bookings?payment=success'), 2000)
+    return () => window.clearTimeout(tmr)
+  }, [success, data, platformUser, navigate])
+
   const handlePayAtClub = async () => {
     if (!token || !data?.clubId) return
     setSubmitting(true)
     setError(null)
     try {
       await recordPayment({ inviteToken: token, clubId: data.clubId, paymentMethod: 'at_club' })
+      await loadInvite()
       setSuccess(true)
-      setTimeout(() => navigate('/my-bookings?payment=success'), 2000)
     } catch (e) {
       setError(e?.message || (language === 'ar' ? 'فشل تسجيل الدفع' : 'Failed to record payment'))
     } finally {
@@ -172,8 +262,8 @@ const PaySharePage = () => {
     setError(null)
     try {
       await recordPayment({ inviteToken: token, clubId: data.clubId, paymentMethod: 'wallet' })
+      await loadInvite()
       setSuccess(true)
-      setTimeout(() => navigate('/my-bookings?payment=success'), 2000)
     } catch (e) {
       setError(e?.message || (language === 'ar' ? 'فشل الدفع من المحفظة' : 'Wallet payment failed'))
     } finally {
@@ -189,8 +279,8 @@ const PaySharePage = () => {
     try {
       const paymentReference = `online_${Date.now()}`
       await recordPayment({ inviteToken: token, clubId: data.clubId, paymentReference, paymentMethod: 'electronic' })
+      await loadInvite()
       setSuccess(true)
-      setTimeout(() => navigate('/my-bookings?payment=success'), 2000)
     } catch (e) {
       setError(e?.message || (language === 'ar' ? 'فشل الدفع. حاول مجدداً.' : 'Payment failed. Please try again.'))
     } finally {
@@ -205,7 +295,7 @@ const PaySharePage = () => {
     payElectronic: t('Pay electronically', 'الدفع الإلكتروني', language),
     payElectronicDesc: t('Pay with card or Mada online', 'الدفع بالبطاقة أو متاب أونلاين', language),
     amount: t('Your share', 'حصتك', language),
-    success: t('Payment recorded! Redirecting...', 'تم تسجيل الدفع! جاري التحويل...', language),
+    success: t('Payment recorded', 'تم تسجيل الدفع', language),
     backToHome: t('Back to home', 'العودة للرئيسية', language),
     openClubPage: t('Open club page', 'صفحة النادي', language),
     myBookings: t('My bookings', 'حجوزاتي', language),
@@ -284,12 +374,26 @@ const PaySharePage = () => {
   }
 
   if (success) {
+    const showTeamPref = canPickTournamentTeamAfterPay(data, platformUser)
     return (
-      <div className="payment-page">
+      <div className="payment-page" dir={language === 'ar' ? 'rtl' : 'ltr'}>
         <div className="payment-card payment-success">
           <div className="payment-success-icon">✓</div>
           <h1 className="payment-title">{c.success}</h1>
-          <Link to="/my-bookings" className="payment-btn payment-btn-primary">{c.myBookings}</Link>
+          {showTeamPref ? (
+            <PayShareTournamentTeamPrefBlock
+              data={data}
+              token={token}
+              platformUser={platformUser}
+              language={language}
+              onReload={loadInvite}
+            />
+          ) : (
+            <p className="payment-hint">{t('Redirecting to your bookings…', 'جاري التحويل إلى حجوزاتك…', language)}</p>
+          )}
+          <Link to="/my-bookings?payment=success" className="payment-btn payment-btn-primary payment-btn-submit">
+            {c.myBookings}
+          </Link>
         </div>
       </div>
     )
@@ -302,11 +406,23 @@ const PaySharePage = () => {
   const chosePayAtClub = paymentMethod === 'at_club' && !paidAt
 
   if (!canPayShare) {
+    const showTeamPref = !!(platformUser && canPickTournamentTeamAfterPay(data, platformUser))
     return (
-      <div className="payment-page">
+      <div className="payment-page" dir={language === 'ar' ? 'rtl' : 'ltr'}>
         <div className="payment-card">
           <h1 className="payment-title">{t('Share already settled', 'تم تسوية الحصة', language)}</h1>
-          <Link to="/my-bookings" className="payment-btn payment-btn-primary">{c.myBookings}</Link>
+          {showTeamPref ? (
+            <PayShareTournamentTeamPrefBlock
+              data={data}
+              token={token}
+              platformUser={platformUser}
+              language={language}
+              onReload={loadInvite}
+            />
+          ) : null}
+          <Link to="/my-bookings" className="payment-btn payment-btn-primary payment-btn-submit">
+            {c.myBookings}
+          </Link>
         </div>
       </div>
     )

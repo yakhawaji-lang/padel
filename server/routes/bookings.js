@@ -3113,6 +3113,124 @@ router.post('/tournament-upsert-club-member-share', async (req, res) => {
   }
 })
 
+/** POST /api/bookings/admin-sync-tournament-team-slots — حفظ أسماء/معرفات الفرق في بيانات الحجز لعرضها للمشاركين */
+router.post('/admin-sync-tournament-team-slots', async (req, res) => {
+  try {
+    const normalized = await hasNormalizedTables()
+    if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
+    const { bookingId, clubId, teamSlots, organizerMemberId } = req.body || {}
+    const bid = bookingId != null ? String(bookingId).trim() : ''
+    if (!bid || !clubId || !Array.isArray(teamSlots)) {
+      return res.status(400).json({ error: 'bookingId, clubId, and teamSlots array required' })
+    }
+
+    const adminGate = await assertClubPushActor(req, clubId)
+    const isAdmin = adminGate.ok === true
+    const orgId = String(organizerMemberId ?? '').trim()
+
+    const { rows: bRows } = await query(
+      `SELECT member_id, initiator_member_id, status, data FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`,
+      [bid, clubId]
+    )
+    if (!bRows?.length) return res.status(404).json({ error: 'Booking not found' })
+    const st = (bRows[0].status || '').toString()
+    if (['cancelled', 'expired', 'cancelled_awaiting_refund_ack'].includes(st)) {
+      return res.status(400).json({ error: 'Cannot modify this booking' })
+    }
+    const data = parseBookingJsonData(bRows[0].data)
+    const isTournament =
+      data.isTournament === true || data.tournamentType != null || data.tournament_type != null
+    if (!isTournament) return res.status(400).json({ error: 'Not a tournament booking' })
+
+    const initiator = String(bRows[0].initiator_member_id || bRows[0].member_id || '').trim()
+    let allowed = isAdmin
+    if (!allowed && orgId) {
+      if (initiator && orgId === initiator) allowed = true
+      else {
+        const { rows: mc } = await query(
+          `SELECT 1 AS ok FROM member_clubs WHERE club_id = ? AND member_id = ? LIMIT 1`,
+          [String(clubId), orgId]
+        )
+        if (mc?.length) allowed = true
+      }
+    }
+    if (!allowed) {
+      return res.status(403).json({ error: 'Club admin or club member session required', code: 'NOT_ALLOWED' })
+    }
+
+    const slots = teamSlots
+      .map((s) => ({
+        id: String(s?.id ?? '').trim(),
+        name: String(s?.name ?? '').trim().substring(0, 160),
+      }))
+      .filter((s) => s.id !== '')
+
+    await query(`UPDATE club_bookings SET data = ? WHERE id = ? AND club_id = ?`, [
+      JSON.stringify({ ...data, tournamentTeamSlots: slots }),
+      bid,
+      clubId,
+    ])
+    res.json({ ok: true, count: slots.length })
+  } catch (e) {
+    console.error('bookings admin-sync-tournament-team-slots error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
+/** POST /api/bookings/member-tournament-team-preference — بعد الدفع: العضو يحدد فريقاً مفضّلاً (يُخزَّن في JSON الحجز) */
+router.post('/member-tournament-team-preference', async (req, res) => {
+  try {
+    const normalized = await hasNormalizedTables()
+    if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
+    const { inviteToken, clubId, memberId, preferredTeamId } = req.body || {}
+    if (!inviteToken || !clubId || !memberId || preferredTeamId == null) {
+      return res.status(400).json({ error: 'inviteToken, clubId, memberId, preferredTeamId required' })
+    }
+    const actor = getActorFromRequest(req)
+    if (String(actor.actorType || '').toLowerCase() !== 'member' || !actor.actorId) {
+      return res.status(401).json({ error: 'Member session required' })
+    }
+    if (String(actor.actorId) !== String(memberId)) {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+
+    const tok = normalizeInviteTokenParamExpress(inviteToken)
+    const { rows: sh } = await query(
+      `SELECT id, booking_id, member_id, paid_at, removed_at FROM booking_payment_shares WHERE invite_token = ? AND club_id = ? LIMIT 1`,
+      [tok, clubId]
+    )
+    if (!sh?.length) return res.status(404).json({ error: 'Share not found' })
+    const row = sh[0]
+    if (row.removed_at) return res.status(410).json({ error: 'Invite no longer valid' })
+    if (String(row.member_id || '') !== String(memberId)) {
+      return res.status(403).json({ error: 'This invite does not belong to your account' })
+    }
+    if (!row.paid_at) {
+      return res.status(400).json({ error: 'Pay your share first before choosing a team' })
+    }
+
+    const bid = String(row.booking_id)
+    const { rows: bRows } = await query(`SELECT data FROM club_bookings WHERE id = ? AND club_id = ? AND deleted_at IS NULL`, [
+      bid,
+      clubId,
+    ])
+    if (!bRows?.length) return res.status(404).json({ error: 'Booking not found' })
+    const data = parseBookingJsonData(bRows[0].data)
+    const prefs = { ...(data.tournamentMemberTeamPreferences || {}) }
+    prefs[String(memberId)] = String(preferredTeamId)
+
+    await query(`UPDATE club_bookings SET data = ? WHERE id = ? AND club_id = ?`, [
+      JSON.stringify({ ...data, tournamentMemberTeamPreferences: prefs }),
+      bid,
+      clubId,
+    ])
+    res.json({ ok: true })
+  } catch (e) {
+    console.error('bookings member-tournament-team-preference error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
 /** POST /api/bookings/booker-update-share-phone — الحاجز يصحح رقم الضيف؛ يُبقى invite_token حتى لا تُبطَل روابط واتساب المرسلة سابقاً */
 router.post('/booker-update-share-phone', async (req, res) => {
   try {
@@ -4379,12 +4497,26 @@ function invitePayloadExtrasFromBookingData(raw) {
     }
   }
   const note = d && (d.title || d.tournamentName || d.note)
+  const tournamentTeamSlots = Array.isArray(d.tournamentTeamSlots)
+    ? d.tournamentTeamSlots
+        .map((x) => ({
+          id: x && x.id != null ? String(x.id).trim() : '',
+          name: x && x.name != null ? String(x.name).trim().substring(0, 160) : '',
+        }))
+        .filter((x) => x.id !== '')
+    : []
+  const tournamentMemberTeamPreferences =
+    d.tournamentMemberTeamPreferences && typeof d.tournamentMemberTeamPreferences === 'object'
+      ? d.tournamentMemberTeamPreferences
+      : {}
   return {
     isTournamentBooking: isTournament,
     tournamentType: tt || null,
     tournamentLabelEn,
     tournamentLabelAr,
     bookingNote: note ? String(note).slice(0, 200) : null,
+    tournamentTeamSlots,
+    tournamentMemberTeamPreferences,
   }
 }
 
