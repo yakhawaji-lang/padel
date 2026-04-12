@@ -683,7 +683,7 @@ async function assembleClub(clubRow, courts, settings, adminUsers, offers, booki
       const spread = (data && typeof data === 'object') ? data : {}
       const dateVal = b.booking_date
       const dateStr = dateVal ? (typeof dateVal === 'string' ? dateVal.replace(/T.*$/, '') : (dateVal instanceof Date ? (() => { const d = dateVal; return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })() : String(dateVal).replace(/T.*$/, ''))) : (spread.date || spread.startDate || '')
-      const bpsKey = `${b.club_id}:${b.id}`
+      const bpsKey = `${String(b.club_id)}:${String(b.id)}`
       const sharesFromTable = paymentSharesByBooking[bpsKey] || []
       let paymentShares = sharesFromTable.length > 0 ? sharesFromTable : (spread.paymentShares || [])
       const shareActive = (s) => !s?.removedAt && !s?.removed_at
@@ -935,7 +935,8 @@ export async function getClubsFromNormalized() {
 
   const paymentSharesByBooking = {}
   bpsRows.forEach(r => {
-    const key = `${r.club_id}:${r.booking_id}`
+    /** String() avoids BigInt / number key mismatch vs assembleClub bpsKey */
+    const key = `${String(r.club_id)}:${String(r.booking_id)}`
     if (!paymentSharesByBooking[key]) paymentSharesByBooking[key] = []
     const storedName = (r.member_name || '').trim()
     const fromMember = shareMemberNameById.get(String(r.member_id || ''))

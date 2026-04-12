@@ -1048,14 +1048,21 @@ export async function adminImportExpiredSplitCreditsToWallets({ bookingId, clubI
 }
 
 // ---- Invite ----
+/** Member app: bookings with an active split row for this member (tournament bench, etc.) */
+export async function getMemberSplitBookings(memberId) {
+  if (!memberId) return { items: [] }
+  return fetchJson(`/api/bookings/member-split-bookings?memberId=${encodeURIComponent(String(memberId))}`)
+}
+
 export async function getInviteByToken(token) {
   const { normalizeInviteTokenParam } = await import('../utils/paymentShareDeepLink.js')
   const t = normalizeInviteTokenParam(token)
-  if (!t || !/^inv_[a-f0-9]{32}$/.test(t)) {
+  if (!t) {
     const e = new Error('Token required')
     e.status = 400
     throw e
   }
+  /** Do not require inv_+32 here — server normalizes and may support legacy token shapes */
   return fetchJson(`/api/bookings/invite/${encodeURIComponent(t)}`)
 }
 

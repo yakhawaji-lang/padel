@@ -113,6 +113,57 @@ function shareRowEffectivelyPaid(share) {
   return !!(share.paidAt || share.paid_at)
 }
 
+/** Cache + API: include tournament/split rows even if club JSON omitted paymentShares */
+async function mergeMemberBookingsWithSplitApi(memberId) {
+  const fromCache = getMemberBookings(memberId)
+  try {
+    const r = await bookingApi.getMemberSplitBookings(memberId)
+    const items = Array.isArray(r?.items) ? r.items : []
+    if (items.length === 0) return fromCache
+    const keys = new Set(fromCache.map((x) => `${String(x.club?.id)}:${String(x.booking?.id)}`))
+    const extra = []
+    for (const it of items) {
+      const cid = it.clubId
+      const b = it.booking
+      if (b == null || b.id == null) continue
+      const k = `${String(cid)}:${String(b.id)}`
+      if (keys.has(k)) continue
+      keys.add(k)
+      const rawDate = b.date || b.startDate || ''
+      const dateStr =
+        typeof rawDate === 'string'
+          ? rawDate.split('T')[0]
+          : rawDate && rawDate.toISOString
+            ? rawDate.toISOString().split('T')[0]
+            : String(rawDate).split('T')[0]
+      const club =
+        getClubById(cid) ||
+        ({
+          id: cid,
+          name: it.clubName || 'Club',
+          nameAr: it.clubNameAr || it.clubName || 'Club',
+          bookings: [],
+          settings: { currency: 'SAR' },
+        })
+      extra.push({
+        booking: { ...b, dateStr: dateStr || undefined },
+        club,
+        clubName: club.name,
+        clubNameAr: club.nameAr,
+      })
+    }
+    if (extra.length === 0) return fromCache
+    return [...fromCache, ...extra].sort((a, b) => {
+      const d1 = a.booking.dateStr || a.booking.date || ''
+      const d2 = b.booking.dateStr || b.booking.date || ''
+      if (d1 !== d2) return d1.localeCompare(d2)
+      return (a.booking.startTime || '').localeCompare(b.booking.startTime || '')
+    })
+  } catch {
+    return fromCache
+  }
+}
+
 function TournamentTeamPreferenceMyBookings({ booking, club, member, myShare, language, copy, onSaved }) {
   const slots = getTournamentTeamSlotsForBooking(booking)
   const inviteToken = String(myShare?.inviteToken || myShare?.invite_token || '').trim()
@@ -480,11 +531,11 @@ const MyBookingsPage = () => {
     const loadFromApi = async () => {
       await refreshClubsFromApi()
       loadClubs()
-      setBookings(getMemberBookings(member.id))
+      setBookings(await mergeMemberBookingsWithSplitApi(member.id))
     }
     const syncFromCache = () => {
       loadClubs()
-      setBookings(getMemberBookings(member.id))
+      void mergeMemberBookingsWithSplitApi(member.id).then(setBookings)
     }
     loadFromApi()
     window.addEventListener('clubs-synced', syncFromCache)
@@ -877,7 +928,7 @@ const MyBookingsPage = () => {
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
       await refreshClubsFromApi()
       loadClubs()
-      setBookings(getMemberBookings(member.id))
+      setBookings(await mergeMemberBookingsWithSplitApi(member.id))
       setPayMenuOpen(null)
     } catch (e) {
       console.error('recordPayment failed:', e)
@@ -901,7 +952,7 @@ const MyBookingsPage = () => {
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
       await refreshClubsFromApi()
       loadClubs()
-      setBookings(getMemberBookings(member.id))
+      setBookings(await mergeMemberBookingsWithSplitApi(member.id))
       await loadWalletBalances()
       setPayMenuOpen(null)
     } catch (e) {
@@ -921,7 +972,7 @@ const MyBookingsPage = () => {
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
       await refreshClubsFromApi()
       loadClubs()
-      setBookings(getMemberBookings(member.id))
+      setBookings(await mergeMemberBookingsWithSplitApi(member.id))
     } catch (e) {
       console.error('markPayAtClub failed:', e)
     } finally {
@@ -937,7 +988,7 @@ const MyBookingsPage = () => {
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
       await refreshClubsFromApi()
       loadClubs()
-      setBookings(getMemberBookings(member.id))
+      setBookings(await mergeMemberBookingsWithSplitApi(member.id))
       setPayMenuOpen(null)
     } catch (e) {
       console.error(e)
@@ -959,7 +1010,7 @@ const MyBookingsPage = () => {
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
       await refreshClubsFromApi()
       loadClubs()
-      setBookings(getMemberBookings(member.id))
+      setBookings(await mergeMemberBookingsWithSplitApi(member.id))
     } catch (e) {
       if (typeof window !== 'undefined') {
         window.alert(
@@ -985,7 +1036,7 @@ const MyBookingsPage = () => {
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('clubs-synced'))
       await refreshClubsFromApi()
       loadClubs()
-      setBookings(getMemberBookings(member.id))
+      setBookings(await mergeMemberBookingsWithSplitApi(member.id))
       await loadWalletBalances()
       setPayMenuOpen(null)
     } catch (e) {
@@ -1035,7 +1086,7 @@ const MyBookingsPage = () => {
       window.dispatchEvent(new CustomEvent('clubs-synced'))
       await refreshClubsFromApi()
       loadClubs()
-      setBookings(getMemberBookings(member.id))
+      setBookings(await mergeMemberBookingsWithSplitApi(member.id))
     } catch (e) {
       console.error(e)
       window.alert(language === 'en' ? (e?.message || 'Failed') : (e?.message || 'فشل'))
@@ -1435,7 +1486,7 @@ const MyBookingsPage = () => {
       window.dispatchEvent(new CustomEvent('clubs-synced'))
       await refreshClubsFromApi()
       loadClubs()
-      setBookings(getMemberBookings(member.id))
+      setBookings(await mergeMemberBookingsWithSplitApi(member.id))
       closeAddSplitPanel()
     } catch (e) {
       window.alert(e?.message || (language === 'en' ? 'Failed' : 'فشل'))
@@ -1448,7 +1499,7 @@ const MyBookingsPage = () => {
     await refreshClubsFromApi()
     loadClubs()
     const mid = member?.id
-    if (mid) setBookings(getMemberBookings(mid))
+    if (mid) setBookings(await mergeMemberBookingsWithSplitApi(mid))
   }, [member?.id])
 
   if (!member) {
@@ -2735,7 +2786,7 @@ const MyBookingsPage = () => {
             onUpdated={async () => {
               await refreshClubsFromApi()
               loadClubs()
-              const updated = getMemberBookings(member.id)
+              const updated = await mergeMemberBookingsWithSplitApi(member.id)
               setBookings(updated)
               const bid = detailRow?.booking?.id
               if (bid) {

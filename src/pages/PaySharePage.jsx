@@ -237,7 +237,11 @@ const PaySharePage = () => {
   useEffect(() => {
     if (!success || !data || !platformUser) return
     if (canPickTournamentTeamAfterPay(data, platformUser)) return
-    const tmr = window.setTimeout(() => navigate('/my-bookings?payment=success'), 2000)
+    const bid =
+      data.bookingId != null && String(data.bookingId) !== ''
+        ? `&booking=${encodeURIComponent(String(data.bookingId))}`
+        : ''
+    const tmr = window.setTimeout(() => navigate(`/my-bookings?payment=success${bid}`), 2000)
     return () => window.clearTimeout(tmr)
   }, [success, data, platformUser, navigate])
 
@@ -391,7 +395,14 @@ const PaySharePage = () => {
           ) : (
             <p className="payment-hint">{t('Redirecting to your bookings…', 'جاري التحويل إلى حجوزاتك…', language)}</p>
           )}
-          <Link to="/my-bookings?payment=success" className="payment-btn payment-btn-primary payment-btn-submit">
+          <Link
+            to={
+              data?.bookingId != null && String(data.bookingId) !== ''
+                ? `/my-bookings?payment=success&booking=${encodeURIComponent(String(data.bookingId))}`
+                : '/my-bookings?payment=success'
+            }
+            className="payment-btn payment-btn-primary payment-btn-submit"
+          >
             {c.myBookings}
           </Link>
         </div>
@@ -400,6 +411,10 @@ const PaySharePage = () => {
   }
 
   const amountStr = `${parseFloat(data?.amount || 0).toFixed(2)} ${t('SAR', 'ر.س')}`
+  const myBookingsForThisBooking =
+    data?.bookingId != null && String(data.bookingId) !== ''
+      ? `/my-bookings?booking=${encodeURIComponent(String(data.bookingId))}`
+      : '/my-bookings'
   const canPayShare = inviteShareShowsPaymentActions(data)
   const paidAt = data?.paidAt
   const paymentMethod = data?.paymentMethod
@@ -420,7 +435,7 @@ const PaySharePage = () => {
               onReload={loadInvite}
             />
           ) : null}
-          <Link to="/my-bookings" className="payment-btn payment-btn-primary payment-btn-submit">
+          <Link to={myBookingsForThisBooking} className="payment-btn payment-btn-primary payment-btn-submit">
             {c.myBookings}
           </Link>
         </div>
@@ -468,6 +483,16 @@ const PaySharePage = () => {
             <dd>{amountStr}</dd>
           </div>
         </dl>
+
+        {platformUser ? (
+          <Link
+            to={myBookingsForThisBooking}
+            className="payment-link-secondary"
+            style={{ display: 'block', marginBottom: 16 }}
+          >
+            {language === 'ar' ? 'عرض هذا الحجز في «حجوزاتي»' : 'Open this booking in My bookings'}
+          </Link>
+        ) : null}
 
         {parseFloat(data?.amount || 0) < 0.01 && canPayShare ? (
           <p className="payment-message" style={{ marginBottom: 12 }}>

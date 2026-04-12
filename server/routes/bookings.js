@@ -4085,6 +4085,109 @@ router.get('/wallet', async (req, res) => {
   }
 })
 
+/**
+ * GET /api/bookings/member-split-bookings?memberId=
+ * Bookings where the member has an active split row (member_id or phone tail), same shape as club cache — for My Bookings when JSON merge omitted shares.
+ */
+router.get('/member-split-bookings', async (req, res) => {
+  try {
+    const normalized = await hasNormalizedTables()
+    if (!normalized) return res.status(400).json({ error: 'Normalized tables required' })
+    const memberId = String(req.query.memberId || '').trim()
+    if (!memberId) return res.status(400).json({ error: 'memberId required' })
+
+    const { rows: memRows } = await query(
+      'SELECT mobile FROM members WHERE id = ? AND deleted_at IS NULL LIMIT 1',
+      [memberId]
+    )
+    const phoneRaw = memRows?.[0]?.mobile || ''
+
+    const { rows: shareJoinRows } = await query(
+      `SELECT bps.booking_id, bps.club_id, bps.participant_type, bps.member_id, bps.member_name, bps.phone,
+              bps.amount, bps.invite_token, bps.paid_at, bps.payment_method, bps.refunded_at, bps.removed_at,
+              cb.court_id, cb.booking_date, cb.start_time, cb.end_time, cb.time_slot, cb.status, cb.total_amount, cb.paid_amount,
+              cb.member_id AS booking_member_id, cb.initiator_member_id, cb.data,
+              c.name AS club_name, c.name_ar AS club_name_ar
+       FROM booking_payment_shares bps
+       INNER JOIN club_bookings cb ON cb.id = bps.booking_id AND cb.club_id = bps.club_id
+         AND (cb.deleted_at IS NULL OR LOWER(COALESCE(cb.status,'')) IN ('cancelled','cancelled_awaiting_refund_ack','expired'))
+       INNER JOIN clubs c ON c.id = cb.club_id AND c.deleted_at IS NULL
+       WHERE bps.removed_at IS NULL`
+    )
+
+    const matched = (shareJoinRows || []).filter((row) =>
+      shareRowBelongsToMember({ member_id: row.member_id, phone: row.phone }, memberId, phoneRaw)
+    )
+
+    const seen = new Set()
+    const items = []
+
+    for (const r of matched) {
+      const pair = `${String(r.club_id)}:${String(r.booking_id)}`
+      if (seen.has(pair)) continue
+      seen.add(pair)
+
+      const { rows: allShareRows } = await query(
+        `SELECT id, booking_id, club_id, participant_type, member_id, member_name, phone, amount, whatsapp_link, invite_token, paid_at, payment_reference, payment_method, refunded_at, removed_at
+         FROM booking_payment_shares WHERE booking_id = ? AND club_id = ?`,
+        [r.booking_id, r.club_id]
+      )
+
+      const paymentShares = (allShareRows || [])
+        .filter((s) => !s.removed_at)
+        .map((s) => ({
+          id: s.id,
+          type: s.participant_type || 'registered',
+          memberId: s.member_id || undefined,
+          memberName: s.member_name,
+          phone: s.phone || undefined,
+          amount: parseFloat(s.amount) || 0,
+          whatsappLink: s.whatsapp_link || undefined,
+          inviteToken: s.invite_token || undefined,
+          paidAt: s.paid_at,
+          paymentReference: s.payment_reference || undefined,
+          paymentMethod: s.payment_method || undefined,
+          refundedAt: s.refunded_at || undefined,
+          removedAt: s.removed_at || undefined,
+        }))
+
+      const spread = parseBookingJsonData(r.data)
+      const dateStr = r.booking_date
+        ? String(r.booking_date).split('T')[0].substring(0, 10)
+        : spread.date || spread.startDate || ''
+
+      const booking = {
+        ...spread,
+        paymentShares,
+        id: r.booking_id,
+        courtId: r.court_id,
+        memberId: r.booking_member_id,
+        date: dateStr,
+        startDate: dateStr,
+        timeSlot: r.time_slot,
+        startTime: r.start_time || r.time_slot,
+        endTime: r.end_time || r.time_slot,
+        status: r.status,
+        totalAmount: parseFloat(r.total_amount) || 0,
+        paidAmount: parseFloat(r.paid_amount) || 0,
+        initiatorMemberId: r.initiator_member_id,
+      }
+
+      items.push({
+        clubId: r.club_id,
+        clubName: r.club_name || '',
+        clubNameAr: r.club_name_ar || '',
+        booking,
+      })
+    }
+
+    res.json({ items })
+  } catch (e) {
+    console.error('member-split-bookings error:', e)
+    res.status(500).json({ error: dbError(e) })
+  }
+})
+
 /** GET /api/bookings/:id - Get booking by ID (for payment page) */
 router.get('/:id', async (req, res) => {
   try {

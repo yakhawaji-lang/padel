@@ -2,7 +2,11 @@
 // All data from u502561206_padel_db via API only - no localStorage
 
 import { isMemberInTournamentBooking } from '../utils/tournamentHelpers.js'
-import { memberRelatesToCourtBooking } from '../utils/paymentShareMemberMatch.js'
+import {
+  memberRelatesToCourtBooking,
+  findPaymentShareForMember,
+  shareNeedsRefundAcknowledgment,
+} from '../utils/paymentShareMemberMatch.js'
 
 const USE_POSTGRES = true // Keep for compatibility in saveClubs etc
 
@@ -863,8 +867,15 @@ export function getMemberBookings(memberId) {
         const initiator =
           String(b.memberId || b.initiatorMemberId || b.member_id || b.initiator_member_id || '') === memberIdStr
         const inRoster = isMemberInTournamentBooking(club, b, memberIdStr)
-        const splitShare = tournamentHasActiveShareForMember(b, memberIdStr)
-        if (!inRoster && !splitShare && !initiator) return
+        const splitShareById = tournamentHasActiveShareForMember(b, memberIdStr)
+        let splitShareByProfile = false
+        if (member) {
+          if (findPaymentShareForMember(b, member)) splitShareByProfile = true
+          else if (Array.isArray(b.paymentShares)) {
+            splitShareByProfile = b.paymentShares.some((s) => shareNeedsRefundAcknowledgment(s, member))
+          }
+        }
+        if (!inRoster && !splitShareById && !splitShareByProfile && !initiator) return
       } else {
         const ok = member
           ? memberRelatesToCourtBooking(b, member)
