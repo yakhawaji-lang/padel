@@ -1338,29 +1338,7 @@ const ClubPublicPage = () => {
     <div className="club-public-page commercial">
       <ClubPresenceBeacon clubId={clubId} />
       <div className="club-public-floating-access" aria-label={language === 'en' ? 'Page actions' : 'إجراءات الصفحة'}>
-        <div className="club-public-floating-access__socials">
-          {(Array.isArray(club?.settings?.socialLinks) ? club.settings.socialLinks : []).filter(s => s?.url).slice(0, 5).map((item, idx) => (
-            <SocialIcon
-              key={idx}
-              platform={item.platform || 'facebook'}
-              url={item.url}
-              iconColor={item.iconColor || '#ffffff'}
-              textColor={item.textColor || '#334155'}
-              size={28}
-              className="club-public-floating-access__social"
-            />
-          ))}
-        </div>
-        <div className="club-public-floating-access__auth-row">
-          <button
-            type="button"
-            className="club-public-floating-access__btn club-public-floating-access__btn--lang"
-            onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
-            title={language === 'en' ? 'العربية' : 'English'}
-            aria-label={language === 'en' ? 'Switch to Arabic' : 'التبديل للإنجليزية'}
-          >
-            <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={22} showLabel={false} />
-          </button>
+        <div className="club-public-floating-access__corner club-public-floating-access__corner--page-start">
           {platformUser ? (
             <MemberAccountDropdown
               member={platformUser}
@@ -1376,6 +1354,30 @@ const ClubPublicPage = () => {
               {c.loginPlatform}
             </Link>
           )}
+        </div>
+        <div className="club-public-floating-access__corner club-public-floating-access__corner--page-end">
+          <button
+            type="button"
+            className="club-public-floating-access__btn club-public-floating-access__btn--lang"
+            onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
+            title={language === 'en' ? 'العربية' : 'English'}
+            aria-label={language === 'en' ? 'Switch to Arabic' : 'التبديل للإنجليزية'}
+          >
+            <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={22} showLabel={false} />
+          </button>
+          <div className="club-public-floating-access__socials">
+            {(Array.isArray(club?.settings?.socialLinks) ? club.settings.socialLinks : []).filter(s => s?.url).slice(0, 5).map((item, idx) => (
+              <SocialIcon
+                key={idx}
+                platform={item.platform || 'facebook'}
+                url={item.url}
+                iconColor={item.iconColor || '#ffffff'}
+                textColor={item.textColor || '#334155'}
+                size={28}
+                className="club-public-floating-access__social"
+              />
+            ))}
+          </div>
         </div>
       </div>
       {bookingSuccessId && (
