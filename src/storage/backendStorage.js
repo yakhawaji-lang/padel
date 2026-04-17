@@ -135,7 +135,7 @@ export async function refreshStoreKeys(keys) {
       Object.entries(data || {}).forEach(([k, v]) => {
         if (LOCAL_ONLY_KEYS.includes(k)) return
         if (v === null || v === undefined) return
-        if ((k === 'admin_clubs' || k === 'all_members' || k === 'padel_members') && !Array.isArray(v)) {
+        if ((k === 'admin_clubs' || k === 'all_members' || k === 'padel_members' || k === 'platform_admins' || k === 'bookings') && !Array.isArray(v)) {
           v = (typeof v === 'string' ? (() => { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } })() : [])
         }
         cache.set(k, v)

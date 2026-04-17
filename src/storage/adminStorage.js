@@ -1,6 +1,7 @@
 // Admin Storage - Multi-club management
 // All data from u502561206_padel_db via API only - no localStorage
 
+import { setPlatformAdminSession } from './appSettingsStorage.js'
 import { isMemberInTournamentBooking } from '../utils/tournamentHelpers.js'
 import {
   memberRelatesToCourtBooking,
@@ -1396,8 +1397,19 @@ export const createPlatformOwner = async (email, password) => {
     permissions: ['all-clubs', 'manage-clubs', 'all-members', 'admin-users'],
     createdAt: new Date().toISOString()
   }
-  admins.push(owner)
-  await _savePlatformAdmins(admins)
+  const next = [...admins, owner]
+  // setStore skips POST when no privileged actor — session must exist before first save so the owner persists to the DB.
+  if (USE_POSTGRES && _backendStorage) {
+    try {
+      await setPlatformAdminSession(owner)
+      await _savePlatformAdmins(next)
+    } catch (e) {
+      await setPlatformAdminSession(null)
+      throw e
+    }
+  } else {
+    await _savePlatformAdmins(next)
+  }
   return owner
 }
 
