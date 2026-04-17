@@ -570,7 +570,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
             >
               <div className="form-group settings-field">
                 <label className="field-label">{t('Club Logo', 'شعار النادي', lang)}</label>
-                <p className="field-hint">{t('URL or upload image. Shown in header and listings. Uploads are saved to Gallery and linked to the database.', 'رابط URL أو رفع صورة. يُعرض في الهيدر والقوائم. الصور المرفوعة تُحفظ في Gallery وترتبط بقاعدة البيانات.')}</p>
+                <p className="field-hint">{t('URL or upload image. Shown in header and listings. Uploads are saved under uploads/ on the server and linked in the database.', 'رابط URL أو رفع صورة. يُعرض في الهيدر والقوائم. الصور المرفوعة تُحفظ في مجلد uploads على السيرفر وترتبط بقاعدة البيانات.')}</p>
               <div className="media-input-row">
                 <input
                   type="text"
@@ -597,7 +597,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
             </div>
             <div className="form-group settings-field">
               <label className="field-label">{t('Club Banner', 'بنر النادي', lang)}</label>
-              <p className="field-hint">{t('Displayed at top of club page. Recommended: 1200×400px. Uploads are saved to Gallery.', 'يُعرض في أعلى صفحة النادي. يُفضّل: 1200×400 بكسل. الصور المرفوعة تُحفظ في Gallery.')}</p>
+              <p className="field-hint">{t('Displayed at top of club page. Recommended: 1200×400px. Uploads are saved under uploads/ on the server.', 'يُعرض في أعلى صفحة النادي. يُفضّل: 1200×400 بكسل. الصور المرفوعة تُحفظ في مجلد uploads على السيرفر.')}</p>
               <div className="media-input-row">
                 <input type="text" placeholder="https://..." value={formData.banner} onChange={(e) => setFormData(prev => ({ ...prev, banner: e.target.value }))} className="media-url-input" />
                 <label className="btn-upload">

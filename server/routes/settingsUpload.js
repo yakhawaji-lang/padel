@@ -1,16 +1,9 @@
 /**
- * Upload homepage images (banner, gallery) - base64 JSON body.
- * يحفظ في public/homepage (للعرض) و Gallery/platform/homepage (مرتبط بقاعدة البيانات)
+ * رفع صور الصفحة الرئيسية (بانر + معرض) — تُحفظ فقط في uploads/platform/homepage
+ * ويُعاد مسار /api/gallery/serve?path=... للعرض وللحفظ في app_settings.
  */
 import { Router } from 'express'
-import { writeFileSync, mkdirSync, existsSync } from 'fs'
-import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
 import { saveBase64ToGallery } from '../lib/galleryService.js'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const root = join(__dirname, '..', '..')
-const HOMEPAGE_DIR = join(root, 'public', 'homepage')
 
 const ALLOWED_KEYS = ['banner', 'gallery-1', 'gallery-2', 'gallery-3', 'gallery-4', 'gallery-5', 'gallery-6']
 
@@ -38,20 +31,13 @@ router.post('/homepage-image', (req, res) => {
     const buf = Buffer.from(match[2], 'base64')
     if (buf.length > 8 * 1024 * 1024) return res.status(400).json({ error: 'Image too large (max 8MB)' })
 
-    if (!existsSync(HOMEPAGE_DIR)) mkdirSync(HOMEPAGE_DIR, { recursive: true })
-    const filePath = join(HOMEPAGE_DIR, `${key}.${ext}`)
-    writeFileSync(filePath, buf)
-    console.log('[settingsUpload] Saved', filePath)
-
-    // ربط Gallery: حفظ نسخة في Gallery/platform/homepage
-    try {
-      const galleryPath = `platform/homepage/${key}.${ext}`
-      saveBase64ToGallery(image, galleryPath)
-    } catch (gErr) {
-      console.warn('[settingsUpload] Gallery sync:', gErr?.message)
+    const relativePath = `platform/homepage/${key}.${ext}`
+    const apiPath = saveBase64ToGallery(image, relativePath)
+    if (!apiPath) {
+      return res.status(500).json({ error: 'Failed to save image' })
     }
-
-    return res.json({ ok: true, path: `/homepage/${key}.${ext}` })
+    console.log('[settingsUpload] Saved', relativePath, '→ uploads')
+    return res.json({ ok: true, path: apiPath, relativePath })
   } catch (e) {
     console.error('[settingsUpload]', e)
     return res.status(500).json({ error: e.message || 'Upload failed' })

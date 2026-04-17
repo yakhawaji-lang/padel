@@ -1,5 +1,5 @@
 import { config } from 'dotenv'
-import { existsSync, readFileSync } from 'fs'
+import { existsSync, readFileSync, mkdirSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
@@ -35,8 +35,11 @@ import notificationsRouter from './routes/notifications.js'
 import pushRouter from './routes/push.js'
 import memberAuthRouter from './routes/memberAuth.js'
 import { isConnected, getDbDiagnostics, getCurrentDatabase } from './db/pool.js'
+import { ensureUploadDirectoryTree, getUploadsRoot } from './lib/uploadsPaths.js'
 import { startBookingJobs } from './jobs/bookingJobs.js'
 import { startPushNotificationJob } from './jobs/pushNotificationsJob.js'
+
+ensureUploadDirectoryTree()
 
 const app = express()
 const PORT = process.env.PORT || 4000
@@ -151,23 +154,24 @@ app.get('/index.html', (req, res) => sendRootLandingHtml(res))
 const distPath = join(__dirname, '..', 'dist')
 const distIndex = join(distPath, 'index.html')
 const publicHomepageDir = join(root, 'public', 'homepage')
+const uploadsHomepageDir = join(getUploadsRoot(), 'platform', 'homepage')
 
 app.get('/app', (req, res) => res.redirect(301, '/app/'))
 
-/** Homepage banner/gallery — must be before /app static so uploads in public/homepage win over dist. */
+/** Homepage banner/gallery: uploads أولاً، ثم public (قوالب البناء)، ثم dist — قبل express.static للـ SPA */
+const homepageStaticOpts = {
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+  setHeaders: (res, filePath) => {
+    const fp = String(filePath || '').toLowerCase()
+    if (fp.endsWith('.png')) res.setHeader('Content-Type', 'image/png')
+    else if (fp.endsWith('.jpg') || fp.endsWith('.jpeg')) res.setHeader('Content-Type', 'image/jpeg')
+    else if (fp.endsWith('.webp')) res.setHeader('Content-Type', 'image/webp')
+  },
+}
+if (!existsSync(uploadsHomepageDir)) mkdirSync(uploadsHomepageDir, { recursive: true })
+app.use('/app/homepage', express.static(uploadsHomepageDir, homepageStaticOpts))
 if (existsSync(publicHomepageDir)) {
-  app.use(
-    '/app/homepage',
-    express.static(publicHomepageDir, {
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      setHeaders: (res, filePath) => {
-        const fp = String(filePath || '').toLowerCase()
-        if (fp.endsWith('.png')) res.setHeader('Content-Type', 'image/png')
-        else if (fp.endsWith('.jpg') || fp.endsWith('.jpeg')) res.setHeader('Content-Type', 'image/jpeg')
-        else if (fp.endsWith('.webp')) res.setHeader('Content-Type', 'image/webp')
-      },
-    })
-  )
+  app.use('/app/homepage', express.static(publicHomepageDir, homepageStaticOpts))
 }
 
 if (existsSync(distIndex)) {

@@ -128,6 +128,18 @@ function safeHomeLanguage() {
   }
 }
 
+/** بنر/معرض: مسار تحت SPA (/homepage/...) أو مباشرة من API بعد الرفع الموحّد */
+function resolveHomepageMediaUrl (savedPath, baseUrl) {
+  if (!savedPath || typeof savedPath !== 'string') return null
+  const t = savedPath.trim()
+  if (t.startsWith('/api/gallery/')) return getImageUrl(t)
+  if (t.startsWith('http://') || t.startsWith('https://')) return t
+  if (t.startsWith('/app/homepage')) return t
+  if (t.startsWith('/homepage')) return `${baseUrl}${t}`
+  if (t.startsWith('/')) return `${baseUrl}${t}`
+  return null
+}
+
 const HomePage = () => {
   const navigate = useNavigate()
   const location = useLocation()
@@ -136,7 +148,7 @@ const HomePage = () => {
   const [language, setLanguage] = useState(safeHomeLanguage)
   const [navOpen, setNavOpen] = useState(false)
   const [bannerPhrase, setBannerPhrase] = useState({ ar: '', en: '' })
-  /** Saved path from admin upload (includes real extension, e.g. /homepage/banner.jpg) */
+  /** مسار محفوظ: /homepage/... أو /api/gallery/serve?path=... */
   const [homepageBannerPath, setHomepageBannerPath] = useState('')
   const [homepageGalleryPaths, setHomepageGalleryPaths] = useState({})
   const [platformUser, setPlatformUser] = useState(null)
@@ -557,15 +569,15 @@ const HomePage = () => {
     return [1, 2, 3, 4, 5, 6].map((i, idx) => {
       const key = `gallery-${i}`
       const p = homepageGalleryPaths[key]
-      const hasPath = typeof p === 'string' && p.trim().startsWith('/')
-      const src = hasPath ? `${baseUrl}${p.trim()}` : `${baseUrl}/homepage/gallery-${i}.png`
+      const raw = typeof p === 'string' ? p.trim() : ''
+      const resolved = raw ? resolveHomepageMediaUrl(raw, baseUrl) : null
+      const src = resolved || `${baseUrl}/homepage/gallery-${i}.png`
       return { src, alt: alts[idx] || 'PlayTix' }
     })
   }, [baseUrl, homepageGalleryPaths])
 
-  const bannerBackgroundUrl = homepageBannerPath
-    ? `${baseUrl}${homepageBannerPath}`
-    : `${baseUrl}/homepage/banner.png`
+  const bannerBackgroundUrl =
+    resolveHomepageMediaUrl(homepageBannerPath, baseUrl) || `${baseUrl}/homepage/banner.png`
 
   const scrollTo = (id) => {
     const el = document.getElementById(id)

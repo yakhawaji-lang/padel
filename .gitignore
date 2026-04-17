@@ -39,3 +39,7 @@ lerna-debug.log*
 
 # Database config (contains credentials)
 database.config.json
+
+# Runtime user uploads (see uploads/README.md)
+uploads/*
+!uploads/README.md

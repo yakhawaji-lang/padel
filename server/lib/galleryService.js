@@ -1,36 +1,36 @@
 /**
- * ربط مجلد Gallery بقاعدة البيانات
- * يحفظ الصور في Gallery ويخزن المسار في DB
+ * حفظ وقراءة الصور المرفوعة — الجذر الافتراضي: uploads/
+ * مسار API ثابت: /api/gallery/serve?path=... (للتوافق مع القيم المخزّنة في قاعدة البيانات)
+ * المجلد Gallery/ القديم يُستخدم للقراءة فقط عند غياب الملف في uploads.
  */
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs'
 import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const root = join(__dirname, '..', '..')
-export const GALLERY_ROOT = join(root, 'Gallery')
+import { getUploadsRoot, getLegacyGalleryRoot } from './uploadsPaths.js'
 
 const GALLERY_API_PREFIX = '/api/gallery/serve'
 
+/** جذل المرفوعات (للتوافق مع كود قديم يستورد GALLERY_ROOT) */
+export const GALLERY_ROOT = getUploadsRoot()
+
 /** هل النص base64 data URL؟ */
-export function isBase64Image(str) {
+export function isBase64Image (str) {
   return typeof str === 'string' && str.startsWith('data:image/')
 }
 
 /** استخراج الامتداد من base64 */
-function getExtFromBase64(dataUrl) {
+function getExtFromBase64 (dataUrl) {
   const m = dataUrl.match(/^data:image\/(\w+);/)
   if (!m) return 'png'
   return m[1] === 'jpeg' ? 'jpg' : m[1]
 }
 
 /**
- * حفظ صورة base64 في Gallery وإرجاع مسار API
+ * حفظ صورة base64 تحت uploads/ وإرجاع مسار API
  * @param {string} base64Data - data:image/...;base64,...
  * @param {string} relativePath - مثل clubs/club-123/logo/logo.png
  * @returns {string} مسار API مثل /api/gallery/serve?path=clubs/club-123/logo/logo.png
  */
-export function saveBase64ToGallery(base64Data, relativePath) {
+export function saveBase64ToGallery (base64Data, relativePath) {
   if (!base64Data || !isBase64Image(base64Data)) return null
   const m = base64Data.match(/^data:image\/(\w+);base64,(.+)$/)
   if (!m) return null
@@ -39,7 +39,7 @@ export function saveBase64ToGallery(base64Data, relativePath) {
   if (buf.length > 8 * 1024 * 1024) return null // max 8MB
 
   const safePath = relativePath.replace(/\.\./g, '').replace(/^\/+/, '')
-  const fullPath = join(GALLERY_ROOT, safePath)
+  const fullPath = join(getUploadsRoot(), safePath)
   const dir = dirname(fullPath)
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   writeFileSync(fullPath, buf)
@@ -47,9 +47,9 @@ export function saveBase64ToGallery(base64Data, relativePath) {
 }
 
 /**
- * حفظ شعار/بنر نادي في Gallery
+ * حفظ شعار/بنر نادي
  */
-export function saveClubImageToGallery(clubId, type, base64Data, filename = null) {
+export function saveClubImageToGallery (clubId, type, base64Data, filename = null) {
   if (!clubId || !base64Data || !isBase64Image(base64Data)) return null
   const ext = getExtFromBase64(base64Data)
   const name = filename || `image.${ext}`
@@ -59,9 +59,9 @@ export function saveClubImageToGallery(clubId, type, base64Data, filename = null
 }
 
 /**
- * حفظ صورة ملعب في Gallery
+ * حفظ صورة ملعب
  */
-export function saveCourtImageToGallery(clubId, courtId, base64Data) {
+export function saveCourtImageToGallery (clubId, courtId, base64Data) {
   if (!clubId || !courtId || !base64Data || !isBase64Image(base64Data)) return null
   const ext = getExtFromBase64(base64Data)
   const relativePath = `clubs/${String(clubId)}/courts/${String(courtId)}.${ext}`
@@ -69,9 +69,9 @@ export function saveCourtImageToGallery(clubId, courtId, base64Data) {
 }
 
 /**
- * حفظ صورة عرض في Gallery
+ * حفظ صورة عرض
  */
-export function saveOfferImageToGallery(clubId, offerId, base64Data) {
+export function saveOfferImageToGallery (clubId, offerId, base64Data) {
   if (!clubId || !offerId || !base64Data || !isBase64Image(base64Data)) return null
   const ext = getExtFromBase64(base64Data)
   const relativePath = `clubs/${String(clubId)}/offers/${String(offerId)}.${ext}`
@@ -79,9 +79,9 @@ export function saveOfferImageToGallery(clubId, offerId, base64Data) {
 }
 
 /**
- * حفظ صورة منصة (homepage) في Gallery
+ * حفظ صورة منصة (homepage)
  */
-export function savePlatformImageToGallery(key, base64Data) {
+export function savePlatformImageToGallery (key, base64Data) {
   if (!key || !base64Data || !isBase64Image(base64Data)) return null
   const ext = getExtFromBase64(base64Data)
   const relativePath = `platform/homepage/${key}.${ext}`
@@ -89,17 +89,19 @@ export function savePlatformImageToGallery(key, base64Data) {
 }
 
 /**
- * الحصول على المسار المطلق لملف في Gallery
+ * المسار المطلق لملف مرفوع (uploads أولاً، ثم Gallery للتوافق)
  */
-export function getGalleryFilePath(relativePath) {
+export function getGalleryFilePath (relativePath) {
   const safe = String(relativePath).replace(/\.\./g, '').replace(/^\/+/, '')
-  return join(GALLERY_ROOT, safe)
+  const primary = join(getUploadsRoot(), safe)
+  if (existsSync(primary)) return primary
+  return join(getLegacyGalleryRoot(), safe)
 }
 
 /**
- * قراءة ملف من Gallery
+ * قراءة ملف
  */
-export function readGalleryFile(relativePath) {
+export function readGalleryFile (relativePath) {
   const fp = getGalleryFilePath(relativePath)
   if (!existsSync(fp)) return null
   return readFileSync(fp)
