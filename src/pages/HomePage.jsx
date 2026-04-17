@@ -608,7 +608,7 @@ const HomePage = () => {
               <a href="#clubs" onClick={(e) => { e.preventDefault(); scrollTo('clubs') }}>{language === 'en' ? 'Clubs' : 'النوادي'}</a>
             </div>
             <button type="button" className="nav-lang" onClick={() => { const next = language === 'en' ? 'ar' : 'en'; setLanguage(next); setAppLanguage(next) }} title={language === 'en' ? 'العربية' : 'English'} aria-label={language === 'en' ? 'Switch to Arabic' : 'التبديل للإنجليزية'}>
-              <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={18} />
+              <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={20} showLabel={false} />
             </button>
           </nav>
         </div>

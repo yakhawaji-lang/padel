@@ -84,19 +84,23 @@
 
 .site-nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   flex: 1;
   position: relative;
   min-width: 0;
+  gap: 8px 12px;
 }
 
 .site-nav-links {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px 24px;
+  gap: 8px 20px;
   justify-content: center;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .site-nav a,
@@ -116,10 +120,11 @@
 }
 
 .site-nav .nav-lang {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  position: static;
+  transform: none;
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  align-self: center;
 }
 
 .nav-sep {
@@ -132,15 +137,23 @@
 .nav-lang {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 0;
-  background: none;
-  border: none;
-  color: #6b7280;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  color: #374151;
+  box-sizing: border-box;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .nav-lang:hover {
-  opacity: 0.85;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+  opacity: 1;
 }
 
 .nav-admin {
@@ -182,9 +195,11 @@
   }
 
   .site-nav .nav-lang {
-    position: static;
-    transform: none;
-    align-self: flex-start;
+    margin-inline-start: 0;
+    align-self: center;
+    width: 100%;
+    max-width: 220px;
+    justify-content: center;
   }
 
   .site-nav-links {

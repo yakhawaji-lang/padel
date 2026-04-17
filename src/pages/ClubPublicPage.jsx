@@ -1338,41 +1338,45 @@ const ClubPublicPage = () => {
     <div className="club-public-page commercial">
       <ClubPresenceBeacon clubId={clubId} />
       <div className="club-public-floating-access" aria-label={language === 'en' ? 'Page actions' : 'إجراءات الصفحة'}>
-        {(Array.isArray(club?.settings?.socialLinks) ? club.settings.socialLinks : []).filter(s => s?.url).slice(0, 5).map((item, idx) => (
-          <SocialIcon
-            key={idx}
-            platform={item.platform || 'facebook'}
-            url={item.url}
-            iconColor={item.iconColor || '#ffffff'}
-            textColor={item.textColor || '#334155'}
-            size={28}
-            className="club-public-floating-access__social"
-          />
-        ))}
-        <button
-          type="button"
-          className="club-public-floating-access__btn"
-          onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
-          title={language === 'en' ? 'العربية' : 'English'}
-          aria-label={language === 'en' ? 'Switch to Arabic' : 'التبديل للإنجليزية'}
-        >
-          <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} />
-        </button>
-        {platformUser ? (
-          <MemberAccountDropdown
-            member={platformUser}
-            onUpdate={() => setPlatformUser(getCurrentPlatformUser())}
-            language={language}
-            clubId={clubId}
-            className="club-public-floating-access__account"
-            isCoach={club && (club?.memberCoaches || []).some(mc => String(mc) === String(platformUser?.id))}
-            openProfileEditSignal={openProfileEditSignal}
-          />
-        ) : (
-          <Link to={`/login?join=${clubId}`} className="club-public-floating-access__login">
-            {c.loginPlatform}
-          </Link>
-        )}
+        <div className="club-public-floating-access__socials">
+          {(Array.isArray(club?.settings?.socialLinks) ? club.settings.socialLinks : []).filter(s => s?.url).slice(0, 5).map((item, idx) => (
+            <SocialIcon
+              key={idx}
+              platform={item.platform || 'facebook'}
+              url={item.url}
+              iconColor={item.iconColor || '#ffffff'}
+              textColor={item.textColor || '#334155'}
+              size={28}
+              className="club-public-floating-access__social"
+            />
+          ))}
+        </div>
+        <div className="club-public-floating-access__auth-row">
+          <button
+            type="button"
+            className="club-public-floating-access__btn club-public-floating-access__btn--lang"
+            onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
+            title={language === 'en' ? 'العربية' : 'English'}
+            aria-label={language === 'en' ? 'Switch to Arabic' : 'التبديل للإنجليزية'}
+          >
+            <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={22} showLabel={false} />
+          </button>
+          {platformUser ? (
+            <MemberAccountDropdown
+              member={platformUser}
+              onUpdate={() => setPlatformUser(getCurrentPlatformUser())}
+              language={language}
+              clubId={clubId}
+              className="club-public-floating-access__account"
+              isCoach={club && (club?.memberCoaches || []).some(mc => String(mc) === String(platformUser?.id))}
+              openProfileEditSignal={openProfileEditSignal}
+            />
+          ) : (
+            <Link to={`/login?join=${clubId}`} className="club-public-floating-access__login">
+              {c.loginPlatform}
+            </Link>
+          )}
+        </div>
       </div>
       {bookingSuccessId && (
         <div className="club-public-booking-success-banner" role="alert">

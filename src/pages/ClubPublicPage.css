@@ -31,37 +31,70 @@
   inset-inline-end: max(12px, env(safe-area-inset-right));
   z-index: 1000;
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  max-width: min(calc(100vw - 24px), 420px);
+  pointer-events: none;
+}
+
+.club-public-floating-access__socials,
+.club-public-floating-access__auth-row {
+  pointer-events: auto;
+}
+
+.club-public-floating-access__socials {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  max-width: min(440px, 94vw);
-  pointer-events: none;
 }
 
-.club-public-floating-access > * {
-  pointer-events: auto;
+.club-public-floating-access__auth-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 6px 8px 6px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .club-public-floating-access__btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 42px;
   height: 42px;
   padding: 0;
   border-radius: 12px;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: rgba(248, 250, 252, 0.95);
+  box-shadow: none;
   cursor: pointer;
   color: #0f172a;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.club-public-floating-access__btn--lang {
+  width: 44px;
+  height: 44px;
 }
 
 .club-public-floating-access__btn:hover {
   background: #fff;
-  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.1);
+  border-color: rgba(15, 23, 42, 0.16);
+}
+
+.club-public-floating-access__btn:active {
+  transform: scale(0.97);
 }
 
 .club-public-floating-access__social {
@@ -71,25 +104,56 @@
 }
 
 .club-public-floating-access__login {
-  font-size: 0.8125rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 14px;
+  font-size: clamp(0.72rem, 2.8vw, 0.8125rem);
   font-weight: 700;
-  padding: 10px 14px;
+  line-height: 1.25;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
-  color: #0f172a;
+  background: #0f172a;
+  border: 1px solid rgba(15, 23, 42, 0.25);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
+  color: #fff;
   text-decoration: none;
-  white-space: nowrap;
+  text-align: center;
+  max-width: min(200px, 52vw);
+  white-space: normal;
+  word-break: break-word;
+  hyphens: auto;
+  transition: background 0.15s ease, transform 0.15s ease;
 }
 
 .club-public-floating-access__login:hover {
-  background: #fff;
+  background: #1e293b;
+  color: #fff;
+}
+
+.club-public-floating-access__login:active {
+  transform: scale(0.98);
 }
 
 .club-public-floating-access__account {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
+}
+
+@media (max-width: 380px) {
+  .club-public-floating-access__auth-row {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    max-width: min(280px, calc(100vw - 24px));
+  }
+  .club-public-floating-access__btn--lang {
+    align-self: center;
+  }
+  .club-public-floating-access__login {
+    max-width: none;
+  }
 }
 
 .club-public-page.commercial .club-public-floating-access .member-account-dropdown .member-account-trigger {
