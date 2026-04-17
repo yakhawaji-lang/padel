@@ -33,28 +33,40 @@
   touch-action: manipulation;
 }
 
-/* تسجيل الدخول يسار الشاشة، اللغة + سوشيال يمين الشاشة — بدون صندوق واحد */
+/* تسجيل الدخول ببداية السطر، اللغة + سوشيال بنهايته — ضمن تدفق الصفحة (ليست ثابتة على الشاشة) */
 .club-public-floating-access {
-  pointer-events: none;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  padding-top: max(10px, env(safe-area-inset-top, 0px));
+  padding-bottom: 10px;
+  padding-left: max(12px, env(safe-area-inset-left, 0px));
+  padding-right: max(12px, env(safe-area-inset-right, 0px));
+  flex-shrink: 0;
+  pointer-events: auto;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .club-public-floating-access__corner {
-  position: fixed;
-  top: max(12px, env(safe-area-inset-top));
-  z-index: 1000;
-  pointer-events: auto;
+  position: static;
   display: flex;
-  max-width: min(240px, calc(50vw - 28px));
+  max-width: min(260px, calc(50% - 8px));
 }
 
 .club-public-floating-access__corner--page-start {
-  left: max(12px, env(safe-area-inset-left));
   justify-content: flex-start;
   align-items: flex-start;
 }
 
 .club-public-floating-access__corner--page-end {
-  right: max(12px, env(safe-area-inset-right));
+  margin-inline-start: auto;
   flex-direction: column;
   align-items: flex-end;
   gap: 10px;
