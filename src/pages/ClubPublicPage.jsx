@@ -1334,52 +1334,55 @@ const ClubPublicPage = () => {
     }
   }
 
+  const renderClubTopAccessBar = () => (
+    <div className="club-public-floating-access" aria-label={language === 'en' ? 'Page actions' : 'إجراءات الصفحة'}>
+      <div className="club-public-floating-access__corner club-public-floating-access__corner--page-start">
+        {platformUser ? (
+          <MemberAccountDropdown
+            member={platformUser}
+            onUpdate={() => setPlatformUser(getCurrentPlatformUser())}
+            language={language}
+            clubId={clubId}
+            className="club-public-floating-access__account"
+            isCoach={club && (club?.memberCoaches || []).some(mc => String(mc) === String(platformUser?.id))}
+            openProfileEditSignal={openProfileEditSignal}
+          />
+        ) : (
+          <Link to={`/login?join=${clubId}`} className="club-public-floating-access__login">
+            {c.loginPlatform}
+          </Link>
+        )}
+      </div>
+      <div className="club-public-floating-access__corner club-public-floating-access__corner--page-end">
+        <button
+          type="button"
+          className="club-public-floating-access__btn club-public-floating-access__btn--lang"
+          onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
+          title={language === 'en' ? 'العربية' : 'English'}
+          aria-label={language === 'en' ? 'Switch to Arabic' : 'التبديل للإنجليزية'}
+        >
+          <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={22} showLabel={false} />
+        </button>
+        <div className="club-public-floating-access__socials">
+          {(Array.isArray(club?.settings?.socialLinks) ? club.settings.socialLinks : []).filter(s => s?.url).slice(0, 5).map((item, idx) => (
+            <SocialIcon
+              key={idx}
+              platform={item.platform || 'facebook'}
+              url={item.url}
+              iconColor={item.iconColor || '#ffffff'}
+              textColor={item.textColor || '#334155'}
+              size={28}
+              className="club-public-floating-access__social"
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className="club-public-page commercial">
       <ClubPresenceBeacon clubId={clubId} />
-      <div className="club-public-floating-access" aria-label={language === 'en' ? 'Page actions' : 'إجراءات الصفحة'}>
-        <div className="club-public-floating-access__corner club-public-floating-access__corner--page-start">
-          {platformUser ? (
-            <MemberAccountDropdown
-              member={platformUser}
-              onUpdate={() => setPlatformUser(getCurrentPlatformUser())}
-              language={language}
-              clubId={clubId}
-              className="club-public-floating-access__account"
-              isCoach={club && (club?.memberCoaches || []).some(mc => String(mc) === String(platformUser?.id))}
-              openProfileEditSignal={openProfileEditSignal}
-            />
-          ) : (
-            <Link to={`/login?join=${clubId}`} className="club-public-floating-access__login">
-              {c.loginPlatform}
-            </Link>
-          )}
-        </div>
-        <div className="club-public-floating-access__corner club-public-floating-access__corner--page-end">
-          <button
-            type="button"
-            className="club-public-floating-access__btn club-public-floating-access__btn--lang"
-            onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
-            title={language === 'en' ? 'العربية' : 'English'}
-            aria-label={language === 'en' ? 'Switch to Arabic' : 'التبديل للإنجليزية'}
-          >
-            <LanguageIcon lang={language === 'en' ? 'ar' : 'en'} size={22} showLabel={false} />
-          </button>
-          <div className="club-public-floating-access__socials">
-            {(Array.isArray(club?.settings?.socialLinks) ? club.settings.socialLinks : []).filter(s => s?.url).slice(0, 5).map((item, idx) => (
-              <SocialIcon
-                key={idx}
-                platform={item.platform || 'facebook'}
-                url={item.url}
-                iconColor={item.iconColor || '#ffffff'}
-                textColor={item.textColor || '#334155'}
-                size={28}
-                className="club-public-floating-access__social"
-              />
-            ))}
-          </div>
-        </div>
-      </div>
       {bookingSuccessId && (
         <div className="club-public-booking-success-banner" role="alert">
           <span>{c.bookingSuccess}</span>
@@ -1526,6 +1529,7 @@ const ClubPublicPage = () => {
 
       {club.banner ? (
         <section className="club-public-banner club-public-banner-with-hero">
+          {renderClubTopAccessBar()}
           <img src={getImageUrl(club.banner)} alt="" className="club-public-banner-image" />
           {club.logo && (
             <div className="club-public-banner-logo-wrap">
@@ -1551,7 +1555,8 @@ const ClubPublicPage = () => {
         </section>
       ) : (
         <section className="club-public-hero club-public-hero-standalone">
-          <div className="club-public-hero-inner" style={{ background: heroBgStyle, color: club?.settings?.heroTextColor || '#475569' }}>
+          <div className="club-public-hero-inner club-public-hero-inner--with-top-access" style={{ background: heroBgStyle, color: club?.settings?.heroTextColor || '#475569' }}>
+            {renderClubTopAccessBar()}
             {club.logo && <img src={getImageUrl(club.logo)} alt="" className="club-public-logo" />}
             <h1 className="club-public-title" style={{ color: club?.settings?.heroTitleColor || '#0f172a' }}>{clubName}</h1>
             {tagline && <p className="club-public-tagline" style={{ color: club?.settings?.heroTextColor || '#475569' }}>{tagline}</p>}

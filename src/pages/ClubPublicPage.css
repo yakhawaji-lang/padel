@@ -33,25 +33,53 @@
   touch-action: manipulation;
 }
 
-/* تسجيل الدخول ببداية السطر، اللغة + سوشيال بنهايته — ضمن تدفق الصفحة (ليست ثابتة على الشاشة) */
+/* تسجيل الدخول + اللغة + سوشيال — مدمجة فوق البانر/الهيرو (طبقة مطلقة، ليست شريطاً أبيضاً منفصلاً) */
 .club-public-floating-access {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
   box-sizing: border-box;
-  padding-top: max(10px, env(safe-area-inset-top, 0px));
-  padding-bottom: 10px;
-  padding-left: max(12px, env(safe-area-inset-left, 0px));
-  padding-right: max(12px, env(safe-area-inset-right, 0px));
-  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.club-public-floating-access > * {
   pointer-events: auto;
-  z-index: 20;
-  background: rgba(255, 255, 255, 0.96);
-  border-bottom: 1px solid #e2e8f0;
+}
+
+.club-public-banner-with-hero > .club-public-floating-access,
+.club-public-hero-inner--with-top-access > .club-public-floating-access {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 12;
+  padding-top: max(6px, env(safe-area-inset-top, 0px));
+  padding-bottom: 4px;
+  padding-left: max(10px, env(safe-area-inset-left, 0px));
+  padding-right: max(10px, env(safe-area-inset-right, 0px));
+}
+
+/* تمويه علوي فوق صورة البانر لقراءة الأزرار */
+.club-public-banner-with-hero::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: min(140px, 42%);
+  z-index: 5;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.52) 0%, rgba(0, 0, 0, 0.22) 50%, transparent 100%);
+}
+
+.club-public-banner-with-hero .club-public-banner-image {
+  position: relative;
+  z-index: 0;
+  display: block;
 }
 
 .club-public-floating-access__corner {
@@ -429,10 +457,10 @@
 
 .club-public-banner-logo-wrap {
   position: absolute;
-  top: 12px;
+  top: max(10px, calc(env(safe-area-inset-top, 0px) + 52px));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 2;
+  z-index: 8;
   text-align: center;
 }
 
@@ -452,6 +480,7 @@
   left: 0;
   right: 0;
   width: 100%;
+  z-index: 6;
   text-align: center;
   padding: 12px 24px;
   border-radius: 0;
@@ -549,6 +578,11 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.02);
 }
 
+.club-public-hero-inner--with-top-access {
+  position: relative;
+  padding-top: max(72px, calc(env(safe-area-inset-top, 0px) + 58px));
+}
+
 .club-public-logo {
   width: 96px;
   height: 96px;
@@ -583,7 +617,7 @@
   }
 
   .club-public-banner-logo-wrap {
-    top: 8px;
+    top: max(8px, calc(env(safe-area-inset-top, 0px) + 48px));
   }
 
   .club-public-banner-logo {
@@ -3077,6 +3111,10 @@
     border-radius: var(--club-radius-sm);
   }
 
+  .club-public-hero-inner--with-top-access {
+    padding-top: max(64px, calc(env(safe-area-inset-top, 0px) + 52px));
+  }
+
   .club-public-logo {
     width: 64px;
     height: 64px;
@@ -3170,6 +3208,10 @@
     padding: 20px 16px;
   }
 
+  .club-public-hero-inner--with-top-access {
+    padding-top: max(58px, calc(env(safe-area-inset-top, 0px) + 48px));
+  }
+
   .club-public-logo {
     width: 56px;
     height: 56px;
@@ -3221,6 +3263,10 @@
     padding: 40px 36px;
   }
 
+  .club-public-hero-inner--with-top-access {
+    padding-top: max(80px, calc(env(safe-area-inset-top, 0px) + 60px));
+  }
+
   .club-public-header-inner {
     gap: 16px;
   }
@@ -3259,6 +3305,10 @@
     padding: 64px 56px;
     border-radius: 24px;
     box-shadow: 0 12px 48px rgba(0, 0, 0, 0.07), 0 4px 16px rgba(0, 0, 0, 0.03);
+  }
+
+  .club-public-hero-inner--with-top-access {
+    padding-top: max(104px, calc(env(safe-area-inset-top, 0px) + 72px));
   }
 
   .club-public-hero-standalone {
