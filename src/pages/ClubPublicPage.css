@@ -108,22 +108,24 @@
   font-weight: 700;
   line-height: 1.25;
   border-radius: 12px;
-  background: #0f172a;
-  border: 1px solid rgba(15, 23, 42, 0.35);
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.25);
-  color: #fff;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.1);
+  color: #0a0a0a;
   text-decoration: none;
   text-align: center;
   max-width: min(220px, calc(50vw - 36px));
   white-space: normal;
   word-break: break-word;
   hyphens: auto;
-  transition: background 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .club-public-floating-access__login:hover {
-  background: #1e293b;
-  color: #fff;
+  background: #f8fafc;
+  color: #000;
+  border-color: rgba(15, 23, 42, 0.22);
+  box-shadow: 0 6px 22px rgba(15, 23, 42, 0.12);
 }
 
 .club-public-floating-access__login:active {
