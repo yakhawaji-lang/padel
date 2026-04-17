@@ -34,7 +34,7 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 10px;
-  max-width: min(calc(100vw - 24px), 420px);
+  max-width: min(calc(100vw - 20px), 400px);
   pointer-events: none;
 }
 
@@ -55,9 +55,12 @@
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 6px 8px 6px 10px;
+  justify-content: space-between;
+  gap: 16px;
+  box-sizing: border-box;
+  width: min(360px, calc(100vw - 24px));
+  min-width: min(300px, calc(100vw - 24px));
+  padding: 8px 14px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(15, 23, 42, 0.1);
@@ -141,18 +144,13 @@
   flex-shrink: 0;
 }
 
-@media (max-width: 380px) {
+@media (max-width: 360px) {
   .club-public-floating-access__auth-row {
-    flex-direction: column;
-    align-items: stretch;
-    width: 100%;
-    max-width: min(280px, calc(100vw - 24px));
-  }
-  .club-public-floating-access__btn--lang {
-    align-self: center;
-  }
-  .club-public-floating-access__login {
-    max-width: none;
+    min-width: unset;
+    width: calc(100vw - 20px);
+    max-width: calc(100vw - 20px);
+    padding-inline: 10px;
+    gap: 12px;
   }
 }
 
