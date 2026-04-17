@@ -136,6 +136,9 @@ const HomePage = () => {
   const [language, setLanguage] = useState(safeHomeLanguage)
   const [navOpen, setNavOpen] = useState(false)
   const [bannerPhrase, setBannerPhrase] = useState({ ar: '', en: '' })
+  /** Saved path from admin upload (includes real extension, e.g. /homepage/banner.jpg) */
+  const [homepageBannerPath, setHomepageBannerPath] = useState('')
+  const [homepageGalleryPaths, setHomepageGalleryPaths] = useState({})
   const [platformUser, setPlatformUser] = useState(null)
   const [clubAdminSession, setClubAdminSession] = useState(null)
 
@@ -217,9 +220,23 @@ const HomePage = () => {
   }, [clubs, location.pathname])
 
   useEffect(() => {
-    getStore('homepage_banner_phrase').then((v) => {
-      if (v && typeof v === 'object') setBannerPhrase({ ar: v.ar || '', en: v.en || '' })
-    }).catch(() => {})
+    Promise.all([
+      getStore('homepage_banner_phrase'),
+      getStore('homepage_banner_path'),
+      getStore('homepage_gallery_paths'),
+    ])
+      .then(([phraseVal, bannerPathVal, galleryVal]) => {
+        if (phraseVal && typeof phraseVal === 'object') {
+          setBannerPhrase({ ar: phraseVal.ar || '', en: phraseVal.en || '' })
+        }
+        if (typeof bannerPathVal === 'string' && bannerPathVal.trim().startsWith('/')) {
+          setHomepageBannerPath(bannerPathVal.trim())
+        }
+        if (galleryVal && typeof galleryVal === 'object' && !Array.isArray(galleryVal)) {
+          setHomepageGalleryPaths({ ...galleryVal })
+        }
+      })
+      .catch(() => {})
   }, [])
 
   // Sync <html lang/dir> only — do not call setAppLanguage on every mount (that hit the API and could race bootstrap).
@@ -528,14 +545,27 @@ const HomePage = () => {
   const c = t[langUi] || t.en
 
   const baseUrl = typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL ? import.meta.env.BASE_URL.replace(/\/$/, '') : ''
-  const galleryImages = [
-    { src: `${baseUrl}/homepage/gallery-1.png`, alt: 'PlayTix stadium and app' },
-    { src: `${baseUrl}/homepage/gallery-2.png`, alt: 'PlayTix community and management' },
-    { src: `${baseUrl}/homepage/gallery-3.png`, alt: 'PlayTix booking and entry' },
-    { src: `${baseUrl}/homepage/gallery-4.png`, alt: 'PlayTix with friends' },
-    { src: `${baseUrl}/homepage/gallery-5.png`, alt: 'PlayTix QR and court' },
-    { src: `${baseUrl}/homepage/gallery-6.png`, alt: 'PlayTix success' }
-  ]
+  const galleryImages = useMemo(() => {
+    const alts = [
+      'PlayTix stadium and app',
+      'PlayTix community and management',
+      'PlayTix booking and entry',
+      'PlayTix with friends',
+      'PlayTix QR and court',
+      'PlayTix success',
+    ]
+    return [1, 2, 3, 4, 5, 6].map((i, idx) => {
+      const key = `gallery-${i}`
+      const p = homepageGalleryPaths[key]
+      const hasPath = typeof p === 'string' && p.trim().startsWith('/')
+      const src = hasPath ? `${baseUrl}${p.trim()}` : `${baseUrl}/homepage/gallery-${i}.png`
+      return { src, alt: alts[idx] || 'PlayTix' }
+    })
+  }, [baseUrl, homepageGalleryPaths])
+
+  const bannerBackgroundUrl = homepageBannerPath
+    ? `${baseUrl}${homepageBannerPath}`
+    : `${baseUrl}/homepage/banner.png`
 
   const scrollTo = (id) => {
     const el = document.getElementById(id)
@@ -575,7 +605,7 @@ const HomePage = () => {
       <main>
         {/* بنر رئيسي — صورة كاملة مع عبارة دعائية قابلة للتحكم من لوحة التحكم */}
         <section id="homepage-banner" className="homepage-banner" aria-label="Banner">
-          <div className="homepage-banner-bg" style={{ backgroundImage: `url(${baseUrl}/homepage/banner.png)` }} />
+          <div className="homepage-banner-bg" style={{ backgroundImage: `url("${bannerBackgroundUrl}")` }} />
           <div className="homepage-banner-overlay" />
           <div className="homepage-banner-content">
             <p className="homepage-banner-phrase">

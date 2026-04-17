@@ -5,6 +5,8 @@ import './common.css'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 const BANNER_PHRASE_KEY = 'homepage_banner_phrase'
+const HOMEPAGE_BANNER_PATH_KEY = 'homepage_banner_path'
+const HOMEPAGE_GALLERY_PATHS_KEY = 'homepage_gallery_paths'
 const PLATFORM_MESSAGE_CHANNELS_KEY = 'platform_message_channels'
 const PLATFORM_EMAIL_SETTINGS_KEY = 'platform_email_settings'
 const GALLERY_KEYS = ['gallery-1', 'gallery-2', 'gallery-3', 'gallery-4', 'gallery-5', 'gallery-6']
@@ -131,7 +133,20 @@ export default function PlatformSettingsPage() {
       if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
         throw new Error(language === 'ar' ? 'قراءة الملف فشلت.' : 'Failed to read file.')
       }
-      await uploadHomepageImage(key, dataUrl)
+      const res = await uploadHomepageImage(key, dataUrl)
+      if (res?.path && typeof res.path === 'string' && res.path.startsWith('/')) {
+        const bust = `${res.path.includes('?') ? '&' : '?'}v=${Date.now()}`
+        if (key === 'banner') {
+          await setStore(HOMEPAGE_BANNER_PATH_KEY, `${res.path}${bust}`)
+        } else if (String(key).startsWith('gallery-')) {
+          let cur = {}
+          try {
+            const v = await getStore(HOMEPAGE_GALLERY_PATHS_KEY)
+            if (v && typeof v === 'object' && !Array.isArray(v)) cur = { ...v }
+          } catch (_) {}
+          await setStore(HOMEPAGE_GALLERY_PATHS_KEY, { ...cur, [key]: `${res.path}${bust}` })
+        }
+      }
       setMessage(language === 'ar' ? `تم رفع ${key}.` : `Uploaded ${key}.`)
       setMessageError(false)
       if (key === 'banner') setSelectedBannerFile(null)
