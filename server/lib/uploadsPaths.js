@@ -25,6 +25,9 @@ export function getLegacyGalleryRoot () {
   return join(PROJECT_ROOT, 'Gallery')
 }
 
+/** الجزء النسبي تحت uploads/ لكل مرفوعات النوادي (شعار، بنر، ملاعب، عروض) */
+export const CLUB_UPLOADS_SEGMENT = 'clubs'
+
 /**
  * هيكل موصى به:
  *   uploads/platform/homepage   — بنر ومعرض الصفحة الرئيسية
@@ -37,7 +40,7 @@ const ENSURE_SUBDIRS = [
   'platform/homepage',
   'platform/assets',
   'platform/files',
-  'clubs',
+  CLUB_UPLOADS_SEGMENT,
   'system/temp'
 ]
 
@@ -48,4 +51,10 @@ export function ensureUploadDirectoryTree () {
     const p = join(root, sub)
     if (!existsSync(p)) mkdirSync(p, { recursive: true })
   }
+}
+
+/** يضمن وجود uploads/clubs قبل أي حفظ لنوادي (يُستدعى من مسار حفظ النوادي) */
+export function ensureClubUploadsRoot () {
+  const p = join(getUploadsRoot(), CLUB_UPLOADS_SEGMENT)
+  if (!existsSync(p)) mkdirSync(p, { recursive: true })
 }

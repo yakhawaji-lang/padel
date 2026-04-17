@@ -5,7 +5,7 @@
  */
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs'
 import { join, dirname } from 'path'
-import { getUploadsRoot, getLegacyGalleryRoot } from './uploadsPaths.js'
+import { getUploadsRoot, getLegacyGalleryRoot, CLUB_UPLOADS_SEGMENT } from './uploadsPaths.js'
 
 const GALLERY_API_PREFIX = '/api/gallery/serve'
 
@@ -54,7 +54,7 @@ export function saveClubImageToGallery (clubId, type, base64Data, filename = nul
   const ext = getExtFromBase64(base64Data)
   const name = filename || `image.${ext}`
   const safeName = name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const relativePath = `clubs/${String(clubId)}/${type}/${safeName}`
+  const relativePath = `${CLUB_UPLOADS_SEGMENT}/${String(clubId)}/${type}/${safeName}`
   return saveBase64ToGallery(base64Data, relativePath)
 }
 
@@ -64,7 +64,7 @@ export function saveClubImageToGallery (clubId, type, base64Data, filename = nul
 export function saveCourtImageToGallery (clubId, courtId, base64Data) {
   if (!clubId || !courtId || !base64Data || !isBase64Image(base64Data)) return null
   const ext = getExtFromBase64(base64Data)
-  const relativePath = `clubs/${String(clubId)}/courts/${String(courtId)}.${ext}`
+  const relativePath = `${CLUB_UPLOADS_SEGMENT}/${String(clubId)}/courts/${String(courtId)}.${ext}`
   return saveBase64ToGallery(base64Data, relativePath)
 }
 
@@ -74,7 +74,7 @@ export function saveCourtImageToGallery (clubId, courtId, base64Data) {
 export function saveOfferImageToGallery (clubId, offerId, base64Data) {
   if (!clubId || !offerId || !base64Data || !isBase64Image(base64Data)) return null
   const ext = getExtFromBase64(base64Data)
-  const relativePath = `clubs/${String(clubId)}/offers/${String(offerId)}.${ext}`
+  const relativePath = `${CLUB_UPLOADS_SEGMENT}/${String(clubId)}/offers/${String(offerId)}.${ext}`
   return saveBase64ToGallery(base64Data, relativePath)
 }
 

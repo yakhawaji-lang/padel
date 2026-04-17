@@ -6,6 +6,7 @@ import { query } from './pool.js'
 import { logAudit } from './audit.js'
 import * as membershipService from '../services/membershipService.js'
 import { isBase64Image, saveClubImageToGallery, saveCourtImageToGallery, saveOfferImageToGallery } from '../lib/galleryService.js'
+import { ensureClubUploadsRoot } from '../lib/uploadsPaths.js'
 
 const SOFT_DELETE_WHERE = 'deleted_at IS NULL'
 
@@ -1021,11 +1022,12 @@ export async function saveClubsToNormalized(items, actor = {}) {
   }
 
   await ensureClubSettingsBookingColumns()
+  ensureClubUploadsRoot()
   for (const club of items) {
     if (!club?.id) continue
     const cid = String(club.id)
 
-    // ربط Gallery بقاعدة البيانات: حفظ صور base64 في Gallery وتخزين المسار في DB
+    // رفع صور النادي (base64) إلى uploads/clubs/<id>/... ثم تخزين مسار /api/gallery/serve في DB
     try {
       if (club.logo && isBase64Image(club.logo)) {
         const path = saveClubImageToGallery(cid, 'logo', club.logo)
@@ -1048,7 +1050,7 @@ export async function saveClubsToNormalized(items, actor = {}) {
         }
       }
     } catch (galleryErr) {
-      console.warn('[saveClubsToNormalized] Gallery save:', galleryErr?.message)
+      console.warn('[saveClubsToNormalized] Club uploads save:', galleryErr?.message)
     }
     const isNew = !existingIds.has(cid)
     const oldClub = existing.find(c => c.id === cid)
