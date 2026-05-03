@@ -21,9 +21,11 @@
 --
 --   4) اربط التطبيق بـ DATABASE_URL أو إعدادات الاستضافة نحو نفس القاعدة.
 --
--- ملف واحد جاهز للاستيراد (بدون تعديل المستودع):
+-- ملف واحد جاهز للاستيراد (يُولَّد على جهازك ولا يُرفع لـ Git):
 --   شغّل من جذر المشروع:  powershell -File scripts/build-transfer-pack.ps1
---   يُنشئ: export/PLANT_DATABASE_COMBINED.sql  (CREATE_ALL + migrations الموحّدة)
+--   يُنشئ داخل المجلد: نسخة من المشروع/
+--     - PLANT_DATABASE_COMBINED.sql  (CREATE_ALL + migrations الموحّدة)
+--     - playtix-full-project-transfer.zip
 --
 -- تفريغ البيانات فقط مع الإبقاء على الهيكل:
 --        server/db/CLEAR_ALL_DATA.sql
