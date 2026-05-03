@@ -43,3 +43,7 @@ database.config.json
 # Runtime user uploads (see uploads/README.md)
 uploads/*
 !uploads/README.md
+
+# حزم نقل محلية (يُنشئها scripts/build-transfer-pack.ps1)
+export/PLANT_DATABASE_COMBINED.sql
+export/*.zip

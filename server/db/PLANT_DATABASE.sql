@@ -1,0 +1,38 @@
+-- ============================================================================
+-- PlayTix — زراعة قاعدة البيانات على خادم جديد (MySQL / MariaDB)
+-- ============================================================================
+-- الهدف: قاعدة جاهزة لتشغيل التطبيق (جداول + بذور دنيا مثل app_store الفارغة
+--         وممرات الدفع الافتراضية في CREATE_ALL_TABLES.sql).
+--
+-- الطريقة الموصى بها (phpMyAdmin أو أي عميل MySQL):
+--
+--   1) أنشئ قاعدة باسمك مع UTF8MB4، مثال:
+--        CREATE DATABASE IF NOT EXISTS padel_db
+--          CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+--        USE padel_db;
+--
+--   2) نفّذ بالكامل (استيراد Import أو لصق وتنفيذ) الملف:
+--        server/db/CREATE_ALL_TABLES.sql
+--      هذا الملف ينشئ الجداول والفهارس ويُدخل البيانات الافتراضية الضرورية.
+--
+--   3) اختياري لكن مُستحسن بعد الترقية أو إن كانت القاعدة من نسخة قديمة:
+--        server/db/migrations/phpmyadmin-create-missing-tables-and-columns.sql
+--      (بديل قريب الشكل: phpmyadmin-u502561206-padel_db-SYNC-legacy-columns.sql)
+--
+--   4) اربط التطبيق بـ DATABASE_URL أو إعدادات الاستضافة نحو نفس القاعدة.
+--
+-- ملف واحد جاهز للاستيراد (بدون تعديل المستودع):
+--   شغّل من جذر المشروع:  powershell -File scripts/build-transfer-pack.ps1
+--   يُنشئ: export/PLANT_DATABASE_COMBINED.sql  (CREATE_ALL + migrations الموحّدة)
+--
+-- تفريغ البيانات فقط مع الإبقاء على الهيكل:
+--        server/db/CLEAR_ALL_DATA.sql
+-- حذف الجداول بالكامل (خطير):
+--        server/db/DROP_ALL_TABLES.sql
+--
+-- مرجع ترتيب Hostinger:
+--        server/db/migrations/Z_HOSTINGER_phpMyAdmin_RUN_ORDER.sql
+-- ============================================================================
+
+SELECT 'PlayTix: راجع التعليقات أعلاه ثم نفّذ CREATE_ALL_TABLES.sql' AS next_step,
+       NOW() AS checked_at;
