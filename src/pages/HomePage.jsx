@@ -629,12 +629,9 @@ const HomePage = () => {
           </div>
         </section>
 
-        {/* معرض الصور — Experience PlayTix */}
+        {/* معرض الصور */}
         <section id="homepage-gallery" className="section homepage-gallery">
           <div className="section-inner">
-            <h2 className="section-title">
-              {language === 'en' ? 'Experience PlayTix' : 'لحظات من PlayTix'}
-            </h2>
             <p className="section-intro">
               {language === 'en' ? 'Community, courts, and seamless booking — see how clubs and players use PlayTix.' : 'مجتمع، ملاعب، وحجز سلس — شاهد كيف يستخدم النوادي واللاعبون PlayTix.'}
             </p>
