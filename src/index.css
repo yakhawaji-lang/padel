@@ -1,33 +1,27 @@
-/* ============================================================================
-   PlayTix — Global Baseline
-   Imported once via main.jsx. Sets sane defaults that all 52 pages inherit.
-   ============================================================================ */
-
-*, *::before, *::after { box-sizing: border-box; }
-* { margin: 0; padding: 0; }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: stable;
-  font-size: 100%;
 }
 
 body {
-  font-family: var(--pt-font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI',
-    'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans',
-    'Helvetica Neue', sans-serif);
-  font-size: var(--pt-text-base, 1rem);
-  line-height: var(--pt-leading-normal, 1.55);
-  color: var(--pt-text, #0f172a);
-  background: var(--pt-bg-muted, #f8f9fa);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
+  background: #f8f9fa;
   min-height: 100vh;
   min-height: 100dvh;
+  padding: 0;
+  margin: 0;
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -42,102 +36,56 @@ body {
   width: 100%;
   max-width: 100vw;
   overflow-x: hidden;
-  isolation: isolate;
 }
 
-img, video, iframe, canvas, svg {
+/* Responsive base: منع التمرير الأفقي على الشاشات الصغيرة */
+img, video, iframe, table {
   max-width: 100%;
   height: auto;
 }
 
-table { border-collapse: collapse; border-spacing: 0; }
-:where(table:not(.pt-keep-layout)) {
+table {
   display: block;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
 
-input, button, textarea, select { font: inherit; color: inherit; }
-input, textarea, select { font-size: max(16px, 1rem); }
-
+/* Touch-friendly minimum tap target (all browsers) */
 @media (pointer: coarse) {
-  button, a, [role='button'], input[type='submit'], input[type='button'],
-  label[for], summary {
+  button, a, [role="button"], input[type="submit"], input[type="button"] {
     min-height: 44px;
     min-width: 44px;
   }
 }
 
+/* Fallback for browsers that don't support dvh */
 @supports not (min-height: 100dvh) {
   body, #root { min-height: 100vh; }
 }
 
-:focus { outline: none; }
-:focus-visible {
-  outline: 2px solid var(--pt-brand-500, #2563eb);
-  outline-offset: 2px;
-  border-radius: 2px;
+/* RTL - دعم الواجهة العربية */
+html[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
 }
 
-::selection {
-  background: var(--pt-brand-200, #bfdbfe);
-  color: var(--pt-brand-900, #172554);
+html[dir="rtl"] body {
+  text-align: right;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-html[dir='rtl'] { direction: rtl; text-align: right; }
-html[dir='rtl'] body { text-align: right; }
-
-input[type='number'] {
+/* Western numerals (0-9) in all number inputs across the system - Arabic and English */
+input[type="number"] {
   direction: ltr;
   font-variant-numeric: tabular-nums;
 }
-html[dir='rtl'] input[type='number'] {
+
+/* Force Western numerals for number inputs when page is RTL */
+html[dir="rtl"] input[type="number"] {
   direction: ltr;
   text-align: left;
 }
-.western-numerals { font-variant-numeric: tabular-nums; }
 
-.pt-no-scrollbar::-webkit-scrollbar { display: none; }
-.pt-no-scrollbar {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.pt-skeleton {
-  position: relative;
-  overflow: hidden;
-  background: var(--pt-gray-200, #e2e8f0);
-  border-radius: var(--pt-radius-md, 10px);
-}
-.pt-skeleton::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%);
-  animation: pt-shimmer 1.4s infinite;
-}
-@keyframes pt-shimmer {
-  100% { transform: translateX(100%); }
-}
-
-.pt-sr-only {
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  padding: 0 !important;
-  margin: -1px !important;
-  overflow: hidden !important;
-  clip: rect(0, 0, 0, 0) !important;
-  white-space: nowrap !important;
-  border: 0 !important;
+/* Use .western-numerals class on any element that displays numbers for Western numerals (0-9) */
+.western-numerals {
+  font-variant-numeric: tabular-nums;
 }
