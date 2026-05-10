@@ -2852,3 +2852,274 @@
   font-weight: 600;
   letter-spacing: 0.01em;
 }
+
+/* ============================================================================
+   Booking detail card — premium UX polish
+   Improves: status badges, participant rows, payment buttons,
+   responsive payment options grid, edit button, RTL.
+   ============================================================================ */
+
+/* Header status badges row — wrap and breathe */
+.my-bookings-detail-status,
+.my-bookings-card-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.my-bookings-status-badge,
+.my-bookings-card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* Detail meta grid — collapse to 2 cols on tablet, 1 col on phone */
+@media (max-width: 600px) {
+  .my-bookings-detail-meta,
+  .my-bookings-card-meta {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
+  }
+}
+@media (max-width: 380px) {
+  .my-bookings-detail-meta,
+  .my-bookings-card-meta {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Participant row — better spacing, hover affordance */
+.my-bookings-share-row,
+.booking-payment-share-row,
+.my-bookings-participant-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.my-bookings-share-row:hover,
+.booking-payment-share-row:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+@media (max-width: 480px) {
+  .my-bookings-share-row,
+  .booking-payment-share-row,
+  .my-bookings-participant-row {
+    flex-wrap: wrap;
+  }
+}
+
+/* Pending / Paid status pills — more distinctive */
+.my-bookings-share-status--pending,
+.booking-payment-share-status--pending,
+[data-status='pending'] {
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 700;
+}
+.my-bookings-share-status--paid,
+.booking-payment-share-status--paid,
+[data-status='paid'] {
+  background: #d1fae5;
+  color: #065f46;
+  font-weight: 700;
+}
+
+/* "Remaining to pay" callout — bigger heading, clearer hierarchy */
+.my-bookings-remaining,
+.my-bookings-pay-remainder {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 1px solid #fbbf24;
+  border-radius: 14px;
+  padding: clamp(14px, 3vw, 20px);
+}
+.my-bookings-remaining-amount {
+  font-size: clamp(1.4rem, 4vw, 1.8rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #92400e;
+}
+
+/* 3-button payment row: 3 cols desktop, wrap on tablet, stack on phone */
+.my-bookings-pay-actions,
+.my-bookings-remainder-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+@media (max-width: 720px) {
+  .my-bookings-pay-actions,
+  .my-bookings-remainder-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+  .my-bookings-pay-actions > *:nth-child(3n + 1):nth-last-child(2),
+  .my-bookings-pay-actions > *:nth-child(3n + 2):last-child {
+    grid-column: span 2;
+  }
+}
+@media (max-width: 480px) {
+  .my-bookings-pay-actions,
+  .my-bookings-remainder-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Action buttons polish */
+.my-bookings-pay-actions button,
+.my-bookings-remainder-actions button,
+.my-bookings-pay-action-btn {
+  min-height: 48px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease, box-shadow 0.2s ease, background 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.my-bookings-pay-action-btn:hover:not(:disabled) {
+  filter: brightness(1.04);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+}
+.my-bookings-pay-action-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* "Switch to electronic payment" — make it look like a clear secondary action */
+.my-bookings-pay-state-switch {
+  width: 100%;
+  border-radius: 10px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.my-bookings-pay-state-switch:hover {
+  background: #dbeafe;
+  border-color: #60a5fa;
+}
+
+/* "Add participants" footer button — pill style */
+.my-bookings-add-participants,
+.booking-add-participants-btn {
+  width: 100%;
+  border: 1px dashed #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 12px;
+  padding: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.my-bookings-add-participants:hover,
+.booking-add-participants-btn:hover {
+  background: #dbeafe;
+  border-style: solid;
+}
+.my-bookings-add-participants:active,
+.booking-add-participants-btn:active {
+  transform: scale(0.99);
+}
+
+/* Big primary "Edit" button at bottom — same height, branded gradient */
+.my-bookings-edit-btn,
+.booking-detail-edit-btn {
+  width: 100%;
+  min-height: 52px;
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: filter 0.15s ease, transform 0.1s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 10px rgba(30, 58, 138, 0.25);
+}
+.my-bookings-edit-btn:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 6px 14px rgba(30, 58, 138, 0.35);
+}
+.my-bookings-edit-btn:active {
+  transform: translateY(1px);
+}
+
+/* Sticky "Edit" on phones so it's always reachable */
+@media (max-width: 480px) {
+  .my-bookings-edit-btn-wrap {
+    position: sticky;
+    bottom: 0;
+    background: linear-gradient(to top, #fff 70%, rgba(255, 255, 255, 0));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    padding-top: 12px;
+    z-index: 5;
+  }
+}
+
+/* Hover support detection */
+@media (hover: none) {
+  .my-bookings-share-row:hover,
+  .booking-payment-share-row:hover {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+  }
+}
+
+/* RTL flip for the small WhatsApp icon next to participants */
+[dir="rtl"] .booking-payment-share-wa-icon {
+  transform: scaleX(-1);
+}
+
+/* Honor reduced motion across the booking detail */
+@media (prefers-reduced-motion: reduce) {
+  .my-bookings-pay-action-btn,
+  .my-bookings-edit-btn,
+  .my-bookings-add-participants,
+  .my-bookings-share-row,
+  .my-bookings-pay-state-switch {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Tighter section header */
+.my-bookings-section-title,
+.split-payment-participants-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+/* Section helper text */
+.my-bookings-section-help {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-top: -4px;
+  margin-bottom: 12px;
+}
