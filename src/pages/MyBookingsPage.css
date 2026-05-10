@@ -3196,3 +3196,249 @@
     transition: none !important;
   }
 }
+
+/* ============================================================================
+   Mobile-specific refinements (iPhone + Android phones)
+   ============================================================================ */
+
+/* Universal touch optimizations */
+@media (pointer: coarse), (max-width: 600px) {
+  /* All interactive items 44px+ for thumb-comfort */
+  .my-bookings-pay-state-switch,
+  .my-bookings-pay-action-btn,
+  .my-bookings-add-participants,
+  .booking-add-participants-btn,
+  .my-bookings-share-action-icon,
+  .my-bookings-resend,
+  .booking-payment-share-remove,
+  .booking-payment-share-whatsapp {
+    min-height: 44px;
+  }
+
+  /* Disable hover-stuck effects on touch */
+  .my-bookings-share-row:hover,
+  .booking-payment-share-row:hover,
+  .my-bookings-pay-action-btn:hover,
+  .my-bookings-edit-btn:hover {
+    background: initial;
+    box-shadow: none;
+    transform: none;
+    filter: none;
+  }
+}
+
+/* iPhone safe-areas + Android notch — universal padding for the page edges */
+.my-bookings-page,
+.my-bookings-container {
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+}
+
+/* Top status row — wrap and breathe on phones */
+@media (max-width: 480px) {
+  .my-bookings-card-status-row,
+  .my-bookings-detail-status {
+    gap: 6px;
+  }
+  .my-bookings-status-badge,
+  .my-bookings-card-badge {
+    padding: 3px 8px;
+    font-size: 0.68rem;
+  }
+}
+
+/* Booking meta card — compact on phones */
+@media (max-width: 480px) {
+  .my-bookings-detail-card,
+  .my-bookings-info-card,
+  .my-booking-card {
+    padding: 12px;
+    border-radius: 12px;
+  }
+  .my-bookings-detail-meta-item,
+  .my-bookings-meta-item {
+    font-size: 0.85rem;
+  }
+  .my-bookings-detail-meta-label,
+  .my-bookings-meta-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+  }
+}
+
+/* Section spacing tighter on phones */
+@media (max-width: 480px) {
+  .my-bookings-section,
+  .booking-section {
+    padding: 12px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+}
+
+/* Participant row — compact, full width amount pill aligned */
+@media (max-width: 480px) {
+  .my-bookings-share-row,
+  .booking-payment-share-row,
+  .my-bookings-participant-row {
+    padding: 10px;
+    gap: 8px;
+  }
+  .my-bookings-share-name,
+  .booking-payment-share-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+  .my-bookings-share-amount,
+  .booking-payment-share-amount-pill {
+    font-size: 0.8rem;
+    padding: 3px 10px;
+  }
+}
+
+/* "Remaining to pay" callout — compress on phones, keep amount big */
+@media (max-width: 480px) {
+  .my-bookings-remaining,
+  .my-bookings-pay-remainder {
+    padding: 14px;
+    border-radius: 12px;
+  }
+  .my-bookings-remaining-amount {
+    font-size: 1.6rem;
+  }
+  .my-bookings-remaining-text {
+    font-size: 0.85rem;
+  }
+}
+
+/* Pay-method buttons — clearer hierarchy on phones (stack with primary highlighted) */
+@media (max-width: 480px) {
+  .my-bookings-pay-actions,
+  .my-bookings-remainder-actions {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .my-bookings-pay-action-btn {
+    padding: 14px;
+    font-size: 0.95rem;
+  }
+}
+
+/* "Your payment" info card — compact */
+@media (max-width: 480px) {
+  .my-bookings-pay-state {
+    padding: 14px;
+    border-radius: 12px;
+  }
+  .my-bookings-pay-state-title {
+    font-size: 1rem;
+  }
+  .my-bookings-pay-state-desc {
+    font-size: 0.8rem;
+  }
+}
+
+/* Edit button + bottom safe area — sticky */
+@media (max-width: 600px) {
+  .my-bookings-detail-footer,
+  .my-bookings-actions-footer {
+    position: sticky;
+    bottom: 0;
+    background: linear-gradient(to top, #fff 60%, rgba(255, 255, 255, 0));
+    padding: 10px 0 max(10px, env(safe-area-inset-bottom));
+    z-index: 10;
+  }
+  .my-bookings-edit-btn,
+  .booking-detail-edit-btn {
+    min-height: 50px;
+    border-radius: 12px;
+    font-size: 1rem;
+  }
+}
+
+/* Modal/overlay on phones: full-screen sheet style */
+@media (max-width: 600px) {
+  .my-bookings-modal,
+  .my-bookings-action-sheet,
+  .booking-detail-modal {
+    border-radius: 18px 18px 0 0;
+    max-height: 92dvh;
+    margin: 0 !important;
+    padding: 16px 16px max(16px, env(safe-area-inset-bottom)) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .my-bookings-modal-overlay,
+  .booking-detail-modal-overlay,
+  [role='dialog'] {
+    align-items: flex-end !important;
+  }
+}
+
+/* Avoid horizontal scroll on tall screens (some long names cause overflow) */
+@media (max-width: 600px) {
+  .my-bookings-share-row > *,
+  .booking-payment-share-row > * {
+    min-width: 0;
+  }
+  .my-bookings-share-name,
+  .booking-payment-share-name {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}
+
+/* Form inputs prevent iOS zoom on focus */
+@media (max-width: 600px) {
+  .my-bookings-page input[type='text'],
+  .my-bookings-page input[type='tel'],
+  .my-bookings-page input[type='number'],
+  .my-bookings-page input[type='email'],
+  .my-bookings-page select,
+  .my-bookings-page textarea,
+  .booking-payment-share input[type='tel'],
+  .booking-payment-share input[type='number'],
+  .booking-payment-share select,
+  .booking-payment-share textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* WhatsApp button slightly larger on phone for confidence */
+@media (max-width: 480px) {
+  .my-bookings-resend {
+    width: 44px;
+    height: 44px;
+  }
+  .my-bookings-resend-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* Action icons (edit / delete) — comfortable tap target */
+@media (max-width: 480px) {
+  .my-bookings-share-action-icon {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* Prevent rounded corners cutoff on iOS Safari (border-radius + overflow) */
+.my-bookings-detail-card,
+.my-bookings-section,
+.my-bookings-share-row,
+.my-bookings-remaining,
+.my-bookings-pay-state {
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+}
+
+/* Honor user's reduced data preference: no decorative gradients */
+@media (prefers-reduced-data: reduce) {
+  .my-bookings-remaining,
+  .my-bookings-edit-btn,
+  .my-bookings-pay-action-btn {
+    background: #fef3c7;
+    background-image: none;
+  }
+}
