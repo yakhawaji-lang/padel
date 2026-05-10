@@ -566,20 +566,12 @@ export default function BookingPaymentShare({
                         aria-label={t('Pick from contacts', 'اختر من جهات الاتصال')}
                       >
                         <span className="booking-payment-share-contact-icon" aria-hidden>📇</span>
+                        <span className="booking-payment-share-contact-icon-label">
+                          {contactsBusy ? '…' : t('Contacts', 'جهات الاتصال')}
+                        </span>
                       </button>
                     ) : null}
                   </div>
-
-                  {isContactsPickSupported() ? (
-                    <button
-                      type="button"
-                      className="booking-payment-share-contact-btn booking-payment-share-contact-btn--block"
-                      onClick={pickFromContacts}
-                      disabled={atShareCap || contactsBusy}
-                    >
-                      {contactsBusy ? '…' : t('Select from contacts', 'اختر من جهات الاتصال')}
-                    </button>
-                  ) : null}
 
                   {hasFullPhone ? (
                     resolvedMatches.length > 0 ? (
