@@ -2145,7 +2145,10 @@ const MyBookingsPage = () => {
                                   </button>
                                 )}
                                 {showWa ? (
-                                  <a href={waHrefList} target="_blank" rel="noopener noreferrer" className="my-bookings-resend" title={c.resendInvite} onClick={(e) => e.stopPropagation()}>💬</a>
+                                  <a href={waHrefList} target="_blank" rel="noopener noreferrer" className="my-bookings-resend" title={c.resendInvite} aria-label={c.resendInvite} onClick={(e) => e.stopPropagation()}>
+                                    <span className="my-bookings-resend-icon" aria-hidden><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="#25D366" d="M19.05 4.91A10 10 0 0 0 12 2C6.48 2 2 6.48 2 12c0 1.83.5 3.55 1.36 5.04L2 22l5.13-1.34A10 10 0 0 0 12 22c5.52 0 10-4.48 10-10a10 10 0 0 0-2.95-7.09Zm-7.05 15.3a8.2 8.2 0 0 1-4.18-1.14l-.3-.18-3.04.8.81-2.96-.2-.31a8.18 8.18 0 1 1 6.91 3.79Zm4.5-6.13c-.25-.12-1.46-.72-1.69-.8-.23-.08-.4-.13-.56.13-.17.25-.65.8-.8.97-.15.17-.3.19-.55.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.39-1.72-.15-.25-.02-.39.11-.51.11-.11.25-.3.38-.45.12-.15.17-.25.25-.42.08-.17.04-.31-.02-.44-.06-.13-.56-1.34-.76-1.83-.2-.48-.4-.42-.55-.42l-.47-.01c-.16 0-.42.06-.65.31-.22.25-.85.83-.85 2.03 0 1.2.87 2.36.99 2.52.12.17 1.7 2.59 4.12 3.63.58.25 1.03.4 1.38.51.58.18 1.1.16 1.52.1.46-.07 1.46-.6 1.66-1.18.21-.58.21-1.07.15-1.18-.06-.11-.23-.17-.48-.29Z"/></svg></span>
+                                    <span className="my-bookings-resend-badge" aria-hidden>↻</span>
+                                  </a>
                                 ) : null}
                                 {canBookerManageShare ? (
                                   <>

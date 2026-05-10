@@ -1025,3 +1025,47 @@
     transition: none !important;
   }
 }
+
+/* WhatsApp button (proper logo, branded green) */
+.booking-payment-share-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  height: 40px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #d1fae5;
+  color: #25D366;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease, transform 0.1s ease;
+  flex-shrink: 0;
+}
+.booking-payment-share-whatsapp:hover {
+  background: #d1fae5;
+  border-color: #25D366;
+  box-shadow: 0 4px 8px rgba(37, 211, 102, 0.18);
+}
+.booking-payment-share-whatsapp:active {
+  transform: scale(0.97);
+}
+.booking-payment-share-wa-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.booking-payment-share-wa-icon svg {
+  display: block;
+}
+.booking-payment-share-wa-label {
+  letter-spacing: -0.01em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .booking-payment-share-whatsapp {
+    transition: none !important;
+  }
+}

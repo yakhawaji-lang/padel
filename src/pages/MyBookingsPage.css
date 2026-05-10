@@ -3123,3 +3123,76 @@
   margin-top: -4px;
   margin-bottom: 12px;
 }
+
+/* ============================================================================
+   WhatsApp resend invite — proper logo + clear "already-sent / resend" state
+   ============================================================================ */
+
+/* Pill button: white bg, green outline, hover lifts */
+.my-bookings-resend {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #d1fae5;
+  text-decoration: none;
+  color: #25D366;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease, box-shadow 0.2s ease;
+  flex-shrink: 0;
+}
+.my-bookings-resend:hover {
+  background: #d1fae5;
+  border-color: #25D366;
+  box-shadow: 0 4px 8px rgba(37, 211, 102, 0.18);
+}
+.my-bookings-resend:active {
+  transform: scale(0.96);
+}
+.my-bookings-resend-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.my-bookings-resend-icon svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+/* "Already sent" indicator badge — small refresh arrow on top-right */
+.my-bookings-resend-badge {
+  position: absolute;
+  top: -4px;
+  inset-inline-end: -4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #1d4ed8;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  border: 2px solid #fff;
+  pointer-events: none;
+}
+
+/* RTL: badge stays at the leading edge */
+[dir="rtl"] .my-bookings-resend-badge {
+  inset-inline-end: -4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .my-bookings-resend {
+    transition: none !important;
+  }
+}
