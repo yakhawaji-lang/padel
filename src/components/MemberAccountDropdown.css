@@ -176,3 +176,23 @@
   margin-top: 20px;
   justify-content: flex-end;
 }
+
+/* ============================================================================
+   z-index fix: ensure dropdown overlays page sections (calendar, members, etc.)
+   The dropdown trigger lives inside positioned parents (banner overlays,
+   floating access bars) that create their own stacking contexts. Bumping the
+   menu z-index alone isn't enough — we also need the dropdown root to sit
+   above the page content.
+   ============================================================================ */
+.member-account-dropdown {
+  /* Promote into its own stacking context above page content */
+  position: relative;
+  z-index: 9000;
+  isolation: isolate;
+}
+.member-account-menu {
+  z-index: 9999 !important;
+}
+.member-edit-overlay {
+  z-index: 10000 !important;
+}

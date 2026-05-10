@@ -3573,3 +3573,11 @@
     transition: none !important;
   }
 }
+
+/* Ensure floating access bar (with the user-account dropdown) overlays the
+   page sections below — the calendar, courts list, etc. create their own
+   stacking contexts via sticky/transform that can hide the dropdown menu. */
+.club-public-banner-with-hero > .club-public-floating-access,
+.club-public-hero-inner--with-top-access > .club-public-floating-access {
+  z-index: 200;
+}
