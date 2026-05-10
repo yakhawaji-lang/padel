@@ -610,32 +610,14 @@ export default function BookingPaymentShare({
                                     {t('This participant is already in the split.', 'هذا المشارك مضاف مسبقاً في المشاركة.')}
                                   </p>
                                 ) : (
-                                  <>
-                                    {waLink ? (
-                                      <a
-                                        href={waLink}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="booking-payment-share-whatsapp booking-payment-share-whatsapp--icon-only"
-                                        title={t('Send via WhatsApp', 'إرسال عبر واتساب')}
-                                        aria-label={t('WhatsApp', 'واتساب')}
-                                      >
-                                        <span className="booking-payment-share-wa-icon">💬</span>
-                                      </a>
-                                    ) : (
-                                      <span className="booking-payment-share-no-phone" title={t('No phone number to send', 'لا يوجد رقم لإرسال الرابط')}>
-                                        —
-                                      </span>
-                                    )}
-                                    <button
-                                      type="button"
-                                      className="booking-payment-share-unified-add-btn"
-                                      onClick={() => addRegistered(m)}
-                                      disabled={atShareCap}
-                                    >
-                                      {t('Add to split', 'إضافة للمشاركة')}
-                                    </button>
-                                  </>
+                                  <button
+                                    type="button"
+                                    className="booking-payment-share-unified-add-btn"
+                                    onClick={() => addRegistered(m)}
+                                    disabled={atShareCap}
+                                  >
+                                    {t('Add to split', 'إضافة للمشاركة')}
+                                  </button>
                                 )}
                               </div>
                             </li>
@@ -662,24 +644,6 @@ export default function BookingPaymentShare({
                           <span className="booking-payment-share-unified-match-phone">{normalizePhone(memberSearchQuery)}</span>
                         </div>
                         <div className="booking-payment-share-unified-match-actions">
-                          <a
-                            href={buildWhatsAppLink(
-                              normalizePhone(memberSearchQuery),
-                              clubName,
-                              dateStr,
-                              startTime,
-                              previewShareForGather,
-                              currency,
-                              clubId
-                            )}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="booking-payment-share-whatsapp booking-payment-share-whatsapp--icon-only"
-                            title={t('Send invite via WhatsApp', 'إرسال الدعوة عبر واتساب')}
-                            aria-label={t('WhatsApp', 'واتساب')}
-                          >
-                            <span className="booking-payment-share-wa-icon">💬</span>
-                          </a>
                           <button
                             type="button"
                             className="booking-payment-share-unified-add-btn"
