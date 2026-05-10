@@ -3581,3 +3581,354 @@
 .club-public-hero-inner--with-top-access > .club-public-floating-access {
   z-index: 200;
 }
+
+/* ============================================================================
+   Booking grid — premium UX polish
+   ============================================================================ */
+
+/* Container: smoother scroll + masked edges as scroll cues */
+.club-public-schedule-wrap {
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+
+/* Hide native scrollbar on touch devices, keep on desktop with custom style */
+@media (hover: none) {
+  .club-public-schedule-wrap::-webkit-scrollbar {
+    height: 0;
+    display: none;
+  }
+}
+.club-public-schedule-wrap::-webkit-scrollbar {
+  height: 6px;
+}
+.club-public-schedule-wrap::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.04);
+  border-radius: 3px;
+}
+.club-public-schedule-wrap::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.2);
+  border-radius: 3px;
+}
+.club-public-schedule-wrap::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 23, 42, 0.35);
+}
+
+/* Time headers — sticky top so they stay visible while scrolling rows */
+.club-public-court-grid-time-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  scroll-snap-align: start;
+}
+
+/* Court-name column: visual lift on scroll */
+.club-public-court-grid-court-name {
+  background: linear-gradient(to right, #ffffff 0%, #f8fafc 100%);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  box-shadow: 2px 0 6px rgba(15, 23, 42, 0.06);
+  z-index: 3;
+}
+[dir="rtl"] .club-public-court-grid-court-name {
+  background: linear-gradient(to left, #ffffff 0%, #f8fafc 100%);
+  box-shadow: -2px 0 6px rgba(15, 23, 42, 0.06);
+}
+
+/* Available cell hover — clearer invitation to click */
+.club-public-court-grid-cell.available.clickable {
+  position: relative;
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+.club-public-court-grid-cell.available.clickable:hover {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  box-shadow: inset 0 0 0 1px #34d399;
+  z-index: 2;
+}
+
+/* Selected/in-range cell — premium glow */
+.club-public-court-grid-cell.in-range.available.clickable,
+.club-public-court-grid-cell.selected,
+.club-public-court-grid-cell.is-selected {
+  background: linear-gradient(135deg, #86efac 0%, #4ade80 100%) !important;
+  box-shadow:
+    inset 0 0 0 2px #16a34a,
+    0 4px 12px rgba(22, 163, 74, 0.25) !important;
+  position: relative;
+  z-index: 4;
+  transform: scale(1.03);
+}
+
+/* Pulse animation on the active selection (subtle) */
+@keyframes pt-cell-pulse {
+  0%, 100% {
+    box-shadow:
+      inset 0 0 0 2px #16a34a,
+      0 4px 12px rgba(22, 163, 74, 0.25);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 2px #16a34a,
+      0 4px 18px rgba(22, 163, 74, 0.4);
+  }
+}
+.club-public-court-grid-cell.is-selected,
+.club-public-court-grid-cell.selected {
+  animation: pt-cell-pulse 2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .club-public-court-grid-cell.is-selected,
+  .club-public-court-grid-cell.selected {
+    animation: none;
+  }
+}
+
+/* Booked cells — softer, more legible */
+.club-public-court-grid-cell.booked {
+  position: relative;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.club-public-court-grid-cell.booked.court-booking {
+  background: linear-gradient(135deg, #c7d2fe 0%, #a5b4fc 100%);
+}
+.club-public-court-grid-cell.booked.training,
+.club-public-court-grid-cell.booked.coach {
+  background: linear-gradient(135deg, #fde68a 0%, #fbbf24 100%);
+}
+.club-public-court-grid-cell.booked.tournament {
+  background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%);
+}
+
+/* Past slots — fade out gracefully */
+.club-public-court-grid-cell.past {
+  opacity: 0.5;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0,
+    transparent 6px,
+    rgba(148, 163, 184, 0.15) 6px,
+    rgba(148, 163, 184, 0.15) 8px
+  );
+}
+
+/* In-progress cell highlight */
+.club-public-court-grid-cell.in-progress {
+  position: relative;
+}
+.club-public-court-grid-cell.in-progress::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(59, 130, 246, 0.15) 50%,
+    transparent 100%
+  );
+  animation: pt-progress-shine 2.5s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes pt-progress-shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Date nav — bigger touch targets, smoother style */
+.club-public-court-grid-date-nav,
+.club-public-date-nav {
+  background: #fff;
+  border-radius: 12px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+.club-public-court-grid-date-arrow,
+.club-public-date-nav-arrow {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease, border-color 0.15s ease;
+}
+.club-public-court-grid-date-arrow:hover,
+.club-public-date-nav-arrow:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+.club-public-court-grid-date-arrow:active,
+.club-public-date-nav-arrow:active {
+  transform: scale(0.94);
+}
+
+/* Legend — refined spacing and chip look */
+.club-public-court-booking-schedule-legend {
+  background: #fff;
+  border-radius: 12px 12px 0 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.club-public-court-booking-legend-item {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #475569;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.club-public-legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+/* Mobile: slightly larger tap targets in the grid */
+@media (max-width: 600px) {
+  .club-public-court-grid-cell {
+    min-height: 44px;
+  }
+  .club-public-court-grid-court-name {
+    min-height: 44px;
+    padding: 6px 8px;
+    font-size: 0.8rem;
+  }
+}
+
+/* Tablet/desktop: tighter, denser grid */
+@media (min-width: 1024px) {
+  .club-public-court-grid-cell {
+    transition: background 0.18s ease, transform 0.12s ease;
+  }
+}
+
+/* "Book now" / cell tooltip — elevate to a real button-like callout */
+.club-public-cell-tooltip,
+.club-public-book-now-tooltip,
+[data-cell-tooltip] {
+  background: #0f172a;
+  color: #fff;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.25);
+  z-index: 10;
+  pointer-events: none;
+  position: relative;
+}
+.club-public-cell-tooltip::before,
+.club-public-book-now-tooltip::before,
+[data-cell-tooltip]::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: #0f172a;
+}
+
+/* "My Bookings" toggle bar inside booking section — looks more deliberate */
+.club-public-court-booking-toggle,
+.club-public-my-bookings-toggle {
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 600;
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.club-public-court-booking-toggle.active,
+.club-public-my-bookings-toggle.active {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+/* Modal stepper progress (if present) */
+.club-public-booking-modal-stepper {
+  display: flex;
+  gap: 6px;
+  padding: 0 24px 12px;
+}
+.club-public-booking-modal-stepper > * {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: #e2e8f0;
+  transition: background 0.2s ease;
+}
+.club-public-booking-modal-stepper > .active,
+.club-public-booking-modal-stepper > .done {
+  background: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%);
+}
+
+/* Smooth transitions on duration buttons in modal */
+.club-public-booking-duration-btn {
+  position: relative;
+}
+.club-public-booking-duration-btn[aria-pressed='true'],
+.club-public-booking-duration-btn.selected,
+.club-public-booking-duration-btn.active {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border-color: #3b82f6;
+  color: #1e3a8a;
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.18);
+}
+
+/* Modal title reads as primary heading */
+.club-public-booking-modal-title {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #0f172a;
+}
+
+/* Action button: branded primary */
+.club-public-booking-modal-confirm,
+.club-public-booking-confirm {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+}
+.club-public-booking-modal-confirm:hover,
+.club-public-booking-confirm:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.35);
+}
+.club-public-booking-modal-confirm:active,
+.club-public-booking-confirm:active {
+  transform: translateY(1px);
+}
+.club-public-booking-modal-confirm:disabled,
+.club-public-booking-confirm:disabled {
+  filter: grayscale(0.4) brightness(0.95);
+  cursor: not-allowed;
+  box-shadow: none;
+}
