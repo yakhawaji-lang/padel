@@ -1637,7 +1637,9 @@
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   max-width: 420px;
   width: 100%;
+  /* dvh fixes iOS Safari address-bar height jump cropping the modal */
   max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1816,8 +1818,13 @@
 .club-public-booking-modal-actions {
   display: flex;
   gap: 12px;
-  padding: 16px 24px 24px;
+  /* respect iOS home indicator + Capacitor wrapper safe area */
+  padding: 16px 24px max(24px, calc(env(safe-area-inset-bottom) + 16px));
   border-top: 1px solid #f1f5f9;
+  background: #fff;
+  /* keep actions visible when long modal scrolls */
+  position: sticky;
+  bottom: 0;
 }
 .club-public-booking-modal-cancel {
   flex: 1;
@@ -1970,7 +1977,8 @@
 
 .club-public-lock-error {
   position: fixed;
-  top: 60px;
+  /* push below sticky header + iOS notch */
+  top: max(60px, calc(env(safe-area-inset-top) + 56px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 100;
@@ -1983,6 +1991,9 @@
   align-items: center;
   gap: 12px;
   font-size: 0.9rem;
+  /* never overflow the viewport on small phones */
+  max-width: min(92vw, 420px);
+  width: max-content;
 }
 
 .club-public-lock-error button {
@@ -3481,5 +3492,84 @@
     margin-left: auto;
     margin-right: auto;
     max-width: min(660px, 92vw);
+  }
+}
+
+/* ============================================================================
+   Mobile/responsive polish (additive — no overrides of existing styles)
+   ============================================================================ */
+@media (max-width: 480px) {
+  /* Tighter modal title on small phones */
+  .club-public-booking-modal-title {
+    padding: 16px 16px 12px;
+    font-size: 1.1rem;
+  }
+  .club-public-booking-modal-body {
+    padding: 16px;
+  }
+  .club-public-booking-modal-actions {
+    padding-inline: 16px;
+  }
+  /* Lock toast wraps gracefully */
+  .club-public-lock-error {
+    flex-wrap: wrap;
+    text-align: center;
+  }
+}
+
+/* RTL: flip the date-nav arrows so "previous day" actually points back in Arabic */
+[dir="rtl"] .club-public-date-nav-arrow,
+[dir="rtl"] .club-public-court-grid-date-arrow {
+  transform: scaleX(-1);
+}
+
+/* Extra-small phones (≤360 — iPhone SE 1st gen, Galaxy fold open) */
+@media (max-width: 360px) {
+  .club-public-booking-modal {
+    border-radius: 12px;
+  }
+  .club-public-booking-duration-btn {
+    min-width: 60px;
+    padding: 8px 10px;
+    font-size: 0.8rem;
+  }
+}
+
+/* Touch hint for horizontally-scrolling tables (prices/schedule) */
+.club-public-prices-table-wrap,
+.club-public-schedule-wrap {
+  position: relative;
+}
+.club-public-prices-table-wrap::after,
+.club-public-schedule-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  inset-inline-end: 0;
+  width: 24px;
+  background: linear-gradient(to left, rgba(255, 255, 255, 0.92), transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+[dir="rtl"] .club-public-prices-table-wrap::after,
+[dir="rtl"] .club-public-schedule-wrap::after {
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.92), transparent);
+}
+@media (hover: none) {
+  /* Show scroll hint on touch devices */
+  .club-public-prices-table-wrap::after,
+  .club-public-schedule-wrap::after {
+    opacity: 1;
+  }
+}
+
+/* Honor reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .club-public-booking-duration-btn,
+  .club-public-court-card,
+  .club-public-offer-card {
+    transition: none !important;
   }
 }
