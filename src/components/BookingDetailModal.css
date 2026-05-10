@@ -825,3 +825,19 @@
 .booking-detail-action-danger:hover:not(:disabled) {
   background: #ffe4e6;
 }
+
+/* ============================================================================
+   Mobile UX polish (additive)
+   ============================================================================ */
+@media (max-width: 600px) {
+  .booking-detail-modal-content,
+  .booking-detail-modal {
+    border-radius: 16px 16px 0 0;
+    max-height: 92dvh;
+  }
+}
+
+/* Action bar safe-area */
+.booking-detail-modal-actions {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}

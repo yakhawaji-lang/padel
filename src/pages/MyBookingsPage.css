@@ -2747,3 +2747,108 @@
     margin-right: 20px;
   }
 }
+
+/* ============================================================================
+   Mobile UX polish (additive)
+   ============================================================================ */
+
+/* Card grid: 1 col on phones, 2 on tablets, auto-fit on desktop */
+@media (max-width: 600px) {
+  .my-bookings-list,
+  .my-bookings-grid,
+  .bookings-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+  .booking-card,
+  .my-booking-card {
+    padding: 14px;
+    border-radius: 14px;
+  }
+}
+
+/* Action buttons row scrolls horizontally on tiny phones rather than wrapping awkwardly */
+@media (max-width: 480px) {
+  .booking-card-actions,
+  .my-booking-card-actions {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+  .booking-card-actions::-webkit-scrollbar,
+  .my-booking-card-actions::-webkit-scrollbar {
+    display: none;
+  }
+  .booking-card-actions > *,
+  .my-booking-card-actions > * {
+    flex-shrink: 0;
+  }
+}
+
+/* Filter pills: tighter on small phones */
+@media (max-width: 480px) {
+  .my-bookings-filters,
+  .bookings-filter-pills {
+    padding-inline: 0 !important;
+  }
+  .my-bookings-filter-pill,
+  .bookings-filter-pill {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+  }
+}
+
+/* Modal/action-sheet — respect safe area */
+.my-bookings-modal,
+.my-bookings-action-sheet,
+.booking-detail-modal {
+  max-height: 100dvh;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+/* Sticky bottom action bar (cancel/pay) keeps visible above keyboard on iOS */
+.my-bookings-sticky-bar,
+.booking-action-sticky-bar {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid #e2e8f0;
+  z-index: 5;
+}
+
+/* Hover on capable devices only */
+@media (hover: hover) {
+  .booking-card:hover,
+  .my-booking-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .booking-card,
+  .my-booking-card,
+  .my-bookings-modal,
+  .booking-detail-modal {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Empty state */
+.my-bookings-empty {
+  text-align: center;
+  padding: clamp(32px, 8vw, 64px) clamp(16px, 4vw, 32px);
+  color: #64748b;
+}
+
+/* Status badges — readable contrast */
+.booking-status-badge,
+.my-booking-status-badge {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}

@@ -225,3 +225,66 @@
     min-height: 44px;
   }
 }
+
+
+/* ============================================================================
+   Mobile UX polish (additive)
+   ============================================================================ */
+@media (max-width: 600px) {
+  .auth-container,
+  .login-container,
+  .register-container,
+  .register-club-container {
+    padding-inline: clamp(12px, 4vw, 20px) !important;
+    padding-block: clamp(16px, 4vh, 32px) !important;
+  }
+  .auth-card,
+  .login-card,
+  .register-card,
+  .register-club-card {
+    border-radius: clamp(14px, 3vw, 20px) !important;
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08) !important;
+  }
+  .auth-form input,
+  .login-form input,
+  .register-form input,
+  .register-club-form input,
+  .auth-form select,
+  .login-form select,
+  .register-form select,
+  .auth-form textarea {
+    font-size: 16px; /* prevent iOS zoom on focus */
+  }
+}
+
+/* Submit button: full-width on small phones, comfortable height */
+@media (max-width: 480px) {
+  .auth-submit-btn,
+  .login-submit,
+  .register-submit,
+  .register-club-submit {
+    width: 100% !important;
+    min-height: 48px;
+  }
+}
+
+/* Focus state polish */
+.auth-form input:focus-visible,
+.login-form input:focus-visible,
+.register-form input:focus-visible,
+.register-club-form input:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .auth-card,
+  .login-card,
+  .register-card,
+  .register-club-card,
+  .auth-submit-btn {
+    transition: none !important;
+  }
+}
+

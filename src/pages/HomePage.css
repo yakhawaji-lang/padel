@@ -1508,3 +1508,112 @@
     padding: 48px 16px 56px;
   }
 }
+
+/* ============================================================================
+   Mobile UX polish (additive)
+   ============================================================================ */
+
+/* Smoother typography scaling on the home banner across screens */
+@media (max-width: 600px) {
+  .home-banner,
+  .home-banner-content {
+    padding-inline: clamp(12px, 4vw, 20px);
+  }
+  .homepage-clubs-grid,
+  .home-clubs-grid,
+  .clubs-grid {
+    gap: 12px;
+  }
+}
+
+/* Cards on small phones: tighter padding, full-bleed media */
+@media (max-width: 480px) {
+  .home-club-card,
+  .homepage-club-card {
+    padding: 12px;
+    border-radius: 14px;
+  }
+  .home-club-card-image,
+  .homepage-club-card-image {
+    border-radius: 10px;
+  }
+}
+
+/* Hover effects only where supported (tablets/desktops) */
+@media (hover: hover) {
+  .home-club-card:hover,
+  .homepage-club-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+  }
+}
+@media (hover: none) {
+  .home-club-card:hover,
+  .homepage-club-card:hover {
+    transform: none;
+  }
+}
+
+/* Search bar focus polish */
+.home-search-input:focus-visible,
+.homepage-search-input:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Loading skeleton helper for club cards */
+.home-club-card[data-loading='true'],
+.homepage-club-card[data-loading='true'] {
+  position: relative;
+  overflow: hidden;
+  pointer-events: none;
+}
+.home-club-card[data-loading='true']::after,
+.homepage-club-card[data-loading='true']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+  animation: home-shimmer 1.4s infinite;
+}
+@keyframes home-shimmer {
+  100% { transform: translateX(100%); }
+}
+
+/* Banner fluid height — hard cap to avoid eating the viewport on tiny phones */
+@media (max-height: 640px) {
+  .home-banner,
+  .homepage-banner {
+    min-height: 0;
+    max-height: 60dvh;
+  }
+}
+
+/* RTL: flip carousel/scroll buttons */
+[dir="rtl"] .home-clubs-prev,
+[dir="rtl"] .home-clubs-next {
+  transform: scaleX(-1);
+}
+
+/* Honor reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .home-club-card,
+  .homepage-club-card,
+  .home-banner-image {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 360px) {
+  .home-banner-title,
+  .homepage-banner-title {
+    font-size: 1.4rem;
+    line-height: 1.25;
+  }
+  .home-search-input,
+  .homepage-search-input {
+    font-size: 16px; /* prevent iOS zoom-on-focus */
+  }
+}
