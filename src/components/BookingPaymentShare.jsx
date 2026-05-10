@@ -519,8 +519,8 @@ export default function BookingPaymentShare({
                   <p className="booking-payment-share-add-title">{t('Add participant', 'إضافة مشارك')}</p>
                   <p className="booking-payment-share-unified-hint">
                     {t(
-                      'Same flow for typed numbers and contacts: pick one number, confirm the name, then tap Add.',
-                      'نفس الخطوة للرقم المكتوب أو المختار من جهات الاتصال: رقم واحد، تأكيد الاسم، ثم إضافة للمشاركة.'
+                      'Type a 10-digit Saudi mobile (05XXXXXXXX) or pick from your contacts.',
+                      'اكتب رقم جوال سعودي 10 أرقام (05XXXXXXXX) أو اختر من جهات الاتصال.'
                     )}
                   </p>
                   <p className="booking-payment-share-search-label">{t('Participant mobile number', 'رقم جوال المشارك')}</p>
@@ -528,7 +528,8 @@ export default function BookingPaymentShare({
                     <input
                       type="tel"
                       className="booking-payment-share-search"
-                      placeholder={t('Search by phone (9+ digits)', 'البحث برقم الجوال (9+ أرقام)')}
+                      placeholder={t('05XXXXXXXX (10 digits)', '05XXXXXXXX (10 أرقام)')}
+                      maxLength={16}
                       value={memberSearchQuery}
                       onChange={(e) => {
                         setMemberSearchQuery(e.target.value)
@@ -699,8 +700,8 @@ export default function BookingPaymentShare({
                   ) : (
                     <p className="booking-payment-share-empty booking-payment-share-empty--unified">
                       {t(
-                        'Enter full phone number (9+ digits) to search — names shown only after match for privacy',
-                        'أدخل رقم الجوال كاملاً (9+ أرقام) للبحث — الأسماء تظهر بعد المطابقة فقط للخصوصية'
+                        'Enter the full Saudi mobile number — 10 digits starting with 05 (e.g. 0512345678). Or pick from your contacts.',
+                        'أدخل رقم الجوال السعودي كاملاً — 10 أرقام تبدأ بـ 05 (مثل 0512345678). أو اختر من جهات الاتصال.'
                       )}
                     </p>
                   )}
