@@ -9,6 +9,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import * as bookingApi from '../api/dbClient'
 import { normalizePhone } from '../utils/phoneNormalize'
 import { phoneTailKey, resolvePaymentShareDisplayName } from '../utils/paymentShareMemberMatch'
+import { phoneDigitsNormalized } from '../utils/phoneNormalize'
 import { isContactsPickSupported, pickPhoneNumbersFromContacts } from '../utils/contactPicker'
 import { buildPaymentShareWhatsAppPlainText } from '../utils/sharePaymentInviteMessage'
 import { buildClubPublicAbsoluteUrl } from '../utils/splitInviteLinks'
@@ -195,8 +196,9 @@ export default function BookingPaymentShare({
   )
   const searchTail = phoneTailKey(memberSearchQuery)
   const FULL_PHONE_MIN = 9
-  /** Enough digits for a confident match (national 9 or longer intl / local). */
-  const hasFullPhone = searchTail.length >= FULL_PHONE_MIN
+  /** Enough digits for a confident match (Saudi local 10 digits = 0XXXXXXXXX, or international form 9665XXXXXXXX = 12). */
+  const searchDigitsCount = phoneDigitsNormalized(memberSearchQuery).length
+  const hasFullPhone = searchDigitsCount >= 10
   const filteredBySearch = hasFullPhone
     ? searchableMembers.filter((m) => {
         if (!isGatherPhase && addedMemberIds.has(String(m?.id))) return false
