@@ -60,3 +60,13 @@
 .header-language-toggle:hover {
   opacity: 0.85;
 }
+
+/* ============================================================================
+   AdminHeader — PlayTix Brand Theme
+   ============================================================================ */
+.admin-header {
+  background: linear-gradient(135deg, var(--pt-navy-800, #0f172a) 0%, var(--pt-navy-700, #1e293b) 100%);
+  color: #fff;
+}
+.admin-header-title { color: #fff; font-weight: 700; }
+.admin-header-action-btn:hover { background: var(--pt-navy-600, #334155); }

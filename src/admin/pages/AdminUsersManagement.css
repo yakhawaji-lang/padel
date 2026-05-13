@@ -603,3 +603,48 @@
 [dir="rtl"] .au-club-chip-name {
   text-align: right;
 }
+
+/* ============================================================================
+   PlayTix Brand Theme (Platform Admin page)
+   ============================================================================ */
+.admin-page-title,
+.platform-page-title,
+.all-clubs-title,
+.all-members-title,
+.all-bookings-title,
+.admin-users-title,
+.platform-settings-title,
+.offers-management-title,
+.payment-settings-title {
+  background: linear-gradient(135deg, var(--pt-brand-700, #0f766e) 0%, var(--pt-brand-500, #14b8a6) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Platform-level "platform" pill — accent coral (distinct from club teal) */
+.platform-badge,
+.platform-only-badge {
+  background: var(--pt-accent-100, #ffedd5);
+  color: var(--pt-accent-600, #ea580c);
+  border-radius: var(--pt-radius-pill, 999px);
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Toolbar refinements */
+.platform-toolbar,
+.admin-toolbar {
+  background: #fff;
+  border-radius: var(--pt-radius-lg, 14px);
+  padding: var(--pt-space-3, 0.75rem) var(--pt-space-4, 1rem);
+  border: 1px solid var(--pt-border, #e2e8f0);
+  box-shadow: var(--pt-shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.04));
+}
+

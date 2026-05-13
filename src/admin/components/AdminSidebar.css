@@ -211,3 +211,20 @@
   background: rgba(255, 255, 255, 0.1);
   color: white;
 }
+
+/* ============================================================================
+   AdminSidebar — PlayTix Brand Theme
+   ============================================================================ */
+.admin-sidebar {
+  background: var(--pt-navy-800, #0f172a);
+  color: var(--pt-navy-100, #e2e8f0);
+}
+.admin-sidebar-link.active,
+.admin-sidebar-nav-link.active {
+  background: var(--pt-brand-500, #14b8a6);
+  color: #fff;
+}
+.admin-sidebar-link:hover:not(.active) {
+  background: var(--pt-navy-700, #1e293b);
+  color: #fff;
+}

@@ -241,3 +241,47 @@
     justify-content: center;
   }
 }
+
+/* ============================================================================
+   MainAdminSidebar — PlayTix Brand Theme (Platform Admin)
+   ============================================================================ */
+.main-admin-sidebar {
+  background: var(--pt-navy-900, #020617);
+  color: var(--pt-navy-100, #e2e8f0);
+  border-right: 1px solid var(--pt-navy-800, #0f172a);
+}
+[dir="rtl"] .main-admin-sidebar {
+  border-right: none;
+  border-left: 1px solid var(--pt-navy-800, #0f172a);
+}
+.main-admin-sidebar-link,
+.main-admin-sidebar-nav-link {
+  color: var(--pt-navy-200, #cbd5e1);
+  border-radius: var(--pt-radius-md, 10px);
+  padding: 10px 14px;
+  font-weight: 600;
+  transition: background var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              color var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.main-admin-sidebar-link:hover,
+.main-admin-sidebar-nav-link:hover {
+  background: var(--pt-navy-800, #0f172a);
+  color: #fff;
+}
+.main-admin-sidebar-link.active,
+.main-admin-sidebar-nav-link.active {
+  background: var(--pt-brand-500, #14b8a6);
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(20, 184, 166, 0.25);
+}
+.main-admin-sidebar-section-title {
+  color: var(--pt-navy-400, #64748b);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.main-admin-sidebar-icon {
+  color: inherit;
+  opacity: 0.85;
+}

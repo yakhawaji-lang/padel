@@ -120,3 +120,39 @@
 .header-language-toggle:hover {
   opacity: 0.85;
 }
+
+/* ============================================================================
+   MainAdminHeader — PlayTix Brand Theme (Platform Admin)
+   ============================================================================ */
+.main-admin-header {
+  background: linear-gradient(135deg, var(--pt-navy-900, #020617) 0%, var(--pt-navy-800, #0f172a) 100%);
+  border-bottom: 1px solid var(--pt-navy-700, #1e293b);
+  color: #fff;
+}
+.main-admin-header-title,
+.main-admin-header h1 {
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.main-admin-header-action-btn,
+.main-admin-header-icon-btn {
+  color: var(--pt-navy-100, #e2e8f0);
+  background: transparent;
+  border-radius: var(--pt-radius-md, 10px);
+}
+.main-admin-header-action-btn:hover,
+.main-admin-header-icon-btn:hover {
+  background: var(--pt-navy-700, #1e293b);
+  color: #fff;
+}
+.main-admin-header-brand-badge {
+  background: var(--pt-brand-500, #14b8a6);
+  color: #fff;
+  border-radius: var(--pt-radius-pill, 999px);
+  padding: 2px 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
