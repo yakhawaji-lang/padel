@@ -89,3 +89,291 @@ html[dir="rtl"] input[type="number"] {
 .western-numerals {
   font-variant-numeric: tabular-nums;
 }
+/* ============================================================================
+   PlayTix — System-wide enhancement layer
+   Covers: a11y, performance hints, loading/empty/toast patterns,
+   network status, forced-colors mode, print, scrollbar polish.
+   100% additive utility classes — no overrides.
+   ============================================================================ */
+
+/* ---------- Skip-to-content link (a11y) ---------- */
+.pt-skip-link {
+  position: absolute;
+  inset-inline-start: 0;
+  top: -40px;
+  z-index: 9999;
+  background: #2563eb;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 0 0 8px 0;
+  font-weight: 700;
+  text-decoration: none;
+  transition: top 0.2s ease;
+}
+.pt-skip-link:focus-visible {
+  top: 0;
+  outline: 2px solid #fff;
+  outline-offset: -4px;
+}
+
+/* ---------- Toast notification ---------- */
+.pt-toast {
+  position: fixed;
+  inset-block-end: max(20px, env(safe-area-inset-bottom));
+  inset-inline-end: max(20px, env(safe-area-inset-right));
+  z-index: 9990;
+  background: #0f172a;
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+  font-size: 0.9rem;
+  max-width: min(92vw, 360px);
+  animation: pt-toast-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.pt-toast--success { background: #16a34a; }
+.pt-toast--error   { background: #dc2626; }
+.pt-toast--warning { background: #d97706; }
+.pt-toast--info    { background: #2563eb; }
+@keyframes pt-toast-in {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+
+/* ---------- Spinner ---------- */
+.pt-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2.5px solid rgba(37, 99, 235, 0.2);
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: pt-spin 0.7s linear infinite;
+  display: inline-block;
+}
+.pt-spinner--lg { width: 40px; height: 40px; border-width: 4px; }
+.pt-spinner--white { border-color: rgba(255,255,255,0.3); border-top-color: #fff; }
+@keyframes pt-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- Empty-state ---------- */
+.pt-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: clamp(32px, 8vw, 64px) clamp(16px, 4vw, 32px);
+  text-align: center;
+  color: #64748b;
+}
+.pt-empty-icon { font-size: clamp(2.5rem, 6vw, 4rem); opacity: 0.5; }
+.pt-empty-title { font-size: 1.1rem; font-weight: 700; color: #334155; }
+.pt-empty-desc { font-size: 0.9rem; max-width: 320px; line-height: 1.5; }
+
+/* ---------- Offline banner ---------- */
+.pt-offline-banner {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+  color: #fff;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ---------- Lazy image placeholder ---------- */
+img[loading='lazy']:not([src]) {
+  background: linear-gradient(110deg, #f1f5f9 8%, #e2e8f0 18%, #f1f5f9 33%);
+  background-size: 200% 100%;
+  animation: pt-img-shimmer 1.5s infinite;
+}
+@keyframes pt-img-shimmer {
+  to { background-position-x: -200%; }
+}
+
+/* ---------- Card pattern ---------- */
+.pt-card {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  padding: clamp(14px, 3vw, 20px);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  transition: box-shadow 0.2s ease;
+}
+.pt-card--interactive { cursor: pointer; }
+@media (hover: hover) {
+  .pt-card--interactive:hover { box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08); }
+}
+
+/* ---------- Badge ---------- */
+.pt-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.pt-badge--success { background: #dcfce7; color: #166534; }
+.pt-badge--warning { background: #fef3c7; color: #92400e; }
+.pt-badge--danger  { background: #fee2e2; color: #991b1b; }
+.pt-badge--info    { background: #dbeafe; color: #1e40af; }
+.pt-badge--muted   { background: #f1f5f9; color: #475569; }
+
+/* ---------- Button system ---------- */
+.pt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: filter 0.15s, transform 0.1s, box-shadow 0.2s, background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.pt-btn:active:not(:disabled) { transform: translateY(1px); }
+.pt-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pt-btn--primary {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+}
+.pt-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.35);
+}
+.pt-btn--secondary {
+  background: #fff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+.pt-btn--secondary:hover:not(:disabled) {
+  background: #eff6ff;
+  border-color: #60a5fa;
+}
+.pt-btn--ghost { background: transparent; color: #475569; }
+.pt-btn--ghost:hover:not(:disabled) { background: #f1f5f9; }
+.pt-btn--danger {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  color: #fff;
+}
+
+/* ---------- Form field system ---------- */
+.pt-field { display: flex; flex-direction: column; gap: 6px; }
+.pt-field-label { font-size: 0.85rem; font-weight: 600; color: #334155; }
+.pt-field-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font-size: 16px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pt-field-input:focus-visible {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+.pt-field-error { font-size: 0.8rem; color: #b91c1c; }
+.pt-field-hint  { font-size: 0.8rem; color: #64748b; }
+
+/* ---------- Modal/sheet system ---------- */
+.pt-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 16px;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: pt-overlay-in 0.18s ease;
+}
+@keyframes pt-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+.pt-modal {
+  background: #fff;
+  border-radius: 16px;
+  max-width: 480px;
+  width: 100%;
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+  animation: pt-modal-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes pt-modal-in {
+  from { transform: translateY(20px) scale(0.96); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+@media (max-width: 600px) {
+  .pt-overlay { padding: 0; align-items: flex-end; }
+  .pt-modal {
+    border-radius: 18px 18px 0 0;
+    max-height: 92dvh;
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+}
+
+/* ---------- Forced-colors (Windows high-contrast) ---------- */
+@media (forced-colors: active) {
+  .pt-card, .pt-btn, .pt-modal { border: 1px solid CanvasText; }
+}
+
+/* ---------- Desktop scrollbar polish ---------- */
+@media (hover: hover) {
+  * { scrollbar-width: thin; scrollbar-color: rgba(15, 23, 42, 0.25) transparent; }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-thumb { background: rgba(15, 23, 42, 0.25); border-radius: 4px; }
+  *::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 0.45); }
+}
+
+/* ---------- Print stylesheet ---------- */
+@media print {
+  body { background: #fff !important; color: #000 !important; }
+  .pt-no-print, nav, header, footer, .navbar, .sidebar, .app-top-nav,
+  .my-bookings-edit-btn-wrap, .my-bookings-pay-actions,
+  .booking-payment-share-whatsapp, .my-bookings-resend,
+  .my-bookings-add-participants {
+    display: none !important;
+  }
+  a[href]::after { content: ' (' attr(href) ')'; font-size: 0.85em; color: #555; }
+  .pt-card, .my-bookings-detail-card, .my-bookings-section {
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+}
+
+/* ---------- Performance: list-item containment ---------- */
+.pt-list-item, .my-booking-card, .club-public-court-grid-cell {
+  contain: content;
+}
+
+/* ---------- Tap-area helper for small icons ---------- */
+.pt-tap-area { position: relative; }
+.pt-tap-area::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  pointer-events: auto;
+}
+
+/* ---------- iOS double-tap delay fix ---------- */
+button, a, [role='button'] { touch-action: manipulation; }
