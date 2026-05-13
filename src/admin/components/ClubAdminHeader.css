@@ -375,3 +375,38 @@
     font-size: 1rem;
   }
 }
+
+/* ============================================================================
+   ClubAdminHeader — PlayTix Brand Theme
+   ============================================================================ */
+.club-admin-header {
+  background: linear-gradient(135deg, var(--pt-navy-800, #0f172a) 0%, var(--pt-navy-700, #1e293b) 100%);
+  border-bottom: 1px solid var(--pt-navy-600, #334155);
+  color: #fff;
+}
+.club-admin-header-club-name,
+.club-admin-header-title {
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.club-admin-header-action-btn,
+.club-admin-header-icon-btn {
+  color: var(--pt-navy-100, #e2e8f0);
+  background: transparent;
+  border-radius: var(--pt-radius-md, 10px);
+  transition: background var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.club-admin-header-action-btn:hover,
+.club-admin-header-icon-btn:hover {
+  background: var(--pt-navy-600, #334155);
+  color: #fff;
+}
+.club-admin-header-badge {
+  background: var(--pt-brand-500, #14b8a6);
+  color: #fff;
+  border-radius: var(--pt-radius-pill, 999px);
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}

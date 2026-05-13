@@ -173,3 +173,12 @@
     border-radius: 10px;
   }
 }
+
+/* ============================================================================
+   ClubAdmin shell — PlayTix Brand Theme
+   ============================================================================ */
+.club-admin-panel,
+.club-admin-layout {
+  background: var(--pt-bg-muted, #f8fafc);
+}
+

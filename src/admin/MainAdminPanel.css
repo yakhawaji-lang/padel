@@ -68,3 +68,13 @@
     padding: 16px 12px;
   }
 }
+
+/* ============================================================================
+   PlayTix Brand Theme — admin panel shells
+   ============================================================================ */
+.admin-app,
+.admin-layout,
+.main-admin-panel {
+  background: var(--pt-bg-muted, #f8fafc);
+  color: var(--pt-text, #0f172a);
+}

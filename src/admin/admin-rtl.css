@@ -217,3 +217,13 @@
 .club-admin-panel.rtl .offers-management .offer-card-title { text-align: right; }
 .club-admin-panel.rtl .offers-management .offers-header-top { flex-direction: row-reverse; }
 .club-admin-panel.rtl .offers-management .offers-filters { flex-direction: row-reverse; }
+
+/* ============================================================================
+   PlayTix Brand Theme — admin panel shells
+   ============================================================================ */
+.admin-app,
+.admin-layout,
+.main-admin-panel {
+  background: var(--pt-bg-muted, #f8fafc);
+  color: var(--pt-text, #0f172a);
+}

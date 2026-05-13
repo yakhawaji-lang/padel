@@ -706,3 +706,21 @@
     min-width: 520px;
   }
 }
+
+/* ============================================================================
+   PlayTix Brand Theme (additive)
+   ============================================================================ */
+.club-dashboard-title,
+.club-bookings-title,
+.club-settings-title,
+.club-store-title,
+.club-accounting-title,
+.admin-page-header h1 {
+  background: linear-gradient(135deg, var(--pt-brand-700, #0f766e) 0%, var(--pt-brand-500, #14b8a6) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}

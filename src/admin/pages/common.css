@@ -317,3 +317,212 @@
   gap: 8px;
   flex-wrap: wrap;
 }
+
+/* ============================================================================
+   Club Admin — Common page theme (PlayTix Brand)
+   Applies to all pages under src/admin/pages/.
+   ============================================================================ */
+
+/* Page titles */
+.admin-page-title,
+.club-page-title,
+.admin-page-header h1,
+.admin-page-header h2 {
+  color: var(--pt-navy-900, #0f172a);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Action buttons */
+.admin-btn-primary,
+.club-btn-primary,
+.club-admin-primary-btn {
+  background: linear-gradient(135deg, var(--pt-brand-500, #14b8a6) 0%, var(--pt-brand-700, #0f766e) 100%);
+  color: #fff;
+  font-weight: 700;
+  border-radius: var(--pt-radius-md, 10px);
+  min-height: var(--pt-tap-target, 44px);
+  border: none;
+  box-shadow: 0 4px 10px rgba(20, 184, 166, 0.25);
+  transition: filter var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              transform var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              box-shadow var(--pt-dur-base, 220ms) var(--pt-ease, ease);
+}
+.admin-btn-primary:hover:not(:disabled),
+.club-btn-primary:hover:not(:disabled),
+.club-admin-primary-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 6px 16px rgba(20, 184, 166, 0.35);
+}
+.admin-btn-primary:active:not(:disabled),
+.club-btn-primary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.admin-btn-secondary,
+.club-btn-secondary {
+  background: #fff;
+  color: var(--pt-brand-700, #0f766e);
+  border: 1px solid var(--pt-brand-200, #99f6e4);
+  border-radius: var(--pt-radius-md, 10px);
+  font-weight: 700;
+  min-height: var(--pt-tap-target, 44px);
+}
+.admin-btn-secondary:hover,
+.club-btn-secondary:hover {
+  background: var(--pt-brand-50, #f0fdfa);
+  border-color: var(--pt-brand-500, #14b8a6);
+}
+
+.admin-btn-danger,
+.club-btn-danger {
+  background: linear-gradient(135deg, var(--pt-danger, #dc2626) 0%, #b91c1c 100%);
+  color: #fff;
+  border: none;
+  font-weight: 700;
+}
+
+/* Tabs */
+.admin-tab.active,
+.club-admin-tab.active {
+  background: var(--pt-brand-500, #14b8a6);
+  color: #fff;
+  border-color: var(--pt-brand-600, #0d9488);
+}
+.admin-tab:hover:not(.active),
+.club-admin-tab:hover:not(.active) {
+  background: var(--pt-brand-50, #f0fdfa);
+  color: var(--pt-brand-800, #115e59);
+}
+
+/* Tables */
+.admin-table thead,
+.club-admin-table thead {
+  background: var(--pt-navy-50, #f1f5f9);
+}
+.admin-table th,
+.club-admin-table th {
+  color: var(--pt-navy-700, #1e293b);
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+.admin-table tbody tr:hover,
+.club-admin-table tbody tr:hover {
+  background: var(--pt-brand-50, #f0fdfa);
+}
+
+/* Form inputs */
+.admin-form input:focus-visible,
+.club-admin-form input:focus-visible,
+.admin-form select:focus-visible,
+.club-admin-form select:focus-visible,
+.admin-form textarea:focus-visible,
+.club-admin-form textarea:focus-visible {
+  outline: none !important;
+  border-color: var(--pt-brand-500, #14b8a6) !important;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.18) !important;
+}
+
+/* Stats / KPI cards */
+.admin-stat-card,
+.club-admin-stat-card,
+.club-stat-card {
+  background: linear-gradient(135deg, var(--pt-brand-50, #f0fdfa) 0%, #ffffff 100%);
+  border: 1px solid var(--pt-brand-100, #ccfbf1);
+  border-radius: var(--pt-radius-lg, 14px);
+  padding: var(--pt-space-5, 1.25rem);
+}
+.admin-stat-value,
+.club-admin-stat-value,
+.club-stat-value {
+  color: var(--pt-brand-700, #0f766e);
+  font-weight: 800;
+  font-size: var(--pt-text-2xl, 2rem);
+  letter-spacing: -0.02em;
+}
+.admin-stat-label,
+.club-admin-stat-label,
+.club-stat-label {
+  color: var(--pt-text-muted, #64748b);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Cards / sections */
+.admin-card,
+.club-admin-card,
+.club-section-card {
+  background: #fff;
+  border: 1px solid var(--pt-border, #e2e8f0);
+  border-radius: var(--pt-radius-lg, 14px);
+  padding: clamp(14px, 3vw, 20px);
+  box-shadow: var(--pt-shadow-sm, 0 1px 3px rgba(15, 23, 42, 0.06));
+}
+
+/* Empty / no-data states */
+.admin-empty,
+.club-admin-empty {
+  color: var(--pt-text-muted, #64748b);
+  padding: clamp(32px, 8vw, 64px) clamp(16px, 4vw, 32px);
+  text-align: center;
+}
+
+/* Status badges */
+.admin-status[data-status='active'],
+.club-admin-status[data-status='active'] {
+  background: var(--pt-success-bg, #dcfce7);
+  color: var(--pt-success-fg, #166534);
+}
+.admin-status[data-status='pending'],
+.club-admin-status[data-status='pending'] {
+  background: var(--pt-warning-bg, #fef3c7);
+  color: var(--pt-warning-fg, #92400e);
+}
+.admin-status[data-status='inactive'],
+.admin-status[data-status='disabled'],
+.club-admin-status[data-status='inactive'] {
+  background: var(--pt-gray-100, #f1f5f9);
+  color: var(--pt-gray-600, #475569);
+}
+.admin-status[data-status='cancelled'],
+.club-admin-status[data-status='cancelled'] {
+  background: var(--pt-danger-bg, #fee2e2);
+  color: var(--pt-danger-fg, #991b1b);
+}
+
+/* Section titles with branded underline */
+.admin-section-title,
+.club-admin-section-title {
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--pt-navy-900, #0f172a);
+}
+.admin-section-title::after,
+.club-admin-section-title::after {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 2px;
+  border-radius: var(--pt-radius-pill, 999px);
+  background: var(--pt-brand-500, #14b8a6);
+  margin-top: 6px;
+}
+
+/* Modal headers — branded teal */
+.admin-modal-title,
+.club-admin-modal-title {
+  color: var(--pt-navy-900, #0f172a);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Filter pills */
+.admin-filter-pill.active,
+.club-admin-filter-pill.active {
+  background: var(--pt-brand-500, #14b8a6);
+  color: #fff;
+  border-color: var(--pt-brand-600, #0d9488);
+}

@@ -200,3 +200,44 @@
     padding: 16px 20px;
   }
 }
+
+/* ============================================================================
+   ClubAdminSidebar — PlayTix Brand Theme
+   ============================================================================ */
+.club-admin-sidebar {
+  background: var(--pt-navy-800, #0f172a);
+  color: var(--pt-navy-100, #e2e8f0);
+  border-right: 1px solid var(--pt-navy-700, #1e293b);
+}
+[dir="rtl"] .club-admin-sidebar {
+  border-right: none;
+  border-left: 1px solid var(--pt-navy-700, #1e293b);
+}
+
+.club-admin-sidebar-link,
+.club-admin-sidebar-nav-link {
+  color: var(--pt-navy-200, #cbd5e1);
+  border-radius: var(--pt-radius-md, 10px);
+  padding: 10px 14px;
+  font-weight: 600;
+  transition: background var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              color var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.club-admin-sidebar-link:hover,
+.club-admin-sidebar-nav-link:hover {
+  background: var(--pt-navy-700, #1e293b);
+  color: #fff;
+}
+.club-admin-sidebar-link.active,
+.club-admin-sidebar-nav-link.active {
+  background: var(--pt-brand-500, #14b8a6);
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(20, 184, 166, 0.25);
+}
+.club-admin-sidebar-section-title {
+  color: var(--pt-navy-300, #94a3b8);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

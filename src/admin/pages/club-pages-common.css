@@ -488,3 +488,25 @@
     justify-content: flex-start;
   }
 }
+
+/* ============================================================================
+   Club admin pages — branded theme inherits from common.css + tokens
+   ============================================================================ */
+.club-page-section-title {
+  font-weight: 700;
+  color: var(--pt-navy-900, #0f172a);
+  letter-spacing: -0.015em;
+}
+.club-page-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pt-space-3, 0.75rem);
+  align-items: center;
+}
+.club-page-toolbar {
+  background: #fff;
+  border-radius: var(--pt-radius-lg, 14px);
+  padding: var(--pt-space-3, 0.75rem) var(--pt-space-4, 1rem);
+  box-shadow: var(--pt-shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.04));
+  border: 1px solid var(--pt-border, #e2e8f0);
+}
