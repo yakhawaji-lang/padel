@@ -5416,3 +5416,263 @@ button:active {
   color: #15803d;
   font-weight: 600;
 }
+/* ============================================================================
+   PlayTix Brand Theme — main booking flow (/club/:clubId/*)
+   Additive CSS via design tokens. No overrides of existing layout.
+   ============================================================================ */
+
+/* App shell: subtle gradient background */
+.app {
+  background: linear-gradient(180deg, var(--pt-brand-50, #f0fdfa) 0%, var(--pt-bg-muted, #f8fafc) 12%);
+}
+
+/* Top nav active tab — teal underline accent + branded color */
+.app-top-tab.active {
+  color: var(--pt-brand-700, #0f766e);
+  font-weight: 800;
+  position: relative;
+}
+.app-top-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  inset-inline-start: 16px;
+  inset-inline-end: 16px;
+  height: 3px;
+  border-radius: var(--pt-radius-pill, 999px);
+  background: linear-gradient(90deg, var(--pt-brand-500, #14b8a6), var(--pt-accent-500, #f97316));
+}
+.app-top-tab:hover {
+  color: var(--pt-brand-600, #0d9488);
+}
+
+/* Top nav dashboard icon button */
+.app-top-nav-dashboard-icon {
+  background: var(--pt-brand-50, #f0fdfa);
+  border: 1px solid var(--pt-brand-200, #99f6e4);
+  color: var(--pt-brand-700, #0f766e);
+  transition: background var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.app-top-nav-dashboard-icon:hover {
+  background: var(--pt-brand-100, #ccfbf1);
+  border-color: var(--pt-brand-500, #14b8a6);
+}
+
+/* App header */
+.app-header {
+  background: linear-gradient(135deg, var(--pt-navy-900, #020617) 0%, var(--pt-navy-800, #0f172a) 100%);
+  color: #fff;
+}
+.app-header-title {
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Pending banner — branded warning */
+.app-pending-banner {
+  background: linear-gradient(135deg, var(--pt-warning-bg, #fef3c7) 0%, #ffffff 100%);
+  border-left: 4px solid var(--pt-warning, #d97706);
+  color: var(--pt-warning-fg, #92400e);
+}
+[dir="rtl"] .app-pending-banner {
+  border-left: none;
+  border-right: 4px solid var(--pt-warning, #d97706);
+}
+.app-pending-icon {
+  color: var(--pt-warning, #d97706);
+}
+
+/* Menu toggle button */
+.app-menu-toggle {
+  color: var(--pt-navy-200, #cbd5e1);
+  background: transparent;
+  border-radius: var(--pt-radius-md, 10px);
+  transition: background var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.app-menu-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* Booking modal / sheet inside App.jsx */
+.booking-modal-confirm,
+.app-booking-confirm-btn,
+.tournament-action-btn--primary {
+  background: linear-gradient(135deg, var(--pt-brand-500, #14b8a6) 0%, var(--pt-brand-700, #0f766e) 100%) !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+  border-radius: var(--pt-radius-md, 10px) !important;
+  border: none !important;
+  min-height: var(--pt-tap-target, 44px);
+  box-shadow: 0 4px 10px rgba(20, 184, 166, 0.25);
+  transition: filter var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              transform var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              box-shadow var(--pt-dur-base, 220ms) var(--pt-ease, ease);
+}
+.booking-modal-confirm:hover:not(:disabled),
+.app-booking-confirm-btn:hover:not(:disabled),
+.tournament-action-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 6px 14px rgba(20, 184, 166, 0.35);
+}
+
+/* Tournament cards / containers */
+.tournament-card,
+.tournament-bracket-card,
+.tournament-info-card {
+  border-radius: var(--pt-radius-lg, 14px);
+  border: 1px solid var(--pt-border, #e2e8f0);
+  transition: border-color var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.tournament-card:hover,
+.tournament-bracket-card:hover {
+  border-color: var(--pt-brand-300, #5eead4);
+}
+
+/* Tournament team badges — teal */
+.tournament-team,
+.tournament-team-card {
+  background: var(--pt-brand-50, #f0fdfa);
+  border: 1px solid var(--pt-brand-200, #99f6e4);
+  border-radius: var(--pt-radius-md, 10px);
+  padding: 6px 10px;
+}
+.tournament-team-name {
+  color: var(--pt-brand-900, #134e4a);
+  font-weight: 700;
+}
+
+/* Tournament match — winner highlight */
+.tournament-match-winner,
+.tournament-team.winner {
+  background: linear-gradient(135deg, var(--pt-success-bg, #dcfce7) 0%, #ffffff 100%);
+  border-color: var(--pt-success, #16a34a);
+}
+
+/* Match score input — branded focus */
+.match-score-input:focus-visible,
+.tournament-score-input:focus-visible {
+  outline: none;
+  border-color: var(--pt-brand-500, #14b8a6);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.18);
+}
+
+/* Roster member chips */
+.tournament-roster-member,
+.roster-member-chip {
+  background: var(--pt-bg-subtle, #f1f5f9);
+  border: 1px solid var(--pt-border, #e2e8f0);
+  border-radius: var(--pt-radius-pill, 999px);
+  padding: 4px 12px;
+  transition: background var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.tournament-roster-member.selected,
+.roster-member-chip.selected {
+  background: var(--pt-brand-100, #ccfbf1);
+  border-color: var(--pt-brand-500, #14b8a6);
+  color: var(--pt-brand-800, #115e59);
+}
+
+/* Bench zone — drag target */
+.tournament-roster-bench-zone {
+  border: 2px dashed var(--pt-border-strong, #cbd5e1);
+  border-radius: var(--pt-radius-lg, 14px);
+  background: var(--pt-bg-subtle, #f1f5f9);
+  transition: border-color var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              background var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.tournament-roster-bench-zone--active {
+  border-color: var(--pt-brand-500, #14b8a6);
+  background: var(--pt-brand-50, #f0fdfa);
+  color: var(--pt-brand-700, #0f766e);
+}
+
+/* Form fields */
+.app-form input:focus-visible,
+.app-form select:focus-visible,
+.app-form textarea:focus-visible {
+  outline: none !important;
+  border-color: var(--pt-brand-500, #14b8a6) !important;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.18) !important;
+}
+
+/* Section titles in booking app */
+.app-section-title,
+.club-section-title {
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--pt-navy-900, #0f172a);
+  position: relative;
+}
+.app-section-title::after,
+.club-section-title::after {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 2px;
+  border-radius: var(--pt-radius-pill, 999px);
+  background: var(--pt-brand-500, #14b8a6);
+  margin-top: 6px;
+}
+
+/* Tab/pill nav inside booking pages */
+.club-tab.active,
+.app-tab.active {
+  background: var(--pt-brand-500, #14b8a6);
+  color: #fff;
+  border-color: var(--pt-brand-600, #0d9488);
+}
+.club-tab:hover:not(.active),
+.app-tab:hover:not(.active) {
+  background: var(--pt-brand-50, #f0fdfa);
+  color: var(--pt-brand-800, #115e59);
+}
+
+/* Status pills inside App */
+.app-status[data-status='confirmed'] {
+  background: var(--pt-success-bg, #dcfce7);
+  color: var(--pt-success-fg, #166534);
+}
+.app-status[data-status='pending'] {
+  background: var(--pt-warning-bg, #fef3c7);
+  color: var(--pt-warning-fg, #92400e);
+}
+.app-status[data-status='cancelled'] {
+  background: var(--pt-danger-bg, #fee2e2);
+  color: var(--pt-danger-fg, #991b1b);
+}
+
+/* Members list inside App */
+.member-list-item,
+.app-member-row {
+  border-bottom: 1px solid var(--pt-border, #e2e8f0);
+  transition: background var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.member-list-item:hover,
+.app-member-row:hover {
+  background: var(--pt-brand-50, #f0fdfa);
+}
+
+/* Mobile polish for app */
+@media (max-width: 600px) {
+  .app-top-nav {
+    padding-inline: 10px;
+  }
+  .app-top-tab {
+    padding: 8px 10px;
+    font-size: 0.85rem;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .app-top-tab,
+  .booking-modal-confirm,
+  .tournament-action-btn--primary,
+  .tournament-card,
+  .tournament-roster-member,
+  .member-list-item {
+    transition: none !important;
+  }
+}
