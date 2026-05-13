@@ -6,6 +6,7 @@ import SocialIcon, { PLATFORMS } from '../../components/SocialIcon'
 import { getImageUrl } from '../../api/dbClient'
 import { getLegacyOpenCloseBounds, timeToMinutes as whToMinutes } from '../../utils/clubWorkingHours'
 import HalfHourTimeSelect from '../../components/HalfHourTimeSelect'
+import ClubBookingPrices from './ClubBookingPrices'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
@@ -22,6 +23,10 @@ const TAB_INTRO = {
   general: {
     en: 'Regional defaults for the club experience: language visitors see first, timezone for dates and slots, and currency shown for prices. These affect calendars, booking copy, and receipts.',
     ar: 'الإعدادات الإقليمية لتجربة النادي: اللغة الافتراضية والمنطقة الزمنية للمواعيد والتقويم، والعملة المعروضة للأسعار. تؤثر على الجداول ونصوص الحجز والإيصالات.',
+  },
+  prices: {
+    en: 'Configure court booking prices by duration, days, time of day, and seasons. These prices drive what customers pay when they book a slot.',
+    ar: 'حدّد أسعار حجوزات الملاعب حسب المدة، الأيام، الوقت من اليوم، والمواسم. هذه الأسعار هي التي يُحتسب بها سعر الحجز عند إتمامه.',
   },
   booking: {
     en: 'Control scheduling rules, payment windows, and split-booking behaviour. Shorter locks reduce ghost bookings; longer split deadlines help groups finish paying. Tournament timers apply only to King of the Court and Social events.',
@@ -450,6 +455,7 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
     { id: 'playtomic', label: 'Playtomic', icon: '🎾' },
     { id: 'general', label: t('General', 'عام', lang), icon: '⚙️' },
     { id: 'booking', label: t('Booking', 'الحجز', lang), icon: '📅' },
+    { id: 'prices', label: t('Prices', 'الأسعار', lang), icon: '💰' },
     { id: 'courts', label: t('Courts', 'الملاعب', lang), icon: '🏟️' },
     { id: 'hours', label: t('Club Hours', 'أوقات العمل', lang), icon: '🕐' },
     { id: 'social', label: t('Social Media', 'التواصل الاجتماعي', lang), icon: '🔗' }
@@ -1007,6 +1013,13 @@ const ClubSettings = ({ club, language = 'en', onUpdateClub, onDefaultLanguageCh
             </SettingsCard>
             </div>
           </div>
+          )}
+
+          {activeTab === 'prices' && (
+            <div className="settings-section cs-tab-panel">
+              <SettingsTabHero icon="💰" titleEn="Court Booking Prices" titleAr="أسعار حجوزات الملاعب" tabId="prices" lang={lang} />
+              <ClubBookingPrices club={club} language={lang} onUpdateClub={onUpdateClub} />
+            </div>
           )}
 
           {activeTab === 'courts' && (
