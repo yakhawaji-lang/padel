@@ -2034,3 +2034,119 @@
     transform: none;
   }
 }
+
+/* ============================================================================
+   CoachDashboardPage — PlayTix Brand Theme
+   ============================================================================ */
+.coach-dashboard-title,
+.coach-dashboard-page-title {
+  background: linear-gradient(135deg, var(--pt-brand-700, #0f766e) 0%, var(--pt-brand-500, #14b8a6) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Coach session cards — accent border */
+.coach-session-card {
+  border-left: 3px solid var(--pt-brand-500, #14b8a6);
+  background: #fff;
+  border-radius: var(--pt-radius-lg, 14px);
+  padding: clamp(12px, 3vw, 18px);
+  box-shadow: var(--pt-shadow-sm, 0 1px 3px rgba(15, 23, 42, 0.06));
+}
+[dir="rtl"] .coach-session-card {
+  border-left: none;
+  border-right: 3px solid var(--pt-brand-500, #14b8a6);
+}
+
+/* Tabs in coach dashboard */
+.coach-tab.active,
+.coach-dashboard-tab.active {
+  background: var(--pt-brand-500, #14b8a6);
+  color: #fff;
+  border-color: var(--pt-brand-600, #0d9488);
+}
+.coach-tab:hover:not(.active) {
+  background: var(--pt-brand-50, #f0fdfa);
+  color: var(--pt-brand-800, #115e59);
+}
+
+/* Stats / KPI cards */
+.coach-kpi-card,
+.coach-stat-card {
+  background: linear-gradient(135deg, var(--pt-brand-50, #f0fdfa) 0%, #ffffff 100%);
+  border: 1px solid var(--pt-brand-100, #ccfbf1);
+  border-radius: var(--pt-radius-lg, 14px);
+  padding: var(--pt-space-5, 1.25rem);
+}
+.coach-kpi-value,
+.coach-stat-value {
+  color: var(--pt-brand-700, #0f766e);
+  font-weight: 800;
+  font-size: var(--pt-text-2xl, 2rem);
+  letter-spacing: -0.02em;
+}
+
+/* Status badges for training sessions */
+.coach-training-status[data-status='upcoming'] {
+  background: var(--pt-info-bg, #dbeafe);
+  color: var(--pt-info-fg, #1e40af);
+}
+.coach-training-status[data-status='ongoing'] {
+  background: var(--pt-success-bg, #dcfce7);
+  color: var(--pt-success-fg, #166534);
+}
+.coach-training-status[data-status='cancelled'] {
+  background: var(--pt-danger-bg, #fee2e2);
+  color: var(--pt-danger-fg, #991b1b);
+}
+.coach-training-status[data-status='completed'] {
+  background: var(--pt-gray-100, #f1f5f9);
+  color: var(--pt-gray-700, #334155);
+}
+
+/* Primary action buttons */
+.coach-primary-btn,
+.coach-action-btn--primary {
+  background: linear-gradient(135deg, var(--pt-brand-500, #14b8a6) 0%, var(--pt-brand-700, #0f766e) 100%);
+  color: #fff;
+  font-weight: 700;
+  border-radius: var(--pt-radius-md, 10px);
+  min-height: var(--pt-tap-target, 44px);
+  border: none;
+  box-shadow: 0 4px 10px rgba(20, 184, 166, 0.25);
+}
+.coach-primary-btn:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 6px 14px rgba(20, 184, 166, 0.35);
+}
+
+/* Section titles with branded underline */
+.coach-section-title {
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.coach-section-title::after {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 3px;
+  border-radius: var(--pt-radius-pill, 999px);
+  background: linear-gradient(90deg, var(--pt-brand-500, #14b8a6), var(--pt-accent-500, #f97316));
+  margin-top: 6px;
+}
+
+/* Calendar / schedule grid in coach dashboard */
+.coach-grid-cell.available {
+  background: var(--pt-brand-50, #f0fdfa);
+}
+.coach-grid-cell.booked {
+  background: var(--pt-brand-100, #ccfbf1);
+}
+.coach-grid-cell.selected {
+  background: linear-gradient(135deg, var(--pt-brand-300, #5eead4) 0%, var(--pt-brand-500, #14b8a6) 100%);
+  color: #fff;
+}

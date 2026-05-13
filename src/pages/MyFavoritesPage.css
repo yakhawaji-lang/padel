@@ -594,3 +594,60 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* ============================================================================
+   MyFavoritesPage — PlayTix Brand Theme
+   ============================================================================ */
+.my-favorites-title,
+.my-favorites-page-title {
+  background: linear-gradient(135deg, var(--pt-brand-700, #0f766e) 0%, var(--pt-brand-500, #14b8a6) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  font-weight: 800;
+}
+
+.my-favorites-card,
+.favorite-card {
+  border: 1px solid var(--pt-border, #e2e8f0);
+  border-radius: var(--pt-radius-lg, 14px);
+  transition: border-color var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              box-shadow var(--pt-dur-base, 220ms) var(--pt-ease, ease);
+}
+@media (hover: hover) {
+  .my-favorites-card:hover,
+  .favorite-card:hover {
+    border-color: var(--pt-brand-300, #5eead4);
+    box-shadow: 0 8px 20px rgba(20, 184, 166, 0.12);
+  }
+}
+
+.my-favorites-heart-btn,
+.favorite-heart-btn {
+  color: var(--pt-accent-500, #f97316);
+}
+.my-favorites-heart-btn:hover,
+.favorite-heart-btn:hover {
+  color: var(--pt-accent-600, #ea580c);
+}
+
+.my-favorites-empty,
+.favorites-empty-state {
+  color: var(--pt-text-muted, #64748b);
+  padding: clamp(32px, 8vw, 64px) clamp(16px, 4vw, 32px);
+}
+
+.my-favorites-book-btn,
+.favorite-book-btn {
+  background: linear-gradient(135deg, var(--pt-brand-500, #14b8a6) 0%, var(--pt-brand-700, #0f766e) 100%);
+  color: #fff;
+  font-weight: 700;
+  border-radius: var(--pt-radius-md, 10px);
+  min-height: var(--pt-tap-target, 44px);
+  border: none;
+}
+.my-favorites-book-btn:hover,
+.favorite-book-btn:hover {
+  filter: brightness(1.06);
+}

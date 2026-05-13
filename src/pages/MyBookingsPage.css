@@ -3442,3 +3442,131 @@
     background-image: none;
   }
 }
+
+/* ============================================================================
+   MyBookingsPage — PlayTix Brand Theme via design tokens
+   Additive: layers brand on top of existing structure.
+   ============================================================================ */
+
+/* Page heading — teal gradient */
+.my-bookings-title,
+.my-bookings-page-title,
+.my-bookings-header h1 {
+  background: linear-gradient(135deg, var(--pt-brand-700, #0f766e) 0%, var(--pt-brand-500, #14b8a6) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Filter pills — teal active state */
+.my-bookings-filter-pill.active,
+.bookings-filter-pill.active,
+.my-bookings-tab.active {
+  background: var(--pt-brand-500, #14b8a6);
+  color: #fff;
+  border-color: var(--pt-brand-600, #0d9488);
+}
+.my-bookings-filter-pill:hover:not(.active),
+.bookings-filter-pill:hover:not(.active),
+.my-bookings-tab:hover:not(.active) {
+  background: var(--pt-brand-50, #f0fdfa);
+  border-color: var(--pt-brand-300, #5eead4);
+  color: var(--pt-brand-800, #115e59);
+}
+
+/* Booking card — accent border on the side */
+.booking-card,
+.my-booking-card {
+  border-left: 3px solid var(--pt-brand-400, #2dd4bf);
+}
+[dir="rtl"] .booking-card,
+[dir="rtl"] .my-booking-card {
+  border-left: none;
+  border-right: 3px solid var(--pt-brand-400, #2dd4bf);
+}
+
+/* Court badge — teal */
+.booking-court-badge,
+.my-booking-court-badge,
+.booking-type-badge {
+  background: var(--pt-brand-50, #f0fdfa);
+  color: var(--pt-brand-800, #115e59);
+  border: 1px solid var(--pt-brand-200, #99f6e4);
+}
+
+/* "Pay at the club" + payment selected card — teal accent */
+.my-bookings-pay-state {
+  border-left: 3px solid var(--pt-brand-500, #14b8a6);
+}
+[dir="rtl"] .my-bookings-pay-state {
+  border-left: none;
+  border-right: 3px solid var(--pt-brand-500, #14b8a6);
+}
+
+/* Pay buttons — primary is "Pay at club" (dark navy), secondary "Pay from wallet" teal */
+.my-bookings-pay-action-btn--wallet,
+.my-bookings-pay-from-wallet {
+  background: linear-gradient(135deg, var(--pt-brand-300, #5eead4) 0%, var(--pt-brand-500, #14b8a6) 100%);
+  color: #fff;
+  border: none;
+}
+.my-bookings-pay-action-btn--wallet:hover,
+.my-bookings-pay-from-wallet:hover {
+  filter: brightness(1.06);
+}
+
+/* Switch to electronic payment — teal link */
+.my-bookings-pay-state-switch {
+  color: var(--pt-brand-700, #0f766e);
+  border-color: var(--pt-brand-200, #99f6e4);
+}
+.my-bookings-pay-state-switch:hover {
+  background: var(--pt-brand-50, #f0fdfa);
+  border-color: var(--pt-brand-500, #14b8a6);
+}
+
+/* Edit button — branded navy (sport feel) */
+.my-bookings-edit-btn,
+.booking-detail-edit-btn {
+  background: linear-gradient(135deg, var(--pt-navy-700, #1e293b) 0%, var(--pt-navy-800, #0f172a) 100%);
+}
+
+/* Add participants — teal dashed pill */
+.my-bookings-add-participants,
+.booking-add-participants-btn {
+  border-color: var(--pt-brand-300, #5eead4);
+  background: var(--pt-brand-50, #f0fdfa);
+  color: var(--pt-brand-700, #0f766e);
+}
+.my-bookings-add-participants:hover,
+.booking-add-participants-btn:hover {
+  background: var(--pt-brand-100, #ccfbf1);
+  border-color: var(--pt-brand-500, #14b8a6);
+}
+
+/* Status badges */
+.my-bookings-status-badge[data-status='pending'],
+.my-bookings-card-badge[data-status='pending'] {
+  background: var(--pt-warning-bg, #fef3c7);
+  color: var(--pt-warning-fg, #92400e);
+}
+.my-bookings-status-badge[data-status='paid'],
+.my-bookings-card-badge[data-status='paid'] {
+  background: var(--pt-success-bg, #dcfce7);
+  color: var(--pt-success-fg, #166534);
+}
+
+/* Section titles — branded underline */
+.my-bookings-section-title::after,
+.split-payment-participants-title::after {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 2px;
+  border-radius: var(--pt-radius-pill, 999px);
+  background: var(--pt-brand-500, #14b8a6);
+  margin-top: 6px;
+}
