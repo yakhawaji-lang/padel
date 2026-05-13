@@ -1,0 +1,143 @@
+/* ============================================================================
+   PlayTix — Design Tokens
+   Central design system: colors, spacing, breakpoints, typography, motion.
+   Imported once globally; per-component CSS can reference these vars.
+   ============================================================================ */
+
+:root {
+  /* ---------- Color palette ---------- */
+  --pt-brand-50:  #eff6ff;
+  --pt-brand-100: #dbeafe;
+  --pt-brand-200: #bfdbfe;
+  --pt-brand-300: #93c5fd;
+  --pt-brand-400: #60a5fa;
+  --pt-brand-500: #2563eb;
+  --pt-brand-600: #1d4ed8;
+  --pt-brand-700: #1e40af;
+  --pt-brand-800: #1e3a8a;
+  --pt-brand-900: #172554;
+
+  --pt-accent:    #f59e0b;
+  --pt-accent-2:  #fbbf24;
+
+  --pt-success:   #16a34a;
+  --pt-warning:   #d97706;
+  --pt-danger:    #dc2626;
+  --pt-info:      #0284c7;
+
+  --pt-gray-50:   #f8fafc;
+  --pt-gray-100:  #f1f5f9;
+  --pt-gray-200:  #e2e8f0;
+  --pt-gray-300:  #cbd5e1;
+  --pt-gray-400:  #94a3b8;
+  --pt-gray-500:  #64748b;
+  --pt-gray-600:  #475569;
+  --pt-gray-700:  #334155;
+  --pt-gray-800:  #1e293b;
+  --pt-gray-900:  #0f172a;
+
+  --pt-bg:        #ffffff;
+  --pt-bg-muted:  var(--pt-gray-50);
+  --pt-text:      var(--pt-gray-900);
+  --pt-text-muted:var(--pt-gray-500);
+  --pt-border:    var(--pt-gray-200);
+
+  /* ---------- Spacing scale (4px base) ---------- */
+  --pt-space-0:  0;
+  --pt-space-1:  0.25rem;  /*  4px */
+  --pt-space-2:  0.5rem;   /*  8px */
+  --pt-space-3:  0.75rem;  /* 12px */
+  --pt-space-4:  1rem;     /* 16px */
+  --pt-space-5:  1.25rem;  /* 20px */
+  --pt-space-6:  1.5rem;   /* 24px */
+  --pt-space-8:  2rem;     /* 32px */
+  --pt-space-10: 2.5rem;   /* 40px */
+  --pt-space-12: 3rem;     /* 48px */
+  --pt-space-16: 4rem;     /* 64px */
+  --pt-space-20: 5rem;     /* 80px */
+
+  /* ---------- Fluid spacing (clamp) ---------- */
+  --pt-pad-page:    clamp(1rem, 3vw, 2rem);
+  --pt-pad-section: clamp(2rem, 6vw, 5rem);
+  --pt-gap-grid:    clamp(0.75rem, 2vw, 1.5rem);
+
+  /* ---------- Container widths ---------- */
+  --pt-container-sm: 640px;
+  --pt-container-md: 768px;
+  --pt-container-lg: 1024px;
+  --pt-container-xl: 1200px;
+  --pt-container-2xl: 1440px;
+
+  /* ---------- Breakpoints (consumed by JS / matchMedia) ---------- */
+  --pt-bp-xs: 360px;
+  --pt-bp-sm: 480px;
+  --pt-bp-md: 768px;
+  --pt-bp-lg: 1024px;
+  --pt-bp-xl: 1200px;
+  --pt-bp-2xl: 1440px;
+
+  /* ---------- Type scale (fluid via clamp) ----------
+     Each step scales between minimum (small phone) and maximum (desktop). */
+  --pt-text-xs:  clamp(0.72rem, 0.66rem + 0.3vw, 0.8rem);
+  --pt-text-sm:  clamp(0.82rem, 0.76rem + 0.3vw, 0.9rem);
+  --pt-text-base:clamp(0.95rem, 0.88rem + 0.35vw, 1.05rem);
+  --pt-text-md:  clamp(1.05rem, 0.95rem + 0.5vw, 1.2rem);
+  --pt-text-lg:  clamp(1.18rem, 1.0rem + 0.9vw, 1.4rem);
+  --pt-text-xl:  clamp(1.4rem,  1.1rem + 1.4vw, 1.85rem);
+  --pt-text-2xl: clamp(1.7rem,  1.25rem + 2.2vw, 2.4rem);
+  --pt-text-3xl: clamp(2rem,    1.4rem + 3vw, 3rem);
+  --pt-text-hero:clamp(2.2rem,  1.5rem + 4vw, 3.6rem);
+
+  --pt-leading-tight: 1.2;
+  --pt-leading-snug:  1.35;
+  --pt-leading-normal:1.55;
+  --pt-leading-relaxed:1.75;
+
+  --pt-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Tahoma",
+    "Cairo", "Roboto", "Helvetica Neue", Arial, "Noto Sans Arabic",
+    "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+  --pt-font-mono: "SF Mono", "Cascadia Mono", "Consolas", "Liberation Mono", monospace;
+
+  /* ---------- Radius ---------- */
+  --pt-radius-xs: 4px;
+  --pt-radius-sm: 6px;
+  --pt-radius-md: 10px;
+  --pt-radius-lg: 14px;
+  --pt-radius-xl: 20px;
+  --pt-radius-pill: 999px;
+
+  /* ---------- Shadow ---------- */
+  --pt-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --pt-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --pt-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --pt-shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12), 0 4px 8px rgba(15, 23, 42, 0.06);
+  --pt-shadow-xl: 0 24px 60px rgba(15, 23, 42, 0.16);
+
+  /* ---------- Motion ---------- */
+  --pt-ease:        cubic-bezier(0.4, 0, 0.2, 1);
+  --pt-ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --pt-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --pt-dur-fast:    150ms;
+  --pt-dur-base:    220ms;
+  --pt-dur-slow:    360ms;
+
+  /* ---------- Z-index scale ---------- */
+  --pt-z-dropdown:  10;
+  --pt-z-sticky:    20;
+  --pt-z-overlay:   30;
+  --pt-z-drawer:    40;
+  --pt-z-modal:     50;
+  --pt-z-popover:   60;
+  --pt-z-toast:     70;
+  --pt-z-tooltip:   80;
+
+  /* ---------- Touch targets (a11y) ---------- */
+  --pt-tap-target: 44px;
+}
+
+/* High-contrast / dark scheme awareness — kept opt-in (no auto override) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: light dark;
+  }
+}

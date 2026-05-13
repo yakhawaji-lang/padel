@@ -46,5 +46,4 @@ uploads/*
 
 # حزم نقل محلية (يُنشئها scripts/build-transfer-pack.ps1 — مجلد «نسخة من المشروع»)
 نسخة من المشروع/PLANT_DATABASE_COMBINED.sql
-نسخة من المشروع/PLANT_DATABASE.sql
 نسخة من المشروع/*.zip

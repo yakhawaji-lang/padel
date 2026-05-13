@@ -1,7 +1,12 @@
 import React, { lazy, Suspense, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+/* Order matters: tokens before utilities before global baseline before page CSS */
+import './styles/tokens.css'
+import './styles/responsive.css'
 import './index.css'
+/* Mobile/responsive overrides — load LAST so they win against page CSS where needed */
+import './styles/mobile-overrides.css'
 
 const WESTERN_NUM_MAX_NODES = 600
 const WESTERN_NUM_DEBOUNCE_MS = 200
