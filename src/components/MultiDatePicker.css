@@ -98,3 +98,21 @@
   border-radius: 50%;
   background: #059669;
 }
+
+/* ============================================================================
+   MultiDatePicker — PlayTix Brand Theme
+   ============================================================================ */
+.multi-date-picker {
+  border: 1px solid var(--pt-border, #e2e8f0);
+  border-radius: var(--pt-radius-lg, 14px);
+  background: #fff;
+  padding: var(--pt-space-3, 0.75rem);
+}
+.multi-date-picker-day.selected {
+  background: linear-gradient(135deg, var(--pt-brand-500, #14b8a6) 0%, var(--pt-brand-700, #0f766e) 100%);
+  color: #fff;
+  font-weight: 700;
+}
+.multi-date-picker-day:hover:not(.selected):not(.disabled) {
+  background: var(--pt-brand-50, #f0fdfa);
+}

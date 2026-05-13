@@ -526,3 +526,130 @@
   color: #fff;
   border-color: var(--pt-brand-600, #0d9488);
 }
+
+/* ============================================================================
+   Admin pages — Mobile-responsive polish
+   ============================================================================ */
+@media (max-width: 768px) {
+  .admin-page,
+  .club-admin-page {
+    padding: var(--pt-space-3, 0.75rem);
+  }
+  .admin-page-header,
+  .club-admin-page-header,
+  .cxp-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: var(--pt-space-3, 0.75rem) !important;
+  }
+  .admin-page-header-actions,
+  .club-admin-page-header-actions,
+  .cxp-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  /* Stat grids: 2 cols on tablet, 1 on phone */
+  .admin-stat-grid,
+  .club-admin-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 480px) {
+  .admin-stat-grid,
+  .club-admin-stat-grid {
+    grid-template-columns: 1fr !important;
+  }
+  /* Tables: convert to card-stack on phones for readability */
+  .admin-table-mobile-stack thead {
+    display: none;
+  }
+  .admin-table-mobile-stack tbody,
+  .admin-table-mobile-stack tr {
+    display: block;
+  }
+  .admin-table-mobile-stack tr {
+    border: 1px solid var(--pt-border, #e2e8f0);
+    border-radius: var(--pt-radius-lg, 14px);
+    margin-bottom: var(--pt-space-3, 0.75rem);
+    padding: var(--pt-space-3, 0.75rem);
+    background: #fff;
+  }
+  .admin-table-mobile-stack td {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border: none;
+  }
+  .admin-table-mobile-stack td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: var(--pt-text-muted, #64748b);
+    margin-inline-end: 12px;
+  }
+}
+
+/* Touch targets on admin */
+@media (pointer: coarse) {
+  .admin-btn-primary,
+  .admin-btn-secondary,
+  .admin-btn-danger,
+  .club-btn-primary,
+  .club-btn-secondary,
+  .club-btn-danger,
+  .admin-icon-btn,
+  .admin-tab,
+  .club-admin-tab,
+  .admin-filter-pill {
+    min-height: 44px !important;
+  }
+}
+
+/* Sticky toolbar on mobile */
+@media (max-width: 600px) {
+  .admin-page-toolbar.sticky,
+  .club-admin-page-toolbar.sticky {
+    position: sticky;
+    top: 0;
+    z-index: var(--pt-z-sticky, 20);
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--pt-border, #e2e8f0);
+    padding-block: 10px;
+  }
+}
+
+/* Smooth focus on admin form inputs */
+.admin-form input,
+.admin-form textarea,
+.admin-form select,
+.club-admin-form input,
+.club-admin-form textarea,
+.club-admin-form select {
+  transition: border-color var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              box-shadow var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+
+/* Loading skeleton for admin lists */
+.admin-list-skeleton,
+.admin-skeleton-row {
+  background: linear-gradient(110deg, var(--pt-gray-100, #f1f5f9) 8%, var(--pt-gray-200, #e2e8f0) 18%, var(--pt-gray-100, #f1f5f9) 33%);
+  background-size: 200% 100%;
+  animation: pt-img-shimmer 1.5s infinite;
+  border-radius: var(--pt-radius-md, 10px);
+  height: 48px;
+  margin-bottom: 8px;
+}
+
+/* Reduced motion across admin */
+@media (prefers-reduced-motion: reduce) {
+  .admin-btn-primary,
+  .admin-btn-secondary,
+  .admin-tab,
+  .admin-card,
+  .admin-form input,
+  .club-admin-form input {
+    transition: none !important;
+    animation: none !important;
+  }
+}

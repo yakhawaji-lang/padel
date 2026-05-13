@@ -450,3 +450,36 @@
     flex: 1 1 auto;
   }
 }
+
+/* ============================================================================
+   ClubCalendarBookingDetailSheet — PlayTix Brand Theme
+   ============================================================================ */
+.club-cal-detail-sheet {
+  border: 1px solid var(--pt-border, #e2e8f0);
+  box-shadow: var(--pt-shadow-lg, 0 12px 32px rgba(15, 23, 42, 0.12));
+}
+.club-cal-detail-sheet-title {
+  color: var(--pt-navy-900, #0f172a);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.club-cal-detail-sheet-primary-btn {
+  background: linear-gradient(135deg, var(--pt-brand-500, #14b8a6) 0%, var(--pt-brand-700, #0f766e) 100%);
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  min-height: var(--pt-tap-target, 44px);
+  border-radius: var(--pt-radius-md, 10px);
+}
+.club-cal-detail-sheet-primary-btn:hover {
+  filter: brightness(1.06);
+}
+.club-cal-detail-sheet-info-label {
+  color: var(--pt-text-muted, #64748b);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.club-cal-detail-sheet-info-value {
+  color: var(--pt-navy-900, #0f172a);
+  font-weight: 700;
+}

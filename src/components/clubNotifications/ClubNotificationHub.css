@@ -798,3 +798,48 @@
     transition: none;
   }
 }
+
+/* ============================================================================
+   ClubNotificationHub — PlayTix Brand Theme
+   ============================================================================ */
+.club-notification-hub-title {
+  color: var(--pt-navy-900, #0f172a);
+  font-weight: 800;
+}
+.club-notification-item {
+  border-bottom: 1px solid var(--pt-border, #e2e8f0);
+  transition: background var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.club-notification-item:hover {
+  background: var(--pt-brand-50, #f0fdfa);
+}
+.club-notification-item.unread {
+  background: var(--pt-brand-50, #f0fdfa);
+  border-left: 3px solid var(--pt-brand-500, #14b8a6);
+}
+[dir="rtl"] .club-notification-item.unread {
+  border-left: none;
+  border-right: 3px solid var(--pt-brand-500, #14b8a6);
+}
+.club-notification-badge,
+.club-notification-count-badge {
+  background: var(--pt-danger, #dc2626);
+  color: #fff;
+  border-radius: var(--pt-radius-pill, 999px);
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  min-width: 18px;
+  text-align: center;
+}
+.club-notification-action-btn {
+  color: var(--pt-brand-700, #0f766e);
+  background: transparent;
+  border: 1px solid var(--pt-brand-200, #99f6e4);
+  border-radius: var(--pt-radius-md, 10px);
+  font-weight: 700;
+}
+.club-notification-action-btn:hover {
+  background: var(--pt-brand-50, #f0fdfa);
+  border-color: var(--pt-brand-500, #14b8a6);
+}
