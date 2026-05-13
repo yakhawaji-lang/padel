@@ -196,3 +196,28 @@
 .member-edit-overlay {
   z-index: 10000 !important;
 }
+
+/* ============================================================================
+   MemberAccountDropdown — PlayTix Brand Theme
+   ============================================================================ */
+.member-account-menu {
+  border: 1px solid var(--pt-border, #e2e8f0);
+  box-shadow: var(--pt-shadow-lg, 0 12px 32px rgba(15, 23, 42, 0.12));
+}
+.member-account-menu-header {
+  background: linear-gradient(135deg, var(--pt-brand-50, #f0fdfa) 0%, #ffffff 100%);
+}
+.member-account-menu-avatar-placeholder {
+  background: linear-gradient(135deg, var(--pt-brand-500, #14b8a6) 0%, var(--pt-brand-700, #0f766e) 100%);
+  color: #fff;
+}
+.member-account-menu-item {
+  transition: background var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.member-account-menu-item:hover {
+  background: var(--pt-brand-50, #f0fdfa);
+}
+.member-account-menu-item.danger:hover {
+  background: var(--pt-danger-bg, #fee2e2);
+  color: var(--pt-danger-fg, #991b1b);
+}

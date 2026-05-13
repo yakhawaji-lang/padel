@@ -155,3 +155,23 @@
   color: #64748b;
   text-align: center;
 }
+
+/* ============================================================================
+   CountryCodeSelect — PlayTix Brand Theme
+   ============================================================================ */
+.country-code-select {
+  border: 1px solid var(--pt-border, #e2e8f0);
+  border-radius: var(--pt-radius-md, 10px);
+}
+.country-code-select:focus-within {
+  border-color: var(--pt-brand-500, #14b8a6);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.18);
+}
+.country-code-option.selected,
+.country-code-option[aria-selected="true"] {
+  background: var(--pt-brand-50, #f0fdfa);
+  color: var(--pt-brand-800, #115e59);
+}
+.country-code-option:hover {
+  background: var(--pt-bg-subtle, #f1f5f9);
+}

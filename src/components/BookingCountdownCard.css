@@ -341,3 +341,26 @@ a.booking-countdown-card {
     font-size: 1.0625rem;
   }
 }
+
+/* ============================================================================
+   BookingCountdownCard — PlayTix Brand Theme
+   ============================================================================ */
+.booking-countdown-card {
+  background: linear-gradient(135deg, var(--pt-brand-50, #f0fdfa) 0%, #ffffff 100%);
+  border: 1px solid var(--pt-brand-200, #99f6e4);
+  border-radius: var(--pt-radius-lg, 14px);
+  padding: clamp(12px, 3vw, 18px);
+}
+.booking-countdown-card-time {
+  color: var(--pt-brand-800, #115e59);
+  font-weight: 800;
+  font-size: var(--pt-text-2xl, 2rem);
+  letter-spacing: -0.02em;
+}
+.booking-countdown-card-label {
+  color: var(--pt-text-muted, #64748b);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

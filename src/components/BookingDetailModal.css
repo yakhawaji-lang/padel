@@ -841,3 +841,53 @@
 .booking-detail-modal-actions {
   padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
+
+/* ============================================================================
+   BookingDetailModal — PlayTix Brand Theme
+   ============================================================================ */
+.booking-detail-modal-title {
+  color: var(--pt-navy-900, #0f172a);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.booking-detail-confirm-btn,
+.booking-detail-primary-btn {
+  background: linear-gradient(135deg, var(--pt-brand-500, #14b8a6) 0%, var(--pt-brand-700, #0f766e) 100%);
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  min-height: var(--pt-tap-target, 44px);
+  border-radius: var(--pt-radius-md, 10px);
+  box-shadow: 0 4px 10px rgba(20, 184, 166, 0.25);
+}
+.booking-detail-confirm-btn:hover,
+.booking-detail-primary-btn:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 6px 14px rgba(20, 184, 166, 0.35);
+}
+
+.booking-detail-cancel-btn,
+.booking-detail-secondary-btn {
+  background: #fff;
+  color: var(--pt-navy-700, #1e293b);
+  border: 1px solid var(--pt-border, #e2e8f0);
+  font-weight: 700;
+  border-radius: var(--pt-radius-md, 10px);
+}
+.booking-detail-cancel-btn:hover,
+.booking-detail-secondary-btn:hover {
+  background: var(--pt-bg-subtle, #f1f5f9);
+}
+
+.booking-detail-info-row {
+  border-bottom: 1px solid var(--pt-border, #e2e8f0);
+}
+.booking-detail-info-label {
+  color: var(--pt-text-muted, #64748b);
+  font-weight: 600;
+}
+.booking-detail-info-value {
+  color: var(--pt-text, #0f172a);
+  font-weight: 600;
+}

@@ -213,3 +213,61 @@
     font-size: 0.6875rem;
   }
 }
+
+/* ============================================================================
+   CalendarPicker — PlayTix Brand Theme
+   ============================================================================ */
+.calendar-picker {
+  border: 1px solid var(--pt-border, #e2e8f0);
+  border-radius: var(--pt-radius-lg, 14px);
+  box-shadow: var(--pt-shadow-md, 0 4px 12px rgba(15, 23, 42, 0.08));
+  background: #fff;
+  padding: var(--pt-space-4, 1rem);
+}
+.calendar-picker-header,
+.calendar-month-header {
+  color: var(--pt-navy-900, #0f172a);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.calendar-picker-nav-btn {
+  background: var(--pt-bg-subtle, #f1f5f9);
+  border: 1px solid var(--pt-border, #e2e8f0);
+  border-radius: var(--pt-radius-md, 10px);
+  color: var(--pt-navy-700, #1e293b);
+  cursor: pointer;
+  transition: background var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.calendar-picker-nav-btn:hover {
+  background: var(--pt-brand-50, #f0fdfa);
+  border-color: var(--pt-brand-300, #5eead4);
+}
+.calendar-day-name {
+  color: var(--pt-text-muted, #64748b);
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.calendar-day {
+  border-radius: var(--pt-radius-md, 10px);
+  transition: background var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.calendar-day:hover:not(.disabled):not(.selected) {
+  background: var(--pt-brand-50, #f0fdfa);
+}
+.calendar-day.today {
+  font-weight: 800;
+  color: var(--pt-brand-700, #0f766e);
+  border: 1.5px solid var(--pt-brand-300, #5eead4);
+}
+.calendar-day.selected {
+  background: linear-gradient(135deg, var(--pt-brand-500, #14b8a6) 0%, var(--pt-brand-700, #0f766e) 100%);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(20, 184, 166, 0.28);
+}
+.calendar-day.disabled {
+  color: var(--pt-gray-300, #cbd5e1);
+  cursor: not-allowed;
+}

@@ -443,3 +443,198 @@
 .pay-share-team-pref__err {
   color: #b91c1c;
 }
+
+/* ============================================================================
+   PlayTix Brand Theme — Payment flow
+   Additive CSS via design tokens
+   ============================================================================ */
+
+/* Page wrapper — soft teal gradient background */
+.payment-page,
+.pay-invite-page,
+.pay-share-page {
+  background: linear-gradient(180deg, var(--pt-brand-50, #f0fdfa) 0%, #ffffff 60%);
+  min-height: 100dvh;
+}
+
+/* Page title — teal gradient text */
+.payment-page-title,
+.pay-invite-title,
+.pay-share-title,
+.payment-page h1,
+.pay-invite-page h1,
+.pay-share-page h1 {
+  background: linear-gradient(135deg, var(--pt-brand-700, #0f766e) 0%, var(--pt-brand-500, #14b8a6) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Payment card surface */
+.payment-card,
+.pay-invite-card,
+.pay-share-card,
+.payment-section {
+  background: #fff;
+  border: 1px solid var(--pt-border, #e2e8f0);
+  border-radius: var(--pt-radius-xl, 20px);
+  box-shadow: var(--pt-shadow-md, 0 4px 12px rgba(15, 23, 42, 0.08));
+  padding: clamp(16px, 4vw, 24px);
+}
+
+/* Amount/Total — emphasized */
+.payment-amount,
+.pay-invite-amount,
+.pay-share-amount,
+.payment-total-amount {
+  color: var(--pt-brand-700, #0f766e);
+  font-weight: 800;
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  letter-spacing: -0.02em;
+}
+
+/* Currency next to amount */
+.payment-currency,
+.pay-currency {
+  color: var(--pt-text-muted, #64748b);
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+/* Method selection cards — clickable */
+.payment-method-card,
+.pay-method-card,
+.payment-method-option {
+  background: #fff;
+  border: 2px solid var(--pt-border, #e2e8f0);
+  border-radius: var(--pt-radius-lg, 14px);
+  padding: clamp(12px, 3vw, 18px);
+  cursor: pointer;
+  transition: border-color var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              background var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              transform var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+  min-height: var(--pt-tap-target, 44px);
+}
+.payment-method-card:hover,
+.pay-method-card:hover,
+.payment-method-option:hover {
+  border-color: var(--pt-brand-300, #5eead4);
+  background: var(--pt-brand-50, #f0fdfa);
+}
+.payment-method-card.selected,
+.pay-method-card.selected,
+.payment-method-option.selected,
+.payment-method-option[aria-selected="true"] {
+  border-color: var(--pt-brand-500, #14b8a6);
+  background: linear-gradient(135deg, var(--pt-brand-50, #f0fdfa) 0%, #ffffff 100%);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.18);
+}
+
+/* Primary "Pay" button */
+.payment-pay-btn,
+.payment-confirm-btn,
+.pay-invite-pay-btn,
+.pay-share-pay-btn,
+.payment-cta {
+  background: linear-gradient(135deg, var(--pt-brand-500, #14b8a6) 0%, var(--pt-brand-700, #0f766e) 100%);
+  color: #fff;
+  border: none;
+  border-radius: var(--pt-radius-lg, 14px);
+  padding: 14px 24px;
+  min-height: 52px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(20, 184, 166, 0.32);
+  transition: filter var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              transform var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              box-shadow var(--pt-dur-base, 220ms) var(--pt-ease, ease);
+  width: 100%;
+}
+.payment-pay-btn:hover:not(:disabled),
+.payment-confirm-btn:hover:not(:disabled),
+.pay-invite-pay-btn:hover:not(:disabled),
+.pay-share-pay-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 10px 24px rgba(20, 184, 166, 0.42);
+}
+.payment-pay-btn:active:not(:disabled),
+.payment-confirm-btn:active:not(:disabled),
+.pay-invite-pay-btn:active:not(:disabled),
+.pay-share-pay-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.payment-pay-btn:disabled,
+.payment-confirm-btn:disabled,
+.pay-invite-pay-btn:disabled,
+.pay-share-pay-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Success state */
+.payment-success,
+.pay-invite-success {
+  background: linear-gradient(135deg, var(--pt-success-bg, #dcfce7) 0%, #ffffff 100%);
+  border-left: 4px solid var(--pt-success, #16a34a);
+  color: var(--pt-success-fg, #166534);
+  border-radius: var(--pt-radius-lg, 14px);
+  padding: clamp(14px, 3vw, 20px);
+}
+[dir="rtl"] .payment-success,
+[dir="rtl"] .pay-invite-success {
+  border-left: none;
+  border-right: 4px solid var(--pt-success, #16a34a);
+}
+
+/* Error state */
+.payment-error,
+.pay-invite-error {
+  background: var(--pt-danger-bg, #fee2e2);
+  color: var(--pt-danger-fg, #991b1b);
+  border-radius: var(--pt-radius-md, 10px);
+  padding: 12px 14px;
+}
+
+/* Hold timer — warning */
+.payment-hold-timer,
+.payment-countdown,
+.pay-invite-hold {
+  background: var(--pt-warning-bg, #fef3c7);
+  color: var(--pt-warning-fg, #92400e);
+  border-radius: var(--pt-radius-md, 10px);
+  padding: 10px 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Form inputs — teal focus ring */
+.payment-form input:focus-visible,
+.pay-invite-form input:focus-visible,
+.pay-share-form input:focus-visible,
+.payment-form select:focus-visible {
+  outline: none !important;
+  border-color: var(--pt-brand-500, #14b8a6) !important;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.18) !important;
+}
+
+/* Mobile bottom-fixed pay bar */
+@media (max-width: 600px) {
+  .payment-sticky-bar,
+  .pay-invite-sticky-bar {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--pt-border, #e2e8f0);
+    box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.06);
+    z-index: 10;
+  }
+}
+

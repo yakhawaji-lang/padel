@@ -361,3 +361,43 @@
 .payment-card .unified-pay-actions {
   margin: 0 0 1.25rem;
 }
+
+/* ============================================================================
+   UnifiedPaymentOptions — PlayTix Brand Theme
+   ============================================================================ */
+.unified-payment-option,
+.unified-pay-method-card {
+  background: #fff;
+  border: 2px solid var(--pt-border, #e2e8f0);
+  border-radius: var(--pt-radius-lg, 14px);
+  padding: clamp(12px, 3vw, 16px);
+  cursor: pointer;
+  transition: border-color var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              background var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              transform var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+  min-height: var(--pt-tap-target, 44px);
+}
+.unified-payment-option:hover,
+.unified-pay-method-card:hover {
+  border-color: var(--pt-brand-300, #5eead4);
+  background: var(--pt-brand-50, #f0fdfa);
+}
+.unified-payment-option.selected,
+.unified-pay-method-card.selected,
+.unified-payment-option[aria-selected="true"] {
+  border-color: var(--pt-brand-500, #14b8a6);
+  background: linear-gradient(135deg, var(--pt-brand-50, #f0fdfa) 0%, #ffffff 100%);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.18);
+}
+.unified-payment-option-icon,
+.unified-pay-icon {
+  color: var(--pt-brand-600, #0d9488);
+}
+.unified-payment-option-label {
+  color: var(--pt-navy-900, #0f172a);
+  font-weight: 700;
+}
+.unified-payment-option-desc {
+  color: var(--pt-text-muted, #64748b);
+  font-size: 0.85rem;
+}
