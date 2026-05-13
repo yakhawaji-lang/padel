@@ -553,3 +553,112 @@ img[loading='lazy']:not([src]) {
 
 /* ---------- iOS double-tap delay fix ---------- */
 button, a, [role='button'] { touch-action: manipulation; }
+
+/* ============================================================================
+   Unified close (X) button styling — applies via class .pt-close-btn
+   Existing 'X' text buttons get standardized look via existing classes.
+   ============================================================================ */
+
+/* Generic icon-only close pattern (CSS-only enhancement of text X) */
+.pt-close-btn,
+button[aria-label*='Close' i],
+button[aria-label*='إغلاق'],
+.modal-close-btn,
+.close-btn,
+.club-public-booking-modal-error button,
+.club-public-lock-error button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--pt-radius-md, 10px);
+  background: var(--pt-gray-100, #f1f5f9);
+  color: var(--pt-text-muted, #64748b);
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  transition: background var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              color var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              transform var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.pt-close-btn:hover,
+button[aria-label*='Close' i]:hover,
+button[aria-label*='إغلاق']:hover,
+.modal-close-btn:hover,
+.close-btn:hover {
+  background: var(--pt-danger-bg, #fee2e2);
+  color: var(--pt-danger-fg, #991b1b);
+  border-color: rgba(220, 38, 38, 0.2);
+}
+.pt-close-btn:active {
+  transform: scale(0.95);
+}
+
+/* Make sure aria-labelled close buttons have correct touch size */
+@media (pointer: coarse) {
+  .pt-close-btn,
+  button[aria-label*='Close' i],
+  button[aria-label*='إغلاق'],
+  .modal-close-btn,
+  .close-btn {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* Apply standardized close button to all .modal-close variants */
+.modal-close,
+.booking-detail-modal-close,
+.member-booking-actions-close,
+.club-public-modal-close,
+.club-admin-modal-close,
+.payment-modal-close,
+.pay-invite-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--pt-radius-md, 10px);
+  background: var(--pt-gray-100, #f1f5f9);
+  color: var(--pt-text-muted, #64748b);
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0;
+  transition: background var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              color var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              transform var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.modal-close:hover,
+.booking-detail-modal-close:hover,
+.member-booking-actions-close:hover,
+.club-public-modal-close:hover,
+.club-admin-modal-close:hover,
+.payment-modal-close:hover,
+.pay-invite-modal-close:hover {
+  background: var(--pt-danger-bg, #fee2e2);
+  color: var(--pt-danger-fg, #991b1b);
+  border-color: rgba(220, 38, 38, 0.2);
+}
+.modal-close:active {
+  transform: scale(0.95);
+}
+@media (pointer: coarse) {
+  .modal-close,
+  .booking-detail-modal-close,
+  .member-booking-actions-close,
+  .club-public-modal-close,
+  .club-admin-modal-close,
+  .payment-modal-close,
+  .pay-invite-modal-close {
+    width: 44px;
+    height: 44px;
+  }
+}

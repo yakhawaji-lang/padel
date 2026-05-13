@@ -1,0 +1,50 @@
+{
+  "name": "PlayTix — Padel Court Booking",
+  "short_name": "PlayTix",
+  "description": "حجز ملاعب البادل وإدارة البطولات. Padel court booking and tournaments.",
+  "start_url": "/app/",
+  "scope": "/app/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#f0fdfa",
+  "theme_color": "#14b8a6",
+  "lang": "ar",
+  "dir": "auto",
+  "categories": ["sports", "lifestyle", "productivity"],
+  "icons": [
+    {
+      "src": "/app/logo-playtix.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/app/logo-playtix.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/app/logo-playtix.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My Bookings",
+      "short_name": "Bookings",
+      "url": "/app/my-bookings",
+      "icons": [{ "src": "/app/logo-playtix.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "My Favorites",
+      "short_name": "Favorites",
+      "url": "/app/my-favorites",
+      "icons": [{ "src": "/app/logo-playtix.png", "sizes": "192x192" }]
+    }
+  ],
+  "prefer_related_applications": false
+}
