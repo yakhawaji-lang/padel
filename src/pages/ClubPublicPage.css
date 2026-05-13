@@ -3932,3 +3932,166 @@
   cursor: not-allowed;
   box-shadow: none;
 }
+
+/* ============================================================================
+   ClubPublicPage — PlayTix Brand Theme (teal tokens)
+   Additive: layers brand identity on top of existing layout, no overrides.
+   ============================================================================ */
+
+/* Hero/club name heading — teal gradient */
+.club-public-hero-title,
+.club-public-banner-title,
+.club-public-club-name {
+  background: linear-gradient(135deg, var(--pt-brand-700, #0f766e) 0%, var(--pt-brand-500, #14b8a6) 60%, var(--pt-accent-500, #f97316) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Floating access bar (login + lang + socials) — branded login button */
+.club-public-auth-link,
+.club-public-floating-access .club-public-auth-link,
+.club-public-login-btn {
+  background: var(--pt-brand-500, #14b8a6);
+  color: #fff;
+  border-radius: var(--pt-radius-lg, 14px);
+  padding: 8px 16px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border: none;
+  transition: background var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              transform var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.club-public-auth-link:hover,
+.club-public-login-btn:hover {
+  background: var(--pt-brand-600, #0d9488);
+}
+.club-public-auth-link:active,
+.club-public-login-btn:active {
+  transform: scale(0.97);
+}
+
+/* Court grid cells - available state in teal-tint */
+.club-public-court-grid-cell.available {
+  background: var(--pt-brand-50, #f0fdfa);
+  border-color: var(--pt-brand-100, #ccfbf1);
+}
+.club-public-court-grid-cell.available.clickable:hover {
+  background: linear-gradient(135deg, var(--pt-brand-100, #ccfbf1) 0%, var(--pt-brand-200, #99f6e4) 100%);
+  box-shadow: inset 0 0 0 1px var(--pt-brand-400, #2dd4bf);
+}
+
+/* Selected/in-range — branded teal glow */
+.club-public-court-grid-cell.in-range.available.clickable,
+.club-public-court-grid-cell.selected,
+.club-public-court-grid-cell.is-selected {
+  background: linear-gradient(135deg, var(--pt-brand-300, #5eead4) 0%, var(--pt-brand-500, #14b8a6) 100%) !important;
+  box-shadow:
+    inset 0 0 0 2px var(--pt-brand-700, #0f766e),
+    0 4px 12px rgba(20, 184, 166, 0.28) !important;
+  color: #fff;
+}
+
+/* Date nav arrows — teal on hover */
+.club-public-court-grid-date-arrow:hover,
+.club-public-date-nav-arrow:hover {
+  background: var(--pt-brand-500, #14b8a6);
+  border-color: var(--pt-brand-600, #0d9488);
+  color: #fff;
+}
+
+/* Booking modal — primary confirm button in branded teal */
+.club-public-booking-modal-confirm,
+.club-public-booking-confirm {
+  background: linear-gradient(135deg, var(--pt-brand-500, #14b8a6) 0%, var(--pt-brand-700, #0f766e) 100%) !important;
+  box-shadow: 0 4px 12px rgba(20, 184, 166, 0.28) !important;
+}
+.club-public-booking-modal-confirm:hover,
+.club-public-booking-confirm:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 6px 16px rgba(20, 184, 166, 0.38) !important;
+}
+
+/* Stepper progress — teal gradient when active */
+.club-public-booking-modal-stepper > .active,
+.club-public-booking-modal-stepper > .done {
+  background: linear-gradient(90deg, var(--pt-brand-500, #14b8a6) 0%, var(--pt-brand-700, #0f766e) 100%);
+}
+
+/* Duration buttons — selected in teal */
+.club-public-booking-duration-btn[aria-pressed='true'],
+.club-public-booking-duration-btn.selected,
+.club-public-booking-duration-btn.active {
+  background: linear-gradient(135deg, var(--pt-brand-50, #f0fdfa) 0%, var(--pt-brand-100, #ccfbf1) 100%);
+  border-color: var(--pt-brand-500, #14b8a6);
+  color: var(--pt-brand-800, #115e59);
+}
+
+/* Court price / stat chips — teal pills */
+.club-public-prices-table th,
+.club-public-courts-card-stat,
+.club-public-court-stat {
+  background: var(--pt-brand-50, #f0fdfa);
+  color: var(--pt-brand-800, #115e59);
+}
+
+/* Offers — accent coral highlight */
+.club-public-offer-card,
+.club-public-offer-badge {
+  border-left: 3px solid var(--pt-accent-500, #f97316);
+}
+[dir="rtl"] .club-public-offer-card,
+[dir="rtl"] .club-public-offer-badge {
+  border-left: none;
+  border-right: 3px solid var(--pt-accent-500, #f97316);
+}
+
+/* Section headings — branded underline */
+.club-public-section-title {
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.club-public-section-title::after {
+  content: '';
+  display: block;
+  width: 48px;
+  height: 3px;
+  border-radius: var(--pt-radius-pill, 999px);
+  background: linear-gradient(90deg, var(--pt-brand-500, #14b8a6), var(--pt-accent-500, #f97316));
+  margin-top: 8px;
+}
+
+/* "Book now" tooltip — branded dark */
+.club-public-cell-tooltip,
+.club-public-book-now-tooltip,
+[data-cell-tooltip] {
+  background: var(--pt-navy-800, #0f172a);
+  color: #fff;
+}
+
+/* Success banner — branded teal/green */
+.club-public-booking-success-banner {
+  background: linear-gradient(135deg, var(--pt-success-bg, #dcfce7) 0%, #ffffff 100%);
+  border-left: 4px solid var(--pt-success, #16a34a);
+}
+[dir="rtl"] .club-public-booking-success-banner {
+  border-left: none;
+  border-right: 4px solid var(--pt-success, #16a34a);
+}
+
+/* Links inside the page */
+.club-public-section a,
+.club-public-tag a {
+  color: var(--pt-brand-700, #0f766e);
+  text-decoration: none;
+  font-weight: 600;
+}
+.club-public-section a:hover,
+.club-public-tag a:hover {
+  color: var(--pt-brand-900, #134e4a);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
