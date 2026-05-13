@@ -1617,3 +1617,144 @@
     font-size: 16px; /* prevent iOS zoom-on-focus */
   }
 }
+
+/* ============================================================================
+   PlayTix Brand Theme — applied via design tokens (var --pt-*)
+   Adds the new teal brand identity to HomePage. Additive only.
+   ============================================================================ */
+
+/* Hero banner accent: teal gradient overlay on the banner title */
+.home-banner-title,
+.homepage-banner-title {
+  background: linear-gradient(135deg, var(--pt-brand-700, #0f766e) 0%, var(--pt-brand-500, #14b8a6) 60%, var(--pt-accent-500, #f97316) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  letter-spacing: -0.02em;
+}
+
+/* CTA buttons — branded teal with hover lift */
+.home-cta-btn,
+.homepage-cta-btn,
+.home-banner-cta,
+.homepage-banner-cta {
+  background: linear-gradient(135deg, var(--pt-brand-500, #14b8a6) 0%, var(--pt-brand-600, #0d9488) 100%);
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  border-radius: var(--pt-radius-lg, 14px);
+  padding: 12px 20px;
+  min-height: var(--pt-tap-target, 44px);
+  box-shadow: 0 4px 12px rgba(20, 184, 166, 0.28);
+  transition: filter var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              transform var(--pt-dur-fast, 150ms) var(--pt-ease, ease),
+              box-shadow var(--pt-dur-base, 220ms) var(--pt-ease, ease);
+}
+.home-cta-btn:hover,
+.homepage-cta-btn:hover,
+.home-banner-cta:hover,
+.homepage-banner-cta:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 8px 20px rgba(20, 184, 166, 0.38);
+  transform: translateY(-1px);
+}
+.home-cta-btn:active,
+.homepage-cta-btn:active,
+.home-banner-cta:active,
+.homepage-banner-cta:active {
+  transform: translateY(1px);
+}
+
+/* Secondary CTAs — outlined branded */
+.home-cta-btn--secondary,
+.homepage-cta-btn--secondary {
+  background: #fff;
+  color: var(--pt-brand-700, #0f766e);
+  border: 1.5px solid var(--pt-brand-300, #5eead4);
+  box-shadow: none;
+}
+.home-cta-btn--secondary:hover,
+.homepage-cta-btn--secondary:hover {
+  background: var(--pt-brand-50, #f0fdfa);
+  border-color: var(--pt-brand-500, #14b8a6);
+}
+
+/* Search input — branded focus ring */
+.home-search-input:focus-visible,
+.homepage-search-input:focus-visible {
+  outline: none !important;
+  border-color: var(--pt-brand-500, #14b8a6);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.18);
+}
+
+/* Club card — subtle branded hover border */
+@media (hover: hover) {
+  .home-club-card:hover,
+  .homepage-club-card:hover {
+    border-color: var(--pt-brand-300, #5eead4);
+    box-shadow: 0 12px 28px rgba(20, 184, 166, 0.12), 0 4px 8px rgba(15, 23, 42, 0.06);
+  }
+}
+
+/* Section headings — tighter, branded underline accent */
+.home-section-title,
+.homepage-section-title {
+  position: relative;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--pt-text, #0f172a);
+}
+
+/* Links — branded teal */
+.home-link,
+.homepage-link,
+.home-banner-link {
+  color: var(--pt-brand-600, #0d9488);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.home-link:hover,
+.homepage-link:hover,
+.home-banner-link:hover {
+  color: var(--pt-brand-800, #115e59);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Stats / count chips — teal pills */
+.home-stat-chip,
+.homepage-stat-chip {
+  background: var(--pt-brand-50, #f0fdfa);
+  color: var(--pt-brand-800, #115e59);
+  border: 1px solid var(--pt-brand-200, #99f6e4);
+  border-radius: var(--pt-radius-pill, 999px);
+  padding: 4px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Login / Register top-right buttons */
+.home-auth-bar a,
+.homepage-auth-bar a,
+.home-login-link,
+.home-register-link {
+  font-weight: 700;
+  border-radius: var(--pt-radius-md, 10px);
+  padding: 8px 14px;
+  transition: background var(--pt-dur-fast, 150ms) var(--pt-ease, ease);
+}
+.home-login-link {
+  color: var(--pt-brand-700, #0f766e);
+}
+.home-login-link:hover {
+  background: var(--pt-brand-50, #f0fdfa);
+}
+.home-register-link {
+  background: var(--pt-brand-500, #14b8a6);
+  color: #fff;
+}
+.home-register-link:hover {
+  background: var(--pt-brand-600, #0d9488);
+}
