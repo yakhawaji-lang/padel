@@ -1,3 +1,179 @@
+/* ============================================================================
+   PlayTix — Design Tokens (Foundation)
+   Modern brand palette + spacing + typography + motion.
+   All tokens declared on :root and referenced via var(--pt-*).
+   Backwards-compatible: every existing rule keeps working.
+   ============================================================================ */
+
+:root {
+  /* ---------- Brand colors (refreshed teal + warm accent) ---------- */
+  --pt-brand-50:  #f0fdfa;
+  --pt-brand-100: #ccfbf1;
+  --pt-brand-200: #99f6e4;
+  --pt-brand-300: #5eead4;
+  --pt-brand-400: #2dd4bf;
+  --pt-brand-500: #14b8a6;  /* primary teal */
+  --pt-brand-600: #0d9488;
+  --pt-brand-700: #0f766e;
+  --pt-brand-800: #115e59;
+  --pt-brand-900: #134e4a;
+
+  /* Secondary brand (deep navy — for buttons and headers) */
+  --pt-navy-50:  #f1f5f9;
+  --pt-navy-100: #e2e8f0;
+  --pt-navy-200: #cbd5e1;
+  --pt-navy-300: #94a3b8;
+  --pt-navy-400: #64748b;
+  --pt-navy-500: #475569;
+  --pt-navy-600: #334155;
+  --pt-navy-700: #1e293b;
+  --pt-navy-800: #0f172a;
+  --pt-navy-900: #020617;
+
+  /* Accent (warm coral — for highlights, badges) */
+  --pt-accent-50:  #fff7ed;
+  --pt-accent-100: #ffedd5;
+  --pt-accent-200: #fed7aa;
+  --pt-accent-300: #fdba74;
+  --pt-accent-400: #fb923c;
+  --pt-accent-500: #f97316;
+  --pt-accent-600: #ea580c;
+
+  /* Semantic colors */
+  --pt-success: #16a34a;
+  --pt-success-bg: #dcfce7;
+  --pt-success-fg: #166534;
+  --pt-warning: #d97706;
+  --pt-warning-bg: #fef3c7;
+  --pt-warning-fg: #92400e;
+  --pt-danger: #dc2626;
+  --pt-danger-bg: #fee2e2;
+  --pt-danger-fg: #991b1b;
+  --pt-info: #2563eb;
+  --pt-info-bg: #dbeafe;
+  --pt-info-fg: #1e40af;
+
+  /* Grayscale shortcuts */
+  --pt-gray-50:  #f8fafc;
+  --pt-gray-100: #f1f5f9;
+  --pt-gray-200: #e2e8f0;
+  --pt-gray-300: #cbd5e1;
+  --pt-gray-400: #94a3b8;
+  --pt-gray-500: #64748b;
+  --pt-gray-600: #475569;
+  --pt-gray-700: #334155;
+  --pt-gray-800: #1e293b;
+  --pt-gray-900: #0f172a;
+
+  /* Surface colors */
+  --pt-bg:        #ffffff;
+  --pt-bg-muted:  #f8fafc;
+  --pt-bg-subtle: #f1f5f9;
+  --pt-surface:   #ffffff;
+  --pt-text:      #0f172a;
+  --pt-text-muted:#64748b;
+  --pt-text-subtle:#94a3b8;
+  --pt-border:    #e2e8f0;
+  --pt-border-strong: #cbd5e1;
+
+  /* ---------- Spacing scale (4px base) ---------- */
+  --pt-space-1:  0.25rem;
+  --pt-space-2:  0.5rem;
+  --pt-space-3:  0.75rem;
+  --pt-space-4:  1rem;
+  --pt-space-5:  1.25rem;
+  --pt-space-6:  1.5rem;
+  --pt-space-8:  2rem;
+  --pt-space-10: 2.5rem;
+  --pt-space-12: 3rem;
+  --pt-space-16: 4rem;
+
+  /* Fluid spacing (responsive via clamp) */
+  --pt-pad-page:    clamp(1rem, 3vw, 2rem);
+  --pt-pad-section: clamp(2rem, 6vw, 5rem);
+  --pt-gap-grid:    clamp(0.75rem, 2vw, 1.5rem);
+
+  /* ---------- Container widths ---------- */
+  --pt-container-sm: 640px;
+  --pt-container-md: 768px;
+  --pt-container-lg: 1024px;
+  --pt-container-xl: 1200px;
+  --pt-container-2xl: 1440px;
+
+  /* ---------- Breakpoints (for JS / matchMedia) ---------- */
+  --pt-bp-xs: 360px;
+  --pt-bp-sm: 480px;
+  --pt-bp-md: 768px;
+  --pt-bp-lg: 1024px;
+  --pt-bp-xl: 1200px;
+
+  /* ---------- Type scale (fluid) ---------- */
+  --pt-text-xs:  clamp(0.72rem, 0.66rem + 0.3vw, 0.8rem);
+  --pt-text-sm:  clamp(0.82rem, 0.76rem + 0.3vw, 0.9rem);
+  --pt-text-base:clamp(0.95rem, 0.88rem + 0.35vw, 1.05rem);
+  --pt-text-md:  clamp(1.05rem, 0.95rem + 0.5vw, 1.2rem);
+  --pt-text-lg:  clamp(1.18rem, 1.0rem + 0.9vw, 1.4rem);
+  --pt-text-xl:  clamp(1.4rem,  1.1rem + 1.4vw, 1.85rem);
+  --pt-text-2xl: clamp(1.7rem,  1.25rem + 2.2vw, 2.4rem);
+  --pt-text-3xl: clamp(2rem,    1.4rem + 3vw, 3rem);
+  --pt-text-hero:clamp(2.2rem,  1.5rem + 4vw, 3.6rem);
+
+  --pt-leading-tight: 1.2;
+  --pt-leading-snug:  1.35;
+  --pt-leading-normal:1.55;
+  --pt-leading-relaxed:1.75;
+
+  --pt-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Cairo",
+    "Tahoma", "Roboto", "Helvetica Neue", Arial, "Noto Sans Arabic",
+    "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+  --pt-font-mono: "SF Mono", "Cascadia Mono", "Consolas", monospace;
+
+  /* ---------- Radius scale ---------- */
+  --pt-radius-xs:  4px;
+  --pt-radius-sm:  6px;
+  --pt-radius-md:  10px;
+  --pt-radius-lg:  14px;
+  --pt-radius-xl:  20px;
+  --pt-radius-2xl: 28px;
+  --pt-radius-pill: 999px;
+
+  /* ---------- Shadow scale ---------- */
+  --pt-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --pt-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --pt-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --pt-shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12), 0 4px 8px rgba(15, 23, 42, 0.06);
+  --pt-shadow-xl: 0 24px 60px rgba(15, 23, 42, 0.16);
+
+  /* ---------- Motion ---------- */
+  --pt-ease:        cubic-bezier(0.4, 0, 0.2, 1);
+  --pt-ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --pt-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --pt-dur-fast:    150ms;
+  --pt-dur-base:    220ms;
+  --pt-dur-slow:    360ms;
+
+  /* ---------- Z-index scale ---------- */
+  --pt-z-dropdown: 10;
+  --pt-z-sticky:   20;
+  --pt-z-overlay:  30;
+  --pt-z-drawer:   40;
+  --pt-z-modal:    50;
+  --pt-z-popover:  60;
+  --pt-z-toast:    70;
+  --pt-z-tooltip:  80;
+  --pt-z-max:      9999;
+
+  /* ---------- Touch target (a11y) ---------- */
+  --pt-tap-target: 44px;
+}
+
+/* Honour user color-scheme preference */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: light dark;
+  }
+}
+
 * {
   margin: 0;
   padding: 0;
