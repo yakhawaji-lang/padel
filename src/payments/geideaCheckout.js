@@ -132,11 +132,90 @@ export function launchGeideaCheckout({ sessionId, onSuccess, onError, onCancel }
   })
 }
 
-/** One-call helper: load script, create session, launch checkout.
- *  We create the session first to learn the mode, then load the matching script. */
+/**
+ * HPP (Hosted Payment Page) flow - Geidea's JS handles signing on their side.
+ * Returns Promise<{status, data}>.
+ *
+ * This is simpler than the direct-session flow: no HMAC signing on our backend,
+ * no test/live endpoint juggling. The merchant public key is included in the
+ * payment configuration (it's already public, this is by design).
+ */
+async function launchGeideaHpp({ amount, currency = 'SAR', merchantRefId, returnUrl, callbackUrl, customer, publicKey, mode }) {
+  return new Promise((resolve, reject) => {
+    const Ctor = typeof window !== 'undefined' ? window.GeideaCheckout : null
+    if (!Ctor) { reject(new Error('GeideaCheckout not loaded')); return }
+    let payment
+    try {
+      payment = new Ctor(
+        (data) => resolve({ status: 'success', data }),
+        (data) => resolve({ status: 'error', data }),
+        (data) => resolve({ status: 'cancel', data })
+      )
+      const cfg = {
+        amount: Number(amount),
+        currency,
+        merchantReferenceId: merchantRefId,
+        merchantPublicKey: publicKey,
+        callbackUrl: callbackUrl || undefined,
+        returnUrl: returnUrl || undefined,
+        customer: customer || undefined,
+        paymentOperation: 'Pay',
+        language: 'ar'
+      }
+      Object.keys(cfg).forEach((k) => cfg[k] === undefined && delete cfg[k])
+      if (typeof payment.configurePayment === 'function') {
+        payment.configurePayment(cfg)
+        payment.startPayment()
+      } else {
+        // Older bundles only accept sessionId. Should not happen with v2 script.
+        reject(new Error('GeideaCheckout.configurePayment unavailable'))
+      }
+      void mode
+    } catch (e) {
+      reject(e)
+    }
+  })
+}
+
+/** One-call helper:
+ *  1. Ask backend for Geidea config (public key + mode) and booking amount
+ *  2. Load matching Geidea script
+ *  3. Launch HPP popup with configurePayment (no pre-signed session needed)
+ */
 export async function payBookingWithGeidea({ bookingId, returnUrl, customer } = {}) {
-  const session = await createGeideaSessionForBooking({ bookingId, returnUrl, customer })
-  await loadGeideaScript(session.mode)
-  const result = await launchGeideaCheckout({ sessionId: session.sessionId })
-  return Object.assign({}, result, { session })
+  const cfg = await getGeideaPublicConfig()
+  if (!cfg.configured || !cfg.enabled) {
+    const err = new Error('Geidea is not enabled')
+    err.code = cfg.configured ? 'GEIDEA_DISABLED' : 'GEIDEA_NOT_CONFIGURED'
+    throw err
+  }
+  // Resolve the booking amount via backend (still need this to know how much to charge)
+  const base = getApiBase()
+  const lookupResp = await fetch(base + '/api/payments/geidea/quote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ bookingId })
+  })
+  let quote = null
+  try { quote = await lookupResp.json() } catch (_) {}
+  if (!lookupResp.ok || !quote || !quote.amount) {
+    // Fallback: try the legacy direct-session route in case the /quote endpoint isn't deployed yet.
+    const session = await createGeideaSessionForBooking({ bookingId, returnUrl, customer })
+    await loadGeideaScript(session.mode)
+    const result = await launchGeideaCheckout({ sessionId: session.sessionId })
+    return Object.assign({}, result, { session })
+  }
+  await loadGeideaScript(cfg.mode)
+  const result = await launchGeideaHpp({
+    amount: quote.amount,
+    currency: quote.currency || 'SAR',
+    merchantRefId: quote.merchantRefId || ('BK-' + bookingId + '-' + Date.now().toString(36)),
+    publicKey: cfg.publicKey,
+    callbackUrl: quote.callbackUrl,
+    returnUrl,
+    customer,
+    mode: cfg.mode
+  })
+  return Object.assign({}, result, { quote })
 }

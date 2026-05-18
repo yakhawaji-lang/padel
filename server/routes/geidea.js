@@ -114,6 +114,48 @@ router.post('/session', sessionLimiter, async (req, res) => {
 })
 
 /**
+ * Lightweight booking lookup for the HPP (configurePayment) flow.
+ * Returns the booking's due amount, currency and a fresh merchantRefId.
+ * Does NOT touch Geidea - the HPP script handles signing on Geidea's side.
+ *
+ * Body: { bookingId }
+ * Returns: { amount, currency, merchantRefId, callbackUrl }
+ */
+router.post('/quote', async (req, res) => {
+  try {
+    const body = req.body || {}
+    const bookingId = body.bookingId
+    if (!bookingId) return res.status(400).json({ error: 'bookingId required' })
+    const result = await query(
+      'SELECT cb.id, ' +
+      '       COALESCE(cb.total_amount, 0) AS total_amount, ' +
+      '       COALESCE(cb.paid_amount, 0)  AS paid_amount, ' +
+      "       COALESCE(cs.currency, 'SAR') AS currency " +
+      '  FROM club_bookings cb ' +
+      '  LEFT JOIN club_settings cs ON cs.club_id = cb.club_id ' +
+      ' WHERE cb.id = ? AND cb.deleted_at IS NULL LIMIT 1',
+      [bookingId]
+    )
+    const rows = result && result.rows
+    const row = rows && rows[0]
+    if (!row) return res.status(404).json({ error: 'booking_not_found' })
+    const total = Number(row.total_amount) || 0
+    const paid = Number(row.paid_amount) || 0
+    const due = Math.max(0, total - paid)
+    if (!(due > 0)) return res.status(400).json({ error: 'amount_must_be_positive' })
+    const currency = String(row.currency || 'SAR').trim() || 'SAR'
+    const merchantRefId = 'BK-' + row.id + '-' + Date.now().toString(36)
+    const protocol = req.protocol || 'https'
+    const host = req.get('host') || ''
+    const callbackUrl = host ? (protocol + '://' + host + '/api/payments/geidea/callback') : undefined
+    res.json({ ok: true, amount: due, currency, merchantRefId, callbackUrl })
+  } catch (e) {
+    console.warn('geidea /quote:', e && e.message)
+    res.status(500).json({ error: 'quote_failed', message: e && e.message })
+  }
+})
+
+/**
  * Geidea server-to-server callback. We log it and (when possible) advance
  * the associated booking. Production hardening should also verify X-Signature.
  */
