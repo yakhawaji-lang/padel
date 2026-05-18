@@ -112,15 +112,24 @@ export async function createGeideaSession({ amount, currency = 'SAR', merchantRe
   if (!merchantRefId) throw new Error('merchantRefId required')
 
   const amountStr = formatAmount(amount)
+  const timestamp = nowTimestamp()
+  const signature = buildGeideaSignature({
+    publicKey: creds.publicKey,
+    apiPassword: creds.apiPassword,
+    amount: amountStr,
+    currency,
+    merchantRefId,
+    timestamp
+  })
 
-  // Geidea Direct Session v2 uses Basic Auth (PublicKey:APIPassword).
-  // The minimal accepted body per docs: amount, currency, merchantReferenceId, callbackUrl.
-  // Extra fields like paymentOperation/timestamp/metadata were causing 'Invalid amount'
-  // rejections from KSA endpoint - removed them.
+  // Some Geidea KSA merchants require the signature header even on v2.
+  // Send a complete body matching the original docs spec:
   const body = {
     amount: Number(amountStr),
     currency,
-    merchantReferenceId: merchantRefId
+    merchantReferenceId: merchantRefId,
+    timestamp,
+    paymentOperation: 'Pay'
   }
   if (callbackUrl || creds.callbackUrl) body.callbackUrl = callbackUrl || creds.callbackUrl
   if (returnUrl) body.returnUrl = returnUrl
@@ -129,7 +138,9 @@ export async function createGeideaSession({ amount, currency = 'SAR', merchantRe
   const basic = Buffer.from(creds.publicKey + ':' + creds.apiPassword).toString('base64')
   const headers = {
     'Content-Type': 'application/json',
-    Authorization: 'Basic ' + basic
+    Authorization: 'Basic ' + basic,
+    'X-Signature': signature,
+    'X-Timestamp': timestamp
   }
 
   const primaryEndpoint = pickEndpoint(creds.mode)
@@ -169,6 +180,11 @@ export async function createGeideaSession({ amount, currency = 'SAR', merchantRe
         sentAmount: Number(amountStr),
         sentCurrency: currency,
         sentMerchantRef: merchantRefId,
+        sentTimestamp: timestamp,
+        sentSignaturePrefix: signature.substring(0, 10) + '...',
+        sentBody: body,
+        sentEndpoint: primaryEndpoint,
+        merchantPublicKeyPrefix: creds.publicKey.substring(0, 8) + '...',
         upstream: json
       }))
     } catch (_) {}
