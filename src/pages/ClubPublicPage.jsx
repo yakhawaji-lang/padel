@@ -1166,7 +1166,11 @@ const ClubPublicPage = () => {
       const isSplit = paymentStyle === 'split' && paymentShares.length > 0
       const payAtClub = paymentMethod === 'at_club'
       const isWalletPay = paymentMethod === 'wallet'
-      const isOnlinePayment = paymentMethod === 'credit_card' || paymentMethod === 'mada'
+      const isOnlinePayment = paymentMethod === 'credit_card' || paymentMethod === 'mada' || paymentMethod === 'geidea'
+      // 'geidea' is the unified electronic option in the new picker; map to 'credit_card'
+      // for the backend so the existing booking flow (pending_payment + paymentUrl) still applies.
+      // The PaymentPage then detects Geidea is enabled and launches the Geidea popup automatically.
+      const backendOnlineMethod = paymentMethod === 'geidea' ? 'credit_card' : paymentMethod
       const res = await bookingApi.confirmBooking({
         lockId: activeLock.lockId,
         clubId,
@@ -1179,11 +1183,11 @@ const ClubPublicPage = () => {
         totalAmount: priceResult.price,
         paymentMethod: isSplit
           ? undefined
-          : (payAtClub ? 'at_club' : (isWalletPay ? 'wallet' : (isOnlinePayment ? paymentMethod : undefined))),
-        initiatorPaymentMethod: isSplit ? (paymentMethod || 'at_club') : undefined,
+          : (payAtClub ? 'at_club' : (isWalletPay ? 'wallet' : (isOnlinePayment ? backendOnlineMethod : undefined))),
+        initiatorPaymentMethod: isSplit ? (paymentMethod === 'geidea' ? 'credit_card' : (paymentMethod || 'at_club')) : undefined,
         paymentShares: isSplit ? paymentShares : undefined,
         idempotencyKey,
-        ...(!isSplit && isWalletPay ? { remainderPaymentMethod: walletRemainderMethod } : {}),
+        ...(!isSplit && isWalletPay ? { remainderPaymentMethod: walletRemainderMethod === 'geidea' ? 'credit_card' : walletRemainderMethod } : {}),
       })
       const bookingId = res?.bookingId
       const paymentUrl = res?.paymentUrl
