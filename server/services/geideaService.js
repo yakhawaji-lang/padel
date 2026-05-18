@@ -20,17 +20,16 @@
 import crypto from 'crypto'
 import { getPaymentGatewaysRaw } from '../db/paymentSettings.js'
 
-// Geidea has separate endpoints for TEST and LIVE credentials.
-// TEST keys are rejected on the production URL (returns 'Invalid amount' or similar).
+// Geidea endpoints per official docs:
+//   TEST credentials  -> api.merchant.geidea.net (shared test domain)
+//   LIVE KSA          -> api.ksamerchant.geidea.net
 const GEIDEA_ENDPOINTS = {
-  // KSA test environment.
-  test: 'https://api-test.ksamerchant.geidea.net/payment-intent/api/v2/direct/session',
-  // KSA production environment.
+  test: 'https://api.merchant.geidea.net/payment-intent/api/v2/direct/session',
   live: 'https://api.ksamerchant.geidea.net/payment-intent/api/v2/direct/session'
 }
-// Fallback endpoint to try if the primary returns auth/amount errors (some merchants
-// are provisioned on the cross-region test domain rather than ksa-specific).
-const GEIDEA_TEST_FALLBACK = 'https://api.merchant.geidea.net/payment-intent/api/v2/direct/session'
+// Last-resort fallback: try the KSA production URL with test keys.
+// Some KSA test accounts are actually live-graded by Geidea.
+const GEIDEA_FALLBACK = 'https://api.ksamerchant.geidea.net/payment-intent/api/v2/direct/session'
 
 function pickEndpoint(mode) {
   const override = (process.env.GEIDEA_ENDPOINT_OVERRIDE || '').trim()
@@ -165,10 +164,10 @@ export async function createGeideaSession({ amount, currency = 'SAR', merchantRe
     /invalid (amount|signature|key|merchant)/i.test(String(json.detailedResponseMessage || json.responseMessage || ''))
     || resp.status === 401 || resp.status === 403 || resp.status === 404
   )
-  if (creds.mode === 'test' && looksLikeWrongEnvironment && primaryEndpoint !== GEIDEA_TEST_FALLBACK) {
+  if (looksLikeWrongEnvironment && primaryEndpoint !== GEIDEA_FALLBACK) {
     triedFallback = true
-    console.warn('[geidea] primary test endpoint failed, retrying on fallback', { primary: primaryEndpoint, fallback: GEIDEA_TEST_FALLBACK, firstResponse: json })
-    resp = await callEndpoint(GEIDEA_TEST_FALLBACK)
+    console.warn('[geidea] primary endpoint failed, retrying on fallback', { primary: primaryEndpoint, fallback: GEIDEA_FALLBACK, firstResponse: json })
+    resp = await callEndpoint(GEIDEA_FALLBACK)
     json = null
     try { json = await resp.json() } catch (_) {}
   }

@@ -9,8 +9,18 @@
  * the caller does NOT specify a payment method here.
  */
 
-const SCRIPT_URL = 'https://www.ksamerchant.geidea.net/hpp/geideaCheckout.min.js'
+// Mode-aware script URL: Geidea hosts separate JS bundles for test vs production.
+//   TEST       -> https://www.merchant.geidea.net/hpp/geideaCheckout.min.js
+//   LIVE (KSA) -> https://www.ksamerchant.geidea.net/hpp/geideaCheckout.min.js
+const SCRIPT_URLS = {
+  test: 'https://www.merchant.geidea.net/hpp/geideaCheckout.min.js',
+  live: 'https://www.ksamerchant.geidea.net/hpp/geideaCheckout.min.js'
+}
+function pickScriptUrl(mode) {
+  return SCRIPT_URLS[mode] || SCRIPT_URLS.live
+}
 let scriptPromise = null
+let loadedScriptMode = null
 
 function getApiBase() {
   if (typeof document === 'undefined') return ''
@@ -19,20 +29,23 @@ function getApiBase() {
   return v.replace(/\/+$/, '')
 }
 
-/** Lazy-load the GeideaCheckout script tag. Idempotent. */
-export function loadGeideaScript() {
+/** Lazy-load the GeideaCheckout script tag. Idempotent. Accepts mode ('test'|'live'). */
+export function loadGeideaScript(mode) {
   if (typeof window === 'undefined') return Promise.reject(new Error('No window'))
-  if (window.GeideaCheckout) return Promise.resolve(window.GeideaCheckout)
-  if (scriptPromise) return scriptPromise
+  const scriptUrl = pickScriptUrl(mode)
+  // If the loaded script is for a different mode, force a reload by clearing the promise.
+  if (window.GeideaCheckout && loadedScriptMode === mode) return Promise.resolve(window.GeideaCheckout)
+  if (scriptPromise && loadedScriptMode === mode) return scriptPromise
+  loadedScriptMode = mode
   scriptPromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[src="' + SCRIPT_URL + '"]')
+    const existing = document.querySelector('script[src="' + scriptUrl + '"]')
     if (existing) {
       existing.addEventListener('load', () => resolve(window.GeideaCheckout))
       existing.addEventListener('error', () => reject(new Error('Failed to load Geidea script')))
       return
     }
     const s = document.createElement('script')
-    s.src = SCRIPT_URL
+    s.src = scriptUrl
     s.async = true
     s.onload = () => {
       if (window.GeideaCheckout) resolve(window.GeideaCheckout)
@@ -40,6 +53,7 @@ export function loadGeideaScript() {
     }
     s.onerror = () => {
       scriptPromise = null
+      loadedScriptMode = null
       reject(new Error('Failed to load Geidea script'))
     }
     document.head.appendChild(s)
@@ -118,10 +132,11 @@ export function launchGeideaCheckout({ sessionId, onSuccess, onError, onCancel }
   })
 }
 
-/** One-call helper: load script, create session, launch checkout. */
+/** One-call helper: load script, create session, launch checkout.
+ *  We create the session first to learn the mode, then load the matching script. */
 export async function payBookingWithGeidea({ bookingId, returnUrl, customer } = {}) {
-  await loadGeideaScript()
   const session = await createGeideaSessionForBooking({ bookingId, returnUrl, customer })
+  await loadGeideaScript(session.mode)
   const result = await launchGeideaCheckout({ sessionId: session.sessionId })
   return Object.assign({}, result, { session })
 }
