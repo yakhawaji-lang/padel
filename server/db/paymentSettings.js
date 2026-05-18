@@ -10,6 +10,7 @@ function rowsToFrontendFormat(rows) {
   const stripe = { publishableKey: '', secretKey: '', webhookSecret: '' }
   const mada = { merchantId: '', apiKey: '', gatewayId: '' }
   const split = { deadlineMinutes: 30 }
+  const geidea = { publicKey: '', apiPassword: '', mode: 'test', callbackUrl: '' }
 
   for (const r of rows || []) {
     const key = r.gateway_key
@@ -26,6 +27,11 @@ function rowsToFrontendFormat(rows) {
         mada.gatewayId = cfg.gatewayId || ''
       } else if (key === 'split') {
         split.deadlineMinutes = cfg.deadlineMinutes ?? 30
+      } else if (key === 'geidea') {
+        geidea.publicKey = cfg.publicKey || ''
+        geidea.apiPassword = cfg.apiPassword ? '••••••••' : ''
+        geidea.mode = cfg.mode || 'test'
+        geidea.callbackUrl = cfg.callbackUrl || ''
       }
     } catch (_) {}
   }
@@ -34,7 +40,8 @@ function rowsToFrontendFormat(rows) {
     enabledChannels,
     stripe,
     mada,
-    split
+    split,
+    geidea
   }
 }
 
@@ -58,7 +65,7 @@ const MASK = '••••••••'
 /** Save payment gateways to platform_payment_gateways table */
 export async function savePaymentGatewaysToTable(data) {
   if (!data || typeof data !== 'object') return false
-  const { enabledChannels = {}, stripe = {}, mada = {}, split = {} } = data
+  const { enabledChannels = {}, stripe = {}, mada = {}, split = {}, geidea = {} } = data
 
   try {
     const { rows: existing } = await query('SELECT gateway_key, config_json FROM platform_payment_gateways')
@@ -79,6 +86,7 @@ export async function savePaymentGatewaysToTable(data) {
       { key: 'at_club', enabled: enabledChannels.at_club !== false, config: {} },
       { key: 'credit_card', enabled: !!enabledChannels.credit_card, config: mergeConfig('credit_card', { publishableKey: stripe.publishableKey, secretKey: stripe.secretKey, webhookSecret: stripe.webhookSecret }) },
       { key: 'mada', enabled: !!enabledChannels.mada, config: mergeConfig('mada', { merchantId: mada.merchantId, apiKey: mada.apiKey, gatewayId: mada.gatewayId }) },
+      { key: 'geidea', enabled: !!enabledChannels.geidea, config: mergeConfig('geidea', { publicKey: geidea.publicKey, apiPassword: geidea.apiPassword, mode: geidea.mode, callbackUrl: geidea.callbackUrl, provider: 'geidea' }) },
       { key: 'split', enabled: enabledChannels.split !== false, config: { deadlineMinutes: split.deadlineMinutes ?? 30 } }
     ]
 
@@ -105,9 +113,4 @@ export async function getPaymentGatewaysRaw() {
     )
     return rows || []
   } catch (e) {
-    if (!e?.message?.includes("doesn't exist") && !e?.message?.includes('Unknown table')) {
-      console.warn('paymentSettings getPaymentGatewaysRaw:', e?.message)
-    }
-    return []
-  }
-}
+    if (!e?.message?.includes("doesn't exist") && !e?.message?.includes('Unk

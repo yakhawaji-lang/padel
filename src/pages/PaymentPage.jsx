@@ -1,5 +1,5 @@
 /**
- * PaymentPage - صفحة الدفع للحجوزات (credit_card / mada)
+ * PaymentPage - صفحة الدفع للحجوزات (credit_card / mada / geidea)
  * /pay/:bookingId?method=credit_card
  */
 import React, { useState, useEffect } from 'react'
@@ -9,11 +9,12 @@ import { getAppLanguage } from '../storage/languageStorage'
 import { getCurrentPlatformUser } from '../storage/platformAuth'
 import './PaymentPage.css'
 import { UnifiedPaymentPageMethodStrip } from '../components/UnifiedPaymentOptions'
+import { getGeideaPublicConfig, payBookingWithGeidea } from '../payments/geideaCheckout'
 
 const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 
 const formatDate = (dateStr, lang) => {
-  if (!dateStr) return '—'
+  if (!dateStr) return '-'
   try {
     const d = new Date(dateStr + 'T12:00:00')
     return d.toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })
@@ -38,6 +39,16 @@ const PaymentPage = () => {
   const [cardNumber, setCardNumber] = useState('')
   const [expiry, setExpiry] = useState('')
   const [cvv, setCvv] = useState('')
+
+  const [geideaCfg, setGeideaCfg] = useState({ configured: false, enabled: false })
+
+  useEffect(() => {
+    let cancelled = false
+    getGeideaPublicConfig()
+      .then((cfg) => { if (!cancelled) setGeideaCfg(cfg || { configured: false, enabled: false }) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   const platformUser = getCurrentPlatformUser()
 
@@ -66,11 +77,46 @@ const PaymentPage = () => {
     try {
       await completePayment({ bookingId, clubId: booking.clubId })
       setSuccess(true)
-      setTimeout(() => {
-        navigate('/my-bookings?payment=success')
-      }, 2000)
+      setTimeout(() => { navigate('/my-bookings?payment=success') }, 2000)
     } catch (e) {
       setError(e?.message || (language === 'ar' ? 'فشل الدفع. حاول مجدداً.' : 'Payment failed. Please try again.'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleGeideaPay = async () => {
+    if (!bookingId || submitting) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const result = await payBookingWithGeidea({
+        bookingId,
+        returnUrl: window.location.origin + '/my-bookings?payment=success',
+        customer: platformUser ? {
+          email: platformUser.email || undefined,
+          phoneNumber: platformUser.phone || undefined
+        } : undefined
+      })
+      if (result.status === 'success') {
+        try { await completePayment({ bookingId, clubId: booking.clubId }) } catch (_) {}
+        setSuccess(true)
+        setTimeout(() => navigate('/my-bookings?payment=success'), 1500)
+      } else if (result.status === 'cancel') {
+        setError(language === 'ar' ? 'تم إلغاء عملية الدفع.' : 'Payment was cancelled.')
+      } else {
+        const msg = result?.data?.responseMessage || result?.data?.message
+        setError(msg || (language === 'ar' ? 'فشل الدفع. حاول مجدداً.' : 'Payment failed. Please try again.'))
+      }
+    } catch (e) {
+      const code = e?.code
+      let msg = e?.message
+      if (code === 'GEIDEA_NOT_CONFIGURED' || code === 'GEIDEA_DISABLED') {
+        msg = language === 'ar'
+          ? 'الدفع الإلكتروني غير مفعّل حالياً. يرجى التواصل مع إدارة المنصة.'
+          : 'Electronic payment is not enabled. Please contact platform admin.'
+      }
+      setError(msg || (language === 'ar' ? 'فشل الدفع. حاول مجدداً.' : 'Payment failed. Please try again.'))
     } finally {
       setSubmitting(false)
     }
@@ -92,12 +138,19 @@ const PaymentPage = () => {
     expiry: t('Expiry (MM/YY)', 'تاريخ الانتهاء (شهر/سنة)', language),
     cvv: t('CVV', 'رمز الأمان', language),
     payNow: t('Pay now', 'ادفع الآن', language),
+    payWithGeidea: t('Pay securely (Mada / Visa / Mastercard)', 'ادفع بأمان (مدى / فيزا / ماستركارد)', language),
+    geideaHint: t(
+      'You will be redirected to a secure Geidea checkout. The card type is detected automatically - no need to choose.',
+      'سيتم نقلك إلى صفحة الدفع الآمنة من Geidea. يتم اكتشاف نوع البطاقة تلقائياً - لا حاجة للاختيار.',
+      language
+    ),
+    geideaTestNotice: t('Test mode - no real charge.', 'وضع الاختبار - لن يتم خصم أي مبلغ فعلي.', language),
     success: t('Payment successful! Redirecting to your bookings...', 'تم الدفع بنجاح! جاري التحويل لحجوزاتك...', language),
     backToHome: t('Back to home', 'العودة للرئيسية', language),
     myBookings: t('My bookings', 'حجوزاتي', language),
     loading: t('Loading...', 'جاري التحميل...', language),
     notFound: t('Booking not found', 'الحجز غير موجود', language),
-    loginRequired: t('Please log in to complete payment.', 'يرجى تسجيل الدخول لإتمام الدفع.', language),
+    loginRequired: t('Please log in to complete payment.', 'يرجى تسجيل الدخول لإتمام الدفع.', language)
   }
 
   if (loading) {
@@ -183,7 +236,7 @@ const PaymentPage = () => {
           </div>
           <div className="payment-detail-row">
             <dt>{c.time}</dt>
-            <dd>{booking?.startTime} – {booking?.endTime}</dd>
+            <dd>{booking?.startTime} - {booking?.endTime}</dd>
           </div>
           {showWalletSplit ? (
             <>
@@ -212,58 +265,69 @@ const PaymentPage = () => {
           </div>
         </dl>
 
-        <form onSubmit={handlePayNow} className="payment-form">
-          <div className="payment-form-group">
-            <label>{c.cardNumber}</label>
-            <input
-              type="text"
-              placeholder="4242 4242 4242 4242"
-              value={cardNumber}
-              onChange={e => setCardNumber(e.target.value)}
-              maxLength={19}
-              className="payment-input"
-            />
+        {geideaCfg?.configured && geideaCfg?.enabled ? (
+          <div className="payment-form">
+            <p className="payment-hint" style={{ marginBottom: 12 }}>{c.geideaHint}</p>
+            {error && <p className="payment-error-msg">{error}</p>}
+            <button
+              type="button"
+              className="payment-btn payment-btn-primary payment-btn-submit"
+              onClick={handleGeideaPay}
+              disabled={submitting || amountDue <= 0}
+            >
+              {submitting
+                ? (language === 'ar' ? 'جاري الفتح...' : 'Opening checkout...')
+                : c.payWithGeidea}
+            </button>
+            {geideaCfg.mode === 'test' && (
+              <p className="payment-hint" style={{ marginTop: 12, color: 'var(--pt-warn, #b45309)' }}>
+                {c.geideaTestNotice}
+              </p>
+            )}
           </div>
-          <div className="payment-form-row">
+        ) : (
+          <form onSubmit={handlePayNow} className="payment-form">
             <div className="payment-form-group">
-              <label>{c.expiry}</label>
+              <label>{c.cardNumber}</label>
               <input
                 type="text"
-                placeholder="MM/YY"
-                value={expiry}
-                onChange={e => setExpiry(e.target.value)}
-                maxLength={5}
+                placeholder="4242 4242 4242 4242"
+                value={cardNumber}
+                onChange={e => setCardNumber(e.target.value)}
+                maxLength={19}
                 className="payment-input"
               />
             </div>
-            <div className="payment-form-group">
-              <label>{c.cvv}</label>
-              <input
-                type="text"
-                placeholder="123"
-                value={cvv}
-                onChange={e => setCvv(e.target.value)}
-                maxLength={4}
-                className="payment-input"
-              />
+            <div className="payment-form-row">
+              <div className="payment-form-group">
+                <label>{c.expiry}</label>
+                <input
+                  type="text"
+                  placeholder="MM/YY"
+                  value={expiry}
+                  onChange={e => setExpiry(e.target.value)}
+                  maxLength={5}
+                  className="payment-input"
+                />
+              </div>
+              <div className="payment-form-group">
+                <label>{c.cvv}</label>
+                <input
+                  type="text"
+                  placeholder="123"
+                  value={cvv}
+                  onChange={e => setCvv(e.target.value)}
+                  maxLength={4}
+                  className="payment-input"
+                />
+              </div>
             </div>
-          </div>
 
-          {error && <p className="payment-error-msg">{error}</p>}
+            {error && <p className="payment-error-msg">{error}</p>}
 
-          <button type="submit" className="payment-btn payment-btn-primary payment-btn-submit" disabled={submitting}>
-            {submitting ? (language === 'ar' ? 'جاري المعالجة...' : 'Processing...') : c.payNow}
-          </button>
-        </form>
+            <button type="submit" className="payment-btn payment-btn-primary payment-btn-submit" disabled={submitting}>
+              {submitting ? (language === 'ar' ? 'جاري المعالجة...' : 'Processing...') : c.payNow}
+            </button>
 
-        <p className="payment-hint">
-          {language === 'ar' ? 'هذا نموذج تجريبي. لن يتم خصم أي مبلغ فعلي.' : 'This is a simulated payment form. No actual charge will be made.'}
-        </p>
-
-        <Link to="/my-bookings" className="payment-link-secondary">{c.myBookings}</Link>
-      </div>
-    </div>
-  )
-}
-
-export default PaymentPage
+            <p className="payment-hint">
+              {language === 'ar' ? 'هذا �

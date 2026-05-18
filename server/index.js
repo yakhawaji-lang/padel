@@ -34,6 +34,7 @@ import emailRouter from './routes/email.js'
 import notificationsRouter from './routes/notifications.js'
 import pushRouter from './routes/push.js'
 import memberAuthRouter from './routes/memberAuth.js'
+import geideaRouter from './routes/geidea.js'
 import { isConnected, getDbDiagnostics, getCurrentDatabase } from './db/pool.js'
 import { ensureUploadDirectoryTree, getUploadsRoot } from './lib/uploadsPaths.js'
 import { startBookingJobs } from './jobs/bookingJobs.js'
@@ -67,6 +68,7 @@ app.use('/api/email', emailRouter)
 app.use('/api/notifications', notificationsRouter)
 app.use('/api/push', pushRouter)
 app.use('/api/member-auth', memberAuthRouter)
+app.use('/api/payments/geidea', geideaRouter)
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, db: isConnected() })
@@ -211,11 +213,4 @@ app.listen(PORT, HOST, async () => {
       console.warn('[bookingMigration]', mErr?.message || mErr)
     }
     const dbName = await getCurrentDatabase()
-    console.log(`Database: ${dbName || '(unknown)'} — all data is read from and written to this database`)
-    startBookingJobs()
-    startPushNotificationJob()
-  }
-}).on('error', (err) => {
-  console.error('[Express] listen error:', err.message)
-  process.exit(1)
-})
+    console.log(`Database: ${dbName || '(unknown)'} —

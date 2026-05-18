@@ -8,18 +8,20 @@ const t = (en, ar, lang) => (lang === 'ar' ? ar : en)
 const PLATFORM_PAYMENT_GATEWAYS_KEY = 'platform_payment_gateways'
 
 const DEFAULT_PAYMENT_GATEWAYS = {
-  enabledChannels: { at_club: true, wallet: false, credit_card: false, mada: false, split: true },
+  enabledChannels: { at_club: true, wallet: false, credit_card: false, mada: false, geidea: false, split: true },
   stripe: { publishableKey: '', secretKey: '', webhookSecret: '' },
   mada: { merchantId: '', apiKey: '', gatewayId: '' },
+  geidea: { publicKey: '', apiPassword: '', mode: 'test', callbackUrl: '' },
   split: { deadlineMinutes: 30 }
 }
 
 const TABS = [
-  { key: 'at_club', icon: '🏢', labelEn: 'At club', labelAr: 'الدفع في النادي' },
-  { key: 'wallet', icon: '👛', labelEn: 'Member wallet', labelAr: 'محفظة العضو' },
-  { key: 'credit_card', icon: '💳', labelEn: 'Credit card', labelAr: 'البطاقة الائتمانية' },
-  { key: 'mada', icon: '💳', labelEn: 'Mada', labelAr: 'متاب' },
-  { key: 'split', icon: '👥', labelEn: 'Share with others', labelAr: 'مشاركة الدفع' }
+  { key: 'at_club', icon: '\u{1F3E2}', labelEn: 'At club', labelAr: 'الدفع في النادي' },
+  { key: 'wallet', icon: '\u{1F45B}', labelEn: 'Member wallet', labelAr: 'محفظة العضو' },
+  { key: 'geidea', icon: '⚡', labelEn: 'Electronic payment (Geidea)', labelAr: 'الدفع الإلكتروني (Geidea)' },
+  { key: 'credit_card', icon: '\u{1F4B3}', labelEn: 'Credit card (Stripe)', labelAr: 'البطاقة الائتمانية (Stripe)' },
+  { key: 'mada', icon: '\u{1F4B3}', labelEn: 'Mada (legacy)', labelAr: 'متاب (قديم)' },
+  { key: 'split', icon: '\u{1F465}', labelEn: 'Share with others', labelAr: 'مشاركة الدفع' }
 ]
 
 export default function PaymentSettingsPage() {
@@ -35,10 +37,11 @@ export default function PaymentSettingsPage() {
     getStore(PLATFORM_PAYMENT_GATEWAYS_KEY)
       .then((val) => {
         if (val && typeof val === 'object') {
-          setPaymentGateways((prev) => ({
+          setPaymentGateways(() => ({
             enabledChannels: { ...DEFAULT_PAYMENT_GATEWAYS.enabledChannels, ...(val.enabledChannels || {}) },
             stripe: { ...DEFAULT_PAYMENT_GATEWAYS.stripe, ...(val.stripe || {}) },
             mada: { ...DEFAULT_PAYMENT_GATEWAYS.mada, ...(val.mada || {}) },
+            geidea: { ...DEFAULT_PAYMENT_GATEWAYS.geidea, ...(val.geidea || {}) },
             split: { ...DEFAULT_PAYMENT_GATEWAYS.split, ...(val.split || {}) }
           }))
         }
@@ -70,24 +73,16 @@ export default function PaymentSettingsPage() {
   }
 
   const updateStripe = (field, value) => {
-    setPaymentGateways((prev) => ({
-      ...prev,
-      stripe: { ...prev.stripe, [field]: value }
-    }))
+    setPaymentGateways((prev) => ({ ...prev, stripe: { ...prev.stripe, [field]: value } }))
   }
-
   const updateMada = (field, value) => {
-    setPaymentGateways((prev) => ({
-      ...prev,
-      mada: { ...prev.mada, [field]: value }
-    }))
+    setPaymentGateways((prev) => ({ ...prev, mada: { ...prev.mada, [field]: value } }))
   }
-
   const updateSplit = (field, value) => {
-    setPaymentGateways((prev) => ({
-      ...prev,
-      split: { ...prev.split, [field]: value }
-    }))
+    setPaymentGateways((prev) => ({ ...prev, split: { ...prev.split, [field]: value } }))
+  }
+  const updateGeidea = (field, value) => {
+    setPaymentGateways((prev) => ({ ...prev, geidea: { ...prev.geidea, [field]: value } }))
   }
 
   const c = {
@@ -109,14 +104,32 @@ export default function PaymentSettingsPage() {
     apiKey: t('API Key', 'مفتاح API', language),
     gatewayId: t('Gateway ID', 'معرّف البوابة', language),
     splitTitle: t('Share payment with members', 'مشاركة الدفع مع الأعضاء', language),
-    splitDesc: t('Allow members to share the booking cost with others. This is not a payment method — it enables cost sharing.', 'السماح للأعضاء بمشاركة تكلفة الحجز مع الآخرين. هذا ليس خيار دفع بل خيار مشاركة التكلفة.', language),
+    splitDesc: t('Allow members to share the booking cost with others. This is not a payment method - it enables cost sharing.', 'السماح للأعضاء بمشاركة تكلفة الحجز مع الآخرين. هذا ليس خيار دفع بل خيار مشاركة التكلفة.', language),
     deadlineMinutes: t('Deadline (minutes)', 'المهلة (دقائق)', language),
     walletTitle: t('Member wallet balance', 'الدفع من رصيد المحفظة', language),
     walletDesc: t(
       'Lets members pay bookings and fees using club-specific wallet balance (refunds and credits). Clubs can enable wallet only if the platform allows it.',
       'يسمح للأعضاء بدفع الحجوزات والرسوم من رصيد محفظة خاصة بالنادي (استردادات وائتمانات). يمكن للنادي تفعيل المحفظة فقط إذا سمحت المنصة.',
       language
-    )
+    ),
+    geideaTitle: t('Electronic payment - Geidea', 'الدفع الإلكتروني - Geidea', language),
+    geideaDesc: t(
+      'Unified online checkout via Geidea Checkout V2. The card type (Mada, Visa, Mastercard) is detected automatically. Credentials are stored on the server and never exposed to the browser.',
+      'دفع إلكتروني موحّد عبر Geidea Checkout V2. يتم اكتشاف نوع البطاقة (Mada / Visa / Mastercard) تلقائياً. تُحفظ بيانات الاعتماد على الخادم فقط ولا تُكشف في المتصفح.',
+      language
+    ),
+    geideaPublicKey: t('Public key', 'المفتاح العام (Public Key)', language),
+    geideaApiPassword: t('API password', 'كلمة مرور API', language),
+    geideaMode: t('Environment', 'البيئة', language),
+    geideaModeTest: t('Test', 'اختبار', language),
+    geideaModeLive: t('Live', 'إنتاج', language),
+    geideaCallback: t('Callback URL (server-to-server)', 'رابط الـ Callback (من الخادم إلى الخادم)', language),
+    geideaCallbackHint: t(
+      'Geidea will POST payment results to this URL. Leave blank to use the default /api/payments/geidea/callback.',
+      'سيقوم Geidea بإرسال نتائج الدفع إلى هذا الرابط. اتركه فارغاً لاستخدام /api/payments/geidea/callback الافتراضي.',
+      language
+    ),
+    geideaSecretSet: t('Saved - leave blank to keep current value', 'محفوظ - اتركه فارغاً للإبقاء على القيمة الحالية', language)
   }
 
   if (loading) {
@@ -134,12 +147,7 @@ export default function PaymentSettingsPage() {
         {message && (
           <p className={`payment-settings-message ${messageError ? 'error' : 'success'}`}>{message}</p>
         )}
-        <button
-          type="button"
-          className="payment-settings-save-btn"
-          onClick={handleSave}
-          disabled={saving}
-        >
+        <button type="button" className="payment-settings-save-btn" onClick={handleSave} disabled={saving}>
           {saving ? c.saving : c.save}
         </button>
       </div>
@@ -188,6 +196,69 @@ export default function PaymentSettingsPage() {
               />
               <span>{c.enableGateway}</span>
             </label>
+          </div>
+        )}
+
+        {activeTab === 'geidea' && (
+          <div className="payment-tab-panel">
+            <h2 className="panel-title">{c.geideaTitle}</h2>
+            <p className="panel-desc">{c.geideaDesc}</p>
+            <label className="payment-toggle-row">
+              <input
+                type="checkbox"
+                checked={!!paymentGateways.enabledChannels?.geidea}
+                onChange={() => toggleChannel('geidea')}
+                disabled={saving}
+              />
+              <span>{c.enableGateway}</span>
+            </label>
+            <div className="payment-form-group">
+              <label>{c.geideaPublicKey}</label>
+              <input
+                type="text"
+                value={paymentGateways.geidea?.publicKey || ''}
+                onChange={(e) => updateGeidea('publicKey', e.target.value)}
+                placeholder="00000000-0000-0000-0000-000000000000"
+                disabled={saving}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
+            <div className="payment-form-group">
+              <label>{c.geideaApiPassword}</label>
+              <input
+                type="password"
+                value={paymentGateways.geidea?.apiPassword || ''}
+                onChange={(e) => updateGeidea('apiPassword', e.target.value)}
+                placeholder={paymentGateways.geidea?.apiPassword === '••••••••' ? c.geideaSecretSet : '00000000-0000-0000-0000-000000000000'}
+                disabled={saving}
+                autoComplete="new-password"
+                spellCheck={false}
+              />
+            </div>
+            <div className="payment-form-group">
+              <label>{c.geideaMode}</label>
+              <select
+                value={paymentGateways.geidea?.mode || 'test'}
+                onChange={(e) => updateGeidea('mode', e.target.value)}
+                disabled={saving}
+              >
+                <option value="test">{c.geideaModeTest}</option>
+                <option value="live">{c.geideaModeLive}</option>
+              </select>
+            </div>
+            <div className="payment-form-group">
+              <label>{c.geideaCallback}</label>
+              <input
+                type="url"
+                value={paymentGateways.geidea?.callbackUrl || ''}
+                onChange={(e) => updateGeidea('callbackUrl', e.target.value)}
+                placeholder="https://playtix.app/api/payments/geidea/callback"
+                disabled={saving}
+                spellCheck={false}
+              />
+              <small style={{ display: 'block', marginTop: 6, color: 'var(--pt-text-muted, #64748b)' }}>{c.geideaCallbackHint}</small>
+            </div>
           </div>
         )}
 
@@ -300,17 +371,4 @@ export default function PaymentSettingsPage() {
             <div className="payment-form-group">
               <label>{c.deadlineMinutes}</label>
               <input
-                type="number"
-                min={5}
-                max={120}
-                value={paymentGateways.split?.deadlineMinutes ?? 30}
-                onChange={(e) => updateSplit('deadlineMinutes', parseInt(e.target.value, 10) || 30)}
-                disabled={saving}
-              />
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
+     

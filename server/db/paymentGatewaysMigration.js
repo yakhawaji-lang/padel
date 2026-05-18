@@ -22,7 +22,6 @@ export async function runPaymentGatewaysMigration() {
     ('at_club', 1, '{"description":"Pay at club with cash or card"}', 'At club', 'الدفع في النادي', 1),
     ('credit_card', 0, '{"provider":"stripe","publishableKey":"","secretKey":"","webhookSecret":"","description":"Online payment via Visa, Mastercard"}', 'Credit card', 'البطاقة الائتمانية', 2),
     ('mada', 0, '{"merchantId":"","apiKey":"","gatewayId":"","description":"متاب - بطاقة الدفع السعودية"}', 'Mada', 'متاب', 3),
-    ('split', 1, '{"deadlineMinutes":30,"description":"Split payment with other participants"}', 'Split payment', 'تقسيم المبلغ', 4)
-    ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP
-  `)
-}
+    ('geidea', 0, '{"provider":"geidea","publicKey":"","apiPassword":"","mode":"test","callbackUrl":"","description":"Geidea Checkout V2 — auto-detects Mada / Visa / Mastercard"}', 'Electronic payment (Geidea)', 'الدفع الإلكتروني (Geidea)', 4),
+    ('split', 1, '{"deadlineMinutes":30,"description":"Split payment with other participants"}', 'Split payment', 'تقسيم المبلغ', 5)
+    ON DUPLICATE KEY UPDATE updated_at =
