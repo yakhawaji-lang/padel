@@ -67,14 +67,14 @@ export function loadGeideaScript(mode) {
 }
 
 /** Ask backend for a Geidea sessionId for a booking. */
-export async function createGeideaSessionForBooking({ bookingId, returnUrl, customer } = {}) {
+export async function createGeideaSessionForBooking({ bookingId, amount, currency, returnUrl, customer } = {}) {
   if (!bookingId) throw new Error('bookingId required')
   const base = getApiBase()
   const resp = await fetch(base + '/api/payments/geidea/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ bookingId, returnUrl, customer })
+    body: JSON.stringify({ bookingId, amount, currency, returnUrl, customer })
   })
   let json = null
   try { json = await resp.json() } catch (_) {}
@@ -188,8 +188,8 @@ async function launchGeideaHpp({ amount, currency = 'SAR', merchantRefId, return
 }
 
 /** One-call helper: ask backend to create a Geidea session, load script, launch popup. */
-export async function payBookingWithGeidea({ bookingId, returnUrl, customer } = {}) {
-  const session = await createGeideaSessionForBooking({ bookingId, returnUrl, customer })
+export async function payBookingWithGeidea({ bookingId, amount, currency, returnUrl, customer } = {}) {
+  const session = await createGeideaSessionForBooking({ bookingId, amount, currency, returnUrl, customer })
   await loadGeideaScript(session.mode)
   const result = await launchGeideaCheckout({ sessionId: session.sessionId })
   return Object.assign({}, result, { session })

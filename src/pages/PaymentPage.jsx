@@ -97,6 +97,8 @@ const PaymentPage = () => {
     try {
       const result = await payBookingWithGeidea({
         bookingId,
+        amount: amountDue,
+        currency: booking?.currency || 'SAR',
         returnUrl: window.location.origin + '/my-bookings?payment=success',
         customer: platformUser ? {
           email: platformUser.email || undefined,

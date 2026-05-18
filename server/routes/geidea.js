@@ -54,7 +54,11 @@ router.post('/session', sessionLimiter, async (req, res) => {
   let currency = 'SAR'
   let merchantRefId
 
-  if (bookingId) {
+  // bookingId may be:
+  //   - numeric DB id (e.g. 12345)  -> look up in club_bookings
+  //   - string localStorage id (e.g. 'bk_1779...')  -> skip DB lookup, require amount from client
+  const isNumericBookingId = bookingId != null && /^[0-9]+$/.test(String(bookingId))
+  if (isNumericBookingId) {
     try {
       const result = await query(
         'SELECT cb.id, cb.club_id, ' +
@@ -65,26 +69,32 @@ router.post('/session', sessionLimiter, async (req, res) => {
         '  LEFT JOIN club_settings cs ON cs.club_id = cb.club_id ' +
         ' WHERE cb.id = ? AND cb.deleted_at IS NULL ' +
         ' LIMIT 1',
-        [bookingId]
+        [Number(bookingId)]
       )
       const rows = result && result.rows
       const row = rows && rows[0]
-      if (!row) return res.status(404).json({ error: 'booking_not_found' })
-      const total = Number(row.total_amount) || 0
-      const paid = Number(row.paid_amount) || 0
-      const due = Math.max(0, total - paid)
-      amount = Number(amountOverride) > 0 ? Number(amountOverride) : due
-      currency = String(row.currency || 'SAR').trim() || 'SAR'
-      // Geidea rejects refs with underscores or non-alphanumeric chars (responseCode 013).
-      // Sanitize to alphanumeric + dash only, max 40 chars.
-      const rawRef = 'BK' + String(row.id).replace(/[^a-zA-Z0-9]/g, '') + 'T' + Date.now().toString(36)
-      merchantRefId = rawRef.substring(0, 40)
+      if (row) {
+        const total = Number(row.total_amount) || 0
+        const paid = Number(row.paid_amount) || 0
+        const due = Math.max(0, total - paid)
+        amount = Number(amountOverride) > 0 ? Number(amountOverride) : due
+        currency = String(row.currency || 'SAR').trim() || 'SAR'
+        const rawRef = 'BK' + String(row.id) + 'T' + Date.now().toString(36)
+        merchantRefId = rawRef.substring(0, 40)
+      }
     } catch (e) {
       console.warn('geidea /session lookup:', e && e.message)
-      return res.status(500).json({ error: 'booking_lookup_failed' })
+      // continue to fallback path below
     }
-  } else {
-    merchantRefId = 'PT' + Date.now().toString(36) + crypto.randomBytes(3).toString('hex')
+  }
+  // Fallback: string bookingId or numeric not found - use client-provided amount
+  if (!merchantRefId) {
+    if (!(Number(amount) > 0)) {
+      return res.status(400).json({ error: 'amount_required_for_unsynced_booking', message: 'This booking is not synced to the server DB; client must provide amount.' })
+    }
+    const safeBookingId = String(bookingId || 'NA').replace(/[^a-zA-Z0-9]/g, '').substring(0, 20)
+    merchantRefId = 'BK' + (safeBookingId || 'NA') + 'T' + Date.now().toString(36)
+    merchantRefId = merchantRefId.substring(0, 40)
   }
 
   if (!(Number(amount) > 0)) {
