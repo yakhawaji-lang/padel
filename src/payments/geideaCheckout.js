@@ -12,9 +12,10 @@
 // Mode-aware script URL: Geidea hosts separate JS bundles for test vs production.
 //   TEST       -> https://www.merchant.geidea.net/hpp/geideaCheckout.min.js
 //   LIVE (KSA) -> https://www.ksamerchant.geidea.net/hpp/geideaCheckout.min.js
+// v2 script supports configurePayment; v1 (without /v2/) only supports startPayment(sessionId).
 const SCRIPT_URLS = {
-  test: 'https://www.merchant.geidea.net/hpp/geideaCheckout.min.js',
-  live: 'https://www.ksamerchant.geidea.net/hpp/geideaCheckout.min.js'
+  test: 'https://www.merchant.geidea.net/hpp/v2/geideaCheckout.min.js',
+  live: 'https://www.ksamerchant.geidea.net/hpp/v2/geideaCheckout.min.js'
 }
 function pickScriptUrl(mode) {
   return SCRIPT_URLS[mode] || SCRIPT_URLS.live
@@ -37,6 +38,10 @@ export function loadGeideaScript(mode) {
   if (window.GeideaCheckout && loadedScriptMode === mode) return Promise.resolve(window.GeideaCheckout)
   if (scriptPromise && loadedScriptMode === mode) return scriptPromise
   loadedScriptMode = mode
+  // Clear any previously-loaded GeideaCheckout (e.g. from a v1 script) so we get the v2 export.
+  if (window.GeideaCheckout) {
+    try { delete window.GeideaCheckout } catch (_) { window.GeideaCheckout = undefined }
+  }
   scriptPromise = new Promise((resolve, reject) => {
     const existing = document.querySelector('script[src="' + scriptUrl + '"]')
     if (existing) {
@@ -168,7 +173,12 @@ async function launchGeideaHpp({ amount, currency = 'SAR', merchantRefId, return
         payment.startPayment()
       } else {
         // Older bundles only accept sessionId. Should not happen with v2 script.
-        reject(new Error('GeideaCheckout.configurePayment unavailable'))
+        try {
+          const methods = []
+          for (const k in payment) { methods.push(k + ':' + typeof payment[k]) }
+          console.warn('[geidea] configurePayment unavailable. payment methods:', methods.join(', '))
+        } catch (_) {}
+        reject(new Error('GeideaCheckout.configurePayment unavailable - script may be v1; need v2 at /hpp/v2/'))
       }
       void mode
     } catch (e) {
