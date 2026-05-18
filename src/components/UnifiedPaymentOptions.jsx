@@ -12,6 +12,8 @@ export function getUnifiedPaymentCopy(language) {
     payAtClubDesc: ar ? 'ادفع نقداً أو بالبطاقة عند زيارة النادي.' : 'Pay cash or card when you visit the club.',
     payElectronic: ar ? 'إلكتروني' : 'Electronic',
     payElectronicDesc: ar ? 'بطاقة ائتمان أو مدى عبر الرابط الآمن.' : 'Credit card or Mada via secure checkout.',
+    payElectronicGeideaDesc: ar ? 'مدى / فيزا / ماستركارد عبر بوابة آمنة.' : 'Mada / Visa / Mastercard via secure checkout.',
+    payElectronicGeideaLabel: ar ? 'مدى · فيزا · ماستركارد' : 'Mada · Visa · Mastercard',
     payWallet: ar ? 'محفظتي' : 'My wallet',
     payWalletDesc: ar ? 'يُخصم من رصيد محفظتك في هذا النادي.' : 'Charged from your balance at this club.',
     creditCard: ar ? 'بطاقة' : 'Card',
@@ -59,9 +61,10 @@ export function UnifiedPaymentMethodPicker({
   const showWalletChannel = !!channels?.wallet
   const showCC = !!channels?.credit_card
   const showMada = !!channels?.mada
-  const hasElectronic = showCC || showMada
+  const showGeidea = !!channels?.geidea
+  const hasElectronic = showCC || showMada || showGeidea
 
-  const isElectronic = value === 'credit_card' || value === 'mada'
+  const isElectronic = value === 'credit_card' || value === 'mada' || value === 'geidea'
   const walletDisabledReason = walletUnavailable
     ? walletUnavailable === 'split'
       ? L.walletUnavailableSplit
@@ -73,22 +76,26 @@ export function UnifiedPaymentMethodPicker({
 
   const setElectronic = useCallback(
     (m) => {
-      if (m === 'credit_card' && showCC) onChange('credit_card')
+      if (m === 'geidea' && showGeidea) onChange('geidea')
+      else if (m === 'credit_card' && showCC) onChange('credit_card')
       else if (m === 'mada' && showMada) onChange('mada')
+      else if (showGeidea) onChange('geidea')
       else if (showCC) onChange('credit_card')
       else if (showMada) onChange('mada')
     },
-    [onChange, showCC, showMada]
+    [onChange, showCC, showMada, showGeidea]
   )
 
   const onElectronicCardClick = useCallback(() => {
     if (!hasElectronic) return
-    if (showCC && showMada) {
+    if (showGeidea) {
+      if (!isElectronic) setElectronic('geidea')
+    } else if (showCC && showMada) {
       if (!isElectronic) setElectronic('credit_card')
     } else {
       setElectronic(showCC ? 'credit_card' : 'mada')
     }
-  }, [hasElectronic, showCC, showMada, isElectronic, setElectronic])
+  }, [hasElectronic, showGeidea, showCC, showMada, isElectronic, setElectronic])
 
   return (
     <div className={`unified-pay-grid ${className}`.trim()}>
@@ -125,8 +132,8 @@ export function UnifiedPaymentMethodPicker({
           {isElectronic ? <span className="unified-pay-card__check" aria-hidden>✓</span> : null}
           <span className="unified-pay-card__icon" aria-hidden>💳</span>
           <span className="unified-pay-card__title">{L.payElectronic}</span>
-          <span className="unified-pay-card__desc">{L.payElectronicDesc}</span>
-          {showCC && showMada && (
+          <span className="unified-pay-card__desc">{showGeidea ? L.payElectronicGeideaDesc : L.payElectronicDesc}</span>
+          {!showGeidea && showCC && showMada && (
             <div className="unified-pay-electronic-subs" onClick={(e) => e.stopPropagation()}>
               <label>
                 <input
@@ -193,6 +200,7 @@ export function UnifiedWalletRemainderPicker({
   const showAtClub = channels?.at_club !== false
   const showCC = !!channels?.credit_card
   const showMada = !!channels?.mada
+  const showGeidea = !!channels?.geidea
 
   return (
     <div className="unified-pay-remainder">
@@ -209,7 +217,18 @@ export function UnifiedWalletRemainderPicker({
             <span className="unified-pay-card__title">{L.payAtClub}</span>
           </label>
         )}
-        {showCC && (
+        {showGeidea && (
+          <label className={`unified-pay-card ${value === 'geidea' ? 'unified-pay-card--active' : ''}`}>
+            <input
+              type="radio"
+              name={name}
+              checked={value === 'geidea'}
+              onChange={() => onChange('geidea')}
+            />
+            <span className="unified-pay-card__title">{L.payElectronicGeideaLabel}</span>
+          </label>
+        )}
+        {!showGeidea && showCC && (
           <label className={`unified-pay-card ${value === 'credit_card' ? 'unified-pay-card--active' : ''}`}>
             <input
               type="radio"
@@ -220,7 +239,7 @@ export function UnifiedWalletRemainderPicker({
             <span className="unified-pay-card__title">{L.creditCard}</span>
           </label>
         )}
-        {showMada && (
+        {!showGeidea && showMada && (
           <label className={`unified-pay-card ${value === 'mada' ? 'unified-pay-card--active' : ''}`}>
             <input
               type="radio"
@@ -430,24 +449,37 @@ export function UnifiedPaymentPageMethodStrip({
   const L = useCopy(language)
   const ccActive = currentMethod === 'credit_card'
   const madaActive = currentMethod === 'mada'
+  const geideaActive = currentMethod === 'geidea' || currentMethod === 'electronic'
+  const useGeidea = (typeof window !== 'undefined' && window.__PLAYTIX_GEIDEA__) || false
 
   return (
     <div className="unified-pay-method-switch" role="group" aria-label={language === 'ar' ? 'طرق الدفع' : 'Payment methods'}>
       <Link to={myBookingsLink} className="unified-pay-method-pill">
         🏢 {L.payAtClub}
       </Link>
-      <Link
-        to={`/pay/${bookingId}?method=credit_card`}
-        className={`unified-pay-method-pill ${ccActive ? 'unified-pay-method-pill--active' : ''}`}
-      >
-        💳 {L.creditCard}
-      </Link>
-      <Link
-        to={`/pay/${bookingId}?method=mada`}
-        className={`unified-pay-method-pill ${madaActive ? 'unified-pay-method-pill--active' : ''}`}
-      >
-        💳 {L.mada}
-      </Link>
+      {useGeidea ? (
+        <Link
+          to={`/pay/${bookingId}?method=geidea`}
+          className={`unified-pay-method-pill ${(ccActive || madaActive || geideaActive) ? 'unified-pay-method-pill--active' : ''}`}
+        >
+          💳 {L.payElectronicGeideaLabel}
+        </Link>
+      ) : (
+        <>
+          <Link
+            to={`/pay/${bookingId}?method=credit_card`}
+            className={`unified-pay-method-pill ${ccActive ? 'unified-pay-method-pill--active' : ''}`}
+          >
+            💳 {L.creditCard}
+          </Link>
+          <Link
+            to={`/pay/${bookingId}?method=mada`}
+            className={`unified-pay-method-pill ${madaActive ? 'unified-pay-method-pill--active' : ''}`}
+          >
+            💳 {L.mada}
+          </Link>
+        </>
+      )}
       <span
         className={`unified-pay-method-pill unified-pay-method-pill--disabled`}
         title={showWalletSplit ? L.payStateWalletUsed : L.payStateWalletHint}

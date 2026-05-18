@@ -10,6 +10,7 @@ import { getCurrentPlatformUser } from '../storage/platformAuth'
 import './PaymentPage.css'
 import { UnifiedPaymentActionGrid } from '../components/UnifiedPaymentOptions'
 import { shouldShowProfileIncompleteBanner, inviteShareShowsPaymentActions } from '../utils/payInviteShareUi'
+import { getGeideaPublicConfig, payBookingWithGeidea } from '../payments/geideaCheckout'
 
 const SHARE_FETCH_MS = 28000
 
@@ -281,10 +282,37 @@ const PaySharePage = () => {
     setSubmitting(true)
     setError(null)
     try {
-      const paymentReference = `online_${Date.now()}`
+      // Try real Geidea checkout if configured/enabled
+      let paymentReference = `online_${Date.now()}`
+      let used = 'simulated'
+      try {
+        const cfg = await getGeideaPublicConfig()
+        if (cfg?.configured && cfg?.enabled && data?.bookingId) {
+          if (typeof window !== 'undefined') window.__PLAYTIX_GEIDEA__ = true
+          const result = await payBookingWithGeidea({ bookingId: data.bookingId })
+          if (result?.status === 'cancel') {
+            setError(language === 'ar' ? 'تم إلغاء عملية الدفع.' : 'Payment was cancelled.')
+            return
+          }
+          if (result?.status !== 'success') {
+            const msg = result?.data?.responseMessage || result?.data?.message
+            setError(msg || (language === 'ar' ? 'فشل الدفع. حاول مجدداً.' : 'Payment failed. Please try again.'))
+            return
+          }
+          paymentReference = `geidea_${result?.session?.sessionId || result?.session?.merchantRefId || Date.now()}`
+          used = 'geidea'
+        }
+      } catch (gErr) {
+        const code = gErr?.code
+        if (code !== 'GEIDEA_NOT_CONFIGURED' && code !== 'GEIDEA_DISABLED') {
+          setError(gErr?.message || (language === 'ar' ? 'فشل الدفع الإلكتروني.' : 'Electronic payment failed.'))
+          return
+        }
+      }
       await recordPayment({ inviteToken: token, clubId: data.clubId, paymentReference, paymentMethod: 'electronic' })
       await loadInvite()
       setSuccess(true)
+      void used
     } catch (e) {
       setError(e?.message || (language === 'ar' ? 'فشل الدفع. حاول مجدداً.' : 'Payment failed. Please try again.'))
     } finally {

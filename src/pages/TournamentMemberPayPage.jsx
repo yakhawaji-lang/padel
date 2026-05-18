@@ -10,6 +10,7 @@ import { getCurrentPlatformUser } from '../storage/platformAuth'
 import { getAppLanguage } from '../storage/languageStorage'
 import './PaymentPage.css'
 import { UnifiedPaymentActionGrid, getUnifiedPaymentCopy } from '../components/UnifiedPaymentOptions'
+import { getGeideaPublicConfig, payBookingWithGeidea } from '../payments/geideaCheckout'
 
 export default function TournamentMemberPayPage() {
   const { clubId, bookingId } = useParams()
@@ -154,6 +155,29 @@ export default function TournamentMemberPayPage() {
     setSubmitting(true)
     setError(null)
     try {
+      // Try real Geidea checkout if configured/enabled
+      try {
+        const cfg = await getGeideaPublicConfig()
+        if (cfg?.configured && cfg?.enabled) {
+          if (typeof window !== 'undefined') window.__PLAYTIX_GEIDEA__ = true
+          const result = await payBookingWithGeidea({ bookingId })
+          if (result?.status === 'cancel') {
+            setError(language === 'ar' ? 'تم إلغاء عملية الدفع.' : 'Payment was cancelled.')
+            return
+          }
+          if (result?.status !== 'success') {
+            const msg = result?.data?.responseMessage || result?.data?.message
+            setError(msg || (language === 'ar' ? 'فشل الدفع. حاول مجدداً.' : 'Payment failed. Please try again.'))
+            return
+          }
+        }
+      } catch (gErr) {
+        const code = gErr?.code
+        if (code !== 'GEIDEA_NOT_CONFIGURED' && code !== 'GEIDEA_DISABLED') {
+          setError(gErr?.message || (language === 'ar' ? 'فشل الدفع الإلكتروني.' : 'Electronic payment failed.'))
+          return
+        }
+      }
       const ok = await updateTournamentMemberPaymentEntry(clubId, bookingId, effectiveMemberId, {
         paymentMethod: 'electronic',
         memberAck: true,

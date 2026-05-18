@@ -45,7 +45,12 @@ const PaymentPage = () => {
   useEffect(() => {
     let cancelled = false
     getGeideaPublicConfig()
-      .then((cfg) => { if (!cancelled) setGeideaCfg(cfg || { configured: false, enabled: false }) })
+      .then((cfg) => {
+        if (cancelled) return
+        const safe = cfg || { configured: false, enabled: false }
+        setGeideaCfg(safe)
+        if (typeof window !== 'undefined') window.__PLAYTIX_GEIDEA__ = !!(safe.configured && safe.enabled)
+      })
       .catch(() => {})
     return () => { cancelled = true }
   }, [])
