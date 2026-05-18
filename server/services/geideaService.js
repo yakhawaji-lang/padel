@@ -20,12 +20,18 @@
 import crypto from 'crypto'
 import { getPaymentGatewaysRaw } from '../db/paymentSettings.js'
 
+// Geidea has separate endpoints for TEST and LIVE credentials.
+// TEST keys are rejected on the production URL (returns 'Invalid amount' or similar).
 const GEIDEA_ENDPOINTS = {
-  // KSA region. Same URL works for both test and live - the key prefix selects environment.
-  // If a deployment needs an alternate endpoint, set GEIDEA_ENDPOINT_OVERRIDE in env.
-  live: 'https://api.ksamerchant.geidea.net/payment-intent/api/v2/direct/session',
-  test: 'https://api.ksamerchant.geidea.net/payment-intent/api/v2/direct/session'
+  // KSA test environment.
+  test: 'https://api-test.ksamerchant.geidea.net/payment-intent/api/v2/direct/session',
+  // KSA production environment.
+  live: 'https://api.ksamerchant.geidea.net/payment-intent/api/v2/direct/session'
 }
+// Fallback endpoint to try if the primary returns auth/amount errors (some merchants
+// are provisioned on the cross-region test domain rather than ksa-specific).
+const GEIDEA_TEST_FALLBACK = 'https://api.merchant.geidea.net/payment-intent/api/v2/direct/session'
+
 function pickEndpoint(mode) {
   const override = (process.env.GEIDEA_ENDPOINT_OVERRIDE || '').trim()
   if (override) return override
@@ -138,21 +144,35 @@ export async function createGeideaSession({ amount, currency = 'SAR', merchantRe
     'X-Timestamp': timestamp
   }
 
+  const primaryEndpoint = pickEndpoint(creds.mode)
   let resp
-  try {
-    resp = await fetch(pickEndpoint(creds.mode), {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body)
-    })
-  } catch (e) {
-    const err = new Error('Geidea network error: ' + (e && e.message || e))
-    err.code = 'GEIDEA_NETWORK_ERROR'
-    throw err
-  }
-
   let json = null
+  let triedFallback = false
+  async function callEndpoint(url) {
+    try {
+      return await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) })
+    } catch (e) {
+      const err = new Error('Geidea network error: ' + (e && e.message || e))
+      err.code = 'GEIDEA_NETWORK_ERROR'
+      throw err
+    }
+  }
+  resp = await callEndpoint(primaryEndpoint)
   try { json = await resp.json() } catch (_) {}
+  // Test-mode fallback: if KSA test endpoint says key invalid / amount invalid,
+  // some accounts are actually provisioned on the cross-region test domain.
+  const looksLikeWrongEnvironment = !resp.ok && json && (
+    /invalid (amount|signature|key|merchant)/i.test(String(json.detailedResponseMessage || json.responseMessage || ''))
+    || resp.status === 401 || resp.status === 403 || resp.status === 404
+  )
+  if (creds.mode === 'test' && looksLikeWrongEnvironment && primaryEndpoint !== GEIDEA_TEST_FALLBACK) {
+    triedFallback = true
+    console.warn('[geidea] primary test endpoint failed, retrying on fallback', { primary: primaryEndpoint, fallback: GEIDEA_TEST_FALLBACK, firstResponse: json })
+    resp = await callEndpoint(GEIDEA_TEST_FALLBACK)
+    json = null
+    try { json = await resp.json() } catch (_) {}
+  }
+  void triedFallback
 
   if (!resp.ok || !json || !json.session || !json.session.id) {
     try {
