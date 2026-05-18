@@ -46,6 +46,10 @@ const app = express()
 const PORT = process.env.PORT || 4000
 const HOST = process.env.HOST || '0.0.0.0'
 
+// Hostinger sits behind a reverse proxy. Tell Express to trust the first proxy
+// so X-Forwarded-For is honored by express-rate-limit (otherwise it errors).
+app.set('trust proxy', 1)
+
 app.use(cors({ origin: true, credentials: true }))
 // Settings upload uses large base64 bodies; must be before global json parser
 app.use('/api/settings', express.json({ limit: '50mb' }), settingsUploadRouter)

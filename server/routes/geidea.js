@@ -75,13 +75,16 @@ router.post('/session', sessionLimiter, async (req, res) => {
       const due = Math.max(0, total - paid)
       amount = Number(amountOverride) > 0 ? Number(amountOverride) : due
       currency = String(row.currency || 'SAR').trim() || 'SAR'
-      merchantRefId = 'BK-' + row.id + '-' + Date.now().toString(36)
+      // Geidea rejects refs with underscores or non-alphanumeric chars (responseCode 013).
+      // Sanitize to alphanumeric + dash only, max 40 chars.
+      const rawRef = 'BK' + String(row.id).replace(/[^a-zA-Z0-9]/g, '') + 'T' + Date.now().toString(36)
+      merchantRefId = rawRef.substring(0, 40)
     } catch (e) {
       console.warn('geidea /session lookup:', e && e.message)
       return res.status(500).json({ error: 'booking_lookup_failed' })
     }
   } else {
-    merchantRefId = 'PT-' + Date.now().toString(36) + '-' + crypto.randomBytes(3).toString('hex')
+    merchantRefId = 'PT' + Date.now().toString(36) + crypto.randomBytes(3).toString('hex')
   }
 
   if (!(Number(amount) > 0)) {
@@ -144,7 +147,8 @@ router.post('/quote', async (req, res) => {
     const due = Math.max(0, total - paid)
     if (!(due > 0)) return res.status(400).json({ error: 'amount_must_be_positive' })
     const currency = String(row.currency || 'SAR').trim() || 'SAR'
-    const merchantRefId = 'BK-' + row.id + '-' + Date.now().toString(36)
+    const rawRef = 'BK' + String(row.id).replace(/[^a-zA-Z0-9]/g, '') + 'T' + Date.now().toString(36)
+    const merchantRefId = rawRef.substring(0, 40)
     const protocol = req.protocol || 'https'
     const host = req.get('host') || ''
     const callbackUrl = host ? (protocol + '://' + host + '/api/payments/geidea/callback') : undefined
@@ -166,9 +170,12 @@ router.post('/callback', async (req, res) => {
     const status = String(order.status || payload.status || '').toLowerCase()
     const merchantRef = order.merchantReferenceId || payload.merchantReferenceId
     let bookingId = null
-    if (typeof merchantRef === 'string' && merchantRef.indexOf('BK-') === 0) {
-      const parts = merchantRef.split('-')
-      bookingId = Number(parts[1])
+    // New format: 'BK<bookingId>T<timestamp>' (no dashes between booking id and timestamp)
+    // Old format: 'BK-<bookingId>-<timestamp>' (legacy, for backward compat)
+    if (typeof merchantRef === 'string') {
+      const m1 = merchantRef.match(/^BK([0-9]+)T[0-9a-z]+$/i)
+      if (m1) bookingId = Number(m1[1])
+      else if (merchantRef.indexOf('BK-') === 0) bookingId = Number(merchantRef.split('-')[1])
     }
     if (bookingId && (status === 'success' || status === 'paid' || status === 'captured')) {
       try {
