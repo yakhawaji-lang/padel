@@ -60,8 +60,11 @@ export async function createGeideaSessionForBooking({ bookingId, returnUrl, cust
   let json = null
   try { json = await resp.json() } catch (_) {}
   if (!resp.ok || !json || !json.sessionId) {
-    const err = new Error((json && (json.message || json.error)) || ('HTTP ' + resp.status))
+    const upstreamMsg = json && json.upstream && (json.upstream.detailedResponseMessage || json.upstream.responseMessage)
+    const baseMsg = (json && (json.message || json.error)) || ('HTTP ' + resp.status)
+    const err = new Error(upstreamMsg ? (baseMsg + ' - ' + upstreamMsg) : baseMsg)
     err.code = json && json.error
+    err.upstream = json && json.upstream
     throw err
   }
   return json

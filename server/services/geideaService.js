@@ -20,7 +20,17 @@
 import crypto from 'crypto'
 import { getPaymentGatewaysRaw } from '../db/paymentSettings.js'
 
-const GEIDEA_KSA_ENDPOINT = 'https://api.ksamerchant.geidea.net/payment-intent/api/v2/direct/session'
+const GEIDEA_ENDPOINTS = {
+  // KSA region. Same URL works for both test and live - the key prefix selects environment.
+  // If a deployment needs an alternate endpoint, set GEIDEA_ENDPOINT_OVERRIDE in env.
+  live: 'https://api.ksamerchant.geidea.net/payment-intent/api/v2/direct/session',
+  test: 'https://api.ksamerchant.geidea.net/payment-intent/api/v2/direct/session'
+}
+function pickEndpoint(mode) {
+  const override = (process.env.GEIDEA_ENDPOINT_OVERRIDE || '').trim()
+  if (override) return override
+  return GEIDEA_ENDPOINTS[mode] || GEIDEA_ENDPOINTS.live
+}
 
 /** Format amount the same way Geidea expects in the signature: "100.00" */
 function formatAmount(amount) {
@@ -108,7 +118,7 @@ export async function createGeideaSession({ amount, currency = 'SAR', merchantRe
   })
 
   const body = {
-    amount: amountStr,
+    amount: Number(amountStr),
     currency,
     merchantReferenceId: merchantRefId,
     timestamp,
@@ -130,7 +140,7 @@ export async function createGeideaSession({ amount, currency = 'SAR', merchantRe
 
   let resp
   try {
-    resp = await fetch(GEIDEA_KSA_ENDPOINT, {
+    resp = await fetch(pickEndpoint(creds.mode), {
       method: 'POST',
       headers,
       body: JSON.stringify(body)
@@ -145,6 +155,16 @@ export async function createGeideaSession({ amount, currency = 'SAR', merchantRe
   try { json = await resp.json() } catch (_) {}
 
   if (!resp.ok || !json || !json.session || !json.session.id) {
+    try {
+      console.warn('[geidea] session request failed', JSON.stringify({
+        status: resp.status,
+        sentAmount: Number(amountStr),
+        sentCurrency: currency,
+        sentMerchantRef: merchantRefId,
+        sentTimestamp: timestamp,
+        upstream: json
+      }))
+    } catch (_) {}
     const err = new Error((json && (json.detailedResponseMessage || json.responseMessage)) || ('Geidea HTTP ' + resp.status))
     err.code = (json && (json.detailedResponseCode || json.responseCode)) || ('HTTP_' + resp.status)
     err.upstream = json

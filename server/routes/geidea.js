@@ -103,7 +103,13 @@ router.post('/session', sessionLimiter, async (req, res) => {
   } catch (e) {
     const code = (e && e.code) || 'GEIDEA_ERROR'
     const status = code === 'GEIDEA_NOT_CONFIGURED' || code === 'GEIDEA_DISABLED' ? 503 : 502
-    res.status(status).json({ error: code, message: e && e.message })
+    const upstream = e && e.upstream ? {
+      responseMessage: e.upstream.responseMessage,
+      responseCode: e.upstream.responseCode,
+      detailedResponseMessage: e.upstream.detailedResponseMessage,
+      detailedResponseCode: e.upstream.detailedResponseCode,
+    } : undefined
+    res.status(status).json({ error: code, message: e && e.message, upstream })
   }
 })
 
