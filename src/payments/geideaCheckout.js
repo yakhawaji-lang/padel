@@ -12,10 +12,10 @@
 // Mode-aware script URL: Geidea hosts separate JS bundles for test vs production.
 //   TEST       -> https://www.merchant.geidea.net/hpp/geideaCheckout.min.js
 //   LIVE (KSA) -> https://www.ksamerchant.geidea.net/hpp/geideaCheckout.min.js
-// v2 script supports configurePayment; v1 (without /v2/) only supports startPayment(sessionId).
+// Geidea Checkout JS bundle (session-based flow).
 const SCRIPT_URLS = {
-  test: 'https://www.merchant.geidea.net/hpp/v2/geideaCheckout.min.js',
-  live: 'https://www.ksamerchant.geidea.net/hpp/v2/geideaCheckout.min.js'
+  test: 'https://www.merchant.geidea.net/hpp/geideaCheckout.min.js',
+  live: 'https://www.ksamerchant.geidea.net/hpp/geideaCheckout.min.js'
 }
 function pickScriptUrl(mode) {
   return SCRIPT_URLS[mode] || SCRIPT_URLS.live
@@ -187,12 +187,16 @@ async function launchGeideaHpp({ amount, currency = 'SAR', merchantRefId, return
   })
 }
 
-/** One-call helper:
- *  1. Ask backend for Geidea config (public key + mode) and booking amount
- *  2. Load matching Geidea script
- *  3. Launch HPP popup with configurePayment (no pre-signed session needed)
- */
+/** One-call helper: ask backend to create a Geidea session, load script, launch popup. */
 export async function payBookingWithGeidea({ bookingId, returnUrl, customer } = {}) {
+  const session = await createGeideaSessionForBooking({ bookingId, returnUrl, customer })
+  await loadGeideaScript(session.mode)
+  const result = await launchGeideaCheckout({ sessionId: session.sessionId })
+  return Object.assign({}, result, { session })
+}
+
+// HPP fallback (currently unreachable — kept for future use if Geidea publishes v2 script).
+async function _unused_payHpp({ bookingId } = {}) {
   const cfg = await getGeideaPublicConfig()
   if (!cfg.configured || !cfg.enabled) {
     const err = new Error('Geidea is not enabled')
@@ -229,3 +233,4 @@ export async function payBookingWithGeidea({ bookingId, returnUrl, customer } = 
   })
   return Object.assign({}, result, { quote })
 }
+void _unused_payHpp

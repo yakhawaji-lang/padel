@@ -111,36 +111,25 @@ export async function createGeideaSession({ amount, currency = 'SAR', merchantRe
   }
   if (!merchantRefId) throw new Error('merchantRefId required')
 
-  const timestamp = nowTimestamp()
   const amountStr = formatAmount(amount)
-  const signature = buildGeideaSignature({
-    publicKey: creds.publicKey,
-    apiPassword: creds.apiPassword,
-    amount: amountStr,
-    currency,
-    merchantRefId,
-    timestamp
-  })
 
+  // Geidea Direct Session v2 uses Basic Auth (PublicKey:APIPassword).
+  // The minimal accepted body per docs: amount, currency, merchantReferenceId, callbackUrl.
+  // Extra fields like paymentOperation/timestamp/metadata were causing 'Invalid amount'
+  // rejections from KSA endpoint - removed them.
   const body = {
     amount: Number(amountStr),
     currency,
-    merchantReferenceId: merchantRefId,
-    timestamp,
-    paymentOperation: 'Pay',
-    callbackUrl: callbackUrl || creds.callbackUrl || undefined,
-    returnUrl: returnUrl || undefined,
-    customer: customer || undefined,
-    metadata: metadata || undefined
+    merchantReferenceId: merchantRefId
   }
-  Object.keys(body).forEach((k) => body[k] === undefined && delete body[k])
+  if (callbackUrl || creds.callbackUrl) body.callbackUrl = callbackUrl || creds.callbackUrl
+  if (returnUrl) body.returnUrl = returnUrl
+  if (customer) body.customer = customer
 
   const basic = Buffer.from(creds.publicKey + ':' + creds.apiPassword).toString('base64')
   const headers = {
     'Content-Type': 'application/json',
-    Authorization: 'Basic ' + basic,
-    'X-Signature': signature,
-    'X-Timestamp': timestamp
+    Authorization: 'Basic ' + basic
   }
 
   const primaryEndpoint = pickEndpoint(creds.mode)
@@ -180,7 +169,6 @@ export async function createGeideaSession({ amount, currency = 'SAR', merchantRe
         sentAmount: Number(amountStr),
         sentCurrency: currency,
         sentMerchantRef: merchantRefId,
-        sentTimestamp: timestamp,
         upstream: json
       }))
     } catch (_) {}
