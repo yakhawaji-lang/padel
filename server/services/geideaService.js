@@ -160,10 +160,16 @@ export async function createGeideaSession({ amount, currency = 'SAR', merchantRe
   try { json = await resp.json() } catch (_) {}
   // Test-mode fallback: if KSA test endpoint says key invalid / amount invalid,
   // some accounts are actually provisioned on the cross-region test domain.
-  const looksLikeWrongEnvironment = !resp.ok && json && (
-    /invalid (amount|signature|key|merchant)/i.test(String(json.detailedResponseMessage || json.responseMessage || ''))
+  // Trigger fallback for: wrong-env signals OR Geidea's 'merchant config' rejection (100/013).
+  // Some KSA test merchants live on api.ksamerchant.geidea.net even though they're 'test' mode.
+  const upstreamCode = json && (json.responseCode || json.detailedResponseCode)
+  const upstreamMsg = json && (json.detailedResponseMessage || json.responseMessage || '')
+  const looksLikeWrongEnvironment = (!resp.ok || resp.status === 200 && json && json.responseCode !== '000') && (
+    /invalid (amount|signature|key|merchant)|internal server error|general error/i.test(String(upstreamMsg))
+    || ['013', '100'].includes(String(json && json.detailedResponseCode))
     || resp.status === 401 || resp.status === 403 || resp.status === 404
   )
+  void upstreamCode
   if (looksLikeWrongEnvironment && primaryEndpoint !== GEIDEA_FALLBACK) {
     triedFallback = true
     console.warn('[geidea] primary endpoint failed, retrying on fallback', { primary: primaryEndpoint, fallback: GEIDEA_FALLBACK, firstResponse: json })
