@@ -8,6 +8,7 @@ const DEFAULT_PLATFORM = {
   wallet: false,
   credit_card: false,
   mada: false,
+  geidea: false,
   split: true
 }
 
@@ -19,6 +20,7 @@ export function getEffectivePaymentChannels(platformEnabledChannels, clubPayment
     wallet: plat.wallet !== false,
     credit_card: !!plat.credit_card,
     mada: !!plat.mada,
+    geidea: !!plat.geidea,
     split: plat.split !== false
   }
   const c =
@@ -32,6 +34,8 @@ export function getEffectivePaymentChannels(platformEnabledChannels, clubPayment
     wallet: p.wallet && c.wallet !== false,
     credit_card: p.credit_card && !!c.credit_card,
     mada: p.mada && !!c.mada,
+    /** Geidea: على مستوى المنصة فقط. الأندية تستفيد افتراضياً ما لم تعطّله صراحةً (false). */
+    geidea: p.geidea && c.geidea !== false,
     split: p.split && c.split !== false
   }
 }
@@ -40,6 +44,7 @@ export function pickFirstPaymentMethod(effectiveChannels) {
   const ch = effectiveChannels || DEFAULT_PLATFORM
   if (ch.at_club !== false) return 'at_club'
   if (ch.wallet) return 'wallet'
+  if (ch.geidea) return 'geidea'
   if (ch.credit_card) return 'credit_card'
   if (ch.mada) return 'mada'
   return 'at_club'

@@ -343,8 +343,8 @@ const ClubPublicPage = () => {
   useEffect(() => {
     getStore('platform_payment_gateways').then(val => {
       if (val && typeof val === 'object') setPaymentGateways(val)
-      else setPaymentGateways({ enabledChannels: { at_club: true, wallet: true, credit_card: false, mada: false, split: true } })
-    }).catch(() => setPaymentGateways({ enabledChannels: { at_club: true, wallet: true, credit_card: false, mada: false, split: true } }))
+      else setPaymentGateways({ enabledChannels: { at_club: true, wallet: true, credit_card: false, mada: false, geidea: false, split: true } })
+    }).catch(() => setPaymentGateways({ enabledChannels: { at_club: true, wallet: true, credit_card: false, mada: false, geidea: false, split: true } }))
   }, [])
 
   const effectivePaymentChannels = useMemo(
