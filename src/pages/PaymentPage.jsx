@@ -330,4 +330,15 @@ const PaymentPage = () => {
             </button>
 
             <p className="payment-hint">
-              {language === 'ar' ? 'هذا �
+              {language === 'ar' ? 'هذا نموذج تجريبي. لن يتم خصم أي مبلغ فعلي.' : 'This is a simulated payment form. No actual charge will be made.'}
+            </p>
+          </form>
+        )}
+
+        <Link to="/my-bookings" className="payment-link-secondary">{c.myBookings}</Link>
+      </div>
+    </div>
+  )
+}
+
+export default PaymentPage

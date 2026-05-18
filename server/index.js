@@ -213,4 +213,11 @@ app.listen(PORT, HOST, async () => {
       console.warn('[bookingMigration]', mErr?.message || mErr)
     }
     const dbName = await getCurrentDatabase()
-    console.log(`Database: ${dbName || '(unknown)'} —
+    console.log(`Database: ${dbName || '(unknown)'} — all data is read from and written to this database`)
+    startBookingJobs()
+    startPushNotificationJob()
+  }
+}).on('error', (err) => {
+  console.error('[Express] listen error:', err.message)
+  process.exit(1)
+})

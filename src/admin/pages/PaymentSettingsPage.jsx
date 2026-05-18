@@ -371,4 +371,17 @@ export default function PaymentSettingsPage() {
             <div className="payment-form-group">
               <label>{c.deadlineMinutes}</label>
               <input
-     
+                type="number"
+                min={5}
+                max={120}
+                value={paymentGateways.split?.deadlineMinutes ?? 30}
+                onChange={(e) => updateSplit('deadlineMinutes', parseInt(e.target.value, 10) || 30)}
+                disabled={saving}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

@@ -1,5 +1,5 @@
 /**
- * Geidea Checkout V2 — browser-side launcher.
+ * Geidea Checkout V2 - browser-side launcher.
  *
  *  - Lazy-loads https://www.ksamerchant.geidea.net/hpp/geideaCheckout.min.js
  *  - Asks the backend to create a session via POST /api/payments/geidea/session
@@ -15,7 +15,7 @@ let scriptPromise = null
 function getApiBase() {
   if (typeof document === 'undefined') return ''
   const meta = document.querySelector('meta[name="playtix-api-base"]')
-  const v = (meta?.getAttribute('content') || '').trim()
+  const v = (meta && meta.getAttribute('content') || '').trim()
   return v.replace(/\/+$/, '')
 }
 
@@ -25,7 +25,7 @@ export function loadGeideaScript() {
   if (window.GeideaCheckout) return Promise.resolve(window.GeideaCheckout)
   if (scriptPromise) return scriptPromise
   scriptPromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${SCRIPT_URL}"]`)
+    const existing = document.querySelector('script[src="' + SCRIPT_URL + '"]')
     if (existing) {
       existing.addEventListener('load', () => resolve(window.GeideaCheckout))
       existing.addEventListener('error', () => reject(new Error('Failed to load Geidea script')))
@@ -51,7 +51,7 @@ export function loadGeideaScript() {
 export async function createGeideaSessionForBooking({ bookingId, returnUrl, customer } = {}) {
   if (!bookingId) throw new Error('bookingId required')
   const base = getApiBase()
-  const resp = await fetch(`${base}/api/payments/geidea/session`, {
+  const resp = await fetch(base + '/api/payments/geidea/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -59,9 +59,9 @@ export async function createGeideaSessionForBooking({ bookingId, returnUrl, cust
   })
   let json = null
   try { json = await resp.json() } catch (_) {}
-  if (!resp.ok || !json?.sessionId) {
-    const err = new Error(json?.message || json?.error || `HTTP ${resp.status}`)
-    err.code = json?.error
+  if (!resp.ok || !json || !json.sessionId) {
+    const err = new Error((json && (json.message || json.error)) || ('HTTP ' + resp.status))
+    err.code = json && json.error
     throw err
   }
   return json
@@ -71,17 +71,17 @@ export async function createGeideaSessionForBooking({ bookingId, returnUrl, cust
 export async function getGeideaPublicConfig() {
   const base = getApiBase()
   try {
-    const resp = await fetch(`${base}/api/payments/geidea/config`, { credentials: 'include' })
+    const resp = await fetch(base + '/api/payments/geidea/config', { credentials: 'include' })
     if (!resp.ok) return { configured: false, enabled: false }
     return await resp.json()
-  } catch {
+  } catch (_) {
     return { configured: false, enabled: false }
   }
 }
 
 /**
  * Launch the Geidea checkout popup.
- * @returns Promise<{status:'success'|'error'|'cancel', data:any}>
+ * Returns Promise<{status, data}>
  */
 export function launchGeideaCheckout({ sessionId, onSuccess, onError, onCancel } = {}) {
   return new Promise((resolve, reject) => {
@@ -96,9 +96,9 @@ export function launchGeideaCheckout({ sessionId, onSuccess, onError, onCancel }
     }
     const handler = (status, data) => {
       try {
-        if (status === 'success') { onSuccess?.(data); resolve({ status, data }) }
-        else if (status === 'error') { onError?.(data); resolve({ status, data }) }
-        else if (status === 'cancel') { onCancel?.(data); resolve({ status, data }) }
+        if (status === 'success') { onSuccess && onSuccess(data); resolve({ status, data }) }
+        else if (status === 'error') { onError && onError(data); resolve({ status, data }) }
+        else if (status === 'cancel') { onCancel && onCancel(data); resolve({ status, data }) }
         else resolve({ status, data })
       } catch (e) { reject(e) }
     }
@@ -118,4 +118,7 @@ export function launchGeideaCheckout({ sessionId, onSuccess, onError, onCancel }
 /** One-call helper: load script, create session, launch checkout. */
 export async function payBookingWithGeidea({ bookingId, returnUrl, customer } = {}) {
   await loadGeideaScript()
-  const session = await createGeideaSessionForBooking({ bookingId, returnUrl, cust
+  const session = await createGeideaSessionForBooking({ bookingId, returnUrl, customer })
+  const result = await launchGeideaCheckout({ sessionId: session.sessionId })
+  return Object.assign({}, result, { session })
+}

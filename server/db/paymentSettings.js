@@ -113,4 +113,9 @@ export async function getPaymentGatewaysRaw() {
     )
     return rows || []
   } catch (e) {
-    if (!e?.message?.includes("doesn't exist") && !e?.message?.includes('Unk
+    if (!e?.message?.includes("doesn't exist") && !e?.message?.includes('Unknown table')) {
+      console.warn('paymentSettings getPaymentGatewaysRaw:', e?.message)
+    }
+    return []
+  }
+}

@@ -12,9 +12,6 @@
  *
  * Endpoints:
  *   - KSA production: https://api.ksamerchant.geidea.net/payment-intent/api/v2/direct/session
- *   - KSA test:       https://api.merchant.geidea.net/payment-intent/api/v2/direct/session
- *     (Geidea exposes the same path on test/prod; the same endpoint is used for
- *      both environments — test credentials are recognised by the key prefix.)
  *
  * Security:
  *   - The API Password is NEVER sent to the browser. This module only runs server-side.
@@ -34,7 +31,7 @@ function formatAmount(amount) {
 
 /** Build the HMAC-SHA256 signature (base64) for the direct/session request. */
 export function buildGeideaSignature({ publicKey, apiPassword, amount, currency, merchantRefId, timestamp }) {
-  const message = `${publicKey}${formatAmount(amount)}${currency}${merchantRefId}${timestamp}`
+  const message = '' + publicKey + formatAmount(amount) + currency + merchantRefId + timestamp
   return crypto.createHmac('sha256', apiPassword).update(message, 'utf8').digest('base64')
 }
 
@@ -45,7 +42,6 @@ function nowTimestamp() {
 
 /** Read Geidea credentials from the DB (preferred) or environment fallback. */
 async function loadCredentials() {
-  // Env vars take precedence so production can override DB if needed.
   const envPublic = (process.env.GEIDEA_PUBLIC_KEY || '').trim()
   const envPassword = (process.env.GEIDEA_API_PASSWORD || '').trim()
   const envEnabled = process.env.GEIDEA_ENABLED
@@ -77,7 +73,7 @@ async function loadCredentials() {
       mode: (cfg.mode || 'test').toLowerCase()
     }
   } catch (e) {
-    console.warn('geideaService.loadCredentials:', e?.message)
+    console.warn('geideaService.loadCredentials:', e && e.message)
     return null
   }
 }
@@ -86,15 +82,7 @@ async function loadCredentials() {
  * Create a Geidea direct session.
  * Returns { sessionId, merchantRefId, amount, currency, mode } on success.
  */
-export async function createGeideaSession({
-  amount,
-  currency = 'SAR',
-  merchantRefId,
-  callbackUrl,
-  returnUrl,
-  customer,
-  metadata
-}) {
+export async function createGeideaSession({ amount, currency = 'SAR', merchantRefId, callbackUrl, returnUrl, customer, metadata }) {
   const creds = await loadCredentials()
   if (!creds) {
     const err = new Error('Geidea is not configured')
@@ -132,10 +120,10 @@ export async function createGeideaSession({
   }
   Object.keys(body).forEach((k) => body[k] === undefined && delete body[k])
 
-  const basic = Buffer.from(`${creds.publicKey}:${creds.apiPassword}`).toString('base64')
+  const basic = Buffer.from(creds.publicKey + ':' + creds.apiPassword).toString('base64')
   const headers = {
     'Content-Type': 'application/json',
-    Authorization: `Basic ${basic}`,
+    Authorization: 'Basic ' + basic,
     'X-Signature': signature,
     'X-Timestamp': timestamp
   }
@@ -148,7 +136,7 @@ export async function createGeideaSession({
       body: JSON.stringify(body)
     })
   } catch (e) {
-    const err = new Error(`Geidea network error: ${e?.message || e}`)
+    const err = new Error('Geidea network error: ' + (e && e.message || e))
     err.code = 'GEIDEA_NETWORK_ERROR'
     throw err
   }
@@ -156,9 +144,9 @@ export async function createGeideaSession({
   let json = null
   try { json = await resp.json() } catch (_) {}
 
-  if (!resp.ok || !json?.session?.id) {
-    const err = new Error(json?.detailedResponseMessage || json?.responseMessage || `Geidea HTTP ${resp.status}`)
-    err.code = json?.detailedResponseCode || json?.responseCode || `HTTP_${resp.status}`
+  if (!resp.ok || !json || !json.session || !json.session.id) {
+    const err = new Error((json && (json.detailedResponseMessage || json.responseMessage)) || ('Geidea HTTP ' + resp.status))
+    err.code = (json && (json.detailedResponseCode || json.responseCode)) || ('HTTP_' + resp.status)
     err.upstream = json
     throw err
   }
@@ -176,4 +164,11 @@ export async function createGeideaSession({
 /** Public, non-secret info for the frontend to render the right UI. */
 export async function getGeideaPublicConfig() {
   const creds = await loadCredentials()
-  i
+  if (!creds) return { configured: false, enabled: false }
+  return {
+    configured: true,
+    enabled: !!creds.enabled,
+    mode: creds.mode,
+    publicKey: creds.publicKey
+  }
+}
