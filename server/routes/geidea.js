@@ -101,13 +101,20 @@ router.post('/session', sessionLimiter, async (req, res) => {
     return res.status(400).json({ error: 'amount_must_be_positive' })
   }
 
+  // callbackUrl is mandatory in V2. Default to this server's callback endpoint
+  // (https only) when the client doesn't supply one.
+  const protocol = (req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim()
+  const host = req.get('host') || ''
+  const defaultCallbackUrl = host ? (protocol + '://' + host + '/api/payments/geidea/callback') : undefined
+  const effectiveCallbackUrl = callbackUrl || defaultCallbackUrl
+
   try {
     const result = await createGeideaSession({
       amount,
       currency,
       merchantRefId,
       returnUrl,
-      callbackUrl,
+      callbackUrl: effectiveCallbackUrl,
       customer,
       metadata: bookingId ? { bookingId: String(bookingId) } : undefined
     })

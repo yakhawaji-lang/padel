@@ -9,16 +9,13 @@
  * the caller does NOT specify a payment method here.
  */
 
-// Mode-aware script URL: Geidea hosts separate JS bundles for test vs production.
-//   TEST       -> https://www.merchant.geidea.net/hpp/geideaCheckout.min.js
-//   LIVE (KSA) -> https://www.ksamerchant.geidea.net/hpp/geideaCheckout.min.js
-// Geidea Checkout JS bundle (session-based flow).
-const SCRIPT_URLS = {
-  test: 'https://www.merchant.geidea.net/hpp/geideaCheckout.min.js',
-  live: 'https://www.ksamerchant.geidea.net/hpp/geideaCheckout.min.js'
-}
+// KSA environment Geidea Checkout V2 JS bundle (session-based flow).
+// Both test and live KSA merchants load the same KSA-hosted script.
+//   https://www.ksamerchant.geidea.net/hpp/geideaCheckout.min.js
+const GEIDEA_KSA_SCRIPT = 'https://www.ksamerchant.geidea.net/hpp/geideaCheckout.min.js'
 function pickScriptUrl(mode) {
-  return SCRIPT_URLS[mode] || SCRIPT_URLS.live
+  void mode
+  return GEIDEA_KSA_SCRIPT
 }
 let scriptPromise = null
 let loadedScriptMode = null

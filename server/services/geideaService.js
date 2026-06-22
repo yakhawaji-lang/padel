@@ -3,15 +3,15 @@
  *
  * Reference: https://docs.geidea.net/checkout/v2/direct-session
  *
- * Authentication:
+ * Authentication (per Geidea Checkout V2 docs):
  *   - HTTP Basic: username = Public Key, password = API Password
- *   - Header: X-Signature = base64(HMAC-SHA256(message, APIPassword))
+ *   - signature (request BODY field) = base64(HMAC-SHA256(message, APIPassword))
  *     message = PublicKey + Amount + Currency + MerchantRefId + Timestamp
- *     Amount must be the raw decimal string sent in body (e.g. "100.00")
- *     Timestamp must be ISO 8601 UTC (e.g. "2026-05-18T10:30:00")
+ *     Amount must be formatted with 2 decimals (e.g. "100.00")
+ *     Timestamp is the exact same string sent in the body
  *
- * Endpoints:
- *   - KSA production: https://api.ksamerchant.geidea.net/payment-intent/api/v2/direct/session
+ * Endpoint (KSA environment):
+ *   - https://api.ksamerchant.geidea.net/payment-intent/api/v2/direct/session
  *
  * Security:
  *   - The API Password is NEVER sent to the browser. This module only runs server-side.
@@ -20,21 +20,16 @@
 import crypto from 'crypto'
 import { getPaymentGatewaysRaw } from '../db/paymentSettings.js'
 
-// Geidea endpoints per official docs:
-//   TEST credentials  -> api.merchant.geidea.net (shared test domain)
-//   LIVE KSA          -> api.ksamerchant.geidea.net
-const GEIDEA_ENDPOINTS = {
-  test: 'https://api.merchant.geidea.net/payment-intent/api/v2/direct/session',
-  live: 'https://api.ksamerchant.geidea.net/payment-intent/api/v2/direct/session'
-}
-// Last-resort fallback: try the KSA production URL with test keys.
-// Some KSA test accounts are actually live-graded by Geidea.
-const GEIDEA_FALLBACK = 'https://api.ksamerchant.geidea.net/payment-intent/api/v2/direct/session'
+// KSA environment. Both test and live KSA merchants use the same KSA host;
+// the merchant credentials determine whether it is a test or live account.
+// Ref: https://docs.geidea.net/docs/geidea-checkout-v2 ("KSA Environment: https://api.ksamerchant.geidea.net/")
+const GEIDEA_KSA_ENDPOINT = 'https://api.ksamerchant.geidea.net/payment-intent/api/v2/direct/session'
 
 function pickEndpoint(mode) {
   const override = (process.env.GEIDEA_ENDPOINT_OVERRIDE || '').trim()
   if (override) return override
-  return GEIDEA_ENDPOINTS[mode] || GEIDEA_ENDPOINTS.live
+  void mode
+  return GEIDEA_KSA_ENDPOINT
 }
 
 /** Format amount the same way Geidea expects in the signature: "100.00" */
@@ -111,6 +106,14 @@ export async function createGeideaSession({ amount, currency = 'SAR', merchantRe
   }
   if (!merchantRefId) throw new Error('merchantRefId required')
 
+  // callbackUrl is mandatory in Geidea Checkout V2 and must be https://
+  const effectiveCallbackUrl = callbackUrl || creds.callbackUrl
+  if (!effectiveCallbackUrl || !/^https:\/\//i.test(effectiveCallbackUrl)) {
+    const err = new Error('A valid https callbackUrl is required for Geidea V2')
+    err.code = 'GEIDEA_CALLBACK_REQUIRED'
+    throw err
+  }
+
   const amountStr = formatAmount(amount)
   const timestamp = nowTimestamp()
   const signature = buildGeideaSignature({
@@ -122,64 +125,43 @@ export async function createGeideaSession({ amount, currency = 'SAR', merchantRe
     timestamp
   })
 
-  // Some Geidea KSA merchants require the signature header even on v2.
-  // Send a complete body matching the original docs spec:
+  // Per V2 docs, the signature is a BODY field (not a header). Amount is a
+  // numeric value with 2 decimals; the same timestamp string is reused here.
   const body = {
     amount: Number(amountStr),
     currency,
     merchantReferenceId: merchantRefId,
     timestamp,
-    paymentOperation: 'Pay'
+    signature,
+    callbackUrl: effectiveCallbackUrl,
+    paymentOperation: 'Pay',
+    language: 'ar'
   }
-  if (callbackUrl || creds.callbackUrl) body.callbackUrl = callbackUrl || creds.callbackUrl
   if (returnUrl) body.returnUrl = returnUrl
   if (customer) body.customer = customer
 
+  // Authentication: HTTP Basic with public key as username, API password as password.
   const basic = Buffer.from(creds.publicKey + ':' + creds.apiPassword).toString('base64')
   const headers = {
     'Content-Type': 'application/json',
-    Authorization: 'Basic ' + basic,
-    'X-Signature': signature,
-    'X-Timestamp': timestamp
+    Authorization: 'Basic ' + basic
   }
 
-  const primaryEndpoint = pickEndpoint(creds.mode)
+  const endpoint = pickEndpoint(creds.mode)
   let resp
   let json = null
-  let triedFallback = false
-  async function callEndpoint(url) {
-    try {
-      return await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) })
-    } catch (e) {
-      const err = new Error('Geidea network error: ' + (e && e.message || e))
-      err.code = 'GEIDEA_NETWORK_ERROR'
-      throw err
-    }
+  try {
+    resp = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) })
+  } catch (e) {
+    const err = new Error('Geidea network error: ' + (e && e.message || e))
+    err.code = 'GEIDEA_NETWORK_ERROR'
+    throw err
   }
-  resp = await callEndpoint(primaryEndpoint)
   try { json = await resp.json() } catch (_) {}
-  // Test-mode fallback: if KSA test endpoint says key invalid / amount invalid,
-  // some accounts are actually provisioned on the cross-region test domain.
-  // Trigger fallback for: wrong-env signals OR Geidea's 'merchant config' rejection (100/013).
-  // Some KSA test merchants live on api.ksamerchant.geidea.net even though they're 'test' mode.
-  const upstreamCode = json && (json.responseCode || json.detailedResponseCode)
-  const upstreamMsg = json && (json.detailedResponseMessage || json.responseMessage || '')
-  const looksLikeWrongEnvironment = (!resp.ok || resp.status === 200 && json && json.responseCode !== '000') && (
-    /invalid (amount|signature|key|merchant)|internal server error|general error/i.test(String(upstreamMsg))
-    || ['013', '100'].includes(String(json && json.detailedResponseCode))
-    || resp.status === 401 || resp.status === 403 || resp.status === 404
-  )
-  void upstreamCode
-  if (looksLikeWrongEnvironment && primaryEndpoint !== GEIDEA_FALLBACK) {
-    triedFallback = true
-    console.warn('[geidea] primary endpoint failed, retrying on fallback', { primary: primaryEndpoint, fallback: GEIDEA_FALLBACK, firstResponse: json })
-    resp = await callEndpoint(GEIDEA_FALLBACK)
-    json = null
-    try { json = await resp.json() } catch (_) {}
-  }
-  void triedFallback
 
-  if (!resp.ok || !json || !json.session || !json.session.id) {
+  const ok = resp.ok && json && json.session && json.session.id &&
+    (json.responseCode === '000' || json.responseCode == null)
+  if (!ok) {
     try {
       console.warn('[geidea] session request failed', JSON.stringify({
         status: resp.status,
@@ -188,8 +170,7 @@ export async function createGeideaSession({ amount, currency = 'SAR', merchantRe
         sentMerchantRef: merchantRefId,
         sentTimestamp: timestamp,
         sentSignaturePrefix: signature.substring(0, 10) + '...',
-        sentBody: body,
-        sentEndpoint: primaryEndpoint,
+        sentEndpoint: endpoint,
         merchantPublicKeyPrefix: creds.publicKey.substring(0, 8) + '...',
         upstream: json
       }))
